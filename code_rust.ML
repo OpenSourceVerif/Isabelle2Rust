@@ -8,7 +8,7 @@ sig
   val target: string
 end;
 
-structure Code_ML : CODE_RUST =
+structure Code_Rust : CODE_RUST =
 struct
 
 open Basic_Code_Symbol;     
@@ -536,7 +536,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 fun extract_generics t =
                   let
                     fun aux (ITyVar v, acc) = to_upper v :: acc
-                      | aux (`%% (_, tys), acc) = List.foldl aux acc tys
+                      | aux ((_ `%% tys), acc) = List.foldl aux acc tys
                   in aux (t, []) end
                 val generic_params = dedup (extract_generics ty)
                 fun print_traits vs generic_params = 
@@ -1098,11 +1098,11 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
           let 
             val (module, import) = get_import_sym sym
           in
-            if (List.exists (fn (mod, _) => (mod = module)) imports)
-            then (map (fn (mod, import') => 
-              if (mod = module) 
-              then (mod, dedup (import @ import'))
-              else (mod, import'))
+            if (List.exists (fn (mdl, _) => (mdl = module)) imports)
+            then (map (fn (mdl, import') => 
+              if (mdl = module) 
+              then (mdl, dedup (import @ import'))
+              else (mdl, import'))
               imports)
             else (module, import)::imports
           end
