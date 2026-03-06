@@ -1,6 +1,5 @@
 (*  Title:      Tools/Code/code_rust.ML
-
-Serializer for Rust.
+    Serializer for Isabelle code generation to Rust.
 *)
 
 signature CODE_RUST =
@@ -23,6 +22,7 @@ infixr 5 @|;
 
 val target = "Rust";
 
+(** Intermediate binding representation: a single function or class instance definition. **)
 datatype binding =
     Function of string * (typscheme * ((iterm list * iterm) * (thm option * bool)) list)
   | Instance of (string * class) * { class: class, tyco: string, vs: (vname * sort) list,
@@ -30,6 +30,8 @@ datatype binding =
         inst_params: ((string * (const * int)) * (thm * bool)) list,
         superinst_params: ((string * (const * int)) * (thm * bool)) list };
 
+(** Intermediate statement IR: groups bindings into Rust-level declarations.
+    Converted from Code_Thingol stmts by modify_stmts before printing. **)
 datatype stmt =
     Exc of string * (typscheme * int)
   | Val of binding
@@ -37,14 +39,18 @@ datatype stmt =
   | Datas of (string * (vname list * ((string * vname list) * itype list) list)) list
   | Class of string * (vname * ((class * class) list * (string * itype) list));
 
+(** Print a product type (tuple), returning NONE for empty lists. **)
 fun print_product _ [] = NONE
   | print_product print [x] = SOME (print x)
   | print_product print xs = (SOME o enum " *" "" "") (map print xs);
 
+(** Print a tuple expression, wrapping multiple elements in parentheses. **)
 fun tuplify _ _ [] = NONE
   | tuplify print fxy [x] = SOME (print fxy x)
   | tuplify print _ xs = SOME (enum "," "(" ")" (map (print NOBR) xs));
 
+(** Join Pretty.T items with ", " using fixed spaces (no line breaks).
+    Reprocesses Pretty.commas output to replace soft breaks with hard spaces. **)
 fun commas_append prts = 
   let 
     fun combine (x1::x2::_::l) = Pretty.block [x1, x2, str" "] :: combine l   
@@ -54,6 +60,7 @@ fun commas_append prts =
     combine (Pretty.commas prts)
   end
 
+(** Convert CamelCase identifier to snake_case (for Rust function/variable names). **)
 fun to_snake_case s =
   let
     val cs = String.explode s
@@ -73,6 +80,7 @@ fun to_snake_case s =
       | auxx (c :: cs) = Char.toLower c :: aux cs
   in String.implode (auxx cs) end;
 
+(** Convert snake_case identifier to UpperCamelCase (for Rust type/enum names). **)
 fun to_upper_camel_case s =
   let
     val cs = String.explode s
@@ -127,6 +135,7 @@ fun lminus L1 L2 =
 
 (** Rust serializer **)
 
+(** Escape a string into a valid Rust string literal. **)
 val print_rust_string =
   let
     fun unicode i = "\\u{" ^ Int.toString i ^ "}"
@@ -142,6 +151,8 @@ val print_rust_string =
         end;
   in quote o translate_string char end;
 
+(** Extract parameter and return types from a function itype as a flat list.
+    e.g. fun(A, fun(B, C)) -> [A, B, C] **)
 fun extract_typ print_typ (_`%%[ty1, ty2]) = 
   print_typ (INFX (1, X)) ty1
   :: (case ty2 
@@ -149,6 +160,18 @@ fun extract_typ print_typ (_`%%[ty1, ty2]) =
     | _ => [print_typ (INFX (1, X)) ty2])
   | extract_typ print_typ ty = [print_typ (INFX (1, X)) ty]
 
+(** Main statement printer: given syntaxes and lookup functions, returns print_stmt.
+    Contains all local printers for types, terms, patterns, cases, defs, and stmts.
+    Parameters:
+      tyco_syntax/const_syntax: user-registered custom syntax overrides
+      reserved: reserved name context
+      is_constr: test if a symbol is a constructor
+      deresolve: resolve qualified symbol to its printed Rust name
+      is_inf_typeco: test if a type constructor contains recursive references (needs Box)
+      is_invdependent_typecos: for each constructor arg, whether it needs Box wrapping
+      lookup_constant_typeco: look up which type constructor a constant belongs to
+      lookup_class_methods: get method list of a type class
+      lookup_method_class: get the class of a class method **)
 fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve 
   is_inf_typeco is_invdependent_typecos 
   lookup_constant_typeco lookup_class_methods lookup_method_class =
@@ -163,6 +186,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     fun box_new s = "Box::new("^s^")"
     fun box_pattern s = "box "^s
     fun to_upper s = (String.implode (map Char.toUpper (String.explode s)))
+    (** Print a type constructor application, inserting Box<> for recursive types. **)
     fun print_tyco_expr_gen tyco_op is_head (sym, tys) = 
       let
         val isinf = (case tyco_op 
@@ -183,6 +207,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             :: [str ">"]
           ))
       end
+    (** Print an itype to Rust type syntax.
+        Dispatches to custom tyco_syntax or default print_tyco_expr_gen. **)
     and print_typ_gen tyco_op is_head fxy (tyco `%% tys) = (case tyco_syntax tyco
          of NONE => print_tyco_expr_gen tyco_op is_head (Type_Constructor tyco, tys)
           | SOME (_, print) => print (print_typ_gen tyco_op is_head) fxy tys)
@@ -191,6 +217,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     fun print_tyco_expr (sym, tys) = print_tyco_expr_gen NONE true (sym, tys);
     fun print_typ fxy ty = print_typ_gen NONE true fxy ty;
     fun print_dicttyp (class, ty) = print_tyco_expr (Type_Class class, []); (*omit generic param Self*)
+    (** Print a trait method signature: "fn method(params) -> RetType;" **)
     fun print_trait_typ fxy class ty generic_ty =
       let
         val self_ty_s = (fn ITyVar v => to_upper v) generic_ty
@@ -217,11 +244,13 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           :: [str ";"]
         )
       end;
+    (** Print type scheme prefix: where-clause with trait bounds from sort annotations. **)
     fun print_typscheme_prefix (vs, p) = enum " ->" "" ""
       (map_filter (fn (v, sort) =>
         (print_product (fn class => print_dicttyp (class, ITyVar v)) sort)) vs @| p);
     fun print_typscheme (vs, ty) = print_typscheme_prefix (vs, print_typ NOBR ty);
     fun print_dicttypscheme (vs, class_ty) = print_typscheme_prefix (vs, print_dicttyp class_ty);
+    (** Print dictionary (type class witness) terms. **)
     val print_classrels =
       fold_rev (fn classrel => fn p => p)
     fun print_dict is_pseudo_fun fxy (Dict (classrels, x)) =
@@ -238,6 +267,13 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     val print_dict_args = map_filter (fn (v, sort) => print_dicts (K false) BR
       (map_index (fn (i, _) => Dict ([],
          Dict_Var { var = v, index = i, length = length sort, class = nth sort i, unique = true })) sort));
+    (** Main term printer. Handles all iterm constructors:
+        IConst (constants/constructors), IVar (variables), `$ (application),
+        `|=> (lambda/pattern abstraction), ICase (case/let/match).
+        The triple (need_box, box_prcs, clone_prcs) controls Box/clone wrapping:
+          need_box: whether to wrap the result in Box
+          box_prcs: box wrapping function (box_new for exprs, box_pattern for patterns)
+          clone_prcs: clone wrapping function (clone for exprs, I for patterns) **)
     fun print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy (IConst const) =
           let
             fun print_const (IConst const) =
@@ -297,12 +333,16 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   then print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy case_expr
                   else print_app_with_clone is_pseudo_fun (box_prcs, clone_prcs) some_thm vars fxy app
               | NONE => print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy case_expr
+    (** Print a term without Box or clone wrapping (for declarations/signatures). **)
     and print_term_decl is_pseudo_fun some_thm vars fxy t =
       print_term_gen is_pseudo_fun (false, I, I) some_thm vars fxy t
+    (** Print a term as a pattern (uses box_pattern for Box, no clone). **)
     and print_term_pattern is_pseudo_fun some_thm vars fxy t = 
       print_term_gen is_pseudo_fun (false, box_pattern, I) some_thm vars fxy t
+    (** Print a term as an expression (uses box_new and clone). **)
     and print_term_app is_pseudo_fun some_thm vars fxy t = 
       print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars fxy t
+    (** Prepend type constructor prefix (e.g. "List::") and apply Box wrapping if needed. **)
     and print_term_with_cons_and_box (need_box, box_prcs) print_term t = 
       let
         fun lookup_typeco t = 
@@ -331,6 +371,9 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
       in
         str term_with_box
       end
+    (** Print a function/constructor application expression.
+        Handles constructors (with Box wrapping per argument),
+        pseudo-functions, and regular functions (with generic prefix for trait dispatch). **)
     and print_app_expr is_pseudo_fun (box_prcs, clone_prcs)
        some_thm vars (app as ((const as { sym, dicts, dom, range, ... }), ts)) =
         if is_constr sym then
@@ -426,6 +469,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
       gen_print_app (print_app_expr is_pseudo_fun (box_prcs, clone_prcs))
       (print_term_decl is_pseudo_fun) const_syntax some_thm vars
     and print_bind is_pseudo_fun = gen_print_bind (print_term_pattern is_pseudo_fun)
+    (** Print a case expression. Three cases:
+        - Empty clauses: generates panic
+        - Single clause: emitted as let-binding block
+        - Multiple clauses: emitted as match block **)
     and print_case _ _ _ _ _ { clauses = [], ... } =
           (concat o map str) ["panic!(\"empty case\")", "\"empty case\""]
         (*let bind*)
@@ -469,6 +516,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           end;
     fun print_val_decl print_typscheme (sym, typscheme) = concat
       [str "val", str (deresolve sym), str ":", print_typscheme typscheme];
+    (** Print a Rust enum declaration with #[derive(Clone)].
+        Each constructor becomes an enum variant. **)
     fun print_datatype_decl definer (tyco, (vs, cos)) =
       let
         fun print_co ((co, _), []) = str (deresolve_const co)
@@ -497,6 +546,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         )
         (commas_append (map print_co cos))
       end;
+    (** Print a function or instance definition.
+        For Function: emits fn signature with generics, trait bounds, and
+        either a direct expression, single-arm match, or multi-arm match body.
+        For Instance: emits impl block (currently legacy/unused path). **)
     fun print_def is_pseudo_fun needs_typ definer
           (Function (const, (vs_ty as (vs, ty), eqs))) =
           let
@@ -531,6 +584,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             val impl_method_typ_l = is_inst const (vs, ty)
             val is_impl = ((List.length impl_method_typ_l) = 1)
             val impl_method_typ_op = if is_impl then (fn [(m, t)] => SOME (m, t)) impl_method_typ_l else NONE
+            (** Compute generic parameters <A, B> and where-clause trait bounds
+                from the type variables and sort constraints. **)
             fun print_generics_and_traits vs ty = 
               let
                 fun extract_generics t =
@@ -580,6 +635,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 else str "")
               end;
             val (generics, traits) = print_generics_and_traits vs ty;
+            (** Print a single equation as a match arm: "pattern => expr".
+                If is_degenerated (single clause), prints just the expression body. **)
             fun print_eqn is_degenerated ((ts, t), (some_thm, _)) =
               let
                 val vars = reserved
@@ -612,6 +669,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 print_expr_term t 
                 ] 
               end;
+            (** Wrap a function body in "impl Trait for Type { ... }" block. **)
             fun print_impl ty generics impl_method_typ_op prt = 
               let 
                 fun except_after_last_dot s = 
@@ -637,6 +695,9 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   str "}"
                 )
               end
+            (** Print the function signature and body:
+                generates dummy parameter names, type annotations, return type,
+                and dispatches to direct expr / single match / multi match body. **)
             fun print_eqns (vs_ty as (vs, ty)) is_pseudo eqs =
                   let
                     val vars = reserved
@@ -757,6 +818,9 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               ]
             ))
           end;
+    (** Top-level statement dispatcher: routes each stmt variant to its printer.
+        Exc -> exception stub, Val -> single binding, Funs -> function group,
+        Datas -> enum declarations, Class -> trait declaration. **)
     (*fun print_stmt: Code_Namespace.export -> stmt -> Pretty.T list * Pretty.T*)
      fun print_stmt _ (Exc (const, (vs_ty, n))) = pair
           [print_val_decl print_typscheme (Constant const, vs_ty)]
@@ -845,12 +909,14 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
 
 (** print module **)
 
+(** Print a Rust module: prepend "use crate::.." import statements to the body. **)
 fun print_rust_module name decls imports body =
   Pretty.chunks2 (
     if List.null imports then body
     else (Pretty.chunks (map (fn i => str ("use crate::"^i^"::*;")) imports) :: body)
   );
 
+(** Literal syntax definitions for Rust target (strings, numerals, lists, cons). **)
 val literals_rust = let
   fun numeral_rust k = if k < 0
     then "(Z.neg " ^ numeral_rust (~ k) ^ ")"
@@ -866,12 +932,18 @@ in Literals {
 
 (** namify **)
 
+(** Name variant generators: enforce Rust naming conventions.
+    Functions get snake_case, types and constructors get UpperCamelCase. **)
 fun variant_snake_case s ctxt =
     ctxt |> Name.variant (to_snake_case s)
 
 fun variant_upper_camel_case s ctxt =
     ctxt |> Name.variant (to_upper_camel_case s)
 
+(** Transform Code_Thingol program into Rust-specific stmt IR.
+    Handles naming conventions (snake_case for fns, CamelCase for types),
+    converts Thingol statements to the local binding/stmt datatypes,
+    and builds the hierarchical module structure via Code_Namespace. **)
 fun rust_program_of_program ctxt module_name reserved identifiers =
   let
     fun namify_const variant base (nsp_const, nsp_type) =
@@ -882,6 +954,7 @@ fun rust_program_of_program ctxt module_name reserved identifiers =
       let
         val (base', nsp_type') = variant base nsp_type
       in (base', (nsp_const, nsp_type')) end;
+    (** Assign Rust naming conventions per statement kind. **)
     fun namify_stmt (Code_Thingol.Fun _) = namify_const variant_snake_case
       | namify_stmt (Code_Thingol.Datatype _) = namify_type variant_upper_camel_case
       | namify_stmt (Code_Thingol.Datatypecons _) = namify_const variant_upper_camel_case
@@ -889,6 +962,8 @@ fun rust_program_of_program ctxt module_name reserved identifiers =
       | namify_stmt (Code_Thingol.Classrel _) = namify_const variant_upper_camel_case
       | namify_stmt (Code_Thingol.Classparam _) = namify_const variant_snake_case
       | namify_stmt (Code_Thingol.Classinst _) = namify_const variant_upper_camel_case;
+    (** Convert a Thingol Fun/Classinst statement into a Function/Instance binding.
+        Also detects eta-expanded constants and self-referential values. **)
     fun binding_of_stmt (sym as Constant const, (export, Code_Thingol.Fun ((tysm as (vs, ty), raw_eqs), _))) =
           let
             val eqs = filter (snd o snd) raw_eqs;
@@ -905,6 +980,7 @@ fun rust_program_of_program ctxt module_name reserved identifiers =
       | binding_of_stmt (sym, _) =
           error ("Binding block containing illegal statement: " ^ 
             Code_Symbol.quote ctxt sym)
+    (** Convert a single Fun/Classinst into a stmt: Exc (no equations), Val, or Funs. **)
     fun modify_fun (sym, (export, stmt)) =
       let
         val ((export', binding), some_value_sym) = binding_of_stmt (sym, (export, stmt));
@@ -917,8 +993,10 @@ fun rust_program_of_program ctxt module_name reserved identifiers =
               | SOME (sym, true) => Funs ([(export, binding)], [sym])
               | SOME (_, false) => Val binding
       in SOME (export, stmt) end;
+    (** Convert a group of mutually recursive functions into a single Funs stmt. **)
     fun modify_funs stmts = single (SOME
       (Code_Namespace.Opaque, Funs (map_split binding_of_stmt stmts |> (apsnd o map_filter o Option.map) fst)))
+    (** Collect Datatype statements into a single Datas stmt (multi-constructor enum). **)
     fun modify_datatypes stmts =
       let
         val datas = map_filter
@@ -932,6 +1010,7 @@ fun rust_program_of_program ctxt module_name reserved identifiers =
           |> SOME
           |> single
       end;
+    (** Collect Class/Classrel/Classparam statements into a single Class stmt (trait). **)
     fun modify_class stmts =
       let
         val stmts' = map 
@@ -943,6 +1022,8 @@ fun rust_program_of_program ctxt module_name reserved identifiers =
         |> SOME
         |> single
       end;
+    (** Dispatch statement groups by kind to the appropriate modify_* handler.
+        Filters out case combinators from function stmts. **)
     fun modify_stmts ([stmt as (_, (_, stmt' as Code_Thingol.Fun _))]) =
           if Code_Thingol.is_case stmt' then [] else [modify_fun stmt]
       | modify_stmts ((stmts as (_, (_, Code_Thingol.Fun _)) :: _)) =
@@ -972,6 +1053,12 @@ fun rust_program_of_program ctxt module_name reserved identifiers =
       memorize_data = K I, modify_stmts = modify_stmts }
   end;
 
+(** Top-level serializer: orchestrates the full translation pipeline.
+    1. Builds the hierarchical Rust program IR from Thingol
+    2. Constructs global lookup functions (recursive types, constructors, classes)
+    3. Computes module-level import dependencies
+    4. Prints each statement via print_rust_stmt
+    5. Assembles Cargo.toml, main.rs, and per-module .rs files **)
 fun serialize_rust rust_module rust_version rust_edition rust_lints
     print_rust_module print_rust_stmt rust_extension ctxt
     { module_name, reserved_syms, identifiers, includes,
@@ -990,14 +1077,13 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
       rust_program_of_program ctxt module_name (Name.make_context reserved_syms)
         identifiers exports program;
 
-    (* global info look-up functions*)
-    (* safe get_node, handle UNDEF exception*)
+    (** Global lookup functions: query the program graph for type/class info. **)
+    (** Look up a symbol's statement in the program graph, returning NoStmt on missing. 
+    program: Code_Symbol.Graph of (key: Code_Symbol.T, ord: Code_Thingol.stmt) **)
     fun get_node program sym =         
       (Code_Symbol.Graph.get_node program sym) 
       handle (Code_Symbol.Graph.UNDEF x) => Code_Thingol.NoStmt
-    (** look up stmt info through sym in 
-      program: Code_Symbol.Graph of (key: Code_Symbol.T, ord: Code_Thingol.stmt) 
-    **)
+
     fun lookup_dependent_types_h program sym dpdncs =
       let 
         fun dest_itype (ITyVar vn) = [vn]
@@ -1024,6 +1110,8 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
         else lookup_dependent_types_h program sym snd_dpdncs
       end;
     fun lookup_dependent_types program sym = lookup_dependent_types_h program sym [];
+    (** Test whether type constructor sym contains a (possibly indirect) reference to co.
+        If so, values of that type need Box indirection. **)
     fun is_inf_typeco co (sym as (Type_Class _)) = false
       | is_inf_typeco co sym =
       let
@@ -1031,6 +1119,8 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
       in
         List.exists (fn s => s = co) dpdncs
       end;
+    (** For each argument of a data constructor, determine whether it needs Box wrapping
+        (i.e., the argument's type transitively references the parent datatype). **)
     fun is_invdependent_typecos {sym as (Constant t), typargs = _, dicts = _, dom, range = _, annotation = _} =
       let 
         fun dest_itype (ITyVar vn) = vn
@@ -1043,6 +1133,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
       in
         map (List.exists (fn s => s = dttypcon)) dom_dpdncs
     end;
+    (** Look up whether a constant is a data constructor; returns SOME parent_tyco or NONE. **)
     fun lookup_constant_typeco_gen program sym = 
       let
         val stmt = get_node program sym
@@ -1052,6 +1143,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
           | _ => NONE)
       end; 
     val lookup_constant_typeco = lookup_constant_typeco_gen program;
+    (** Look up the methods of a type class along with their types. **)
     fun lookup_class_methods_gen program print_plain_typ sym = 
       let
         val method_stmt = get_node program sym
@@ -1062,6 +1154,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
         methods
       end
     val lookup_class_methods = lookup_class_methods_gen program
+    (** Look up which class a class parameter (method) belongs to. **)
     fun lookup_method_class_gen program sym =
       let
         val class_stmt = get_node program sym
@@ -1071,9 +1164,9 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
       end
     val lookup_method_class = lookup_method_class_gen program
       
-    (*val module_imports: (string * string list) list
-    list of module name and its dependencies
-    *) 
+    (** Compute module-level import dependencies:
+        for each module, collect the set of other modules it depends on. 
+        val module_imports: (string * string list) list **)
     val module_imports = 
       let
         fun before_first_dot s =
@@ -1113,6 +1206,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
       end
       val raw_modules = map fst module_imports
 
+    (** Strip module prefix from resolved names (use short local names within a module). **)
     fun modify_deresolver deresolver sym = 
       let
         val sname = deresolver sym
@@ -1124,7 +1218,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
         after_last_dot sname
       end
 
-    (* print statements *)
+    (** Print a single statement within its module context. **)
     fun print_stmt prefix_fragments (_, (export, stmt)) = (print_rust_stmt
       tyco_syntax const_syntax (make_vars reserved_syms)
       (Code_Thingol.is_constr program) (modify_deresolver (deresolver prefix_fragments))
@@ -1133,7 +1227,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
       export stmt
       |> apfst (fn decl => if Code_Namespace.not_private export then SOME decl else NONE);
 
-    (* print modules *)
+    (** Print a module: gather declarations, resolve imports, and wrap in module body. **)
     fun print_module _ base _ xs =
       let
         val (raw_decls, body) = split_list xs;
@@ -1142,7 +1236,8 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
           |> (fn mods => case mods of [(_, imports)] => imports | [] => []) 
       in (SOME [str base], print_rust_module base decls imports body) end;
 
-    (* serialization *)
+    (** Assemble final output: Cargo.toml + main.rs + per-module .rs files.
+        Unused modules get empty placeholder files to pass compilation. **)
     val ps = Code_Namespace.print_hierarchical {
         print_module = print_module, print_stmt = print_stmt,
         lift_markup = K I } rust_program;
@@ -1178,12 +1273,15 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
     try (deresolver []))
   end;
 
+(** Wrapper: parse Isar arguments and invoke serialize_rust with defaults. **)
 val serializer_rust : Code_Target.serializer =
   Code_Target.parse_args (Scan.succeed ()) #> K (serialize_rust "" "" "" "" print_rust_module print_rust_stmt ".rs");
 
 
 (** Isar setup **)
 
+(** Custom type syntax for "fun" type constructor:
+    renders as "impl Fn(A, B) -> C + Clone" in Rust. **)
 fun fn_trait_impl_syntax print_typ fxy [ty1, ty2] =
   let
     val ts = extract_typ print_typ ("fun"`%%[ty1, ty2])
@@ -1199,6 +1297,8 @@ fun fn_trait_impl_syntax print_typ fxy [ty1, ty2] =
     )
   end;
 
+(** Register Rust as a code generation target in Isabelle.
+    Sets up the serializer, literal syntax, fun type printing, and reserved words. **)
 val _ = Theory.setup
   (Code_Target.add_language
     (target, {serializer = serializer_rust, literals = literals_rust,
