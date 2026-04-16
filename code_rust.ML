@@ -475,7 +475,13 @@ fun print_ocaml_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 @ [str ")"]
                 )]
             else 
-              [print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR (Code_Thingol.saturated_application wanted app)]
+              let 
+                val saturated_t = Code_Thingol.saturated_application wanted app
+                val _ = tracing (" saturated_application in const"^
+                  " SATURATED="^(print_debug_info_iterm saturated_t))
+              in
+                [print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR saturated_t]
+              end 
           end
         else if is_pseudo_fun sym
           then (str o deresolve) sym @@ str "()"
@@ -542,7 +548,13 @@ fun print_ocaml_stmt tyco_syntax const_syntax reserved is_constr deresolve
             @ [str ")"]
             )]
             else
-            [print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR (Code_Thingol.saturated_application wanted app)]
+              let 
+                val saturated_t = Code_Thingol.saturated_application wanted app
+                val _ = tracing (" saturated_application in function"^
+                  " SATURATED="^(print_debug_info_iterm saturated_t))
+              in
+                [print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR saturated_t]
+              end 
           end
       end
     and print_app is_pseudo_fun some_thm vars = 
