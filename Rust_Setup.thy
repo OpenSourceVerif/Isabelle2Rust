@@ -22,30 +22,6 @@ code_printing
 code_reserved
   (Rust) bool
 
-(*code_printing
-  constant Not \<rightharpoonup> (Rust) "(!(_))"
-| constant conj \<rightharpoonup> (Rust) infixl 1 "&&"
-| constant disj \<rightharpoonup> (Rust) infixl 0 "||"
-| constant implies \<rightharpoonup> (Rust) "!(if (_)/ then (_)/ else true)"
-| constant HOL.If \<rightharpoonup> (Rust) "!if (_)/ {(_)}/ else {(_)}"*)
-
-(*code_printing
-  type_class equal \<rightharpoonup> (Rust) "(_ == _)"
-| constant HOL.equal \<rightharpoonup> (Rust) infix 4 "=="
-| constant HOL.eq \<rightharpoonup> (Rust) infix 4 "=="*)
-
-(*constant HOL.Not \<rightharpoonup> (Rust) "'! _"*)
-(*| constant HOL.implies \<rightharpoonup> (Rust) "!('!((_)) || (_))"*)
-(*| constant "HOL.equal :: bool \<Rightarrow> bool \<Rightarrow> bool" \<rightharpoonup> (Rust) infix 4 "=="*)
-
-
-(* definitions to make these functions available *)
-definition "go_private_map_list" where
-  "go_private_map_list f a = map f a"
-definition "go_private_fold_list" where
-  "go_private_fold_list f a b = fold f a b"
-
-
 subsection \<open>String\<close>
 (*infix ??>*)
 code_printing

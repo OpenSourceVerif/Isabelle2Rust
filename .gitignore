@@ -7,6 +7,6 @@ temp.*
 *.lock
 **/export
 **/Rust_Out
-ROOT
+**/Hol_Test/target
 node_modules/
 package-lock.json

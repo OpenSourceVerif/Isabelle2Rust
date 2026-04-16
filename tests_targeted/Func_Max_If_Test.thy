@@ -3,8 +3,6 @@ theory Func_Max_If_Test
   Main "Rust.Rust_Setup"
 begin
 
-(* Max on int using if expression *)
-
 fun max:: "int \<Rightarrow> int \<Rightarrow> int" where
 " max a b = (if a > b then a else b) 
 "

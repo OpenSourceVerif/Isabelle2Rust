@@ -3,11 +3,11 @@ session Rust = Main +
   theories
     Rust_Setup
 
-session Test in "@TEST_DIR@" = Rust +
-  description "@TEST_THEORY@ test session"
+session Test in "tests_targeted" = Rust +
+  description "List_Test test session"
   options [timeout = 300]
   theories [document = false]
-    "@TEST_THEORY@"
-  export_files (in "Rust_Out/@TEST_THEORY@") [2]
+    "List_Test"
+  export_files (in "Rust_Out/List_Test") [2]
     "*:**.rs"
     "*:**.toml"

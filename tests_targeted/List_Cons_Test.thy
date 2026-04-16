@@ -1,4 +1,4 @@
-theory List_Length_Test
+theory List_Cons_Test
   imports Main "Rust.Rust_Setup"
 begin
 
