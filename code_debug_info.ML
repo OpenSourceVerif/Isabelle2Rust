@@ -123,7 +123,7 @@ fun dest_typscheme (s, t) =
 fun print_debug_info_thingol_stmt Code_Thingol.NoStmt = 
     "NoStmt"
   | print_debug_info_thingol_stmt (Code_Thingol.Fun ((scheme, args), _)) = 
-    "Fun="^wrap_args ["typscheme="^dest_typscheme scheme, "patterns="^wrap_list (map (fn ((ts, t), _) =>
+    "Fun="^wrap_args ["vs_ty="^dest_typscheme scheme, "eqs="^wrap_list (map (fn ((ts, t), _) =>
       wrap_args [wrap_list (map print_debug_info_iterm ts)]^"=>"^print_debug_info_iterm t) args)]
   | print_debug_info_thingol_stmt (Code_Thingol.Datatype (vns, cos)) = 
     "Datatype="^wrap_args [wrap_list vns, wrap_list (map (fn ((v, args), itypes) => 

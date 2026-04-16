@@ -4,10 +4,10 @@ session Rust = Main +
     Rust_Setup
 
 session Test in "tests_unsolved" = Rust +
-  description "Lambda_Test test session"
+  description "List_Cons_Test test session"
   options [timeout = 300]
   theories [document = false]
-    "Lambda_Test"
-  export_files (in "Rust_Out/Lambda_Test") [2]
+    "List_Cons_Test"
+  export_files (in "Rust_Out/List_Cons_Test") [2]
     "*:**.rs"
     "*:**.toml"
