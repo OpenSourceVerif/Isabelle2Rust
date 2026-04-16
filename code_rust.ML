@@ -12,7 +12,9 @@ struct
 
 open Basic_Code_Symbol;     
 open Basic_Code_Thingol;
-open Code_Printer;      
+open Code_Printer;
+
+open Code_Debug_Info;
 
 infixr 5 @@;         
 infixr 5 @|;
@@ -474,7 +476,6 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 [print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR saturated_t]
               end 
           end
-      end
     and print_app is_pseudo_fun some_thm vars = 
       gen_print_app (print_app_expr is_pseudo_fun (I, I))
       (print_term_decl is_pseudo_fun) const_syntax some_thm vars

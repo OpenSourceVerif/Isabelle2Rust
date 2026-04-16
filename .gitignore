@@ -1,6 +1,7 @@
 \#*\#
 *~
 temp.*
+temp/
 *.log
 *.cmi
 *.cmo
