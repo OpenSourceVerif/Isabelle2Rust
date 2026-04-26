@@ -2,6 +2,7 @@ theory Rust_Setup
   imports "Main"
 begin
 
+ML_file \<open>code_debug_info.ML\<close>
 ML_file \<open>code_rust.ML\<close>
 
 code_identifier

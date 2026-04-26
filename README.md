@@ -1,4 +1,4 @@
-# # Isabelle2Rust Artifact (AE Branch)
+# Isabelle2Rust Artifact (AE Branch)
 
 This repository contains the **artifact evaluation (AE) version** of the Isabelle2Rust toolchain submitted to FM2026.
 

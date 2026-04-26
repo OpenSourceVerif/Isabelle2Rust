@@ -12,7 +12,9 @@ struct
 
 open Basic_Code_Symbol;     
 open Basic_Code_Thingol;
-open Code_Printer;      
+open Code_Printer;
+
+open Code_Debug_Info;
 
 infixr 5 @@;         
 infixr 5 @|;
@@ -170,11 +172,13 @@ fun extract_typ print_typ (_`%%[ty1, ty2]) =
       is_inf_typeco: test if a type constructor contains recursive references (needs Box)
       is_invdependent_typecos: for each constructor arg, whether it needs Box wrapping
       lookup_constant_typeco: look up which type constructor a constant belongs to
+      lookup_constant_fun: look up the exact definition of 
       lookup_class_methods: get method list of a type class
       lookup_method_class: get the class of a class method **)
 fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve 
   is_inf_typeco is_invdependent_typecos 
-  lookup_constant_typeco lookup_class_methods lookup_method_class =
+  lookup_constant_typeco lookup_constant_fun
+  lookup_class_methods lookup_method_class =
   let
     val deresolve_const = deresolve o Constant;
     val deresolve_typco = deresolve o Type_Constructor;
@@ -396,13 +400,20 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 @ [str ")"]
                 )]
             else 
-              [print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR (Code_Thingol.saturated_application wanted app)]
-            end
+              let 
+                val saturated_t = Code_Thingol.saturated_application wanted app
+              in
+                [print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR saturated_t]
+              end 
+          end
         else if is_pseudo_fun sym
           then (str o deresolve) sym @@ str "()"
         else
           let 
-            val wanted = length dom
+            val wanted_app = length dom
+            val wanted_fn = case lookup_constant_fun sym 
+              of SOME (((_, eqs), _)) => length (hd ((map (fst o fst)) eqs)) 
+              | NONE => wanted_app
             fun print_generic_prefix_typ ty =
               (print_typ NOBR (case ty of (tyco`%%_) => tyco`%%[] | ty => ty))
             val generic_prefixs = 
@@ -447,20 +458,38 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               if List.null generic_prefixs then (str o deresolve) sym 
               else deresolve_trait_impl sym 
           in
-            if length ts = wanted
-            then 
-            [Pretty.block (
-            generic_prefixs
-            @ funcname
-            :: str "("
-            :: (commas_append
-                (map 
-                  (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
-                ts))
-            @ [str ")"]
-            )]
+            if length ts = wanted_app
+            then
+              let 
+                val (ts1, ts2) = chop wanted_fn ts
+              in 
+                [Pretty.block (
+                  generic_prefixs
+                  @ funcname
+                  :: str "("
+                  :: (commas_append
+                      (map 
+                        (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
+                      ts1))
+                  @ str ")"
+                  :: (if List.null ts2 
+                      then [str ""]
+                      else
+                        str "(" 
+                        :: (commas_append
+                            (map 
+                              (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
+                            ts2))
+                        @ [str ")"]
+                      )
+                )]
+              end
             else
-            [print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR (Code_Thingol.saturated_application wanted app)]
+              let 
+                val saturated_t = Code_Thingol.saturated_application wanted_app app
+              in
+                [print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR saturated_t]
+              end 
           end
     and print_app is_pseudo_fun some_thm vars = 
       gen_print_app (print_app_expr is_pseudo_fun (I, I))
@@ -1067,6 +1096,8 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
     val stmt_list = (Code_Symbol.Graph.dest program)
     val sym_dpdnc_list = map (fn ((sym, _), children) => (sym, children)) stmt_list
 
+    val _ = tracing ("PROGRAM="^String.concatWith "\n" (map print_debug_info_node stmt_list)^"\n")
+
     val rust_module = if rust_module = "" then "\"isabelle_exported\"" else rust_module;
     val rust_version = if rust_version = "" then "\"0.1.0\"" else rust_version;
     val rust_edition = if rust_edition = "" then "\"2024\"" else rust_edition;
@@ -1076,6 +1107,8 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
     val { deresolver, hierarchical_program = rust_program } =
       rust_program_of_program ctxt module_name (Name.make_context reserved_syms)
         identifiers exports program;
+
+    val _ = tracing "Build Program Accomplished"
 
     (** Global lookup functions: query the program graph for type/class info. **)
     (** Look up a symbol's statement in the program graph, returning NoStmt on missing. 
@@ -1143,6 +1176,16 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
           | _ => NONE)
       end; 
     val lookup_constant_typeco = lookup_constant_typeco_gen program;
+    (** Look up whether a constant is a function; returns SOME function signiture or NONE. **)    
+    fun lookup_constant_fun_gen program sym = 
+      let
+        val stmt = get_node program sym
+      in
+        (case stmt 
+        of Code_Thingol.Fun f => SOME f
+          | _ => NONE)
+      end; 
+    val lookup_constant_fun = lookup_constant_fun_gen program;
     (** Look up the methods of a type class along with their types. **)
     fun lookup_class_methods_gen program print_plain_typ sym = 
       let
@@ -1223,7 +1266,8 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
       tyco_syntax const_syntax (make_vars reserved_syms)
       (Code_Thingol.is_constr program) (modify_deresolver (deresolver prefix_fragments))
       is_inf_typeco is_invdependent_typecos 
-      lookup_constant_typeco lookup_class_methods lookup_method_class)
+      lookup_constant_typeco lookup_constant_fun
+      lookup_class_methods lookup_method_class)
       export stmt
       |> apfst (fn decl => if Code_Namespace.not_private export then SOME decl else NONE);
 

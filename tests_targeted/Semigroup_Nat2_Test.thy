@@ -32,6 +32,9 @@ definition zero_Nat :: "Nat" where
 instance ..
 end
 
+fun sum_Nat :: "Nat \<Rightarrow> Nat" where
+  "sum_Nat xs = (+s) xs zero"
+export_code sum_Nat in Rust
 
 fun sum :: "('a :: monoid) list \<Rightarrow> 'a" where
   "sum xs = fold plus xs zero"
