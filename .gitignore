@@ -10,3 +10,4 @@ temp.*
 **/Hol_Test/target
 node_modules/
 package-lock.json
+ROOT
