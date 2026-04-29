@@ -947,11 +947,11 @@ fun print_rust_module name decls imports body =
 
 (** Literal syntax definitions for Rust target (strings, numerals, lists, cons). **)
 val literals_rust = let
-  fun numeral_rust k = if k < 0
-    then "(Z.neg " ^ numeral_rust (~ k) ^ ")"
-    else if k <= 1073741823
-      then "(Z.of_int " ^ string_of_int k ^ ")"
-      else "(Z.of_string " ^ quote (string_of_int k) ^ ")"
+  fun numeral_rust k =
+    if k < 0 then
+      "-" ^ numeral_rust (~k)
+    else 
+      "BigInt::parse_bytes(b\"" ^ Int.toString k ^ "\", 10).unwrap()"
 in Literals {
   literal_string = print_rust_string,
   literal_numeral = numeral_rust,
@@ -1088,7 +1088,7 @@ fun rust_program_of_program ctxt module_name reserved identifiers =
     3. Computes module-level import dependencies
     4. Prints each statement via print_rust_stmt
     5. Assembles Cargo.toml, main.rs, and per-module .rs files **)
-fun serialize_rust rust_module rust_version rust_edition rust_lints
+fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_lints
     print_rust_module print_rust_stmt rust_extension ctxt
     { module_name, reserved_syms, identifiers, includes,
       class_syntax = _, tyco_syntax, const_syntax } program exports =
@@ -1101,6 +1101,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
     val rust_module = if rust_module = "" then "\"isabelle_exported\"" else rust_module;
     val rust_version = if rust_version = "" then "\"0.1.0\"" else rust_version;
     val rust_edition = if rust_edition = "" then "\"2024\"" else rust_edition;
+    val rust_dependencies = if rust_dependencies = "" then "num-bigint = \"0.4.6\"" else rust_dependencies;
     val rust_lints = if rust_lints = "" then "unused = \"allow\"\n nonstandard_style = \"allow\"" else rust_lints;
 
     (* build program *)
@@ -1288,6 +1289,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
     val modules = map fst ps
       |> map (fn (SOME [x]) => (Pretty.string_of x))
     val unused_modules = lminus raw_modules modules
+    val _ = tracing("mods="^(wrap_list raw_modules)^"  used="^(wrap_list modules)^"  unused="^(wrap_list unused_modules))
     val srcs = ListPair.zip 
       (map (fn x => ["src", x^rust_extension]) modules, 
       map snd includes @ map snd ps)
@@ -1302,7 +1304,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
                 str "name =",str rust_module, str "\n",
                 str "version =",str rust_version, str "\n",
                 str "edition =",str rust_edition],
-          str "[dependencies]",
+          concat [str "[dependencies]", str "\n", str rust_dependencies],
           concat [str "[lints.rust]", str "\n", str rust_lints]
       ]))
     val main = pair
@@ -1319,7 +1321,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_lints
 
 (** Wrapper: parse Isar arguments and invoke serialize_rust with defaults. **)
 val serializer_rust : Code_Target.serializer =
-  Code_Target.parse_args (Scan.succeed ()) #> K (serialize_rust "" "" "" "" print_rust_module print_rust_stmt ".rs");
+  Code_Target.parse_args (Scan.succeed ()) #> K (serialize_rust "" "" "" "" "" print_rust_module print_rust_stmt ".rs");
 
 
 (** Isar setup **)
