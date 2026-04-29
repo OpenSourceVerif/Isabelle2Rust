@@ -947,11 +947,23 @@ fun print_rust_module name decls imports body =
 
 (** Literal syntax definitions for Rust target (strings, numerals, lists, cons). **)
 val literals_rust = let
+  fun int_to_bytes k =
+    let
+      fun aux 0 acc = if acc = [] then [0] else acc
+        | aux n acc = aux (n div 256) (n mod 256 :: acc)
+    in
+      aux k []
+    end
   fun numeral_rust k =
     if k < 0 then
       "-" ^ numeral_rust (~k)
     else 
-      "BigInt::parse_bytes(b\"" ^ Int.toString k ^ "\", 10).unwrap()"
+      let
+        val bytes = int_to_bytes k
+        val byte_str = String.concatWith ", " (List.map Int.toString bytes)
+      in
+        "BigInt::from_bytes_be(Sign::Plus, &[" ^ byte_str ^ "])"
+      end
 in Literals {
   literal_string = print_rust_string,
   literal_numeral = numeral_rust,
