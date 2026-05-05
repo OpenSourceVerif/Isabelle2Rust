@@ -7,39 +7,60 @@ ML_file \<open>code_rust.ML\<close>
 
 
 code_printing
-  constant Code.abort \<rightharpoonup> (Rust) "panic!( _ )"
+  constant Code.abort \<rightharpoonup> (Rust) "panic'!( _ )"
+
 
 (* Bools *)
-subsection \<open>bool and logic connectives\<close>
 code_printing
-  type_constructor bool \<rightharpoonup> (Rust) "bool"
-| constant False \<rightharpoonup> (Rust) "false"
-| constant True \<rightharpoonup> (Rust) "true"
+  type_constructor bool \<rightharpoonup> 
+    (Rust) "bool"
+| constant False \<rightharpoonup> 
+    (Rust) "false"
+| constant True \<rightharpoonup> 
+    (Rust) "true"
+
+code_printing
+  constant Not \<rightharpoonup>
+    (Rust) "'! _"
+| constant HOL.conj \<rightharpoonup>
+    (Rust) infixl 3 "&&"
+| constant HOL.disj \<rightharpoonup>
+    (Rust) infixl 2 "||"
+
 
 code_reserved
   (Rust) bool
 
-subsection \<open>String\<close>
-(*infix ??>*)
-code_printing
-  type_constructor String.literal \<rightharpoonup> (Rust) "String"
-(*| constant "STR ''''" \<rightharpoonup> (Rust) "\"\""*)
-| constant "STR ''''" \<rightharpoonup> (Rust) "String::new()"
-| constant "Groups.plus_class.plus :: String.literal \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
-    (Rust) infix 6 "((_).clone() + (_).as_str())"                             (*(Rust) infix 6 "+"*)
-| constant "HOL.equal :: String.literal \<Rightarrow> String.literal \<Rightarrow> bool" \<rightharpoonup>
-    (Rust) infix 4 "(_ == _)"
-| constant "(\<le>) :: String.literal \<Rightarrow> String.literal \<Rightarrow> bool" \<rightharpoonup>
-    (Rust) infix 4 "(_ <= _)"
-| constant "(<) :: String.literal \<Rightarrow> String.literal \<Rightarrow> bool" \<rightharpoonup>
-    (Rust) infix 4 "(_ < _)"
 
-setup \<open>
-  fold Literal.add_code ["Rust"]
-\<close>
+(* Product Type *)
+code_printing
+  class_instance bool :: equal \<rightharpoonup>
+    (Rust) -
+| constant "HOL.equal :: bool \<Rightarrow> bool \<Rightarrow> bool" \<rightharpoonup>
+    (Rust) infix 4 "=="
+
+code_printing
+  type_constructor unit \<rightharpoonup>
+    (Rust) "()"
+| constant Unity \<rightharpoonup>
+    (Rust) "()"
+| class_instance unit :: equal \<rightharpoonup>
+    (Rust) -
+| constant "HOL.equal :: unit \<Rightarrow> unit \<Rightarrow> bool" \<rightharpoonup>
+    (Rust) infix 4 "=="
+
+code_printing
+  type_constructor prod \<rightharpoonup>
+    (Rust) "!((_),/ (_))"
+| constant Pair \<rightharpoonup>
+    (Rust) "!((_),/ (_))"
+| class_instance prod :: equal \<rightharpoonup>
+    (Rust) -
+| constant "HOL.equal :: 'a \<times> 'b \<Rightarrow> 'a \<times> 'b \<Rightarrow> bool" \<rightharpoonup>
+    (Rust) infix 4 "=="
+
 
 (* Integers via num-bigint *)
-
 code_printing
   type_constructor "integer" \<rightharpoonup> 
     (Rust) "BigInt"
@@ -67,7 +88,7 @@ code_printing
 | constant "times :: integer \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
     (Rust) infixl 7 "*"
 | constant Code_Numeral.divmod_abs \<rightharpoonup>
-    (Rust) "!(match (_, _) { (k, l) => { let k = if k < BigInt::ZERO { -k } else { k }; let l = if l < BigInt::ZERO { -l } else { l }; if l == BigInt::ZERO { (BigInt::ZERO, k) } else { let q = &k / &l; let r = k % l; (q, r) } } })"
+    (Rust) "!(match (_.clone(), _.clone()) { (k, l) => { let k = k.abs(); let l = l.abs(); if l == BigInt::ZERO { (BigInt::ZERO, k) } else { let q = k.clone() '/ l.clone(); let r = k % l; (q, r) } } })"
 | constant "HOL.equal :: integer \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
     (Rust) infix 4 "=="
 | constant "less_eq :: integer \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
@@ -75,7 +96,7 @@ code_printing
 | constant "less :: integer \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
     (Rust) infix 4 "<"
 | constant "abs :: integer \<Rightarrow> _" \<rightharpoonup>
-    (Rust) "!(match _ { k => if k < BigInt::ZERO { -k } else { k } })"
+    (Rust) "!(_.abs())"
 | constant "Bit_Operations.and :: integer \<Rightarrow> integer \<Rightarrow> integer" \<rightharpoonup>
     (Rust) infixl 7 "&"
 | constant "Bit_Operations.or :: integer \<Rightarrow> integer \<Rightarrow> integer" \<rightharpoonup>
