@@ -10,5 +10,6 @@ temp/
 **/Rust_Out
 **/Hol_Test/target
 node_modules/
+ROOT
 package-lock.json
 ROOT
