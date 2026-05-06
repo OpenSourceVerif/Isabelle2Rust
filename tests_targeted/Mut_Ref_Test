@@ -1,0 +1,13 @@
+theory Mut_Ref_Test
+  imports Main "Rust.Rust_Setup"
+begin
+
+
+
+f p acc =
+  case p of
+    Base       => acc
+  | Step x p'  => f p' (update acc x)
+
+
+end

@@ -1,18 +1,20 @@
 theory bpf_generator
   imports Main Interpreter rBPFSyntax vm_state rBPFCommType
-  "HOL-Library.Code_Target_Numeral"
+  (*"HOL-Library.Code_Target_Numeral"*)
   "Rust.Rust_Setup"
   "Go.Go_Setup"
 
 begin
 
 
-fun sum_int :: "int list \<Rightarrow> int" where
+(*fun sum_int :: "int list \<Rightarrow> int" where
   "sum_int [] = 0"
 | "sum_int (x # xs) = x + sum_int xs"
 
 export_code sum_int in OCaml module_name My_Code
-export_code sum_int in Go module_name My_Code
+export_code sum_int in Go module_name My_Code*)
+
+code_thms bpf_interp_test
 
 export_code bpf_interp_test in OCaml
   module_name Interp_test file_prefix interp_test
@@ -20,11 +22,11 @@ export_code bpf_interp_test in OCaml
 export_code step_test in OCaml
   module_name Step_test file_prefix step_test
 
-export_code bpf_interp_test in Go
+(*export_code bpf_interp_test in Go
   module_name Interp_test file_prefix interp_test
 
 export_code step_test in Go
-  module_name Step_test file_prefix step_test
+  module_name Step_test file_prefix step_test*)
 
 
 export_code bpf_interp_test in Rust

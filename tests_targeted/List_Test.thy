@@ -13,6 +13,9 @@ fun length :: "'a list \<Rightarrow> nat" where
   "length Nil = 0"
 | "length (Cons _ xs) = Suc (length xs)"
 
+
+declare [[code_preproc_trace only: length]]
+
 export_code length in Rust
 
 end
