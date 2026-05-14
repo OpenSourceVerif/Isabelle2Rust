@@ -11,6 +11,11 @@ fun get :: "option \<Rightarrow> int" where
 " get None = 0" |
 " get (Rec op) = get op" 
 
+code_thms get
+
+print_codeproc
+(*declare [[code_preproc_trace only: get]]*)
+
 export_code get in Rust
-                     
+
 end
