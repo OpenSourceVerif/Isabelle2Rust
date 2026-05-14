@@ -6,6 +6,16 @@ ML_file \<open>code_debug_info.ML\<close>
 ML_file \<open>code_rust.ML\<close>
 
 
+
+(** module remapping to prevent module dependency problem **)
+
+code_identifier
+  code_module Nat \<rightharpoonup> (Rust) Arith
+| code_module Num \<rightharpoonup> (Rust) Arith
+| code_module Groups \<rightharpoonup> (Rust) Arith
+| code_module Power \<rightharpoonup> (Rust) Arith
+| code_module Code_Numeral \<rightharpoonup> (Rust) Arith
+
 code_printing
   constant Code.abort \<rightharpoonup> (Rust) "panic'!( _ )"
 

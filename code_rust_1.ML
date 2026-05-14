@@ -1230,25 +1230,18 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
     val lookup_method_class = lookup_method_class_gen program
       
     (** Compute module-level import dependencies:
-        for each module, collect the set of other modules it depends on.
-        Module names must come from the namespace deresolver so code_identifier
-        remappings such as Nat/Power -> Arith are respected. **)
-    val generated_modules =
-      Code_Namespace.print_hierarchical {
-        print_module = fn _ => fn base => fn _ => fn _ => base,
-        print_stmt = fn _ => fn _ => "",
-        lift_markup = K I } rust_program
-      |> filter (fn s => s <> "")
-      |> dedup
+        for each module, collect the set of other modules it depends on. 
+        val module_imports: (string * string list) list **)
     val module_imports = 
       let
         fun before_first_dot s =
           (case (String.fields (fn c => c = #".") s) 
             of [] => s
             | x::_ => x)
-        fun is_generated_module module =
-          List.exists (fn module' => module' = module) generated_modules
-        fun get_sym_module sym = before_first_dot (deresolver [] sym)
+        fun get_sym_name sym = case sym
+          of Constant a => a | Type_Constructor b => b | Type_Class c => c|
+          Class_Relation (d1, d2) => d1  | Class_Instance (e1, e2) => e1 | Module f => f
+        fun get_sym_module sym = before_first_dot (get_sym_name sym)
         fun get_import_sym sym = 
           let 
             val module = get_sym_module sym
@@ -1272,12 +1265,11 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
             else (module, import)::imports
           end
         val mod_dpdncs = fold get_imports (map fst sym_dpdnc_list) []
-        val mod_imports = map (fn (sym, dpdncs) =>
-          (sym, filter (fn x => x <> sym andalso is_generated_module x) dpdncs)) mod_dpdncs
+        val mod_imports = map (fn (sym, dpdncs) => (sym, (filter (fn x => x <> sym) dpdncs))) mod_dpdncs
       in
-        filter (is_generated_module o fst) mod_imports
+        mod_imports
       end
-      val raw_modules = generated_modules
+      val raw_modules = map fst module_imports
 
     (** Strip module prefix from resolved names (use short local names within a module). **)
     fun modify_deresolver deresolver sym = 
@@ -1340,7 +1332,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       (["src", "main.rs"])
       (Pretty.chunks([
         str "#![feature(box_patterns)]",
-        str (fold (fn s => (fn acc => ("pub mod "^s^";\n")^acc)) modules "" ),
+        str (fold (fn s => (fn acc => ("pub mod "^s^";\n")^acc)) raw_modules "" ),
         str "fn main(){}"
       ]))
   in

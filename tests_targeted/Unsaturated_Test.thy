@@ -10,4 +10,13 @@ definition test_add_n_2 :: "int \<Rightarrow> (int \<Rightarrow> int)" where
 
 export_code add_n_2 test_add_n_2 in Rust
 
+
+definition add_n_3 ::  "int \<Rightarrow> int \<Rightarrow> (int \<Rightarrow> (int \<Rightarrow> int))" where
+  "add_n_3 n x = (\<lambda>y. (\<lambda>z.  x + y + z + n))"
+
+definition test_add_n_3 :: "int \<Rightarrow> int \<Rightarrow> (int \<Rightarrow> int)" where
+  "test_add_n_3 x = (\<lambda>y. \<lambda>z. ((add_n_3 1 z) x) y)"
+
+export_code add_n_3 test_add_n_3 in Rust
+
 end
