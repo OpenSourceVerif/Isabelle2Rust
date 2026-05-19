@@ -42,33 +42,6 @@ code_reserved
   (Rust) bool
 
 
-(* Product Type *)
-code_printing
-  class_instance bool :: equal \<rightharpoonup>
-    (Rust) -
-| constant "HOL.equal :: bool \<Rightarrow> bool \<Rightarrow> bool" \<rightharpoonup>
-    (Rust) infix 4 "=="
-
-code_printing
-  type_constructor unit \<rightharpoonup>
-    (Rust) "()"
-| constant Unity \<rightharpoonup>
-    (Rust) "()"
-| class_instance unit :: equal \<rightharpoonup>
-    (Rust) -
-| constant "HOL.equal :: unit \<Rightarrow> unit \<Rightarrow> bool" \<rightharpoonup>
-    (Rust) infix 4 "=="
-
-code_printing
-  type_constructor prod \<rightharpoonup>
-    (Rust) "!((_),/ (_))"
-| constant Pair \<rightharpoonup>
-    (Rust) "!((_),/ (_))"
-| class_instance prod :: equal \<rightharpoonup>
-    (Rust) -
-| constant "HOL.equal :: 'a \<times> 'b \<Rightarrow> 'a \<times> 'b \<Rightarrow> bool" \<rightharpoonup>
-    (Rust) infix 4 "=="
-
 
 (* Integers via num-bigint *)
 code_printing
@@ -98,7 +71,7 @@ code_printing
 | constant "times :: integer \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
     (Rust) infixl 7 "*"
 | constant Code_Numeral.divmod_abs \<rightharpoonup>
-    (Rust) "!(match (_.clone(), _.clone()) { (k, l) => { let k = k.abs(); let l = l.abs(); if l == BigInt::ZERO { (BigInt::ZERO, k) } else { let q = k.clone() '/ l.clone(); let r = k % l; (q, r) } } })"
+    (Rust) "!(match (_.clone(), _.clone()) { (k, l) => { let k = k.abs(); let l = l.abs(); if l == BigInt::ZERO { Prod::Pair(BigInt::ZERO, k) } else { let q = k.clone() '/ l.clone(); let r = k % l; Prod::Pair(q, r) } } })"
 | constant "HOL.equal :: integer \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
     (Rust) infix 4 "=="
 | constant "less_eq :: integer \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
