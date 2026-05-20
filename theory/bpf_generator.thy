@@ -2,7 +2,7 @@ theory bpf_generator
   imports Main Interpreter rBPFSyntax vm_state rBPFCommType
   (*"HOL-Library.Code_Target_Numeral"*)
   "Rust.Rust_Setup"
-  "Go.Go_Setup"
+  (*"Go.Go_Setup"*)
 
 begin
 
@@ -32,8 +32,8 @@ export_code step_test in Go
 export_code bpf_interp_test in Rust
   module_name Interp_test file_prefix interp_test
 
-export_code  step_test in Rust
-  module_name Step_test file_prefix step_test
+(* export_code  step_test in Rust
+  module_name Step_test file_prefix step_test *)
 
 
 (*
