@@ -411,8 +411,23 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         else
           let 
             val wanted_app = length dom
-            val wanted_fn = case lookup_constant_fun sym 
-              of SOME (((_, eqs), _)) => length (hd ((map (fst o fst)) eqs)) 
+            (** Mirror the eta-expansion in binding_of_stmt: a single equation with
+                empty LHS (e.g., [size_list = gen_length zero_nat]) is eta-expanded
+                to one argument before being emitted as a Rust function. **)
+            val wanted_fn = case lookup_constant_fun sym
+              of SOME (((vs, ty), raw_eqs), _) =>
+                   let
+                     val eqs = filter (snd o snd) raw_eqs
+                   in
+                     case eqs
+                      of [] => wanted_app
+                       | [(([], _), _)] =>
+                           if null (filter_out (null o snd) vs)
+                              andalso (not o null o fst o Code_Thingol.unfold_fun) ty
+                           then 1
+                           else 0
+                       | _ => length (hd (map (fst o fst) eqs))
+                   end
               | NONE => wanted_app
             fun print_generic_prefix_typ ty =
               (print_typ NOBR (case ty of (tyco`%%_) => tyco`%%[] | ty => ty))
