@@ -7,4 +7,5 @@ definition zero :: "'a::zero" where "zero \<equiv> 0"
   
 export_code zero in Rust
 
+
 end

@@ -263,6 +263,9 @@ fun concat2 :: "(string \<times> string) \<Rightarrow> string"
 fun concat3 :: "(string \<times> string \<times> string) \<Rightarrow> string"
   where "concat3 (x,y,z) = x@y@z"
 
+export_code concat2 in Rust
+export_code concat3 in Rust
+
 value "concat2 (''aaa'',''bbb'')"
 value "concat3 (''aaa'',''bbb'',''ccc'')"
 
