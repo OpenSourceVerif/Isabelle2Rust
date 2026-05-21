@@ -1,5 +1,5 @@
 theory Unsaturated_Test
-  imports Main "Rust.Rust_Setup" "Go.Go_Setup"
+  imports Main "Rust.Rust_Setup" 
 begin
 
 definition add_n_2 ::  "int \<Rightarrow> (int \<Rightarrow> (int \<Rightarrow> int))" where
@@ -25,7 +25,6 @@ definition add :: "int \<Rightarrow> int \<Rightarrow> int \<Rightarrow> int" wh
 definition test_add :: "int \<Rightarrow> int \<Rightarrow> int \<Rightarrow> int" where
   "test_add n = add n"
 
-export_code test_add in Go
 export_code test_add in Rust
 
 end

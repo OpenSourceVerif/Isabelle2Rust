@@ -8,36 +8,29 @@ class semigroup =
 class monoid = semigroup +
   fixes zero :: "'a"
 
-datatype Nat = Zero | Suc Nat
+datatype ('a,'b)  Box = Box 'a 'b
 
-(* Instance of semigroup for Nat: define the class operation plus *)
-instantiation Nat :: semigroup
+instantiation Box :: (semigroup, semigroup) semigroup
 begin
 
-fun plus_Nat :: "Nat \<Rightarrow> Nat \<Rightarrow> Nat" where
-  "plus_Nat a Zero = a"
-| "plus_Nat Zero a = a"
-| "plus_Nat (Suc a) b = Suc (plus_Nat a b)"
+fun plus_Box :: "('a::semigroup,'b::semigroup) Box \<Rightarrow> ('a,'b) Box \<Rightarrow> ('a,'b) Box" where
+  "Box x y +s Box x' y' = Box (x +s x') (y +s y')"
 
 instance ..
 end
 
-(* Instance of monoid for Nat: define the class operation zero *)
-instantiation Nat :: monoid
+instantiation Box :: (monoid, monoid) monoid
 begin
 
-definition zero :: "Nat" where
-  "zero = Zero"
+definition zero_Box :: "('a::monoid, 'b::monoid) Box" where
+  "zero = Box zero zero"
 
 instance ..
 end
 
-(* A concrete folding sum on Nat that uses +s and zero *)
-fun sum_Nat :: "Nat \<Rightarrow> Nat" where
-  "sum_Nat xs = (+s) xs zero"
+fun sum_Box :: "('a::monoid, 'b::monoid) Box \<Rightarrow> ('a, 'b) Box" where
+  "sum_Box xs = (+s) xs (zero :: ('a, 'b) Box)"
 
-export_code sum_Nat in Rust
-export_code sum_Nat in Haskell
-export_code sum_Nat in OCaml
+export_code sum_Box in Rust
 
 end

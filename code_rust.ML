@@ -155,7 +155,7 @@ val print_rust_string =
 
 (** Extract parameter and return types from a function itype as a flat list.
     e.g. fun(A, fun(B, C)) -> [A, B, C] **)
-fun extract_typ print_typ (_`%%[ty1, ty2]) = 
+fun extract_typ print_typ ("fun"`%%[ty1, ty2]) = 
   print_typ (INFX (1, X)) ty1
   :: (case ty2 
     of fs as ("fun"`%%[_, _]) => extract_typ print_typ fs
@@ -435,11 +435,12 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 fun print_plain_typ _ (ITyVar v) = v
                   | print_plain_typ _ (tyco `%% tys) = tyco
                 val inst_s = before_last_dot ((fn Constant s => s) sym)
-                val typs_s_l = map (print_plain_typ NOBR) dom 
-                fun extract_class_dict (Code_Thingol.Dict (_, plain_dict)) = extract_class_plain_dict plain_dict
+                val typs_s_l = map (print_plain_typ NOBR) (if List.null dom then [range] else dom)
+                fun extract_class_dict (Code_Thingol.Dict (classrels, plain_dict)) =
+                  extract_class_plain_dict plain_dict :: map snd classrels
                 and extract_class_plain_dict (Code_Thingol.Dict_Var {var, index, length, class, ...}) = class
-                  | extract_class_plain_dict (Code_Thingol.Dict_Const _) = ""
-                val classes_s_l = map extract_class_dict (List.concat dicts)
+                  | extract_class_plain_dict (Code_Thingol.Dict_Const ((_, class), _)) = class
+                val classes_s_l = List.concat (map extract_class_dict (List.concat dicts))
                 val classes_methods_s_l = map 
                   (fn s => (s, 
                     (dedup o (map fst) o (lookup_class_methods print_plain_typ) o (fn x => (Type_Class x))) s)) 
@@ -753,6 +754,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                         end)
                     val dummy_parms_with_typs = ListPair.zip (dummy_parms, param_typs)
                       |> map (fn (prt1, prt2) => Pretty.block ([prt1, str ": ", prt2]))
+                    fun is_var_pattern (IVar _) = true
+                      | is_var_pattern _ = false
                     fun is_const_expr ts t = 
                       let
                         fun unfold_term t = (case t
@@ -780,7 +783,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                     )
                     ([(case eqs 
                     of [eq as ((ts, t), _)] => 
-                    if is_const_expr ts t
+                    if List.all is_var_pattern ts andalso is_const_expr ts t
                     then (print_eqn true eq)
                     else Pretty.block (
                         str "match " 
