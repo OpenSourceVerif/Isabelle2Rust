@@ -216,7 +216,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     and print_typ_gen tyco_op is_head fxy (tyco `%% tys) = (case tyco_syntax tyco
          of NONE => print_tyco_expr_gen tyco_op is_head (Type_Constructor tyco, tys)
           | SOME (_, print) => print (print_typ_gen tyco_op is_head) fxy tys)
-      | print_typ_gen _ _ _  (ITyVar v) = 
+      | print_typ_gen _ _ _  (ITyVar v) =
         str (to_upper v);
     fun print_tyco_expr (sym, tys) = print_tyco_expr_gen NONE true (sym, tys);
     fun print_typ fxy ty = print_typ_gen NONE true fxy ty;
@@ -230,7 +230,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         val param_num = (List.length ts) - 1
         val ret_typ = List.last ts 
         val param_typs = List.take (ts, param_num)
-        fun print_dummy_params param_num = 
+        fun print_dummy_params param_num =
           let fun aux param_num index param_l =
             if index < param_num 
             then "x"^(Int.toString index)::(aux param_num (index+1) param_l)
@@ -313,23 +313,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             print_term_with_cons_and_box (need_box, box_prcs) print_app_term t
           end
       | print_term_gen is_pseudo_fun _ some_thm vars _ (t as _ `|=> _) =
-          let
-            val (binds, t') = Code_Thingol.unfold_pat_abs t;
-            val (ps, vars') = fold_map (print_bind is_pseudo_fun some_thm BR o fst) binds vars;
-            val typs = map ((print_typ NOBR) o snd) binds;
-          in 
-            Pretty.block_enclose (
-              Pretty.block (
-                str "(move |" 
-                :: commas_append
-                (map (fn (p1, p2) => str ((Pretty.string_of p1)^": "^(Pretty.string_of p2))) 
-                (ListPair.zip (ps, typs))) 
-                @ [str "| {"] 
-              ),
-              str "})"
-            )
-            ([print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars' NOBR t'])
-          end
+          print_lambda is_pseudo_fun some_thm vars t
       | print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy (t as (ICase case_expr)) =
           case Code_Thingol.unfold_const_app (#primitive case_expr)
             of SOME (app as ({ sym = Constant const, ... }, _)) =>
@@ -411,17 +395,33 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         else
           let 
             val wanted_app = length dom
-            val wanted_fn = case lookup_constant_fun sym 
-              of SOME (((_, eqs), _)) => length (hd ((map (fst o fst)) eqs)) 
+            (** Mirror the eta-expansion in binding_of_stmt: a single equation with
+                empty LHS (e.g., [size_list = gen_length zero_nat]) is eta-expanded
+                to one argument before being emitted as a Rust function. **)
+            val wanted_fn = case lookup_constant_fun sym
+              of SOME (((vs, ty), raw_eqs), _) =>
+                   let
+                     val eqs = filter (snd o snd) raw_eqs
+                   in
+                     case eqs
+                      of [] => wanted_app
+                       | [(([], _), _)] =>
+                           if null (filter_out (null o snd) vs)
+                              andalso (not o null o fst o Code_Thingol.unfold_fun) ty
+                           then 1
+                           else 0
+                       | _ => length (hd (map (fst o fst) eqs))
+                   end
               | NONE => wanted_app
             fun print_generic_prefix_typ ty =
               (print_typ NOBR (case ty of (tyco`%%_) => tyco`%%[] | ty => ty))
-            val generic_prefixs = 
-              if (List.null dicts) orelse (List.all (fn xs => List.null xs) dicts) 
+            val prefix_target_ty = if List.null dom then range else List.hd dom
+            val generic_prefixs =
+              if (List.null dicts) orelse (List.all (fn xs => List.null xs) dicts)
               then []
-              else [Pretty.block
-                [(if List.null dom then print_generic_prefix_typ range else print_generic_prefix_typ (List.hd dom)), 
-                str "::"]]
+              else (case prefix_target_ty of
+                  ("fun" `%% _) => []
+                | ty => [Pretty.block [print_generic_prefix_typ ty, str "::"]])
             fun deresolve_trait_impl sym = 
               let
                 fun after_last_dot s = 
@@ -543,7 +543,57 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               str "}"
             )
             (commas_append (map print_select clauses))
-          end;
+          end
+    (** Print a `move` closure with explicit capture-by-clone.
+        For each outer variable v that occurs free in the body 
+        we emit `let v_cap = v.clone();` before the closure
+        and rewrite the in-body occurrences to v_cap.
+        Closure parameter names (collected via add_varnames on each bind
+        pattern) are excluded from the capture set. **)
+    and print_lambda is_pseudo_fun some_thm vars t =
+      let
+        val (binds, t') = Code_Thingol.unfold_pat_abs t;
+        val (outer_namemap, outer_namectxt) = vars;
+        val pat_vars = fold (Code_Thingol.add_varnames o fst) binds [];
+        val body_free = Code_Thingol.add_varnames t' [];
+        val captured_vars =
+          filter (fn v =>
+            Symtab.defined outer_namemap v
+            andalso not (member (op =) pat_vars v)) body_free;
+        val (cap_names, outer_namectxt') =
+          fold_map Name.variant (map (fn v => v ^ "_cap") captured_vars) outer_namectxt;
+        val outer_namemap' =
+          fold2 (curry Symtab.update) captured_vars cap_names outer_namemap;
+        val vars_capped = (outer_namemap', outer_namectxt');
+        val (ps, vars') =
+          fold_map (print_bind is_pseudo_fun some_thm BR o fst) binds vars_capped;
+        val typs = map ((print_typ NOBR) o snd) binds;
+        val closure_pretty =
+          Pretty.block_enclose (
+            Pretty.block (
+              str "(move |"
+              :: commas_append
+                (map (fn (p1, p2) => str ((Pretty.string_of p1)^": "^(Pretty.string_of p2)))
+                  (ListPair.zip (ps, typs)))
+              @ [str "| {"]
+            ),
+            str "})"
+          )
+          ([print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars' NOBR t'])
+      in
+        if null captured_vars then closure_pretty
+        else
+          let
+            val cap_lets =
+              map2
+                (fn v => fn vcap =>
+                  str ("let " ^ vcap ^ " = " ^ (lookup_var vars v) ^ ".clone();"))
+                captured_vars cap_names
+          in
+            Pretty.block_enclose (str "{", str "}")
+              (cap_lets @ [closure_pretty])
+          end
+      end;          
     fun print_val_decl print_typscheme (sym, typscheme) = concat
       [str "val", str (deresolve sym), str ":", print_typscheme typscheme];
     (** Print a Rust enum declaration with #[derive(Clone)].
@@ -742,9 +792,9 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       | [t] => t 
                       | ts => (*Fn Trait*)
                         let
-                          val ret = List.last ts 
+                          val ret = List.last ts
                           val params = List.take (ts, ((List.length ts) - 1))
-                        in  
+                        in
                           Pretty.block(
                             str "impl Fn"
                             :: enum "," "(" ")" params
@@ -1243,7 +1293,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         lift_markup = K I } rust_program
       |> filter (fn s => s <> "")
       |> dedup
-    val module_imports = 
+    val module_imports =
       let
         fun before_first_dot s =
           (case (String.fields (fn c => c = #".") s) 
@@ -1322,17 +1372,17 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       |> map (fn (SOME [x]) => (Pretty.string_of x))
     val unused_modules = lminus raw_modules modules
     val _ = tracing("mods="^(wrap_list raw_modules)^"  used="^(wrap_list modules)^"  unused="^(wrap_list unused_modules))
-    val srcs = ListPair.zip 
-      (map (fn x => ["src", x^rust_extension]) modules, 
+    val srcs = ListPair.zip
+      (map (fn x => ["src", x^rust_extension]) modules,
       map snd includes @ map snd ps)
     val empty_mods = map (fn x => (pair
         (["src", x^rust_extension])
         (str "/*Empty module, added to pass compilition*/")))
-      unused_modules 
-    val toml = pair 
+      unused_modules
+    val toml = pair
       (["Cargo.toml"])
       (Pretty.chunks2 ([
-          Pretty.chunks ([str "[package]", 
+          Pretty.chunks ([str "[package]",
                 str ("name = "^rust_module),
                 str ("version = "^rust_version),
                 str ("edition = "^rust_edition)]),
@@ -1347,7 +1397,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         str "fn main(){}"
       ]))
   in
-    (Code_Target.Hierarchy (toml :: main :: srcs @ empty_mods), 
+    (Code_Target.Hierarchy (toml :: main :: srcs @ empty_mods),
     try (deresolver []))
   end;
 
@@ -1363,9 +1413,9 @@ val serializer_rust : Code_Target.serializer =
 fun fn_trait_impl_syntax print_typ fxy [ty1, ty2] =
   let
     val ts = extract_typ print_typ ("fun"`%%[ty1, ty2])
-    val ret = List.last ts 
+    val ret = List.last ts
     val params = List.take (ts, ((List.length ts) - 1))
-  in  
+  in
     Pretty.block(
       str "impl Fn"
       :: enum "," "(" ")" params

@@ -1,4 +1,4 @@
-.PHONY: open build build_silent code run test targeted clean help
+.PHONY: open build build_silent code run test targeted targeted_run clean help
 
 #### Configuration ####
 
@@ -86,7 +86,7 @@ targeted:
 	  echo "No *_Test.thy under $$TD"; \
 	  exit 0; \
 	fi; \
-	SUCCESS=0; FAIL=0; TOTAL=0; \
+	SUCCESS=0; FAIL=0; TOTAL=0; FAILED_TESTS=""; \
 	for f in $$FILES; do \
 	  T=$${f##*/}; T=$${T%.thy}; \
 	  TOTAL=$$((TOTAL+1)); \
@@ -96,13 +96,52 @@ targeted:
 	    SUCCESS=$$((SUCCESS+1)); \
 	  else \
 	    FAIL=$$((FAIL+1)); \
+	    FAILED_TESTS="$$FAILED_TESTS $$T"; \
 	  fi; \
 	done; \
 	echo "================================"; \
 	echo "Targeted summary:"; \
 	echo "  Passed: $$SUCCESS"; \
 	echo "  Failed: $$FAIL"; \
-	echo "  Total:  $$TOTAL"
+	echo "  Total:  $$TOTAL"; \
+	if [ -n "$$FAILED_TESTS" ]; then \
+	  echo "  Failed tests:"; \
+	  for T in $$FAILED_TESTS; do echo "    - $$T"; done; \
+	fi
+
+# run all already-built Cargo projects under tests_targeted/Rust_Out (no Isabelle rebuild)
+targeted_run:
+	@TD="tests_targeted"; \
+	OUT_DIR="$$TD/Rust_Out"; \
+	if [ ! -d "$$OUT_DIR" ]; then \
+	  echo "No such output dir: $$OUT_DIR"; \
+	  exit 1; \
+	fi; \
+	THEORIES=$$(ls -d "$$OUT_DIR"/*/ 2>/dev/null | xargs -n1 basename | sort); \
+	if [ -z "$$THEORIES" ]; then \
+	  echo "No built theories under $$OUT_DIR"; \
+	  exit 1; \
+	fi; \
+	SUCCESS=0; FAIL=0; TOTAL=0; FAILED_TESTS=""; \
+	for T in $$THEORIES; do \
+	  TOTAL=$$((TOTAL+1)); \
+	  echo ">>> [$$TOTAL] $$T"; \
+	  if $(MAKE) -s run TEST_DIR="$$TD" TEST_THEORY="$$T"; then \
+	    SUCCESS=$$((SUCCESS+1)); \
+	  else \
+	    FAIL=$$((FAIL+1)); \
+	    FAILED_TESTS="$$FAILED_TESTS $$T"; \
+	  fi; \
+	done; \
+	echo "================================"; \
+	echo "Targeted_run summary:"; \
+	echo "  Passed: $$SUCCESS"; \
+	echo "  Failed: $$FAIL"; \
+	echo "  Total:  $$TOTAL"; \
+	if [ -n "$$FAILED_TESTS" ]; then \
+	  echo "  Failed tests:"; \
+	  for T in $$FAILED_TESTS; do echo "    - $$T"; done; \
+	fi
 
 
 hol:
