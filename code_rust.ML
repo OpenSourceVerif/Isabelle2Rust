@@ -313,23 +313,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             print_term_with_cons_and_box (need_box, box_prcs) print_app_term t
           end
       | print_term_gen is_pseudo_fun _ some_thm vars _ (t as _ `|=> _) =
-          let
-            val (binds, t') = Code_Thingol.unfold_pat_abs t;
-            val (ps, vars') = fold_map (print_bind is_pseudo_fun some_thm BR o fst) binds vars;
-            val typs = map ((print_typ NOBR) o snd) binds;
-          in 
-            Pretty.block_enclose (
-              Pretty.block (
-                str "(move |" 
-                :: commas_append
-                (map (fn (p1, p2) => str ((Pretty.string_of p1)^": "^(Pretty.string_of p2))) 
-                (ListPair.zip (ps, typs))) 
-                @ [str "| {"] 
-              ),
-              str "})"
-            )
-            ([print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars' NOBR t'])
-          end
+          print_lambda is_pseudo_fun some_thm vars t
       | print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy (t as (ICase case_expr)) =
           case Code_Thingol.unfold_const_app (#primitive case_expr)
             of SOME (app as ({ sym = Constant const, ... }, _)) =>
@@ -559,7 +543,57 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               str "}"
             )
             (commas_append (map print_select clauses))
-          end;
+          end
+    (** Print a `move` closure with explicit capture-by-clone.
+        For each outer variable v that occurs free in the body 
+        we emit `let v_cap = v.clone();` before the closure
+        and rewrite the in-body occurrences to v_cap.
+        Closure parameter names (collected via add_varnames on each bind
+        pattern) are excluded from the capture set. **)
+    and print_lambda is_pseudo_fun some_thm vars t =
+      let
+        val (binds, t') = Code_Thingol.unfold_pat_abs t;
+        val (outer_namemap, outer_namectxt) = vars;
+        val pat_vars = fold (Code_Thingol.add_varnames o fst) binds [];
+        val body_free = Code_Thingol.add_varnames t' [];
+        val captured_vars =
+          filter (fn v =>
+            Symtab.defined outer_namemap v
+            andalso not (member (op =) pat_vars v)) body_free;
+        val (cap_names, outer_namectxt') =
+          fold_map Name.variant (map (fn v => v ^ "_cap") captured_vars) outer_namectxt;
+        val outer_namemap' =
+          fold2 (curry Symtab.update) captured_vars cap_names outer_namemap;
+        val vars_capped = (outer_namemap', outer_namectxt');
+        val (ps, vars') =
+          fold_map (print_bind is_pseudo_fun some_thm BR o fst) binds vars_capped;
+        val typs = map ((print_typ NOBR) o snd) binds;
+        val closure_pretty =
+          Pretty.block_enclose (
+            Pretty.block (
+              str "(move |"
+              :: commas_append
+                (map (fn (p1, p2) => str ((Pretty.string_of p1)^": "^(Pretty.string_of p2)))
+                  (ListPair.zip (ps, typs)))
+              @ [str "| {"]
+            ),
+            str "})"
+          )
+          ([print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars' NOBR t'])
+      in
+        if null captured_vars then closure_pretty
+        else
+          let
+            val cap_lets =
+              map2
+                (fn v => fn vcap =>
+                  str ("let " ^ vcap ^ " = " ^ (lookup_var vars v) ^ ".clone();"))
+                captured_vars cap_names
+          in
+            Pretty.block_enclose (str "{", str "}")
+              (cap_lets @ [closure_pretty])
+          end
+      end;          
     fun print_val_decl print_typscheme (sym, typscheme) = concat
       [str "val", str (deresolve sym), str ":", print_typscheme typscheme];
     (** Print a Rust enum declaration with #[derive(Clone)].
