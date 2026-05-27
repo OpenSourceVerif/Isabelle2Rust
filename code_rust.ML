@@ -216,7 +216,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     and print_typ_gen tyco_op is_head fxy (tyco `%% tys) = (case tyco_syntax tyco
          of NONE => print_tyco_expr_gen tyco_op is_head (Type_Constructor tyco, tys)
           | SOME (_, print) => print (print_typ_gen tyco_op is_head) fxy tys)
-      | print_typ_gen _ _ _  (ITyVar v) = 
+      | print_typ_gen _ _ _  (ITyVar v) =
         str (to_upper v);
     fun print_tyco_expr (sym, tys) = print_tyco_expr_gen NONE true (sym, tys);
     fun print_typ fxy ty = print_typ_gen NONE true fxy ty;
@@ -411,17 +411,33 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         else
           let 
             val wanted_app = length dom
-            val wanted_fn = case lookup_constant_fun sym 
-              of SOME (((_, eqs), _)) => length (hd ((map (fst o fst)) eqs)) 
+            (** Mirror the eta-expansion in binding_of_stmt: a single equation with
+                empty LHS (e.g., [size_list = gen_length zero_nat]) is eta-expanded
+                to one argument before being emitted as a Rust function. **)
+            val wanted_fn = case lookup_constant_fun sym
+              of SOME (((vs, ty), raw_eqs), _) =>
+                   let
+                     val eqs = filter (snd o snd) raw_eqs
+                   in
+                     case eqs
+                      of [] => wanted_app
+                       | [(([], _), _)] =>
+                           if null (filter_out (null o snd) vs)
+                              andalso (not o null o fst o Code_Thingol.unfold_fun) ty
+                           then 1
+                           else 0
+                       | _ => length (hd (map (fst o fst) eqs))
+                   end
               | NONE => wanted_app
             fun print_generic_prefix_typ ty =
               (print_typ NOBR (case ty of (tyco`%%_) => tyco`%%[] | ty => ty))
-            val generic_prefixs = 
-              if (List.null dicts) orelse (List.all (fn xs => List.null xs) dicts) 
+            val prefix_target_ty = if List.null dom then range else List.hd dom
+            val generic_prefixs =
+              if (List.null dicts) orelse (List.all (fn xs => List.null xs) dicts)
               then []
-              else [Pretty.block
-                [(if List.null dom then print_generic_prefix_typ range else print_generic_prefix_typ (List.hd dom)), 
-                str "::"]]
+              else (case prefix_target_ty of
+                  ("fun" `%% _) => []
+                | ty => [Pretty.block [print_generic_prefix_typ ty, str "::"]])
             fun deresolve_trait_impl sym = 
               let
                 fun after_last_dot s = 
@@ -1363,9 +1379,9 @@ val serializer_rust : Code_Target.serializer =
 fun fn_trait_impl_syntax print_typ fxy [ty1, ty2] =
   let
     val ts = extract_typ print_typ ("fun"`%%[ty1, ty2])
-    val ret = List.last ts 
+    val ret = List.last ts
     val params = List.take (ts, ((List.length ts) - 1))
-  in  
+  in
     Pretty.block(
       str "impl Fn"
       :: enum "," "(" ")" params
