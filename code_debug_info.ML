@@ -113,11 +113,11 @@ fun print_debug_info_iterm (IConst const) =
   | print_debug_info_iterm ((v, ityp1) `|=> (t, ityp2)) =
     wrap_args [wrap_args [dest_vname v, print_debug_info_itype ityp1], 
       wrap_args [print_debug_info_iterm t, print_debug_info_itype ityp2]]
-  | print_debug_info_iterm (ICase {term, typ, clauses, primitive}) =
+  | print_debug_info_iterm (ICase {term, typ, clauses, primitive = _}) =
     wrap_struct ["term: "^print_debug_info_iterm term, "typ: "^print_debug_info_itype typ,
-    "clauses: "^wrap_list (map (fn (t1, t2) 
+    "clauses: "^wrap_list (map (fn (t1, t2)
       => wrap_args [print_debug_info_iterm t1, print_debug_info_iterm t2]) clauses),
-    "primitive: "^print_debug_info_iterm primitive]
+    "primitive: <elided>"]
 fun dest_typscheme (s, t) = 
   wrap_args [wrap_list (map (fn (t1, t2) => wrap_args [t1, wrap_list t2]) s), print_debug_info_itype t]
 fun print_debug_info_thingol_stmt Code_Thingol.NoStmt = 

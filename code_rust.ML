@@ -230,7 +230,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         val param_num = (List.length ts) - 1
         val ret_typ = List.last ts 
         val param_typs = List.take (ts, param_num)
-        fun print_dummy_params param_num = 
+        fun print_dummy_params param_num =
           let fun aux param_num index param_l =
             if index < param_num 
             then "x"^(Int.toString index)::(aux param_num (index+1) param_l)
@@ -792,9 +792,9 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       | [t] => t 
                       | ts => (*Fn Trait*)
                         let
-                          val ret = List.last ts 
+                          val ret = List.last ts
                           val params = List.take (ts, ((List.length ts) - 1))
-                        in  
+                        in
                           Pretty.block(
                             str "impl Fn"
                             :: enum "," "(" ")" params
@@ -1293,7 +1293,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         lift_markup = K I } rust_program
       |> filter (fn s => s <> "")
       |> dedup
-    val module_imports = 
+    val module_imports =
       let
         fun before_first_dot s =
           (case (String.fields (fn c => c = #".") s) 
@@ -1372,17 +1372,17 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       |> map (fn (SOME [x]) => (Pretty.string_of x))
     val unused_modules = lminus raw_modules modules
     val _ = tracing("mods="^(wrap_list raw_modules)^"  used="^(wrap_list modules)^"  unused="^(wrap_list unused_modules))
-    val srcs = ListPair.zip 
-      (map (fn x => ["src", x^rust_extension]) modules, 
+    val srcs = ListPair.zip
+      (map (fn x => ["src", x^rust_extension]) modules,
       map snd includes @ map snd ps)
     val empty_mods = map (fn x => (pair
         (["src", x^rust_extension])
         (str "/*Empty module, added to pass compilition*/")))
-      unused_modules 
-    val toml = pair 
+      unused_modules
+    val toml = pair
       (["Cargo.toml"])
       (Pretty.chunks2 ([
-          Pretty.chunks ([str "[package]", 
+          Pretty.chunks ([str "[package]",
                 str ("name = "^rust_module),
                 str ("version = "^rust_version),
                 str ("edition = "^rust_edition)]),
@@ -1397,7 +1397,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         str "fn main(){}"
       ]))
   in
-    (Code_Target.Hierarchy (toml :: main :: srcs @ empty_mods), 
+    (Code_Target.Hierarchy (toml :: main :: srcs @ empty_mods),
     try (deresolver []))
   end;
 
