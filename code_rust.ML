@@ -178,11 +178,14 @@ fun extract_typ print_typ ("fun"`%%[ty1, ty2]) =
       lookup_constant_typeco: look up which type constructor a constant belongs to
       lookup_constant_fun: look up the exact definition of 
       lookup_class_methods: get method list of a type class
-      lookup_method_class: get the class of a class method **)
-fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve 
-  is_inf_typeco is_invdependent_typecos 
+      lookup_method_class: SOME class if the symbol is a class parameter (trait
+        method), NONE otherwise
+      inst_method_info: SOME (tyco, classparam) if the symbol is a reconstructed
+        instance method living in an `impl` block, NONE otherwise **)
+fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
+  is_inf_typeco is_invdependent_typecos
   lookup_constant_typeco lookup_constant_fun
-  lookup_class_methods lookup_method_class =
+  lookup_class_methods lookup_method_class inst_method_info =
   let
     val deresolve_const = deresolve o Constant;
     val deresolve_typco = deresolve o Type_Constructor;
@@ -336,14 +339,24 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               => lookup_constant_typeco sym
             | _ => NONE)
         fun print_cons (SOME s) =
-          let 
+          let
             fun after_last_dot s =
               (case List.rev (String.fields (fn c => c = #".") s) of
                   [] => s
                 | x::_ => x)
             in to_upper_camel_case (after_last_dot s) end
         | print_cons NONE = ""
-        val typeco_s = print_cons (lookup_typeco t)
+        (** A constructor used as a first-class value (no arguments supplied but
+            with non-empty domain) is eta-expanded into a closure by
+            print_app_expr, so it must NOT receive the `Tyco::` prefix — that
+            prefix only belongs in front of an actual constructor reference.
+            lookup_typeco already yields SOME only for real constructors, so it
+            suffices to detect the bare-with-non-empty-domain shape here. **)
+        val is_eta_constr =
+          (case Code_Thingol.unfold_const_app t
+            of SOME (({ dom, ... }), []) => not (null dom)
+            | _ => false)
+        val typeco_s = if is_eta_constr then "" else print_cons (lookup_typeco t)
         fun typeco_append co_s t_s = 
           if co_s = "" then t_s
           else co_s^"::"^t_s 
@@ -413,56 +426,20 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             fun print_generic_prefix_typ ty =
               (print_typ NOBR (case ty of (tyco`%%_) => tyco`%%[] | ty => ty))
             val prefix_target_ty = if List.null dom then range else List.hd dom
-            val generic_prefixs =
-              if (List.null dicts) orelse (List.all (fn xs => List.null xs) dicts)
-              then []
-              else (case prefix_target_ty of
-                  ("fun" `%% _) => []
-                | ty => [Pretty.block [print_generic_prefix_typ ty, str "::"]])
-            fun deresolve_trait_impl sym = 
-              let
-                fun after_last_dot s = 
-                  (case List.rev (String.fields (fn c => c = #".") s) 
-                    of [] => s
-                    | x::_ => x)
-                fun before_last_dot s =
-                  (case List.rev (String.fields (fn c => c = #".") s) 
-                    of x1::x2::_ => x2
-                    | _ => s)
-                fun print_plain_typ _ (ITyVar v) = v
-                  | print_plain_typ _ (tyco `%% tys) = tyco
-                val inst_s = before_last_dot ((fn Constant s => s) sym)
-                val typs_s_l = map (print_plain_typ NOBR) (if List.null dom then [range] else dom)
-                fun extract_class_dict (Code_Thingol.Dict (classrels, plain_dict)) =
-                  extract_class_plain_dict plain_dict :: map snd classrels
-                and extract_class_plain_dict (Code_Thingol.Dict_Var {var, index, length, class, ...}) = class
-                  | extract_class_plain_dict (Code_Thingol.Dict_Const ((_, class), _)) = class
-                val classes_s_l = List.concat (map extract_class_dict (List.concat dicts))
-                val classes_methods_s_l = map
-                  (fn s => (s,
-                    (dedup o (map fst) o (lookup_class_methods print_plain_typ) o (fn x => (Type_Class x))) s))
-                  classes_s_l
-                fun pred xs ys = List.concat (List.map (fn x => List.map (fn y => (x, y)) ys) xs)
-                (* Pick the class method this call refers to. For a multi-method
-                   class, the instance constant is named <method>_<Type>, so match
-                   on that; fall back to the sole method otherwise. *)
-                val const_base = after_last_dot ((fn Constant s => s) sym)
-                fun select_method typ_s mthd_s_l =
-                  case List.find (fn m => after_last_dot m ^ "_" ^ after_last_dot typ_s = const_base) mthd_s_l
-                   of SOME m => m
-                    | NONE => List.hd mthd_s_l
-              in
-                (fn xs => if List.null xs then (str o deresolve) sym
-                else (str o deresolve_const o List.hd) xs)
-                (map_filter
-                  (fn ((cls_s, mthd_s_l), typ_s) =>
-                    if ((after_last_dot cls_s)^"_"^(after_last_dot typ_s)^"_inst" = inst_s)
-                    then SOME (select_method typ_s mthd_s_l) else NONE)
-                  (pred classes_methods_s_l typs_s_l))
-              end
-            val funcname = 
-              if List.null generic_prefixs then (str o deresolve) sym 
-              else deresolve_trait_impl sym 
+            (* A type-variable receiver is generic dispatch (`A::method`). *)
+            val is_tyvar_receiver =
+              (case prefix_target_ty of (ITyVar _) => true | _ => false)
+            (* Decide the printed callee and any `Receiver::` prefix. *)
+            val (generic_prefixs, funcname) =
+              (case inst_method_info sym of
+                  SOME (tyco_s, cp_s) =>
+                    ([Pretty.block [str (deresolve (Type_Constructor tyco_s)), str "::"]],
+                     (str o deresolve_const) cp_s)
+                | NONE =>
+                    if is_some (lookup_method_class sym) andalso is_tyvar_receiver
+                    then ([Pretty.block [print_generic_prefix_typ prefix_target_ty, str "::"]],
+                          (str o deresolve) sym)
+                    else ([], (str o deresolve) sym))
           in
             if length ts = wanted_app
             then
@@ -1159,15 +1136,8 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
 
     val rust_includes = "num_bigint" :: "num_traits::sign" :: rust_includes
 
-    (** Reconstruct type-class instances from the specialized projection functions
-        Isabelle leaves behind after dictionary elimination (there are no Classinst
-        nodes). An instance method is a Fun whose constant name has the shape
-        `M.<class>_<Type>_inst.<method>_<Type>`; it is recognized when, for some
-        class in its sort-context and some type constructor in its type,
-        `<class>_<Type>_inst = before_last_dot(const)`. Methods sharing that
-        `_inst` segment belong to one instance and become one impl block.
-        Monomorphic instance methods carry no sort-context, never match, and are
-        emitted as ordinary functions. **)
+    (* Reconstruct type-class instances from the specialized projection functions
+        Isabelle leaves behind after dictionary elimination. *)
     val inst_methods =
       let
         fun after_last_dot s =
@@ -1181,12 +1151,23 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
               Code_Thingol.Class (_, (_, cps)) => cps
             | _ => [])
           handle Code_Symbol.Graph.UNDEF _ => [];
+        (* Equality classes declared in this program, offered as extra candidates
+           by name regardless of a method's sort-context. *)
+        val equal_classes =
+          distinct (op =) (map_filter (fn ((s, st), _) =>
+            case (s, st) of
+              (Type_Class c, Code_Thingol.Class _) =>
+                if after_last_dot c = "equal" then SOME c else NONE
+            | _ => NONE) stmt_list);
       in
         map_filter (fn ((sym, stmt), _) =>
           case (sym, stmt) of
             (Constant const, Code_Thingol.Fun (((vs, ty), _), _)) =>
-              let val classes_full = dedup (List.concat (map snd vs)) in
-                if null classes_full then NONE
+              let
+                val classes_full = dedup (List.concat (map snd vs))
+                val candidate_classes = dedup (classes_full @ equal_classes)
+              in
+                if null candidate_classes then NONE
                 else
                   let
                     val typcons = dedup (tycos_of ty)
@@ -1195,7 +1176,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                       (after_last_dot cls ^ "_" ^ after_last_dot tyc ^ "_inst") = inst_s
                     val hit = get_first (fn cls =>
                       get_first (fn tyc => if matches cls tyc then SOME (cls, tyc) else NONE) typcons)
-                      classes_full
+                      candidate_classes
                   in
                     case hit of
                       NONE => NONE
@@ -1226,6 +1207,14 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           val methods = map (fn (_, (_, _, _, cp, msym)) => (cp, msym)) members
         in (repr_sym, ((cls, tyc), (vs, methods))) end)
         (distinct (op =) (map fst inst_methods));
+
+    (** Map each reconstructed instance-method constant to (tyco, classparam):
+        the concrete type it is implemented for and the trait method it realizes.
+        Used at call sites to emit `Tyco::<trait_method>(..)`. **)
+    val inst_method_lookup =
+      maps (fn (_, ((_, tyc), (_, methods))) =>
+        map (fn (cp, msym) => (msym, (tyc, cp))) methods) inst_table;
+    fun inst_method_info sym = AList.lookup (op =) inst_method_lookup sym;
 
     (* build program *)
     val { deresolver, hierarchical_program = rust_program } =
@@ -1321,14 +1310,12 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         methods
       end
     val lookup_class_methods = lookup_class_methods_gen program
-    (** Look up which class a class parameter (method) belongs to. **)
+    (** Look up which class a class parameter (method) belongs to.
+        Returns NONE for symbols that are not class parameters. **)
     fun lookup_method_class_gen program sym =
-      let
-        val class_stmt = get_node program sym
-        val class = (fn (Code_Thingol.Classparam c) => c) class_stmt
-      in
-        class
-      end
+      (case get_node program sym
+        of Code_Thingol.Classparam c => SOME c
+         | _ => NONE)
     val lookup_method_class = lookup_method_class_gen program
       
     (** Compute module-level import dependencies:
@@ -1397,9 +1384,9 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
     fun print_stmt prefix_fragments (_, (export, stmt)) = (print_rust_stmt
       tyco_syntax const_syntax (make_vars reserved_syms)
       (Code_Thingol.is_constr program) (modify_deresolver (deresolver prefix_fragments))
-      is_inf_typeco is_invdependent_typecos 
+      is_inf_typeco is_invdependent_typecos
       lookup_constant_typeco lookup_constant_fun
-      lookup_class_methods lookup_method_class)
+      lookup_class_methods lookup_method_class inst_method_info)
       export stmt
       |> apfst (fn decl => if Code_Namespace.not_private export then SOME decl else NONE);
 
