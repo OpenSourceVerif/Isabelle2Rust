@@ -6,9 +6,8 @@ session Rust = Main +
 session Test in "@TEST_DIR@" = Rust +
   description "@TEST_THEORY@ test session"
   options [timeout = 300]
-  (*sessions
+  sessions
     "HOL-Library"
-    "Word_Lib"*)
   theories [document = false]
     "@TEST_THEORY@"
   export_files (in "Rust_Out/@TEST_THEORY@") [2]

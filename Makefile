@@ -1,12 +1,15 @@
-.PHONY: open build build_silent code run test targeted targeted_run clean help
+.PHONY: open build build_silent code run test optimize_test optimize_copy optimize_all copy_inference targeted targeted_run clean help
 
 #### Configuration ####
 
 DEFAULT_FILE := $(CURDIR)/Rust_Setup.thy
 SESSION      := Test
 ROOT_FILE    := ROOT
+HOL_TEST_THEORY ?= Hol_Test_Integer
 
 CARGO                  ?= cargo
+ISABELLE_EXPORTED_LOCK := $(CURDIR)/scripts/isabelle-exported.Cargo.lock
+ISABELLE_BUILD_LOCK    := $(CURDIR)/.isabelle-build.lock
 ISABELLE_BUILD_VERBOSE := isabelle build -v -e -d . $(SESSION)
 ISABELLE_BUILD_SILENT  := isabelle build -e -d . $(SESSION)
 
@@ -22,13 +25,16 @@ build:
 	  echo "Example: make build TEST_DIR=tests_targeted TEST_THEORY=List_Test"; \
 	  exit 1; \
 	fi
-	@echo ">> ROOT for $(TEST_DIR)/$(TEST_THEORY).thy"
-	@sed \
-	  -e 's|@TEST_DIR@|$(TEST_DIR)|g' \
-	  -e 's|@TEST_THEORY@|$(TEST_THEORY)|g' \
-	  ROOT.template > $(ROOT_FILE)
-	@echo ">> isabelle build (verbose)..."
-	@$(ISABELLE_BUILD_VERBOSE)
+	@{ \
+	  flock 9; \
+	  echo ">> ROOT for $(TEST_DIR)/$(TEST_THEORY).thy"; \
+	  sed \
+	    -e 's|@TEST_DIR@|$(TEST_DIR)|g' \
+	    -e 's|@TEST_THEORY@|$(TEST_THEORY)|g' \
+	    ROOT.template > $(ROOT_FILE); \
+	  echo ">> isabelle build (verbose)..."; \
+	  $(ISABELLE_BUILD_VERBOSE); \
+	} 9>$(ISABELLE_BUILD_LOCK)
 
 # build one theory (quiet, for targeted)
 build_silent:
@@ -36,14 +42,17 @@ build_silent:
 	  echo "Usage: make build_silent TEST_DIR=<dir> TEST_THEORY=<thy>"; \
 	  exit 1; \
 	fi
-	@sed \
-	  -e 's|@TEST_DIR@|$(TEST_DIR)|g' \
-	  -e 's|@TEST_THEORY@|$(TEST_THEORY)|g' \
-	  ROOT.template > $(ROOT_FILE)
-	@$(ISABELLE_BUILD_SILENT)
+	@{ \
+	  flock 9; \
+	  sed \
+	    -e 's|@TEST_DIR@|$(TEST_DIR)|g' \
+	    -e 's|@TEST_THEORY@|$(TEST_THEORY)|g' \
+	    ROOT.template > $(ROOT_FILE); \
+	  $(ISABELLE_BUILD_SILENT); \
+	} 9>$(ISABELLE_BUILD_LOCK)
 
 code:
-	@$(ISABELLE_BUILD_VERBOSE)
+	@{ flock 9; $(ISABELLE_BUILD_VERBOSE); } 9>$(ISABELLE_BUILD_LOCK)
 
 # run all Cargo projects under TEST_DIR/Rust_Out/TEST_THEORY/export*/
 run:
@@ -64,7 +73,11 @@ run:
 	fi; \
 	for m in $$MANIFESTS; do \
 	  echo "=== cargo run: $$m ==="; \
-	  RUSTFLAGS="-Awarnings" $(CARGO) run --manifest-path "$$m" || exit 1; \
+	  package_dir=$$(dirname "$$m"); \
+	  if [ ! -f "$$package_dir/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
+	    cp "$(ISABELLE_EXPORTED_LOCK)" "$$package_dir/Cargo.lock"; \
+	  fi; \
+	  RUSTFLAGS="-Awarnings" $(CARGO) run --locked --manifest-path "$$m" || exit 1; \
 	  echo ""; \
 	done
 
@@ -78,25 +91,36 @@ test:
 	@$(MAKE) build TEST_DIR="$(TEST_DIR)" TEST_THEORY="$(TEST_THEORY)"
 	@$(MAKE) run   TEST_DIR="$(TEST_DIR)" TEST_THEORY="$(TEST_THEORY)"
 
+optimize_test:
+	@./scripts/run-optimization-tests.sh "$(or $(STAGE),copy)"
+
+optimize_copy:
+	@$(MAKE) optimize_test STAGE=copy
+
+optimize_all:
+	@$(MAKE) optimize_test STAGE=all
+
+copy_inference: optimize_copy
+
 # run all *_Test.thy in tests_targeted (quiet build)
 targeted:
 	@TD="tests_targeted"; \
-	FILES=$$(ls "$$TD"/*_Test.thy 2>/dev/null || true); \
+	FILES=$$(find "$$TD" -name '*_Test.thy' -type f | sort); \
 	if [ -z "$$FILES" ]; then \
 	  echo "No *_Test.thy under $$TD"; \
 	  exit 0; \
 	fi; \
 	SUCCESS=0; FAIL=0; TOTAL=0; FAILED_TESTS=""; \
 	for f in $$FILES; do \
-	  T=$${f##*/}; T=$${T%.thy}; \
+	  D=$$(dirname "$$f"); T=$${f##*/}; T=$${T%.thy}; \
 	  TOTAL=$$((TOTAL+1)); \
-	  echo ">>> [$$TOTAL] $$T"; \
-	  if $(MAKE) -s build_silent TEST_DIR="$$TD" TEST_THEORY="$$T" && \
-	     $(MAKE) -s run TEST_DIR="$$TD" TEST_THEORY="$$T"; then \
+	  echo ">>> [$$TOTAL] $$D/$$T"; \
+	  if $(MAKE) -s build_silent TEST_DIR="$$D" TEST_THEORY="$$T" && \
+	     $(MAKE) -s run TEST_DIR="$$D" TEST_THEORY="$$T"; then \
 	    SUCCESS=$$((SUCCESS+1)); \
 	  else \
 	    FAIL=$$((FAIL+1)); \
-	    FAILED_TESTS="$$FAILED_TESTS $$T"; \
+	    FAILED_TESTS="$$FAILED_TESTS $$D/$$T"; \
 	  fi; \
 	done; \
 	echo "================================"; \
@@ -112,26 +136,25 @@ targeted:
 # run all already-built Cargo projects under tests_targeted/Rust_Out (no Isabelle rebuild)
 targeted_run:
 	@TD="tests_targeted"; \
-	OUT_DIR="$$TD/Rust_Out"; \
-	if [ ! -d "$$OUT_DIR" ]; then \
-	  echo "No such output dir: $$OUT_DIR"; \
-	  exit 1; \
-	fi; \
-	THEORIES=$$(ls -d "$$OUT_DIR"/*/ 2>/dev/null | xargs -n1 basename | sort); \
-	if [ -z "$$THEORIES" ]; then \
-	  echo "No built theories under $$OUT_DIR"; \
+	OUT_DIRS=$$(find "$$TD" -path '*/Rust_Out' -type d | sort); \
+	if [ -z "$$OUT_DIRS" ]; then \
+	  echo "No Rust_Out directories under $$TD"; \
 	  exit 1; \
 	fi; \
 	SUCCESS=0; FAIL=0; TOTAL=0; FAILED_TESTS=""; \
-	for T in $$THEORIES; do \
-	  TOTAL=$$((TOTAL+1)); \
-	  echo ">>> [$$TOTAL] $$T"; \
-	  if $(MAKE) -s run TEST_DIR="$$TD" TEST_THEORY="$$T"; then \
-	    SUCCESS=$$((SUCCESS+1)); \
-	  else \
-	    FAIL=$$((FAIL+1)); \
-	    FAILED_TESTS="$$FAILED_TESTS $$T"; \
-	  fi; \
+	for OUT_DIR in $$OUT_DIRS; do \
+	  D=$$(dirname "$$OUT_DIR"); \
+	  THEORIES=$$(ls -d "$$OUT_DIR"/*/ 2>/dev/null | xargs -r -n1 basename | sort); \
+	  for T in $$THEORIES; do \
+	    TOTAL=$$((TOTAL+1)); \
+	    echo ">>> [$$TOTAL] $$D/$$T"; \
+	    if $(MAKE) -s run TEST_DIR="$$D" TEST_THEORY="$$T"; then \
+	      SUCCESS=$$((SUCCESS+1)); \
+	    else \
+	      FAIL=$$((FAIL+1)); \
+	      FAILED_TESTS="$$FAILED_TESTS $$D/$$T"; \
+	    fi; \
+	  done; \
 	done; \
 	echo "================================"; \
 	echo "Targeted_run summary:"; \
@@ -145,10 +168,10 @@ targeted_run:
 
 
 hol:
-	@echo ">>> Building Hol_Test..."
-	$(MAKE) build TEST_DIR=tests_HOL TEST_THEORY=Hol_Test
+	@echo ">>> Building $(HOL_TEST_THEORY)..."
+	$(MAKE) build TEST_DIR=tests_HOL TEST_THEORY=$(HOL_TEST_THEORY)
 
-	@OUT_DIR="tests_HOL/Rust_Out/Hol_Test/export1/src"; \
+	@OUT_DIR="tests_HOL/Rust_Out/$(HOL_TEST_THEORY)/export1/src"; \
 	if [ ! -d "$$OUT_DIR" ]; then \
 	  echo "ERROR: $$OUT_DIR does not exist. Build may have failed."; \
 	  exit 1; \
@@ -157,12 +180,16 @@ hol:
 	cp tests_HOL/template/main.rs "$$OUT_DIR/main.rs"
 
 	@echo ">>> Running cargo..."
-	@CARGO_TOML="tests_HOL/Rust_Out/Hol_Test/export1/Cargo.toml"; \
+	@CARGO_TOML="tests_HOL/Rust_Out/$(HOL_TEST_THEORY)/export1/Cargo.toml"; \
 	if [ ! -f "$$CARGO_TOML" ]; then \
 	  echo "ERROR: Cargo.toml not found at $$CARGO_TOML"; \
 	  exit 1; \
 	fi; \
-	RUSTFLAGS="-Awarnings" cargo run --manifest-path "$$CARGO_TOML"
+	package_dir=$$(dirname "$$CARGO_TOML"); \
+	if [ ! -f "$$package_dir/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
+	  cp "$(ISABELLE_EXPORTED_LOCK)" "$$package_dir/Cargo.lock"; \
+	fi; \
+	RUSTFLAGS="-Awarnings" cargo run --locked --manifest-path "$$CARGO_TOML"
 
 
 clean:
@@ -171,6 +198,8 @@ clean:
 	find . -name "*\.cmi"  -exec rm {} \;
 	find . -name "*\.cmo"  -exec rm {} \;
 	rm -rf tests_targeted/Rust_Out
+	find tests_targeted -path "*/Rust_Out" -type d -prune -exec rm -rf {} +
+	rm -rf optimize/tests/out
 	rm -rf tests_HOL/Hol_Test/target
 
 help:
@@ -182,14 +211,25 @@ help:
 	@echo "      Example: make build TEST_DIR=tests_targeted TEST_THEORY=List_Test"
 	@echo "  code"
 	@echo "      Run isabelle build using the existing ROOT file."
-	@echo "  run TEST_THEORY=<thy-name> RUST_OUT=<rust-out-root>"
-	@echo "      Run all Cargo projects under RUST_OUT/TEST_THEORY/export*/."
-	@echo "      Example: make run TEST_THEORY=List_Test RUST_OUT=tests_targeted/Rust_Out"
+	@echo "  run TEST_DIR=<dir> TEST_THEORY=<thy-name>"
+	@echo "      Run all Cargo projects under TEST_DIR/Rust_Out/TEST_THEORY/export*/."
+	@echo "      Example: make run TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test"
 	@echo "  test TEST_DIR=<dir> TEST_THEORY=<thy-name>"
 	@echo "      Build Isabelle session (with -v) and then run all exported Cargo projects."
 	@echo "      Example: make test TEST_DIR=tests_targeted TEST_THEORY=List_Test"
 	@echo "  targeted"
-	@echo "      Run all *_Test.thy under tests_targeted with quiet Isabelle build."
+	@echo "      Recursively run all *_Test.thy under tests_targeted with quiet Isabelle build."
 	@echo "      Example: make targeted"
+	@echo "  optimize_test STAGE=<copy|borrow|copy-borrow|all>"
+	@echo "      Run staged optimizer tests. Default: STAGE=copy."
+	@echo "      Example: make optimize_test STAGE=copy"
+	@echo "  optimize_copy"
+	@echo "      Run only copy optimization tests."
+	@echo "  optimize_all"
+	@echo "      Run all configured optimization stages."
+	@echo "  copy_inference"
+	@echo "      Alias for optimize_copy."
+	@echo "  hol"
+	@echo "      Build and run the HOL smoke test. Default: HOL_TEST_THEORY=$(HOL_TEST_THEORY)."
 	@echo "  clean"
 	@echo "      Remove temporary and build artefacts, including tests_targeted/Rust_Out."

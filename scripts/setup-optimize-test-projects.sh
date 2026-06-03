@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-test_root="$repo_root/tests"
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+optimize_root="$project_root/optimize"
+test_root="$optimize_root/tests/fixtures"
 scope="${1:-all}"
 
 mkdir -p "$test_root"
@@ -12,7 +13,7 @@ if [[ "$scope" == "--clear-all" ]]; then
 
     while IFS= read -r config_path; do
         rm "$config_path"
-        echo "removed ${config_path#$repo_root/}"
+        echo "removed ${config_path#$project_root/}"
         cleared=$((cleared + 1))
 
         config_dir="$(dirname "$config_path")"
@@ -30,7 +31,7 @@ fi
 
 move_into_test() {
     local name="$1"
-    local source="$repo_root/$name"
+    local source="$optimize_root/tests/$name"
     local dest="$test_root/$name"
 
     if [[ ! -e "$source" ]]; then
@@ -38,12 +39,12 @@ move_into_test() {
     fi
 
     if [[ -e "$dest" ]]; then
-        echo "skip move: tests/$name already exists"
+        echo "skip move: optimize/tests/fixtures/$name already exists"
         return
     fi
 
     mv "$source" "$dest"
-    echo "moved $name -> tests/$name"
+    echo "moved optimize/tests/$name -> optimize/tests/fixtures/$name"
 }
 
 # Existing generated/test project directories live at the repo root in older
@@ -51,6 +52,7 @@ move_into_test() {
 move_into_test "Rec_Get_Test"
 move_into_test "Copy_Struct_Test"
 move_into_test "Copy_Struct2_Test"
+move_into_test "Generic_Copy_Bound_Test"
 move_into_test "Rust_Out"
 
 configured=0
@@ -65,7 +67,7 @@ manifest_list() {
 
     local project_path="$scope"
     if [[ "$project_path" != /* ]]; then
-        project_path="$repo_root/$project_path"
+        project_path="$optimize_root/$project_path"
     fi
 
     if [[ ! -e "$project_path" ]]; then
@@ -97,7 +99,7 @@ while IFS= read -r manifest; do
     package_root="$(dirname "$manifest")"
     config_dir="$package_root/.cargo"
     config_path="$config_dir/config.toml"
-    root_manifest="$(realpath --relative-to="$package_root" "$repo_root/Cargo.toml")"
+    root_manifest="$(realpath --relative-to="$package_root" "$optimize_root/Cargo.toml")"
 
     mkdir -p "$config_dir"
     cat > "$config_path" <<EOF_CONFIG
@@ -107,7 +109,7 @@ run-opt = "run --manifest-path opt/Cargo.toml"
 clean-opt = "clean --manifest-path opt/Cargo.toml"
 EOF_CONFIG
 
-    echo "configured ${config_path#$repo_root/}"
+    echo "configured ${config_path#$project_root/}"
     configured=$((configured + 1))
 done < <(manifest_list)
 

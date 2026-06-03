@@ -1,14 +1,14 @@
 .PHONY: setup-tests setup-test clean-test-configs
 
 setup-tests:
-	./scripts/setup-test-projects.sh
+	../scripts/setup-optimize-test-projects.sh
 
 setup-test:
 	@if [ -z "$(PROJECT)" ]; then \
-		echo "usage: make setup-test PROJECT=tests/Your_Project"; \
+		echo "usage: make setup-test PROJECT=tests/fixtures/Your_Project"; \
 		exit 1; \
 	fi
-	./scripts/setup-test-projects.sh "$(PROJECT)"
+	../scripts/setup-optimize-test-projects.sh "$(PROJECT)"
 
 clean-test-configs:
-	./scripts/setup-test-projects.sh --clear-all
+	../scripts/setup-optimize-test-projects.sh --clear-all
