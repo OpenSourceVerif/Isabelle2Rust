@@ -77,7 +77,7 @@ run:
 	  if [ ! -f "$$package_dir/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
 	    cp "$(ISABELLE_EXPORTED_LOCK)" "$$package_dir/Cargo.lock"; \
 	  fi; \
-	  RUSTFLAGS="-Awarnings" $(CARGO) run --locked --manifest-path "$$m" || exit 1; \
+	  RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) run --locked --manifest-path "$$m" || exit 1; \
 	  echo ""; \
 	done
 
@@ -189,7 +189,7 @@ hol:
 	if [ ! -f "$$package_dir/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
 	  cp "$(ISABELLE_EXPORTED_LOCK)" "$$package_dir/Cargo.lock"; \
 	fi; \
-	RUSTFLAGS="-Awarnings" cargo run --locked --manifest-path "$$CARGO_TOML"
+	RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" cargo run --locked --manifest-path "$$CARGO_TOML"
 
 
 clean:

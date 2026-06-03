@@ -146,7 +146,7 @@ test -f "$BASE_RS" || fail "baseline Rust source was generated"
 pass "Isabelle generated baseline Rust"
 
 printf '>>> compiling baseline Cargo project\n'
-RUSTFLAGS="-Awarnings" cargo run --manifest-path "$BASE_DIR/Cargo.toml" >/dev/null
+RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" cargo run --manifest-path "$BASE_DIR/Cargo.toml" >/dev/null
 pass "baseline Rust project compiles and runs"
 test -f "$BASE_LOCK" || fail "baseline Cargo.lock was generated"
 
@@ -159,7 +159,7 @@ pass "optimizer produced rewritten Rust"
 
 printf '>>> compiling optimized Cargo project\n'
 cp "$BASE_LOCK" "$OPT_DIR/Cargo.lock"
-RUSTFLAGS="-Awarnings" cargo run --locked --manifest-path "$OPT_DIR/Cargo.toml" >/dev/null
+RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" cargo run --locked --manifest-path "$OPT_DIR/Cargo.toml" >/dev/null
 pass "optimized Rust project compiles and runs"
 
 BASE_CLONES="$(grep -Fc ".clone()" "$BASE_RS" || true)"
