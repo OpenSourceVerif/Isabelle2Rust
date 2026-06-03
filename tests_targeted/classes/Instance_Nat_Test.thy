@@ -5,7 +5,8 @@ begin
 class inc =
   fixes inc :: "'a \<Rightarrow> 'a"
 
-instantiation nat :: inc
+instantiation nat
+ :: inc
 begin
   definition inc_nat where "inc (n::nat) = n + 1"
   instance ..
