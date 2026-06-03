@@ -6,13 +6,15 @@ temp/
 *.cmi
 *.cmo
 *.lock
+!scripts/isabelle-exported.Cargo.lock
 !optimize/**/Cargo.lock
 **/export
 **/Rust_Out
+target/
 **/Hol_Test/target
 node_modules/
 ROOT
 package-lock.json
 ROOT
 optimize/target/
-
+optimize/tests/out/
