@@ -30,6 +30,7 @@ enum TypeDefKind {
 
 #[derive(Debug, Clone)]
 struct TypeDef {
+    generics: Vec<String>,
     kind: TypeDefKind,
 }
 
@@ -41,8 +42,13 @@ struct CopyContext {
     functions: HashMap<String, Type>,
 }
 
-/// Infer Copy data types, add Copy derives, and remove redundant `.clone()`
-/// calls whose receiver has a statically known Copy type.
+/// Infer Copy data types for the Rust fragment generated from Isabelle/HOL,
+/// add Copy derives, and remove redundant `.clone()` calls whose receiver has
+/// a statically known Copy type.
+///
+/// This pass intentionally stays on the paper's copy-inference side of the
+/// pipeline: it does not optimize borrow/reference expressions or method/impl
+/// bodies, which belong to later optimization stages.
 pub fn optimize_copy(module: &mut RustModule) -> CopyAnalysis {
     let mut analysis = CopyAnalysis::default();
     optimize_module(module, &mut analysis);
@@ -51,8 +57,12 @@ pub fn optimize_copy(module: &mut RustModule) -> CopyAnalysis {
 
 fn optimize_module(module: &mut RustModule, analysis: &mut CopyAnalysis) {
     let mut ctx = CopyContext::from_items(&module.items);
+
+    // The pass is deliberately staged: infer all local Copy candidates first,
+    // then mutate derives/function bodies using that fixed module-local view.
     ctx.infer_copy_types();
     ctx.apply_copy_derives(&mut module.items);
+    ctx.add_copy_specializations(&mut module.items);
     ctx.rewrite_items(&mut module.items);
 
     analysis.copy_types.extend(ctx.copy_types.iter().cloned());
@@ -87,6 +97,11 @@ impl CopyContext {
                 self.type_defs.insert(
                     def.name.clone(),
                     TypeDef {
+                        generics: def
+                            .generics
+                            .iter()
+                            .map(|generic| generic.name.clone())
+                            .collect(),
                         kind: TypeDefKind::Struct(
                             def.fields
                                 .iter()
@@ -107,6 +122,11 @@ impl CopyContext {
                 self.type_defs.insert(
                     def.name.clone(),
                     TypeDef {
+                        generics: def
+                            .generics
+                            .iter()
+                            .map(|generic| generic.name.clone())
+                            .collect(),
                         kind: TypeDefKind::Enum(
                             def.variants
                                 .iter()
@@ -127,14 +147,6 @@ impl CopyContext {
                 self.functions
                     .insert(function.name.clone(), function.return_type.clone());
             }
-            Item::Impl(impl_block) => {
-                for item in &impl_block.items {
-                    if let ImplItem::Method(method) = item {
-                        self.functions
-                            .insert(method.name.clone(), method.return_type.clone());
-                    }
-                }
-            }
             _ => {}
         }
     }
@@ -153,6 +165,8 @@ impl CopyContext {
     fn infer_copy_types(&mut self) {
         let mut changed = true;
 
+        // Type aliases and algebraic data types can be mutually dependent, so
+        // compute the least fixed point of "all contained fields are Copy".
         while changed {
             changed = false;
 
@@ -177,28 +191,44 @@ impl CopyContext {
     }
 
     fn type_def_is_copy(&self, def: &TypeDef) -> bool {
+        let env = def.generics.iter().cloned().collect::<HashSet<_>>();
+
         match &def.kind {
-            TypeDefKind::Struct(fields) => fields.iter().all(|field| self.type_is_copy(&field.ty)),
-            TypeDefKind::Enum(variants) => variants
+            TypeDefKind::Struct(fields) => fields
                 .iter()
-                .all(|variant| variant.fields.iter().all(|ty| self.type_is_copy(ty))),
+                .all(|field| self.type_is_copy_in_env(&field.ty, &env)),
+            TypeDefKind::Enum(variants) => variants.iter().all(|variant| {
+                variant
+                    .fields
+                    .iter()
+                    .all(|ty| self.type_is_copy_in_env(ty, &env))
+            }),
         }
     }
 
     fn type_is_copy(&self, ty: &Type) -> bool {
+        self.type_is_copy_in_env(ty, &HashSet::new())
+    }
+
+    fn type_is_copy_in_env(&self, ty: &Type, copy_generics: &HashSet<String>) -> bool {
         match ty {
-            Type::Named(name) => self.copy_types.contains(name),
+            Type::Named(name) => self.copy_types.contains(name) || copy_generics.contains(name),
             Type::Path(path) => path
                 .last()
                 .is_some_and(|name| self.copy_types.contains(name)),
             Type::Generic(name, params) => {
                 self.copy_types.contains(name)
-                    && params.iter().all(|param| self.type_is_copy(param))
+                    && params
+                        .iter()
+                        .all(|param| self.type_is_copy_in_env(param, copy_generics))
             }
-            Type::Tuple(types) => types.iter().all(|ty| self.type_is_copy(ty)),
-            Type::Array(inner, _) => self.type_is_copy(inner),
+            Type::Tuple(types) => types
+                .iter()
+                .all(|ty| self.type_is_copy_in_env(ty, copy_generics)),
+            Type::Array(inner, _) => self.type_is_copy_in_env(inner, copy_generics),
             Type::Unit | Type::Never => true,
-            Type::Reference(_, _, _) | Type::Slice(_) => false,
+            Type::Reference(_, _, _) => false,
+            Type::Slice(_) => false,
         }
     }
 
@@ -222,62 +252,114 @@ impl CopyContext {
         }
     }
 
-    fn rewrite_item(&self, item: &mut Item) {
-        match item {
-            Item::Function(function) => self.rewrite_function(function, None),
-            Item::Impl(impl_block) => {
-                for item in &mut impl_block.items {
-                    match item {
-                        ImplItem::Method(method) => {
-                            self.rewrite_function(method, Some(&impl_block.target));
-                        }
-                        ImplItem::AssocConst(_, _, expr) => {
-                            self.rewrite_expr(expr, &mut TypeEnv::new());
-                        }
-                        ImplItem::AssocType(_, _) => {}
+    fn add_copy_specializations(&self, items: &mut Vec<Item>) {
+        // Keep the Clone-constrained original API intact and append a Copy-only
+        // overload with clone calls removed when the body proves this is valid.
+        let mut existing_function_names = items
+            .iter()
+            .filter_map(|item| match item {
+                Item::Function(function) => Some(function.name.clone()),
+                _ => None,
+            })
+            .collect::<HashSet<_>>();
+
+        let original_items = std::mem::take(items);
+        for mut item in original_items {
+            match &mut item {
+                Item::Function(function) => {
+                    let specialization = self
+                        .copy_specialization_for_function(function, &mut existing_function_names);
+                    items.push(item);
+                    if let Some(specialization) = specialization {
+                        items.push(Item::Function(specialization));
                     }
                 }
+                _ => items.push(item),
             }
-            Item::Const(const_def) => self.rewrite_expr(&mut const_def.value, &mut TypeEnv::new()),
-            Item::LazyStatic(lazy_static) => {
-                self.rewrite_block(&mut lazy_static.init, &mut TypeEnv::new());
+        }
+    }
+
+    fn copy_specialization_for_function(
+        &self,
+        function: &FunctionDef,
+        existing_names: &mut HashSet<String>,
+    ) -> Option<FunctionDef> {
+        if function.name.ends_with("_copy") {
+            return None;
+        }
+
+        let clone_generics = function
+            .generics
+            .iter()
+            .filter(|generic| has_bound(generic, "Clone") && !has_bound(generic, "Copy"))
+            .map(|generic| generic.name.clone())
+            .collect::<HashSet<_>>();
+
+        if clone_generics.is_empty() {
+            return None;
+        }
+
+        let env = function_type_env(function);
+
+        let mut copy_bound_candidates = HashSet::new();
+        let copy_generics = generic_names_with_bound(function, "Copy");
+        self.collect_copy_bound_candidates(
+            &function.body,
+            &env,
+            &clone_generics,
+            &copy_generics,
+            &mut copy_bound_candidates,
+        );
+
+        if copy_bound_candidates.is_empty() {
+            return None;
+        }
+
+        let mut specialized = function.clone();
+        specialized.name = fresh_copy_specialization_name(&function.name, existing_names);
+
+        for generic in &mut specialized.generics {
+            if copy_bound_candidates.contains(&generic.name) {
+                generic.bounds.retain(|bound| bound != "Clone");
+                if !has_bound(generic, "Copy") {
+                    generic.bounds.push("Copy".to_string());
+                }
             }
+        }
+
+        let mut specialized_env = function_type_env(&specialized);
+        let copy_generics = generic_names_with_bound(&specialized, "Copy");
+
+        self.rewrite_block(&mut specialized.body, &mut specialized_env, &copy_generics);
+
+        Some(specialized)
+    }
+
+    fn rewrite_item(&self, item: &mut Item) {
+        match item {
+            Item::Function(function) => self.rewrite_function(function),
             _ => {}
         }
     }
 
-    fn rewrite_function(&self, function: &mut FunctionDef, impl_target: Option<&Type>) {
-        let mut env = TypeEnv::new();
+    fn rewrite_function(&self, function: &mut FunctionDef) {
+        let mut env = function_type_env(function);
 
-        for param in &function.params {
-            if param.name.is_empty() {
-                continue;
-            }
+        let copy_generics = generic_names_with_bound(function, "Copy");
 
-            let ty = if matches!(&param.ty, Type::Named(name) if name == "Self") {
-                impl_target.cloned().unwrap_or_else(|| param.ty.clone())
-            } else {
-                param.ty.clone()
-            };
-
-            if param.name == "self" || param.name.ends_with("self") {
-                env.insert("self".to_string(), ty);
-            } else {
-                env.insert(param.name.clone(), ty);
-            }
-        }
-
-        self.rewrite_block(&mut function.body, &mut env);
+        self.rewrite_block(&mut function.body, &mut env, &copy_generics);
     }
 
-    fn rewrite_block(&self, block: &mut Block, env: &mut TypeEnv) {
+    fn rewrite_block(&self, block: &mut Block, env: &mut TypeEnv, copy_generics: &HashSet<String>) {
         for stmt in &mut block.stmts {
             match stmt {
                 Statement::Let(let_stmt) => {
                     if let Some(init) = &mut let_stmt.init {
-                        self.rewrite_expr(init, env);
+                        self.rewrite_expr(init, env, copy_generics);
                     }
 
+                    // Keep the local type environment precise enough for later
+                    // field access and pattern-bound clone receivers.
                     let inferred_ty = let_stmt.ty.clone().or_else(|| {
                         let_stmt
                             .init
@@ -293,77 +375,63 @@ impl CopyContext {
                         }
                     }
                 }
-                Statement::Expr(expr) => self.rewrite_expr(expr, env),
+                Statement::Expr(expr) => self.rewrite_expr(expr, env, copy_generics),
                 Statement::Item(item) => self.rewrite_item(item),
                 Statement::Continue | Statement::Break | Statement::Comment(_) => {}
             }
         }
 
         if let Some(expr) = &mut block.expr {
-            self.rewrite_expr(expr, env);
+            self.rewrite_expr(expr, env, copy_generics);
         }
     }
 
-    fn rewrite_expr(&self, expr: &mut Expr, env: &mut TypeEnv) {
+    fn rewrite_expr(&self, expr: &mut Expr, env: &mut TypeEnv, copy_generics: &HashSet<String>) {
         match expr {
             Expr::Tuple(items) => {
                 for item in items {
-                    self.rewrite_expr(item, env);
+                    self.rewrite_expr(item, env, copy_generics);
                 }
             }
             Expr::Call(callee, args) => {
-                self.rewrite_expr(callee, env);
+                self.rewrite_expr(callee, env, copy_generics);
                 for arg in args {
-                    self.rewrite_expr(arg, env);
+                    self.rewrite_expr(arg, env, copy_generics);
                 }
             }
             Expr::MethodCall(receiver, method, args) => {
-                self.rewrite_expr(receiver, env);
+                self.rewrite_expr(receiver, env, copy_generics);
                 for arg in &mut *args {
-                    self.rewrite_expr(arg, env);
+                    self.rewrite_expr(arg, env, copy_generics);
                 }
 
                 if method == "clone"
                     && args.is_empty()
                     && self
                         .infer_expr_type(receiver, env)
-                        .is_some_and(|ty| self.type_is_copy(&ty))
+                        .is_some_and(|ty| self.type_is_copy_in_env(&ty, copy_generics))
                 {
+                    // For Copy receivers, `x.clone()` is semantically just `x`.
                     *expr = receiver.as_ref().clone();
                 }
             }
             Expr::Block(block) => {
                 let mut block_env = env.clone();
-                self.rewrite_block(block, &mut block_env);
-            }
-            Expr::Loop(block) => {
-                let mut block_env = env.clone();
-                self.rewrite_block(block, &mut block_env);
-            }
-            Expr::Closure(params, body) => {
-                let mut closure_env = env.clone();
-                for param in params {
-                    closure_env.remove(param);
-                }
-                self.rewrite_expr(body, &mut closure_env);
-            }
-            Expr::Unsafe(block) => {
-                let mut block_env = env.clone();
-                self.rewrite_block(block, &mut block_env);
+                self.rewrite_block(block, &mut block_env, copy_generics);
             }
             Expr::If {
                 condition,
                 then_branch,
                 else_branch,
             } => {
-                self.rewrite_expr(condition, env);
+                self.rewrite_expr(condition, env, copy_generics);
 
                 let mut then_env = env.clone();
-                self.rewrite_block(then_branch, &mut then_env);
+                self.rewrite_block(then_branch, &mut then_env, copy_generics);
 
                 if let Some(else_branch) = else_branch {
                     let mut else_env = env.clone();
-                    self.rewrite_block(else_branch, &mut else_env);
+                    self.rewrite_block(else_branch, &mut else_env, copy_generics);
                 }
             }
             Expr::IfLet {
@@ -372,21 +440,21 @@ impl CopyContext {
                 then_branch,
                 else_branch,
             } => {
-                self.rewrite_expr(value, env);
+                self.rewrite_expr(value, env, copy_generics);
 
                 let mut then_env = env.clone();
                 if let Some(value_ty) = self.infer_expr_type(value, env) {
                     self.bind_pattern_types(pattern, &value_ty, &mut then_env);
                 }
-                self.rewrite_block(then_branch, &mut then_env);
+                self.rewrite_block(then_branch, &mut then_env, copy_generics);
 
                 if let Some(else_branch) = else_branch {
                     let mut else_env = env.clone();
-                    self.rewrite_block(else_branch, &mut else_env);
+                    self.rewrite_block(else_branch, &mut else_env, copy_generics);
                 }
             }
             Expr::Match { expr, arms } => {
-                self.rewrite_expr(expr, env);
+                self.rewrite_expr(expr, env, copy_generics);
                 let scrutinee_ty = self.infer_expr_type(expr, env);
 
                 for arm in arms {
@@ -396,30 +464,318 @@ impl CopyContext {
                         self.bind_pattern_types(&arm.pattern, ty, &mut arm_env);
                     }
                     if let Some(guard) = &mut arm.guard {
-                        self.rewrite_expr(guard, &mut arm_env);
+                        self.rewrite_expr(guard, &mut arm_env, copy_generics);
                     }
 
-                    self.rewrite_block(&mut arm.body, &mut arm_env);
+                    self.rewrite_block(&mut arm.body, &mut arm_env, copy_generics);
                 }
             }
-            Expr::Reference(inner, _, _)
-            | Expr::Await(inner)
-            | Expr::UnaryOp(_, inner)
-            | Expr::Parenthesized(inner) => self.rewrite_expr(inner, env),
-            Expr::BinaryOp(left, _, right)
-            | Expr::Assign(left, right)
-            | Expr::Index(left, right) => {
-                self.rewrite_expr(left, env);
-                self.rewrite_expr(right, env);
+            Expr::Parenthesized(inner) => self.rewrite_expr(inner, env, copy_generics),
+            Expr::BinaryOp(left, _, right) => {
+                self.rewrite_expr(left, env, copy_generics);
+                self.rewrite_expr(right, env, copy_generics);
             }
-            Expr::BuilderChain(methods) => {
-                for method in methods {
-                    if let BuilderMethod::Spawn { closure, .. } = method {
-                        self.rewrite_expr(closure, env);
+            // Constructs outside the generated fragment are left unchanged here.
+            Expr::Ident(_)
+            | Expr::Path(_, _)
+            | Expr::Literal(_)
+            | Expr::Loop(_)
+            | Expr::Await(_)
+            | Expr::Closure(_, _)
+            | Expr::BuilderChain(_)
+            | Expr::Unsafe(_)
+            | Expr::Reference(_, _, _)
+            | Expr::UnaryOp(_, _)
+            | Expr::Index(_, _)
+            | Expr::Assign(_, _) => {}
+        }
+    }
+
+    fn collect_copy_bound_candidates(
+        &self,
+        block: &Block,
+        env: &TypeEnv,
+        clone_generics: &HashSet<String>,
+        copy_generics: &HashSet<String>,
+        out: &mut HashSet<String>,
+    ) {
+        let mut required_copy_env = copy_generics.clone();
+        required_copy_env.extend(clone_generics.iter().cloned());
+        // A generic is a candidate only if every clone receiver containing it
+        // would become Copy after replacing tracked Clone bounds by Copy.
+        self.collect_clone_demands(block, env, clone_generics, Some(&required_copy_env), out);
+    }
+
+    fn collect_clone_demands(
+        &self,
+        block: &Block,
+        env: &TypeEnv,
+        tracked_generics: &HashSet<String>,
+        required_copy_env: Option<&HashSet<String>>,
+        out: &mut HashSet<String>,
+    ) {
+        let mut block_env = env.clone();
+
+        for stmt in &block.stmts {
+            match stmt {
+                Statement::Let(let_stmt) => {
+                    if let Some(init) = &let_stmt.init {
+                        self.collect_clone_demands_expr(
+                            init,
+                            &block_env,
+                            tracked_generics,
+                            required_copy_env,
+                            out,
+                        );
+                    }
+
+                    let inferred_ty = let_stmt.ty.clone().or_else(|| {
+                        let_stmt
+                            .init
+                            .as_ref()
+                            .and_then(|init| self.infer_expr_type(init, &block_env))
+                    });
+
+                    if let Some(ty) = inferred_ty {
+                        if is_binding_ident(&let_stmt.name) {
+                            block_env.insert(let_stmt.name.clone(), ty);
+                        } else {
+                            self.bind_pattern_types(&let_stmt.name, &ty, &mut block_env);
+                        }
+                    }
+                }
+                Statement::Expr(expr) => self.collect_clone_demands_expr(
+                    expr,
+                    &block_env,
+                    tracked_generics,
+                    required_copy_env,
+                    out,
+                ),
+                Statement::Item(_)
+                | Statement::Continue
+                | Statement::Break
+                | Statement::Comment(_) => {}
+            }
+        }
+
+        if let Some(expr) = &block.expr {
+            self.collect_clone_demands_expr(
+                expr,
+                &block_env,
+                tracked_generics,
+                required_copy_env,
+                out,
+            );
+        }
+    }
+
+    fn collect_clone_demands_expr(
+        &self,
+        expr: &Expr,
+        env: &TypeEnv,
+        tracked_generics: &HashSet<String>,
+        required_copy_env: Option<&HashSet<String>>,
+        out: &mut HashSet<String>,
+    ) {
+        match expr {
+            Expr::Tuple(items) => {
+                for item in items {
+                    self.collect_clone_demands_expr(
+                        item,
+                        env,
+                        tracked_generics,
+                        required_copy_env,
+                        out,
+                    );
+                }
+            }
+            Expr::Call(callee, args) => {
+                self.collect_clone_demands_expr(
+                    callee,
+                    env,
+                    tracked_generics,
+                    required_copy_env,
+                    out,
+                );
+                for arg in args {
+                    self.collect_clone_demands_expr(
+                        arg,
+                        env,
+                        tracked_generics,
+                        required_copy_env,
+                        out,
+                    );
+                }
+            }
+            Expr::MethodCall(receiver, method, args) => {
+                self.collect_clone_demands_expr(
+                    receiver,
+                    env,
+                    tracked_generics,
+                    required_copy_env,
+                    out,
+                );
+                for arg in args {
+                    self.collect_clone_demands_expr(
+                        arg,
+                        env,
+                        tracked_generics,
+                        required_copy_env,
+                        out,
+                    );
+                }
+
+                if method == "clone" && args.is_empty() {
+                    if let Some(ty) = self.infer_expr_type(receiver, env) {
+                        let mut names = HashSet::new();
+                        generic_names_in_type(&ty, &mut names);
+                        names.retain(|name| tracked_generics.contains(name));
+
+                        let admissible = required_copy_env
+                            .map(|copy_env| self.type_is_copy_in_env(&ty, copy_env))
+                            .unwrap_or(true);
+
+                        if admissible {
+                            out.extend(names);
+                        }
                     }
                 }
             }
-            Expr::Ident(_) | Expr::Path(_, _) | Expr::Literal(_) => {}
+            Expr::Block(block) => {
+                self.collect_clone_demands(block, env, tracked_generics, required_copy_env, out);
+            }
+            Expr::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                self.collect_clone_demands_expr(
+                    condition,
+                    env,
+                    tracked_generics,
+                    required_copy_env,
+                    out,
+                );
+                self.collect_clone_demands(
+                    then_branch,
+                    env,
+                    tracked_generics,
+                    required_copy_env,
+                    out,
+                );
+                if let Some(else_branch) = else_branch {
+                    self.collect_clone_demands(
+                        else_branch,
+                        env,
+                        tracked_generics,
+                        required_copy_env,
+                        out,
+                    );
+                }
+            }
+            Expr::IfLet {
+                pattern,
+                value,
+                then_branch,
+                else_branch,
+            } => {
+                self.collect_clone_demands_expr(
+                    value,
+                    env,
+                    tracked_generics,
+                    required_copy_env,
+                    out,
+                );
+                let mut then_env = env.clone();
+                if let Some(value_ty) = self.infer_expr_type(value, env) {
+                    self.bind_pattern_types(pattern, &value_ty, &mut then_env);
+                }
+                self.collect_clone_demands(
+                    then_branch,
+                    &then_env,
+                    tracked_generics,
+                    required_copy_env,
+                    out,
+                );
+                if let Some(else_branch) = else_branch {
+                    self.collect_clone_demands(
+                        else_branch,
+                        env,
+                        tracked_generics,
+                        required_copy_env,
+                        out,
+                    );
+                }
+            }
+            Expr::Match { expr, arms } => {
+                self.collect_clone_demands_expr(
+                    expr,
+                    env,
+                    tracked_generics,
+                    required_copy_env,
+                    out,
+                );
+                let scrutinee_ty = self.infer_expr_type(expr, env);
+                for arm in arms {
+                    let mut arm_env = env.clone();
+                    if let Some(ty) = &scrutinee_ty {
+                        self.bind_pattern_types(&arm.pattern, ty, &mut arm_env);
+                    }
+                    if let Some(guard) = &arm.guard {
+                        self.collect_clone_demands_expr(
+                            guard,
+                            &arm_env,
+                            tracked_generics,
+                            required_copy_env,
+                            out,
+                        );
+                    }
+                    self.collect_clone_demands(
+                        &arm.body,
+                        &arm_env,
+                        tracked_generics,
+                        required_copy_env,
+                        out,
+                    );
+                }
+            }
+            Expr::Parenthesized(inner) => self.collect_clone_demands_expr(
+                inner,
+                env,
+                tracked_generics,
+                required_copy_env,
+                out,
+            ),
+            Expr::BinaryOp(left, _, right) => {
+                self.collect_clone_demands_expr(
+                    left,
+                    env,
+                    tracked_generics,
+                    required_copy_env,
+                    out,
+                );
+                self.collect_clone_demands_expr(
+                    right,
+                    env,
+                    tracked_generics,
+                    required_copy_env,
+                    out,
+                );
+            }
+            // Clone calls under unsupported Rust constructs do not participate
+            // in copy-specialization inference.
+            Expr::Ident(_)
+            | Expr::Path(_, _)
+            | Expr::Literal(_)
+            | Expr::Loop(_)
+            | Expr::Await(_)
+            | Expr::Closure(_, _)
+            | Expr::BuilderChain(_)
+            | Expr::Unsafe(_)
+            | Expr::Reference(_, _, _)
+            | Expr::UnaryOp(_, _)
+            | Expr::Index(_, _)
+            | Expr::Assign(_, _) => {}
         }
     }
 
@@ -452,9 +808,6 @@ impl CopyContext {
             Expr::MethodCall(receiver, method, args) if method == "clone" && args.is_empty() => {
                 self.infer_expr_type(receiver, env)
             }
-            Expr::Reference(inner, is_reference, mutable) => self
-                .infer_expr_type(inner, env)
-                .map(|ty| Type::Reference(Box::new(ty), *is_reference, *mutable)),
             Expr::Parenthesized(inner) => self.infer_expr_type(inner, env),
             Expr::Block(block) => block
                 .expr
@@ -499,11 +852,12 @@ impl CopyContext {
     fn field_type(&self, ty: &Type, member: &str) -> Option<Type> {
         let type_name = local_type_name(ty)?;
         let def = self.type_defs.get(type_name)?;
+        let subst = type_substitution(def, ty);
 
         match &def.kind {
             TypeDefKind::Struct(fields) => fields.iter().find_map(|field| {
                 if field.name == member {
-                    Some(field.ty.clone())
+                    Some(apply_type_subst(&field.ty, &subst))
                 } else {
                     None
                 }
@@ -518,6 +872,8 @@ impl CopyContext {
             return;
         }
 
+        // Pattern strings are kept lightweight in RustLightAST, so this routine
+        // recovers just enough structure to bind identifiers to payload types.
         if let Some(inner) = strip_prefix_word(pattern, "box") {
             let inner_ty = match expected {
                 Type::Generic(name, params) if name == "Box" && params.len() == 1 => &params[0],
@@ -568,18 +924,30 @@ impl CopyContext {
 
         if let Some(expected_name) = local_type_name(expected) {
             if let Some(def) = self.type_defs.get(expected_name) {
+                let subst = type_substitution(def, expected);
                 match &def.kind {
                     TypeDefKind::Enum(variants) => {
                         if let Some(variant) =
                             variants.iter().find(|variant| variant.name == variant_name)
                         {
-                            return Some(variant.fields.clone());
+                            return Some(
+                                variant
+                                    .fields
+                                    .iter()
+                                    .map(|ty| apply_type_subst(ty, &subst))
+                                    .collect(),
+                            );
                         }
                     }
                     TypeDefKind::Struct(fields)
                         if variant_name == expected_name || constructor.trim() == expected_name =>
                     {
-                        return Some(fields.iter().map(|field| field.ty.clone()).collect());
+                        return Some(
+                            fields
+                                .iter()
+                                .map(|field| apply_type_subst(&field.ty, &subst))
+                                .collect(),
+                        );
                     }
                     TypeDefKind::Struct(_) => {}
                 }
@@ -646,6 +1014,15 @@ impl CopyContext {
     }
 }
 
+fn function_type_env(function: &FunctionDef) -> TypeEnv {
+    function
+        .params
+        .iter()
+        .filter(|param| !param.name.is_empty())
+        .map(|param| (param.name.clone(), param.ty.clone()))
+        .collect()
+}
+
 fn ensure_clone_copy_derives(derives: &mut Vec<String>) {
     if !derives.iter().any(|derive| derive == "Clone") {
         derives.push("Clone".to_string());
@@ -662,12 +1039,104 @@ fn ensure_clone_copy_derives(derives: &mut Vec<String>) {
     derives.insert(insert_at, "Copy".to_string());
 }
 
+fn has_bound(generic: &GenericParam, bound: &str) -> bool {
+    generic.bounds.iter().any(|candidate| candidate == bound)
+}
+
+fn generic_names_with_bound(function: &FunctionDef, bound: &str) -> HashSet<String> {
+    function
+        .generics
+        .iter()
+        .filter(|generic| has_bound(generic, bound))
+        .map(|generic| generic.name.clone())
+        .collect()
+}
+
+fn fresh_copy_specialization_name(base: &str, existing_names: &mut HashSet<String>) -> String {
+    let first = format!("{base}_copy");
+    if existing_names.insert(first.clone()) {
+        return first;
+    }
+
+    let mut suffix = 2usize;
+    loop {
+        let candidate = format!("{base}_copy{suffix}");
+        if existing_names.insert(candidate.clone()) {
+            return candidate;
+        }
+        suffix += 1;
+    }
+}
+
 fn local_type_name(ty: &Type) -> Option<&str> {
     match ty {
         Type::Named(name) => Some(name.as_str()),
         Type::Path(path) => path.last().map(String::as_str),
         Type::Generic(name, _) => Some(name.as_str()),
         _ => None,
+    }
+}
+
+fn type_substitution(def: &TypeDef, ty: &Type) -> HashMap<String, Type> {
+    match ty {
+        Type::Generic(_, params) if params.len() == def.generics.len() => def
+            .generics
+            .iter()
+            .cloned()
+            .zip(params.iter().cloned())
+            .collect(),
+        _ => HashMap::new(),
+    }
+}
+
+fn apply_type_subst(ty: &Type, subst: &HashMap<String, Type>) -> Type {
+    match ty {
+        Type::Named(name) => subst
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| Type::Named(name.clone())),
+        Type::Generic(name, params) => Type::Generic(
+            name.clone(),
+            params
+                .iter()
+                .map(|param| apply_type_subst(param, subst))
+                .collect(),
+        ),
+        Type::Tuple(types) => Type::Tuple(
+            types
+                .iter()
+                .map(|param| apply_type_subst(param, subst))
+                .collect(),
+        ),
+        Type::Array(inner, len) => Type::Array(Box::new(apply_type_subst(inner, subst)), *len),
+        Type::Reference(inner, is_ref, mutable) => {
+            Type::Reference(Box::new(apply_type_subst(inner, subst)), *is_ref, *mutable)
+        }
+        Type::Slice(inner) => Type::Slice(Box::new(apply_type_subst(inner, subst))),
+        Type::Path(_) | Type::Unit | Type::Never => ty.clone(),
+    }
+}
+
+fn generic_names_in_type(ty: &Type, out: &mut HashSet<String>) {
+    match ty {
+        Type::Named(name) => {
+            if name
+                .chars()
+                .next()
+                .is_some_and(|ch| ch.is_ascii_uppercase())
+            {
+                out.insert(name.clone());
+            }
+        }
+        Type::Path(_) | Type::Unit | Type::Never => {}
+        Type::Generic(_, params) | Type::Tuple(params) => {
+            for param in params {
+                generic_names_in_type(param, out);
+            }
+        }
+        Type::Reference(inner, _, _) | Type::Slice(inner) | Type::Array(inner, _) => {
+            generic_names_in_type(inner, out);
+        }
     }
 }
 
@@ -898,6 +1367,33 @@ pub fn replace_first_color(x0: Pixel, c: Color) -> Pixel {
         assert!(printed.contains("match (x0, c)"));
         assert!(printed.contains("Pixel::Pixel(c, old)"));
         assert!(!printed.contains(".clone()"));
+    }
+
+    #[test]
+    fn substitutes_generic_fields_in_constructor_patterns() {
+        let printed = optimize_source(
+            r#"
+#[derive(Clone)]
+pub enum CopyWrap<A> {
+    CopyWrap(A),
+}
+
+#[derive(Clone)]
+pub enum FlagPair {
+    FlagPair(bool, bool),
+}
+
+pub fn unwrap_flag(x0: CopyWrap<FlagPair>) -> FlagPair {
+    match x0 {
+        CopyWrap::CopyWrap(x) => x.clone(),
+    }
+}
+"#,
+        );
+
+        assert!(printed.contains("#[derive(Clone, Copy)]"));
+        assert!(printed.contains("CopyWrap::CopyWrap(x)"));
+        assert!(!printed.contains("x.clone()"));
     }
 
     #[test]

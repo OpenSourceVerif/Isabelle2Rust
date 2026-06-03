@@ -76,6 +76,7 @@ fn convert_item(item: &SynItem) -> syn::Result<Item> {
                 .map(convert_fn_arg)
                 .collect::<syn::Result<Vec<_>>>()?,
             return_type: convert_return_type(&item_fn.sig.output)?,
+            generics: convert_generics(&item_fn.sig.generics),
             body: convert_block(&item_fn.block)?,
             asyncness: item_fn.sig.asyncness.is_some(),
             vis: convert_visibility(&item_fn.vis),
@@ -234,6 +235,7 @@ fn convert_impl_item(item: &SynImplItem) -> syn::Result<ImplItem> {
                 .map(convert_fn_arg)
                 .collect::<syn::Result<Vec<_>>>()?,
             return_type: convert_return_type(&method.sig.output)?,
+            generics: convert_generics(&method.sig.generics),
             body: convert_block(&method.block)?,
             asyncness: method.sig.asyncness.is_some(),
             vis: Visibility::None,
@@ -610,7 +612,7 @@ fn convert_literal(lit: &Lit) -> syn::Result<Literal> {
 }
 
 fn convert_generics(generics: &syn::Generics) -> Vec<GenericParam> {
-    generics
+    let mut params = generics
         .params
         .iter()
         .filter_map(|param| match param {
@@ -624,7 +626,33 @@ fn convert_generics(generics: &syn::Generics) -> Vec<GenericParam> {
             }),
             _ => None,
         })
-        .collect()
+        .collect::<Vec<_>>();
+
+    if let Some(where_clause) = &generics.where_clause {
+        for predicate in &where_clause.predicates {
+            let syn::WherePredicate::Type(predicate) = predicate else {
+                continue;
+            };
+            let SynType::Path(type_path) = &predicate.bounded_ty else {
+                continue;
+            };
+            if type_path.path.segments.len() != 1 {
+                continue;
+            }
+
+            let name = type_path.path.segments[0].ident.to_string();
+            if let Some(param) = params.iter_mut().find(|param| param.name == name) {
+                for bound in &predicate.bounds {
+                    let bound = normalize_tokens(bound.to_token_stream());
+                    if !param.bounds.iter().any(|existing| existing == &bound) {
+                        param.bounds.push(bound);
+                    }
+                }
+            }
+        }
+    }
+
+    params
 }
 
 fn convert_visibility(vis: &SynVisibility) -> Visibility {
