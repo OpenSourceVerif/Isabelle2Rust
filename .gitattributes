@@ -1,0 +1,12 @@
+# Normalize all text files to LF in the repo and in the working tree,
+# regardless of each environment's core.autocrlf setting.
+# This repo is built under WSL/Linux (Makefile, shell scripts, Isabelle),
+# so LF is the canonical line ending everywhere.
+* text=auto eol=lf
+
+# Shell scripts must stay LF or they won't run under bash.
+*.sh text eol=lf
+
+# Keep lockfiles/text configs as LF too (they are plain text).
+*.toml text eol=lf
+*.lock text eol=lf
