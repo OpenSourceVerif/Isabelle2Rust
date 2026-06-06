@@ -26,15 +26,15 @@ val target = "Rust";
 datatype binding =
     Function of string * (typscheme * ((iterm list * iterm) * (thm option * bool)) list);
 
-(** Intermediate statement IR: groups bindings into Rust-level declarations.
-    Converted from Code_Thingol stmts by modify_stmts before printing.
-    Inst models a type class instance as a Rust `impl Trait for Type { .. }` block.
-    Because Isabelle's dictionary elimination removes Classinst nodes before the
-    serializer runs, instances are reconstructed from the specialized
-    `<class>_<Type>_inst.<method>` projection functions: Inst carries (class, tyco),
-    the instance type variables (vs, for the impl generics/bounds), and one entry
-    per trait method (classparam name + the implementing constant's symbol, whose
-    body is looked up and inlined at print time). **)
+(** Intermediate statement IR: groups bindings into Rust-level declarations,
+    produced from Code_Thingol stmts by modify_stmts before printing.
+    Inst models a type-class instance as a Rust `impl Trait for Type { .. }`.
+    Isabelle eliminates Classinst nodes (dictionary elimination) before the
+    serializer runs, so instances are reconstructed from the specialized
+    `<class>_<Type>_inst.<method>` projection functions: Inst carries (class,
+    tyco), the instance type variables vs (for the impl generics/bounds), and
+    one entry per trait method (classparam name + the implementing constant's
+    symbol, whose body is inlined at print time). **)
 datatype stmt =
     Exc of string * (typscheme * int)
   | Val of binding
@@ -303,12 +303,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
            declaration and resolves across modules without a glob import. *)
         fun print_cons (SOME parent) = deresolve (Type_Constructor parent)
           | print_cons NONE = ""
-        (** A constructor used as a first-class value (no arguments supplied but
-            with non-empty domain) is eta-expanded into a closure by
-            print_app_expr, so it must NOT receive the `Tyco::` prefix — that
-            prefix only belongs in front of an actual constructor reference.
-            lookup_typeco already yields SOME only for real constructors, so it
-            suffices to detect the bare-with-non-empty-domain shape here. **)
+        (* A constructor used as a first-class value (no args, non-empty domain)
+           is eta-expanded into a closure by print_app_expr, so it must NOT get
+           the `Tyco::` prefix -- that belongs only on an actual constructor
+           reference. *)
         val is_eta_constr =
           (case Code_Thingol.unfold_const_app t
             of SOME (({ dom, ... }), []) => not (null dom)
@@ -420,12 +418,17 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 [print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR saturated_t]
               end 
           end
-    and print_app is_pseudo_fun some_thm vars = 
+    (** Print an application, applying registered const_syntax if any and
+        otherwise falling back to print_app_expr. print_app prints arguments
+        without Box/clone; print_app_with_clone threads the (box_prcs, clone_prcs)
+        wrappers through to argument printing. **)
+    and print_app is_pseudo_fun some_thm vars =
       gen_print_app (print_app_expr is_pseudo_fun (I, I))
       (print_term_decl is_pseudo_fun) const_syntax some_thm vars
     and print_app_with_clone is_pseudo_fun (box_prcs, clone_prcs) some_thm vars =
       gen_print_app (print_app_expr is_pseudo_fun (box_prcs, clone_prcs))
       (print_term_decl is_pseudo_fun) const_syntax some_thm vars
+    (** Bind a clause pattern, introducing its variables (printed as a pattern). **)
     and print_bind is_pseudo_fun = gen_print_bind (print_term_pattern is_pseudo_fun)
     (** Print a case expression. Three cases:
         - Empty clauses: generates panic
@@ -522,6 +525,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               (cap_lets @ [closure_pretty])
           end
       end;          
+    (** Print a `val name : typescheme` signature line. **)
     fun print_val_decl print_typscheme (sym, typscheme) = concat
       [str "val", str (deresolve sym), str ":", print_typscheme typscheme];
     (** Print a Rust enum declaration with #[derive(Clone)].
@@ -1114,13 +1118,11 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
               Code_Thingol.Class (_, (_, cps)) => cps
             | _ => [])
           handle Code_Symbol.Graph.UNDEF _ => [];
-        (* Every type class declared in this program. The instance a projection
-           function belongs to is identified by the `<class>_<tyco>_inst` segment
-           of its name, which is specific enough that we can match against all
-           classes -- a method's sort-context vs only lists the ELEMENT
-           constraints, which for a monomorphic instance is empty and for a
-           lifting instance need not contain the instantiated class itself, so
-           restricting candidates to vs (the old behaviour) missed those. *)
+        (* Every type class declared in this program. We match a projection
+           function to its instance by the `<class>_<tyco>_inst` segment of its
+           name, tested against all classes: a method's sort-context vs need not
+           mention the instantiated class (it is empty for a monomorphic instance
+           and may be omitted for a lifting instance), so vs is not a usable filter. *)
         val all_classes =
           distinct (op =) (map_filter (fn ((s, st), _) =>
             case (s, st) of
@@ -1149,12 +1151,10 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                     | SOME (cls, tyc) =>
                         let
                           val cps = class_classparams cls
-                          (* Validate the const name against the method even for a
-                             single-method class: the old shortcut took the sole
-                             classparam unconditionally, so any auxiliary function
-                             sharing the `<class>_<tyco>_inst` segment (and whose
-                             type mentions the tyco) was silently swallowed as the
-                             method. Require const = `<classparam>_<tyco>`. *)
+                          (* Require const = `<classparam>_<tyco>` even for a
+                             single-method class, so an auxiliary function that
+                             merely shares the `<class>_<tyco>_inst` segment is
+                             not mistaken for the method. *)
                           val cp_opt =
                             Option.map fst (find_first (fn (cp, _) =>
                               after_last_dot const = after_last_dot cp ^ "_" ^ after_last_dot tyc) cps)
@@ -1239,16 +1239,14 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         val hs = distinct (op =) (type_names aty)
         val reach = hs @ maps (lookup_dependent_types program o Type_Constructor) hs
       in member (op =) reach co end;
-    (** Precompute, once, which fields of each data constructor need Box<>.
-        Decided on the constructor's POLYMORPHIC definition (looked up via the
-        parent datatype), NOT any instantiated call-site domain: a generic field
-        such as List's `Cons` head is a bare type variable and must never be boxed,
-        even when instantiated to a type that itself reaches the parent. The same
+    (** Which fields of a data constructor need Box<>, decided on the
+        constructor's POLYMORPHIC definition (looked up via the parent datatype),
+        NOT any instantiated call-site domain: a generic field such as List's
+        `Cons` head is a bare type variable and must never be boxed. The same
         per-field bool list drives both the enum declaration (type-level Box<...>)
-        and construction/pattern printing (term-level Box::new / box), so the two
-        are consistent by construction. type_reaches still runs the dependency
-        fixpoint, but only here at build time -- the printer just looks up the
-        table, instead of recomputing the fixpoint on every constructor print. **)
+        and construction/pattern printing (term-level Box::new / box), keeping the
+        two consistent. Precomputed into box_table so the printer never reruns the
+        type_reaches fixpoint. **)
     fun box_list_of_constr sym =
       (case get_node program sym of
         Code_Thingol.Datatypecons parent =>
@@ -1346,11 +1344,11 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       end
       val raw_modules = generated_modules
 
-    (** For each module, the crate-paths of the traits it DEFINES, keyed by module
-        name. A module that depends on another only needs that module's *traits*
-        brought into scope (for `Type::method` dispatch); everything else is
-        referenced by fully-qualified `crate::` path. This replaces the old
-        `use crate::<mod>::*;` glob with explicit `use crate::<mod>::<Trait>;`. **)
+    (** For each module, the crate-paths of the traits it DEFINES, keyed by
+        module name. A module that depends on another only needs that module's
+        *traits* in scope (for `Type::method` dispatch), emitted as explicit
+        `use crate::<mod>::<Trait>;`; everything else is referenced by a
+        fully-qualified `crate::` path. **)
     val module_to_traits =
       let
         fun fields s = String.fields (fn c => c = #".") s
@@ -1371,9 +1369,9 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
     (** Map a Code_Namespace resolved name to a Rust path. The deresolver returns
         a dot-separated name relative to the current module: a single segment for
         a local symbol, `Module.base` for a sibling module. Local names stay bare;
-        cross-module names become an absolute `crate::Module::base` path, so there
-        is no truncation and no reliance on glob imports to disambiguate equal base
-        names across modules (H4). **)
+        cross-module names become an absolute `crate::Module::base` path, so equal
+        base names in different modules stay distinct without relying on glob
+        imports to disambiguate them. **)
     fun modify_deresolver deresolver sym =
       (case String.fields (fn c => c = #".") (deresolver sym) of
         [base] => base
