@@ -190,10 +190,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     val deresolve_const = deresolve o Constant;
     val deresolve_typco = deresolve o Type_Constructor;
     val deresolve_class = deresolve o Type_Class;
-    fun box s = "Box<"^s^">"
-    fun clone s = s^".clone()"
-    fun box_new s = "Box::new("^s^")"
-    fun box_pattern s = "box "^s
+    fun box p = Pretty.block [str "Box<", p, str ">"]
+    fun clone p = Pretty.block [p, str ".clone()"]
+    fun box_new p = Pretty.block [str "Box::new(", p, str ")"]
+    fun box_pattern p = Pretty.block [str "box ", p]
     fun to_upper s = (String.implode (map Char.toUpper (String.explode s)))
     (** Print a type constructor application, inserting Box<> for recursive types. **)
     fun print_tyco_expr_gen tyco_op is_head (sym, tys) = 
@@ -203,8 +203,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           | (SOME co) => is_inf_typeco co sym)
         val tyconame = deresolve sym
       in
-        (if (isinf andalso (not is_head)) 
-        then (fn prt => str (box (Pretty.string_of prt))) 
+        (if (isinf andalso (not is_head))
+        then box
         else I)
         (case tys  
         of [] => str tyconame                                                      
@@ -288,9 +288,9 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
       | print_term_gen _ _ _ _ _ (IVar NONE) =
           str "_"
       | print_term_gen _ (need_box, box_prcs, clone_prcs) _ vars _ (t as (IVar (SOME v))) =
-          if need_box 
-          then str (box_prcs (clone_prcs (lookup_var vars v)))
-          else str (clone_prcs (lookup_var vars v))
+          if need_box
+          then box_prcs (clone_prcs (str (lookup_var vars v)))
+          else clone_prcs (str (lookup_var vars v))
       | print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy (t as t1 `$ t2)=
           let                 
             fun print_app_term (t as t1 `$ t2) =
@@ -357,17 +357,16 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             of SOME (({ dom, ... }), []) => not (null dom)
             | _ => false)
         val typeco_s = if is_eta_constr then "" else print_cons (lookup_typeco t)
-        fun typeco_append co_s t_s = 
-          if co_s = "" then t_s
-          else co_s^"::"^t_s 
         val term = print_term t
-        val term_with_cons = typeco_append typeco_s (Pretty.string_of term)
-        val term_with_box = 
-          if need_box 
-          then (box_prcs term_with_cons) 
+        val term_with_cons =
+          if typeco_s = "" then term
+          else Pretty.block [str (typeco_s ^ "::"), term]
+        val term_with_box =
+          if need_box
+          then (box_prcs term_with_cons)
           else term_with_cons
       in
-        str term_with_box
+        term_with_box
       end
     (** Print a function/constructor application expression.
         Handles constructors (with Box wrapping per argument),
@@ -383,16 +382,12 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             then [(str o deresolve) sym]
             else if length ts = wanted
             then
-              (str o deresolve) sym 
-              :: [Pretty.block (
-                str "("
-                :: (commas_append 
-                    (map 
-                    (fn (t, need_box) => 
-                      (print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars NOBR t)) 
-                    (ListPair.zip (ts, need_box_list))))
-                @ [str ")"]
-                )]
+              [(str o deresolve) sym,
+               enum "," "(" ")"
+                 (map
+                   (fn (t, need_box) =>
+                     print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars NOBR t)
+                   (ListPair.zip (ts, need_box_list)))]
             else 
               let 
                 val saturated_t = Code_Thingol.saturated_application wanted app
@@ -449,22 +444,16 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 [Pretty.block (
                   generic_prefixs
                   @ funcname
-                  :: str "("
-                  :: (commas_append
-                      (map 
-                        (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
-                      ts1))
-                  @ str ")"
-                  :: (if List.null ts2 
-                      then [str ""]
-                      else
-                        str "(" 
-                        :: (commas_append
-                            (map 
-                              (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
-                            ts2))
-                        @ [str ")"]
-                      )
+                  :: enum "," "(" ")"
+                       (map
+                         (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
+                       ts1)
+                  :: (if List.null ts2
+                      then []
+                      else [enum "," "(" ")"
+                             (map
+                               (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
+                             ts2)])
                 )]
               end
             else
@@ -555,7 +544,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             Pretty.block (
               str "(move |"
               :: commas_append
-                (map (fn (p1, p2) => str ((Pretty.string_of p1)^": "^(Pretty.string_of p2)))
+                (map (fn (p1, p2) => Pretty.block [p1, str ": ", p2])
                   (ListPair.zip (ps, typs)))
               @ [str "| {"]
             ),
