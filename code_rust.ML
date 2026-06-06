@@ -1165,21 +1165,24 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
               Code_Thingol.Class (_, (_, cps)) => cps
             | _ => [])
           handle Code_Symbol.Graph.UNDEF _ => [];
-        (* Equality classes declared in this program, offered as extra candidates
-           by name regardless of a method's sort-context. *)
-        val equal_classes =
+        (* Every type class declared in this program. The instance a projection
+           function belongs to is identified by the `<class>_<tyco>_inst` segment
+           of its name, which is specific enough that we can match against all
+           classes -- a method's sort-context vs only lists the ELEMENT
+           constraints, which for a monomorphic instance is empty and for a
+           lifting instance need not contain the instantiated class itself, so
+           restricting candidates to vs (the old behaviour) missed those. *)
+        val all_classes =
           distinct (op =) (map_filter (fn ((s, st), _) =>
             case (s, st) of
-              (Type_Class c, Code_Thingol.Class _) =>
-                if after_last_dot c = "equal" then SOME c else NONE
+              (Type_Class c, Code_Thingol.Class _) => SOME c
             | _ => NONE) stmt_list);
       in
         map_filter (fn ((sym, stmt), _) =>
           case (sym, stmt) of
             (Constant const, Code_Thingol.Fun (((vs, ty), _), _)) =>
               let
-                val classes_full = dedup (List.concat (map snd vs))
-                val candidate_classes = dedup (classes_full @ equal_classes)
+                val candidate_classes = all_classes
               in
                 if null candidate_classes then NONE
                 else
@@ -1197,11 +1200,15 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                     | SOME (cls, tyc) =>
                         let
                           val cps = class_classparams cls
+                          (* Validate the const name against the method even for a
+                             single-method class: the old shortcut took the sole
+                             classparam unconditionally, so any auxiliary function
+                             sharing the `<class>_<tyco>_inst` segment (and whose
+                             type mentions the tyco) was silently swallowed as the
+                             method. Require const = `<classparam>_<tyco>`. *)
                           val cp_opt =
-                            case cps of
-                              [(cp, _)] => SOME cp
-                            | _ => Option.map fst (find_first (fn (cp, _) =>
-                                after_last_dot const = after_last_dot cp ^ "_" ^ after_last_dot tyc) cps)
+                            Option.map fst (find_first (fn (cp, _) =>
+                              after_last_dot const = after_last_dot cp ^ "_" ^ after_last_dot tyc) cps)
                         in Option.map (fn cp => (inst_s, (cls, tyc, vs, cp, sym))) cp_opt end
                   end
               end
