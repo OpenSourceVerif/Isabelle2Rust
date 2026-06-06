@@ -936,17 +936,21 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
 
 (** print module **)
 
-(** Print a Rust module: prepend "use crate::.." import statements to the body. **)
-fun print_rust_module name decls imports includes body =
-  let 
+(** Print a Rust module: prepend `use` statements to the body.
+    `includes` are external crates, imported with a glob (`use num_bigint::*;`).
+    `trait_uses` are explicit crate-internal paths (e.g. "crate::HOL::Equal") for
+    the traits this module needs in scope so that `Type::method` trait-method
+    dispatch resolves; every other cross-module reference is already fully
+    crate::-qualified, so no module-glob import is emitted. **)
+fun print_rust_module name decls trait_uses includes body =
+  let
     val includes_p = Pretty.chunks (map (fn i => str ("use "^i^"::*;")) includes)
+    val trait_uses_p = Pretty.chunks (map (fn p => str ("use "^p^";")) trait_uses)
   in
     Pretty.chunks2 (
-      if List.null imports 
+      if List.null trait_uses
       then includes_p :: body
-      else (includes_p 
-      :: Pretty.chunks (map (fn i => str ("use crate::"^i^"::*;")) imports) 
-      :: body)
+      else includes_p :: trait_uses_p :: body
     )
   end
 
@@ -1408,6 +1412,28 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       end
       val raw_modules = generated_modules
 
+    (** For each module, the crate-paths of the traits it DEFINES, keyed by module
+        name. A module that depends on another only needs that module's *traits*
+        brought into scope (for `Type::method` dispatch); everything else is
+        referenced by fully-qualified `crate::` path. This replaces the old
+        `use crate::<mod>::*;` glob with explicit `use crate::<mod>::<Trait>;`. **)
+    val module_to_traits =
+      let
+        fun fields s = String.fields (fn c => c = #".") s
+        fun before_first_dot s = (case fields s of x :: _ => x | [] => s)
+        fun trait_entry c =
+          let val qual = deresolver [] (Type_Class c)
+          in (before_first_dot qual, "crate::" ^ String.concatWith "::" (fields qual)) end
+      in
+        fold (fn (mdl, path) => AList.map_default (op =) (mdl, []) (insert (op =) path))
+          (map_filter (fn ((sym, stmt), _) =>
+            case (sym, stmt) of
+              (Type_Class c, Code_Thingol.Class _) => SOME (trait_entry c)
+            | _ => NONE)
+            stmt_list)
+          []
+      end
+
     (** Map a Code_Namespace resolved name to a Rust path. The deresolver returns
         a dot-separated name relative to the current module: a single segment for
         a local symbol, `Module.base` for a sibling module. Local names stay bare;
@@ -1434,9 +1460,11 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       let
         val (raw_decls, body) = split_list xs;
         val decls = maps these raw_decls
-        val imports = filter (fn (sym, _) => (sym = base)) module_imports
-          |> (fn mods => case mods of [(_, imports)] => imports | [] => []) 
-      in (SOME [str base], print_rust_module base decls imports rust_includes body) end;
+        val dep_modules = filter (fn (sym, _) => (sym = base)) module_imports
+          |> (fn mods => case mods of [(_, deps)] => deps | _ => [])
+        val trait_uses = distinct (op =)
+          (maps (fn dep => these (AList.lookup (op =) module_to_traits dep)) dep_modules)
+      in (SOME [str base], print_rust_module base decls trait_uses rust_includes body) end;
 
     (** Assemble final output: Cargo.toml + main.rs + per-module .rs files.
         Unused modules get empty placeholder files to pass compilation. **)
