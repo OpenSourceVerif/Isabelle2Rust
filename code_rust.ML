@@ -173,8 +173,9 @@ fun extract_typ print_typ ("fun"`%%[ty1, ty2]) =
       reserved: reserved name context
       is_constr: test if a symbol is a constructor
       deresolve: resolve qualified symbol to its printed Rust name
-      is_inf_typeco: test if a type constructor contains recursive references (needs Box)
-      is_invdependent_typecos: for each constructor arg, whether it needs Box wrapping
+      box_table: precomputed map from a data constructor to a bool list (one per
+        field) saying which fields need Box<> indirection (used both for the enum
+        declaration and for construction/pattern term printing)
       lookup_constant_typeco: look up which type constructor a constant belongs to
       lookup_constant_fun: look up the exact definition of 
       lookup_class_methods: get method list of a type class
@@ -183,7 +184,7 @@ fun extract_typ print_typ ("fun"`%%[ty1, ty2]) =
       inst_method_info: SOME (tyco, classparam) if the symbol is a reconstructed
         instance method living in an `impl` block, NONE otherwise **)
 fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
-  is_inf_typeco is_invdependent_typecos
+  box_table
   lookup_constant_typeco lookup_constant_fun
   lookup_class_methods lookup_method_class inst_method_info =
   let
@@ -200,40 +201,32 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     fun box_new p = Pretty.block [str "Box::new(", p, str ")"]
     fun box_pattern p = Pretty.block [str "box ", p]
     fun to_upper s = (String.implode (map Char.toUpper (String.explode s)))
-    (** Print a type constructor application, inserting Box<> for recursive types. **)
-    fun print_tyco_expr_gen tyco_op is_head (sym, tys) =
+    (** Print a type constructor application `Tyco<args>`. Box<> wrapping of a
+        recursive datatype field is applied by print_datatype_decl from the
+        precomputed box_table, so type printing itself is box-agnostic. **)
+    fun print_tyco_expr_gen (sym, tys) =
       let
-        (* Box on the *whole* instantiated type (head + arguments), so that a
-           recursive reference hidden inside a type argument -- e.g. tree in
-           `tree list` -- is detected, not just the head constructor. *)
-        val isinf = (case tyco_op
-          of NONE => false
-          | SOME co => (case sym of Type_Constructor t => is_inf_typeco co (t `%% tys)
-                                  | _ => false))
         val tyconame = deresolve sym
       in
-        (if (isinf andalso (not is_head))
-        then box
-        else I)
-        (case tys  
-        of [] => str tyconame                                                      
-        | tys =>
+        (case tys
+        of [] => str tyconame
+        | _ =>
           Pretty.block(
             str tyconame
             :: str "<"
-            :: enum "," "" "" (map (print_typ_gen NONE true BR) tys)
+            :: enum "," "" "" (map (print_typ_gen BR) tys)
             :: [str ">"]
           ))
       end
     (** Print an itype to Rust type syntax.
         Dispatches to custom tyco_syntax or default print_tyco_expr_gen. **)
-    and print_typ_gen tyco_op is_head fxy (tyco `%% tys) = (case tyco_syntax tyco
-         of NONE => print_tyco_expr_gen tyco_op is_head (Type_Constructor tyco, tys)
-          | SOME (_, print) => print (print_typ_gen tyco_op is_head) fxy tys)
-      | print_typ_gen _ _ _  (ITyVar v) =
+    and print_typ_gen fxy (tyco `%% tys) = (case tyco_syntax tyco
+         of NONE => print_tyco_expr_gen (Type_Constructor tyco, tys)
+          | SOME (_, print) => print print_typ_gen fxy tys)
+      | print_typ_gen _ (ITyVar v) =
         str (to_upper v);
-    fun print_tyco_expr (sym, tys) = print_tyco_expr_gen NONE true (sym, tys);
-    fun print_typ fxy ty = print_typ_gen NONE true fxy ty;
+    fun print_tyco_expr (sym, tys) = print_tyco_expr_gen (sym, tys);
+    fun print_typ fxy ty = print_typ_gen fxy ty;
     fun print_dicttyp (class, ty) = print_tyco_expr (Type_Class class, []); (*omit generic param Self*)
     (** Print a trait method signature: "fn method(params) -> RetType;" **)
     fun print_trait_typ fxy class ty generic_ty =
@@ -380,9 +373,9 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     and print_app_expr is_pseudo_fun (box_prcs, clone_prcs)
        some_thm vars (app as ((const as { sym, dicts, dom, range, ... }), ts)) =
         if is_constr sym then
-          let 
+          let
             val wanted = length dom
-            val need_box_list = is_invdependent_typecos const
+            val need_box_list = box_table sym
           in
             if wanted = 0
             then [(str o deresolve_base) sym]
@@ -578,16 +571,25 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     fun print_datatype_decl definer (tyco, (vs, cos)) =
       let
         fun print_co ((co, _), []) = str (deresolve_const co)
-          | print_co ((co, _), tys) = 
-            concat [
-              str (deresolve_const co), 
-              Pretty.block(
-                [
-                str "(",
-                enum "," "" "" (map (print_typ_gen (SOME tyco) false (INFX (2, X))) tys), 
-                str")"]
-              )
-              ];
+          | print_co ((co, _), tys) =
+            let
+              (* Per-field Box<> from the precomputed table (one bool per field of
+                 this constructor); falls back to no boxing on a length mismatch. *)
+              val boxes = box_table (Constant co)
+              val boxes' = if length boxes = length tys then boxes else map (K false) tys
+              fun print_field (ty, needbox) =
+                (if needbox then box else I) (print_typ (INFX (2, X)) ty)
+            in
+              concat [
+                str (deresolve_const co),
+                Pretty.block(
+                  [
+                  str "(",
+                  enum "," "" "" (map print_field (ListPair.zip (tys, boxes'))),
+                  str")"]
+                )
+              ]
+            end;
       in
         Pretty.block_enclose (
           Pretty.chunks([
@@ -673,20 +675,6 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   |> intro_base_names_for (is_none o const_syntax)
                       deresolve (t :: ts)
                   |> intro_vars (build (fold Code_Thingol.add_varnames ts));
-                fun add_boxed_list t boxed_list = 
-                  (case (Code_Thingol.unfold_const_app t)
-                  of (SOME (const, ts as (_::_))) => 
-                    (let 
-                      val boxed_l = is_invdependent_typecos const
-                      fun add (t::ts) (b::boxed_l') boxed_list = 
-                        if b 
-                        then t::(add ts boxed_l' boxed_list) 
-                        else add ts boxed_l' boxed_list
-                      | add [] [] boxed_list = boxed_list
-                    in
-                      add ts boxed_l boxed_list
-                    end)
-                  | _ => boxed_list)
                 val print_pattern_term = (print_term_pattern is_pseudo_fun some_thm vars NOBR)
                 val print_expr_term = (print_term_app is_pseudo_fun some_thm vars NOBR)
               in 
@@ -1295,34 +1283,35 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         val hs = dedup (type_names aty)
         val reach = hs @ maps (lookup_dependent_types program o Type_Constructor) hs
       in member (op =) reach co end;
-    (** Whether a datatype field of type aty references the enclosing datatype co;
-        such a field needs Box to keep the Rust type finite-size. aty is the field's
-        (polymorphic) type as printed in the enum declaration, so this stays in
-        sync with is_invdependent_typecos below. **)
-    fun is_inf_typeco co aty = type_reaches co aty;
-    (** For each argument of a data constructor, whether it needs Box wrapping.
-        The decision is taken on the constructor's POLYMORPHIC definition (looked
-        up via the parent datatype), NOT the instantiated call-site domain: a
-        generic field such as List's `Cons` head is a bare type variable and must
-        never be boxed, even when instantiated to a type that itself happens to
-        reach the parent datatype (which previously produced a spurious Box).
-        Non-constructor symbols (should not occur here) yield no boxing. **)
-    fun is_invdependent_typecos {sym as (Constant cname), typargs = _, dicts = _, dom, range = _, annotation = _} =
-          let
-            val poly_dom =
-              (case get_node program sym of
-                Code_Thingol.Datatypecons parent =>
-                  (case get_node program (Type_Constructor parent) of
-                    Code_Thingol.Datatype (_, cos) =>
-                      Option.map (pair parent)
-                        (AList.lookup (op =) (map (fn ((co, _), tys) => (co, tys)) cos) cname)
-                  | _ => NONE)
-              | _ => NONE)
-          in
-            case poly_dom of
-              SOME (parent, poly_tys) => map (type_reaches parent) poly_tys
-            | NONE => map (K false) dom
-          end;
+    (** Precompute, once, which fields of each data constructor need Box<>.
+        Decided on the constructor's POLYMORPHIC definition (looked up via the
+        parent datatype), NOT any instantiated call-site domain: a generic field
+        such as List's `Cons` head is a bare type variable and must never be boxed,
+        even when instantiated to a type that itself reaches the parent. The same
+        per-field bool list drives both the enum declaration (type-level Box<...>)
+        and construction/pattern printing (term-level Box::new / box), so the two
+        are consistent by construction. type_reaches still runs the dependency
+        fixpoint, but only here at build time -- the printer just looks up the
+        table, instead of recomputing the fixpoint on every constructor print. **)
+    fun box_list_of_constr sym =
+      (case get_node program sym of
+        Code_Thingol.Datatypecons parent =>
+          (case get_node program (Type_Constructor parent) of
+            Code_Thingol.Datatype (_, cos) =>
+              (case AList.lookup (op =) (map (fn ((co, _), tys) => (co, tys)) cos)
+                     (case sym of Constant c => c | _ => "") of
+                SOME poly_tys => map (type_reaches parent) poly_tys
+              | NONE => [])
+          | _ => [])
+      | _ => []);
+    val box_table =
+      let
+        val tab = fold (fn ((sym, stmt), _) =>
+          (case (sym, stmt) of
+            (Constant _, Code_Thingol.Datatypecons _) =>
+              Code_Symbol.Table.update (sym, box_list_of_constr sym)
+          | _ => I)) stmt_list Code_Symbol.Table.empty
+      in fn sym => the_default [] (Code_Symbol.Table.lookup tab sym) end;
     (** Look up whether a constant is a data constructor; returns SOME parent_tyco or NONE. **)
     fun lookup_constant_typeco_gen program sym = 
       let
@@ -1449,7 +1438,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
     fun print_stmt prefix_fragments (_, (export, stmt)) = (print_rust_stmt
       tyco_syntax const_syntax (make_vars reserved_syms)
       (Code_Thingol.is_constr program) (modify_deresolver (deresolver prefix_fragments))
-      is_inf_typeco is_invdependent_typecos
+      box_table
       lookup_constant_typeco lookup_constant_fun
       lookup_class_methods lookup_method_class inst_method_info)
       export stmt
