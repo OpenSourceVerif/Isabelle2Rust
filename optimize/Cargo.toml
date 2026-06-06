@@ -1,0 +1,18 @@
+[package]
+name = "isabelle2rust-optimize"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "isabelle2rust_optimize"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cargo-opt"
+path = "src/bin/cargo-opt.rs"
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
+rustlightast = { path = "../../RustLightAST" }
