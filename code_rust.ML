@@ -814,12 +814,20 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
       | print_stmt _ (Funs ((export, binding) :: exports_bindings, pseudo_funs)) =
           let
             val print_def' = (fn definer => print_def (member (op =) pseudo_funs) false definer NONE);
+            (* FIXME (P3): a self-referential nullary value is emitted as a thunk
+               `fn x()` plus this module-level `let x = x();`, which is not valid
+               Rust at item scope. A correct encoding needs a global is_pseudo_fun
+               so every use site (across SCCs) calls `x()` consistently; deferred.
+               Pseudo-funs only arise from non-conservative definitions
+               (partial_function / codatatypes), which the test suite does not use,
+               so this path is currently unexercised. The `();` here is at least
+               single- rather than double-semicolon. *)
             fun print_pseudo_fun sym = concat [
                 str "let",
                 (str o deresolve) sym,
                 str "=",
                 (str o deresolve) sym,
-                str "();;"
+                str "();"
               ];
             val head = "fn";
             val (sig_ps, (ps, p)) = (apsnd split_last o split_list)
@@ -1041,9 +1049,17 @@ fun rust_program_of_program ctxt module_name reserved identifiers (inst_method_s
               | SOME (sym, true) => Funs ([(export, binding)], [sym])
               | SOME (_, false) => Val binding
       in SOME (export, stmt) end;
-    (** Convert a group of mutually recursive functions into a single Funs stmt. **)
-    fun modify_funs stmts = single (SOME
-      (Code_Namespace.Opaque, Funs (map_split binding_of_stmt stmts |> (apsnd o map_filter o Option.map) fst)))
+    (** Convert a group of mutually recursive functions into a single Funs stmt.
+        Only Fun members become bindings; any non-Fun that ended up in a Fun-led
+        SCC is skipped rather than aborting the whole serialization with an error. **)
+    fun modify_funs stmts =
+      let
+        val funs = filter (fn (_, (_, Code_Thingol.Fun _)) => true | _ => false) stmts
+      in
+        if null funs then []
+        else single (SOME
+          (Code_Namespace.Opaque, Funs (map_split binding_of_stmt funs |> (apsnd o map_filter o Option.map) fst)))
+      end;
     (** Collect Datatype statements into a single Datas stmt (multi-constructor enum). **)
     fun modify_datatypes stmts =
       let
@@ -1058,18 +1074,19 @@ fun rust_program_of_program ctxt module_name reserved identifiers (inst_method_s
           |> SOME
           |> single
       end;
-    (** Collect Class/Classrel/Classparam statements into a single Class stmt (trait). **)
+    (** Collect the Class node of a class SCC into a single Class stmt (trait).
+        The Code_Thingol.Class node already carries the superclass relations and
+        the class parameters, so the separate Classrel/Classparam members of the
+        SCC are redundant and dropped. A group that happens to carry no Class node
+        (its trait is emitted from the Class node living in another SCC) yields
+        nothing, rather than crashing the_single on an empty list. **)
     fun modify_class stmts =
-      let
-        val stmts' = map 
-          (fn (c', (_, stmt')) => (c', stmt')) stmts
-      in
-        the_single (map_filter
-          (fn (Type_Class class, (export, Code_Thingol.Class stmt)) => SOME (export, (class, stmt)) | _ => NONE) stmts)
-        |> apsnd Class
-        |> SOME
-        |> single
-      end;
+      (case map_filter
+              (fn (Type_Class class, (export, Code_Thingol.Class stmt)) => SOME (export, (class, stmt))
+                | _ => NONE)
+              stmts of
+        [] => []
+      | (class_stmt :: _) => [SOME (apsnd Class class_stmt)]);
     (** Dispatch statement groups by kind to the appropriate modify_* handler.
         Filters out case combinators from function stmts. **)
     fun modify_stmts ([stmt as (sym, (export, stmt' as Code_Thingol.Fun _))]) =
