@@ -190,6 +190,11 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     val deresolve_const = deresolve o Constant;
     val deresolve_typco = deresolve o Type_Constructor;
     val deresolve_class = deresolve o Type_Class;
+    (** The bare base name of a symbol (last path segment of its possibly
+        crate-qualified deresolved name). Used in Rust "suffix" positions that
+        must stay unqualified -- enum variants after `Enum::` and trait methods
+        after `Type::` -- where the qualified path is carried by the prefix. **)
+    fun deresolve_base sym = List.last (String.fields (fn c => c = #":") (deresolve sym));
     fun box p = Pretty.block [str "Box<", p, str ">"]
     fun clone p = Pretty.block [p, str ".clone()"]
     fun box_new p = Pretty.block [str "Box::new(", p, str ")"]
@@ -337,19 +342,16 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     (** Prepend type constructor prefix (e.g. "List::") and apply Box wrapping if needed. **)
     and print_term_with_cons_and_box (need_box, box_prcs) print_term t = 
       let
-        fun lookup_typeco t = 
-          (case (Code_Thingol.unfold_const_app t) 
+        fun lookup_typeco t =
+          (case (Code_Thingol.unfold_const_app t)
             of (SOME ((const as {sym as (Constant c), ...}), _))
               => lookup_constant_typeco sym
             | _ => NONE)
-        fun print_cons (SOME s) =
-          let
-            fun after_last_dot s =
-              (case List.rev (String.fields (fn c => c = #".") s) of
-                  [] => s
-                | x::_ => x)
-            in to_upper_camel_case (after_last_dot s) end
-        | print_cons NONE = ""
+        (* The `Enum::` prefix is the (possibly crate-qualified) name of the parent
+           datatype, taken straight from the deresolver so it matches the enum
+           declaration and resolves across modules without a glob import. *)
+        fun print_cons (SOME parent) = deresolve (Type_Constructor parent)
+          | print_cons NONE = ""
         (** A constructor used as a first-class value (no arguments supplied but
             with non-empty domain) is eta-expanded into a closure by
             print_app_expr, so it must NOT receive the `Tyco::` prefix — that
@@ -383,10 +385,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             val need_box_list = is_invdependent_typecos const
           in
             if wanted = 0
-            then [(str o deresolve) sym]
+            then [(str o deresolve_base) sym]
             else if length ts = wanted
             then
-              [(str o deresolve) sym,
+              [(str o deresolve_base) sym,
                enum "," "(" ")"
                  (map
                    (fn (t, need_box) =>
@@ -433,11 +435,11 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               (case inst_method_info sym of
                   SOME (tyco_s, cp_s) =>
                     ([Pretty.block [str (deresolve (Type_Constructor tyco_s)), str "::"]],
-                     (str o deresolve_const) cp_s)
+                     str (deresolve_base (Constant cp_s)))
                 | NONE =>
                     if is_some (lookup_method_class sym) andalso is_tyvar_receiver
                     then ([Pretty.block [print_generic_prefix_typ prefix_target_ty, str "::"]],
-                          (str o deresolve) sym)
+                          (str o deresolve_base) sym)
                     else ([], (str o deresolve) sym))
           in
             if length ts = wanted_app
@@ -916,7 +918,9 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             fun print_method (classparam, method_sym) =
               let
                 val const_s = (fn Constant s => s | sym => deresolve sym) method_sym
-                val method_name = deresolve_const classparam
+                (* A method name inside `impl Trait for T { fn .. }` must be the
+                   bare trait-method name, never crate-qualified. *)
+                val method_name = deresolve_base (Constant classparam)
               in
                 case method_function method_sym
                  of SOME fb =>
@@ -1397,17 +1401,16 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       end
       val raw_modules = generated_modules
 
-    (** Strip module prefix from resolved names (use short local names within a module). **)
-    fun modify_deresolver deresolver sym = 
-      let
-        val sname = deresolver sym
-        fun after_last_dot s =
-          (case List.rev (String.fields (fn c => c = #".") s) of
-              [] => s
-            | x::_ => x)
-      in
-        after_last_dot sname
-      end
+    (** Map a Code_Namespace resolved name to a Rust path. The deresolver returns
+        a dot-separated name relative to the current module: a single segment for
+        a local symbol, `Module.base` for a sibling module. Local names stay bare;
+        cross-module names become an absolute `crate::Module::base` path, so there
+        is no truncation and no reliance on glob imports to disambiguate equal base
+        names across modules (H4). **)
+    fun modify_deresolver deresolver sym =
+      (case String.fields (fn c => c = #".") (deresolver sym) of
+        [base] => base
+      | segs => "crate::" ^ String.concatWith "::" segs)
 
     (** Print a single statement within its module context. **)
     fun print_stmt prefix_fragments (_, (export, stmt)) = (print_rust_stmt
