@@ -196,11 +196,15 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     fun box_pattern p = Pretty.block [str "box ", p]
     fun to_upper s = (String.implode (map Char.toUpper (String.explode s)))
     (** Print a type constructor application, inserting Box<> for recursive types. **)
-    fun print_tyco_expr_gen tyco_op is_head (sym, tys) = 
+    fun print_tyco_expr_gen tyco_op is_head (sym, tys) =
       let
-        val isinf = (case tyco_op 
+        (* Box on the *whole* instantiated type (head + arguments), so that a
+           recursive reference hidden inside a type argument -- e.g. tree in
+           `tree list` -- is detected, not just the head constructor. *)
+        val isinf = (case tyco_op
           of NONE => false
-          | (SOME co) => is_inf_typeco co sym)
+          | SOME co => (case sym of Type_Constructor t => is_inf_typeco co (t `%% tys)
+                                  | _ => false))
         val tyconame = deresolve sym
       in
         (if (isinf andalso (not is_head))
@@ -1245,29 +1249,48 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         else lookup_dependent_types_h program sym snd_dpdncs
       end;
     fun lookup_dependent_types program sym = lookup_dependent_types_h program sym [];
-    (** Test whether type constructor sym contains a (possibly indirect) reference to co.
-        If so, values of that type need Box indirection. **)
-    fun is_inf_typeco co (sym as (Type_Class _)) = false
-      | is_inf_typeco co sym =
+    (** Names of all type constructors / type variables mentioned in an itype,
+        descending through type arguments (so e.g. tree is found in `tree list`). **)
+    fun type_names (ITyVar vn) = [vn]
+      | type_names (tyco `%% tys) = tyco :: maps type_names tys;
+    (** Whether type aty can transitively reach datatype co: either co is mentioned
+        syntactically (incl. inside a type argument) or it lies in the recursive
+        datatype-definition closure of some type aty mentions. Boxing on this
+        predicate is conservative -- over-boxing only adds an indirection, whereas
+        under-boxing yields an infinite-size Rust type (E0072). **)
+    fun type_reaches co aty =
       let
-        val dpdncs = lookup_dependent_types program sym
-      in
-        List.exists (fn s => s = co) dpdncs
-      end;
-    (** For each argument of a data constructor, determine whether it needs Box wrapping
-        (i.e., the argument's type transitively references the parent datatype). **)
-    fun is_invdependent_typecos {sym as (Constant t), typargs = _, dicts = _, dom, range = _, annotation = _} =
-      let 
-        fun dest_itype (ITyVar vn) = vn
-          | dest_itype (v `%% _ ) = v   
-        val dttypcon = (fn (Code_Thingol.Datatypecons x) => x) (get_node program sym)
-        val dom_typs = dom
-          |> map dest_itype
-          |> map (fn x => Type_Constructor x)
-        val dom_dpdncs = map (lookup_dependent_types program) dom_typs
-      in
-        map (List.exists (fn s => s = dttypcon)) dom_dpdncs
-    end;
+        val hs = dedup (type_names aty)
+        val reach = hs @ maps (lookup_dependent_types program o Type_Constructor) hs
+      in member (op =) reach co end;
+    (** Whether a datatype field of type aty references the enclosing datatype co;
+        such a field needs Box to keep the Rust type finite-size. aty is the field's
+        (polymorphic) type as printed in the enum declaration, so this stays in
+        sync with is_invdependent_typecos below. **)
+    fun is_inf_typeco co aty = type_reaches co aty;
+    (** For each argument of a data constructor, whether it needs Box wrapping.
+        The decision is taken on the constructor's POLYMORPHIC definition (looked
+        up via the parent datatype), NOT the instantiated call-site domain: a
+        generic field such as List's `Cons` head is a bare type variable and must
+        never be boxed, even when instantiated to a type that itself happens to
+        reach the parent datatype (which previously produced a spurious Box).
+        Non-constructor symbols (should not occur here) yield no boxing. **)
+    fun is_invdependent_typecos {sym as (Constant cname), typargs = _, dicts = _, dom, range = _, annotation = _} =
+          let
+            val poly_dom =
+              (case get_node program sym of
+                Code_Thingol.Datatypecons parent =>
+                  (case get_node program (Type_Constructor parent) of
+                    Code_Thingol.Datatype (_, cos) =>
+                      Option.map (pair parent)
+                        (AList.lookup (op =) (map (fn ((co, _), tys) => (co, tys)) cos) cname)
+                  | _ => NONE)
+              | _ => NONE)
+          in
+            case poly_dom of
+              SOME (parent, poly_tys) => map (type_reaches parent) poly_tys
+            | NONE => map (K false) dom
+          end;
     (** Look up whether a constant is a data constructor; returns SOME parent_tyco or NONE. **)
     fun lookup_constant_typeco_gen program sym = 
       let
