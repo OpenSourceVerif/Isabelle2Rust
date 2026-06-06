@@ -14,9 +14,7 @@ open Basic_Code_Symbol;
 open Basic_Code_Thingol;
 open Code_Printer;
 
-open Code_Debug_Info;
-
-infixr 5 @@;         
+infixr 5 @@;
 infixr 5 @|;
 
 
@@ -100,45 +98,6 @@ fun to_upper_camel_case s =
       | auxx (c :: cs) = Char.toUpper c :: aux cs
   in String.implode (auxx cs) end;
 
-(* log-efficiency dedup*)
-fun merge leq (L1 : string list, L2 : string list) = case (L1, L2) of
-  ([], L2) => L2
-  | (L1, []) => L1
-  | (x1::rest1, x2::rest2) =>
-  if leq(x1, x2) then x1 :: merge leq (rest1, L2)
-  else x2 :: merge leq (L1, rest2);
-fun mergesort leq (lst : string list) =
-  if (length lst) <= 1 then lst
-  else
-  let 
-    val m = (length lst) div 2
-    val (L1, L2) = (List.take(lst, m), List.drop(lst, m))
-  in
-    merge leq (mergesort leq L1, mergesort leq L2)
-  end;
-fun dedup_sorted eq (lst : string list) = case lst 
-  of [] => []
-  | [x] => [x]
-  | x1 :: x2 :: rest =>
-    if eq(x1, x2) then dedup_sorted eq (x2 :: rest)
-    else x1 :: dedup_sorted eq (x2 :: rest);
-fun dedup (lst : string list) : string list = dedup_sorted (op=) (mergesort (op<=) lst)
-(* log-efficiency list minus*)
-fun lminus L1 L2 = 
-  let
-    val l1 = dedup L1 
-    val l2 = dedup L2 
-    fun minus (x::xs, y::ys) =
-          if x = y then minus(xs, ys)
-          else if x < y then x :: minus(xs, y::ys)
-          else minus(x::xs, ys)
-      | minus (xs, []) = xs
-      | minus ([], _) = []
-  in
-    minus (l1, l2)
-  end
-
-
 (** Rust serializer **)
 
 (** Escape a string into a valid Rust string literal. **)
@@ -177,8 +136,7 @@ fun extract_typ print_typ ("fun"`%%[ty1, ty2]) =
         field) saying which fields need Box<> indirection (used both for the enum
         declaration and for construction/pattern term printing)
       lookup_constant_typeco: look up which type constructor a constant belongs to
-      lookup_constant_fun: look up the exact definition of 
-      lookup_class_methods: get method list of a type class
+      lookup_constant_fun: look up the exact definition of
       lookup_method_class: SOME class if the symbol is a class parameter (trait
         method), NONE otherwise
       inst_method_info: SOME (tyco, classparam) if the symbol is a reconstructed
@@ -186,7 +144,7 @@ fun extract_typ print_typ ("fun"`%%[ty1, ty2]) =
 fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
   box_table
   lookup_constant_typeco lookup_constant_fun
-  lookup_class_methods lookup_method_class inst_method_info =
+  lookup_method_class inst_method_info =
   let
     val deresolve_const = deresolve o Constant;
     val deresolve_typco = deresolve o Type_Constructor;
@@ -626,7 +584,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                     fun aux (ITyVar v, acc) = to_upper v :: acc
                       | aux ((_ `%% tys), acc) = List.foldl aux acc tys
                   in aux (t, []) end
-                val generic_params = dedup (extract_generics ty)
+                val generic_params = distinct (op =) (extract_generics ty)
                 fun print_traits vs generic_params = 
                   let
                     fun print_vs_traits vs = 
@@ -1132,7 +1090,6 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
     val stmt_list = (Code_Symbol.Graph.dest program)
     val sym_dpdnc_list = map (fn ((sym, _), children) => (sym, children)) stmt_list
 
-    val _ = tracing ("PROGRAM="^String.concatWith "\n" (map print_debug_info_node stmt_list)^"\n")
 
     val rust_module = if rust_module = "" then "\"isabelle_exported\"" else rust_module;
     val rust_version = if rust_version = "" then "\"0.1.0\"" else rust_version;
@@ -1179,7 +1136,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                 if null candidate_classes then NONE
                 else
                   let
-                    val typcons = dedup (tycos_of ty)
+                    val typcons = distinct (op =) (tycos_of ty)
                     val inst_s = before_last_dot const
                     fun matches cls tyc =
                       (after_last_dot cls ^ "_" ^ after_last_dot tyc ^ "_inst") = inst_s
@@ -1234,7 +1191,6 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       rust_program_of_program ctxt module_name (Name.make_context reserved_syms)
         identifiers (inst_method_syms, inst_table) exports program;
 
-    val _ = tracing "Build Program Accomplished"
 
     (** Global lookup functions: query the program graph for type/class info. **)
     (** Look up a symbol's statement in the program graph, returning NoStmt on missing. 
@@ -1253,7 +1209,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           |> List.concat
           |> map dest_itype
           |> List.concat
-          |> dedup
+          |> distinct (op =)
           | dest_types _ = [] (*raise Fail ("dest_types: "^ print_debug_info_thingol_stmt x)*)
         val drct_dpdncs = dest_types (get_node program sym)
         val snd_dpdncs = drct_dpdncs@dpdncs 
@@ -1262,7 +1218,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           |> map dest_types
           |> List.concat
           |> (fn l => l@drct_dpdncs@dpdncs)
-          |> dedup
+          |> distinct (op =)
       in
         if (List.length dpdncs) = (List.length (snd_dpdncs))
         then dpdncs
@@ -1280,7 +1236,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         under-boxing yields an infinite-size Rust type (E0072). **)
     fun type_reaches co aty =
       let
-        val hs = dedup (type_names aty)
+        val hs = distinct (op =) (type_names aty)
         val reach = hs @ maps (lookup_dependent_types program o Type_Constructor) hs
       in member (op =) reach co end;
     (** Precompute, once, which fields of each data constructor need Box<>.
@@ -1332,17 +1288,6 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           | _ => NONE)
       end; 
     val lookup_constant_fun = lookup_constant_fun_gen program;
-    (** Look up the methods of a type class along with their types. **)
-    fun lookup_class_methods_gen program print_plain_typ sym = 
-      let
-        val method_stmt = get_node program sym
-        val methods = case method_stmt
-          of (Code_Thingol.Class (_, (_, const_funty))) => map (fn (c, ty) => (c, (extract_typ print_plain_typ ty))) const_funty
-          | _ => []
-      in
-        methods
-      end
-    val lookup_class_methods = lookup_class_methods_gen program
     (** Look up which class a class parameter (method) belongs to.
         Returns NONE for symbols that are not class parameters. **)
     fun lookup_method_class_gen program sym =
@@ -1361,7 +1306,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         print_stmt = fn _ => fn _ => "",
         lift_markup = K I } rust_program
       |> filter (fn s => s <> "")
-      |> dedup
+      |> distinct (op =)
     val module_imports =
       let
         fun before_first_dot s =
@@ -1388,7 +1333,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
             if (List.exists (fn (mdl, _) => (mdl = module)) imports)
             then (map (fn (mdl, import') => 
               if (mdl = module) 
-              then (mdl, dedup (import @ import'))
+              then (mdl, distinct (op =) (import @ import'))
               else (mdl, import'))
               imports)
             else (module, import)::imports
@@ -1440,7 +1385,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       (Code_Thingol.is_constr program) (modify_deresolver (deresolver prefix_fragments))
       box_table
       lookup_constant_typeco lookup_constant_fun
-      lookup_class_methods lookup_method_class inst_method_info)
+      lookup_method_class inst_method_info)
       export stmt
       |> apfst (fn decl => if Code_Namespace.not_private export then SOME decl else NONE);
 
@@ -1462,8 +1407,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         lift_markup = K I } rust_program;
     val modules = map fst ps
       |> map (fn (SOME [x]) => (Pretty.string_of x))
-    val unused_modules = lminus raw_modules modules
-    val _ = tracing("mods="^(wrap_list raw_modules)^"  used="^(wrap_list modules)^"  unused="^(wrap_list unused_modules))
+    val unused_modules = subtract (op =) modules raw_modules
     val srcs = ListPair.zip
       (map (fn x => ["src", x^rust_extension]) modules,
       map snd includes @ map snd ps)
