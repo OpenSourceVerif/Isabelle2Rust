@@ -142,7 +142,7 @@ fun extract_typ print_typ ("fun"`%%[ty1, ty2]) =
       inst_method_info: SOME (tyco, classparam) if the symbol is a reconstructed
         instance method living in an `impl` block, NONE otherwise **)
 fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
-  box_table
+  box_table phantom_table
   lookup_constant_typeco lookup_constant_fun
   lookup_method_class inst_method_info =
   let
@@ -332,9 +332,20 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           let
             val wanted = length dom
             val need_box_list = box_table sym
+            (* One PhantomData marker per phantom param of the parent datatype,
+               appended after the real args. Valid as both an expression (unit
+               struct) and an irrefutable pattern, so no expr/pattern split here. *)
+            val phantom_count =
+              (case lookup_constant_typeco sym of
+                SOME parent => length (phantom_table (Type_Constructor parent))
+              | NONE => 0)
+            val phantom_args = List.tabulate (phantom_count, fn _ => str "PhantomData")
           in
             if wanted = 0
-            then [(str o deresolve_base) sym]
+            then
+              if phantom_count = 0
+              then [(str o deresolve_base) sym]
+              else [(str o deresolve_base) sym, enum "," "(" ")" phantom_args]
             else if length ts = wanted
             then
               [(str o deresolve_base) sym,
@@ -342,7 +353,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                  (map
                    (fn (t, need_box) =>
                      print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars NOBR t)
-                   (ListPair.zip (ts, need_box_list)))]
+                   (ListPair.zip (ts, need_box_list))
+                  @ phantom_args)]
             else 
               let 
                 val saturated_t = Code_Thingol.saturated_application wanted app
@@ -532,7 +544,18 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         Each constructor becomes an enum variant. **)
     fun print_datatype_decl definer (tyco, (vs, cos)) =
       let
-        fun print_co ((co, _), []) = str (deresolve_const co)
+        (* Phantom params of this datatype get a PhantomData<Ti> marker field in
+           EVERY variant so the generic is used (Rust E0392). The table keeps this
+           in lockstep with the markers emitted at construction/pattern sites. *)
+        val phantoms = phantom_table (Type_Constructor tyco)
+        val phantom_fields =
+          map (fn v => str ("PhantomData<" ^ to_upper v ^ ">")) phantoms
+        fun print_co ((co, _), []) =
+              if null phantoms then str (deresolve_const co)
+              else concat [
+                str (deresolve_const co),
+                Pretty.block [str "(", enum "," "" "" phantom_fields, str ")"]
+              ]
           | print_co ((co, _), tys) =
             let
               (* Per-field Box<> from the precomputed table (one bool per field of
@@ -541,13 +564,14 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               val boxes' = if length boxes = length tys then boxes else map (K false) tys
               fun print_field (ty, needbox) =
                 (if needbox then box else I) (print_typ (INFX (2, X)) ty)
+              val data_fields = map print_field (ListPair.zip (tys, boxes'))
             in
               concat [
                 str (deresolve_const co),
                 Pretty.block(
                   [
                   str "(",
-                  enum "," "" "" (map print_field (ListPair.zip (tys, boxes'))),
+                  enum "," "" "" (data_fields @ phantom_fields),
                   str")"]
                 )
               ]
@@ -896,12 +920,18 @@ fun print_rust_module name decls trait_uses includes body =
   let
     val includes_p = Pretty.chunks (map (fn i => str ("use "^i^"::*;")) includes)
     val trait_uses_p = Pretty.chunks (map (fn p => str ("use "^p^";")) trait_uses)
+    (* Import std::marker::PhantomData only for files that actually emit a phantom
+       marker, so the short `PhantomData` form stays valid without polluting other
+       files. Detection is per-file: it also covers construction/pattern sites in
+       a module other than the datatype's declaring module. *)
+    val uses_phantom =
+      List.exists (fn p => String.isSubstring "PhantomData" (Pretty.string_of p)) body
+    val headers =
+      includes_p
+      :: (if List.null trait_uses then [] else [trait_uses_p])
+      @ (if uses_phantom then [str "use std::marker::PhantomData;"] else [])
   in
-    Pretty.chunks2 (
-      if List.null trait_uses
-      then includes_p :: body
-      else includes_p :: trait_uses_p :: body
-    )
+    Pretty.chunks2 (headers @ body)
   end
 
 (** Literal syntax definitions for Rust target (strings, numerals, lists, cons). **)
@@ -1266,6 +1296,23 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
               Code_Symbol.Table.update (sym, box_list_of_constr sym)
           | _ => I)) stmt_list Code_Symbol.Table.empty
       in fn sym => the_default [] (Code_Symbol.Table.lookup tab sym) end;
+    (** Phantom type parameters of a datatype: declared generic params (vs) that
+        appear in NO constructor field type. Rust rejects an unused generic
+        (E0392), so each is materialised as a PhantomData<Ti> marker field. Order
+        follows vs so the enum declaration and the per-constructor markers agree.
+        Precomputed into phantom_table, keyed by the datatype's Type_Constructor. **)
+    fun phantom_vars_of_datatype (vs, cos) =
+      let
+        val used = cos |> maps (fn (_, tys) => maps type_names tys) |> distinct (op =)
+      in filter_out (member (op =) used) vs end;
+    val phantom_table =
+      let
+        val tab = fold (fn ((sym, stmt), _) =>
+          (case (sym, stmt) of
+            (Type_Constructor _, Code_Thingol.Datatype (vs, cos)) =>
+              Code_Symbol.Table.update (sym, phantom_vars_of_datatype (vs, cos))
+          | _ => I)) stmt_list Code_Symbol.Table.empty
+      in fn sym => the_default [] (Code_Symbol.Table.lookup tab sym) end;
     (** Look up whether a constant is a data constructor; returns SOME parent_tyco or NONE. **)
     fun lookup_constant_typeco_gen program sym = 
       let
@@ -1381,7 +1428,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
     fun print_stmt prefix_fragments (_, (export, stmt)) = (print_rust_stmt
       tyco_syntax const_syntax (make_vars reserved_syms)
       (Code_Thingol.is_constr program) (modify_deresolver (deresolver prefix_fragments))
-      box_table
+      box_table phantom_table
       lookup_constant_typeco lookup_constant_fun
       lookup_method_class inst_method_info)
       export stmt
