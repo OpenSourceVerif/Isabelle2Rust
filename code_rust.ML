@@ -918,7 +918,18 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     crate::-qualified, so no module-glob import is emitted. **)
 fun print_rust_module name decls trait_uses includes body =
   let
-    val includes_p = Pretty.chunks (map (fn i => str ("use "^i^"::*;")) includes)
+    (* Import the BigInt support crates (num_bigint / num_traits::sign) only for
+       files that actually use BigInt, so the `use ...::*;` globs stay out of
+       files that map integers nowhere. The integer mapping (Rust_Setup.thy) and
+       numeral literals both surface the substring "BigInt", so a per-file body
+       scan covers every use site. *)
+    val bigint_includes = ["num_bigint", "num_traits::sign"]
+    val uses_bigint =
+      List.exists (fn p => String.isSubstring "BigInt" (Pretty.string_of p)) body
+    val includes' =
+      if uses_bigint then includes
+      else filter_out (member (op =) bigint_includes) includes
+    val includes_p = Pretty.chunks (map (fn i => str ("use "^i^"::*;")) includes')
     val trait_uses_p = Pretty.chunks (map (fn p => str ("use "^p^";")) trait_uses)
     (* Import std::marker::PhantomData only for files that actually emit a phantom
        marker, so the short `PhantomData` form stays valid without polluting other
@@ -927,8 +938,8 @@ fun print_rust_module name decls trait_uses includes body =
     val uses_phantom =
       List.exists (fn p => String.isSubstring "PhantomData" (Pretty.string_of p)) body
     val headers =
-      includes_p
-      :: (if List.null trait_uses then [] else [trait_uses_p])
+      (if List.null includes' then [] else [includes_p])
+      @ (if List.null trait_uses then [] else [trait_uses_p])
       @ (if uses_phantom then [str "use std::marker::PhantomData;"] else [])
   in
     Pretty.chunks2 (headers @ body)
