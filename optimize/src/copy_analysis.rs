@@ -40,6 +40,8 @@ struct CopyContext {
     type_aliases: HashMap<String, Type>,
     variant_owners: HashMap<String, Option<String>>,
     functions: HashMap<String, Type>,
+    // Full signatures for R-Call: generic params + parameter types
+    fn_sigs: HashMap<String, (Vec<GenericParam>, Vec<Type>)>,
 }
 
 /// Infer Copy data types for the Rust fragment generated from Isabelle/HOL,
@@ -77,11 +79,30 @@ fn optimize_module(module: &mut RustModule, analysis: &mut CopyAnalysis) {
 impl CopyContext {
     fn from_items(items: &[Item]) -> Self {
         let mut ctx = Self {
-            copy_types: HashSet::from(["bool".to_string()]),
+            copy_types: HashSet::from([
+                // C-Prim: all Rust primitive Copy types
+                "bool".to_string(),
+                "char".to_string(),
+                "u8".to_string(),
+                "u16".to_string(),
+                "u32".to_string(),
+                "u64".to_string(),
+                "u128".to_string(),
+                "i8".to_string(),
+                "i16".to_string(),
+                "i32".to_string(),
+                "i64".to_string(),
+                "i128".to_string(),
+                "usize".to_string(),
+                "isize".to_string(),
+                "f32".to_string(),
+                "f64".to_string(),
+            ]),
             type_defs: HashMap::new(),
             type_aliases: HashMap::new(),
             variant_owners: HashMap::new(),
             functions: HashMap::new(),
+            fn_sigs: HashMap::new(),
         };
 
         for item in items {
@@ -146,6 +167,13 @@ impl CopyContext {
             Item::Function(function) => {
                 self.functions
                     .insert(function.name.clone(), function.return_type.clone());
+                self.fn_sigs.insert(
+                    function.name.clone(),
+                    (
+                        function.generics.clone(),
+                        function.params.iter().map(|p| p.ty.clone()).collect(),
+                    ),
+                );
             }
             _ => {}
         }
@@ -252,7 +280,7 @@ impl CopyContext {
         }
     }
 
-    fn add_copy_specializations(&self, items: &mut Vec<Item>) {
+    fn add_copy_specializations(&mut self, items: &mut Vec<Item>) {
         // Keep the Clone-constrained original API intact and append a Copy-only
         // overload with clone calls removed when the body proves this is valid.
         let mut existing_function_names = items
@@ -271,6 +299,16 @@ impl CopyContext {
                         .copy_specialization_for_function(function, &mut existing_function_names);
                     items.push(item);
                     if let Some(specialization) = specialization {
+                        // Register the _copy variant's signature so R-Call can redirect to it.
+                        self.functions
+                            .insert(specialization.name.clone(), specialization.return_type.clone());
+                        self.fn_sigs.insert(
+                            specialization.name.clone(),
+                            (
+                                specialization.generics.clone(),
+                                specialization.params.iter().map(|p| p.ty.clone()).collect(),
+                            ),
+                        );
                         items.push(Item::Function(specialization));
                     }
                 }
@@ -395,8 +433,12 @@ impl CopyContext {
             }
             Expr::Call(callee, args) => {
                 self.rewrite_expr(callee, env, copy_generics);
-                for arg in args {
+                for arg in &mut *args {
                     self.rewrite_expr(arg, env, copy_generics);
+                }
+                // R-Call: redirect g(ē) → g_copy(ē) when all Clone-only bounds are Copy
+                if let Some(new_name) = self.try_rcall(callee, args, env, copy_generics) {
+                    **callee = Expr::Ident(new_name);
                 }
             }
             Expr::MethodCall(receiver, method, args) => {
@@ -481,7 +523,7 @@ impl CopyContext {
             | Expr::Literal(_)
             | Expr::Loop(_)
             | Expr::Await(_)
-            | Expr::Closure(_, _)
+            | Expr::Closure(_, _, _)
             | Expr::BuilderChain(_)
             | Expr::Unsafe(_)
             | Expr::Reference(_, _, _)
@@ -769,7 +811,7 @@ impl CopyContext {
             | Expr::Literal(_)
             | Expr::Loop(_)
             | Expr::Await(_)
-            | Expr::Closure(_, _)
+            | Expr::Closure(_, _, _)
             | Expr::BuilderChain(_)
             | Expr::Unsafe(_)
             | Expr::Reference(_, _, _)
@@ -777,6 +819,79 @@ impl CopyContext {
             | Expr::Index(_, _)
             | Expr::Assign(_, _) => {}
         }
+    }
+
+    // R-Call: if callee g has a _copy variant and all Clone-only bounded generics
+    // resolve to Copy types at this call site, return the _copy variant name.
+    fn try_rcall(
+        &self,
+        callee: &Expr,
+        args: &[Expr],
+        env: &TypeEnv,
+        copy_generics: &HashSet<String>,
+    ) -> Option<String> {
+        let fn_name = match callee {
+            Expr::Ident(name) => name.as_str(),
+            _ => return None,
+        };
+
+        // Already a _copy variant — don't chain-redirect.
+        if fn_name.ends_with("_copy") {
+            return None;
+        }
+
+        let copy_name = format!("{fn_name}_copy");
+        if !self.functions.contains_key(&copy_name) {
+            return None;
+        }
+
+        let (generics, param_types) = self.fn_sigs.get(fn_name)?;
+
+        if args.len() != param_types.len() {
+            return None;
+        }
+
+        let callee_generic_names: HashSet<String> =
+            generics.iter().map(|g| g.name.clone()).collect();
+
+        let clone_only: Vec<&str> = generics
+            .iter()
+            .filter(|g| has_bound(g, "Clone") && !has_bound(g, "Copy"))
+            .map(|g| g.name.as_str())
+            .collect();
+
+        if clone_only.is_empty() {
+            return None;
+        }
+
+        // Fast path: we're already inside a copy-specialized context that
+        // covers every Clone-only generic the callee needs.  This handles
+        // recursive calls like `list_head(List::Nil)` inside `list_head_copy`
+        // where the argument type is opaque (no type-arg info to unify on).
+        if clone_only.iter().all(|g| copy_generics.contains(*g)) {
+            return Some(copy_name);
+        }
+
+        let arg_types: Vec<Type> = args
+            .iter()
+            .map(|a| self.infer_expr_type(a, env))
+            .collect::<Option<_>>()?;
+
+        let mut subst = HashMap::new();
+        for (formal, actual) in param_types.iter().zip(arg_types.iter()) {
+            if !unify_type(formal, actual, &callee_generic_names, &mut subst) {
+                return None;
+            }
+        }
+
+        for alpha in &clone_only {
+            let concrete = subst.get(*alpha)?;
+            if !self.type_is_copy_in_env(concrete, copy_generics) {
+                return None;
+            }
+        }
+
+        Some(copy_name)
     }
 
     fn infer_expr_type(&self, expr: &Expr, env: &TypeEnv) -> Option<Type> {
@@ -1275,148 +1390,65 @@ fn split_top_level_commas(input: &str) -> Vec<String> {
     parts
 }
 
-#[cfg(test)]
-mod tests {
-    use super::optimize_copy;
-    use crate::rustlight_parser::parse_rust_source;
-    use rustlightast::RustCodeGenerator;
-
-    fn optimize_source(source: &str) -> String {
-        let mut module = parse_rust_source(source, "CopyTest").expect("source parses");
-        optimize_copy(&mut module);
-
-        let mut generator = RustCodeGenerator::new();
-        generator.generate_module_code(&module)
-    }
-
-    #[test]
-    fn derives_copy_and_removes_bool_clones() {
-        let printed = optimize_source(
-            r#"
-#[derive(Clone)]
-pub enum FlagPair {
-    FlagPair(bool, bool),
-}
-
-pub fn swap_flag_pair(x0: FlagPair) -> FlagPair {
-    match x0 {
-        FlagPair::FlagPair(x, y) => FlagPair::FlagPair(y.clone(), x.clone()),
-    }
-}
-"#,
-        );
-
-        assert!(printed.contains("#[derive(Clone, Copy)]"));
-        assert!(printed.contains("FlagPair::FlagPair(y, x)"));
-        assert!(!printed.contains(".clone()"));
-    }
-
-    #[test]
-    fn propagates_copy_through_user_defined_fields() {
-        let printed = optimize_source(
-            r#"
-#[derive(Clone)]
-pub enum Color {
-    Red,
-    Green,
-    Blue,
-}
-
-#[derive(Clone)]
-pub enum Pixel {
-    Pixel(Color, Color, Color),
-}
-
-pub fn rotate_pixel(x0: Pixel) -> Pixel {
-    match x0 {
-        Pixel::Pixel(r, g, b) => Pixel::Pixel(g.clone(), b.clone(), r.clone()),
+/// Structural match of a formal type against an actual type.
+/// Entries in `generic_names` (the callee's type parameters) act as unification
+/// variables; all other names are treated as concrete identifiers that must match
+/// literally.  Writes the recovered substitution into `subst`.
+fn unify_type(
+    formal: &Type,
+    actual: &Type,
+    generic_names: &HashSet<String>,
+    subst: &mut HashMap<String, Type>,
+) -> bool {
+    match formal {
+        Type::Named(name) if generic_names.contains(name) => match subst.get(name) {
+            Some(existing) => types_equal(existing, actual),
+            None => {
+                subst.insert(name.clone(), actual.clone());
+                true
+            }
+        },
+        Type::Named(name) => matches!(actual, Type::Named(n) if n == name),
+        Type::Generic(name, params) => match actual {
+            Type::Generic(aname, aparams) if name == aname && params.len() == aparams.len() => {
+                params
+                    .iter()
+                    .zip(aparams)
+                    .all(|(f, a)| unify_type(f, a, generic_names, subst))
+            }
+            _ => false,
+        },
+        Type::Tuple(ftypes) => match actual {
+            Type::Tuple(atypes) if ftypes.len() == atypes.len() => {
+                ftypes
+                    .iter()
+                    .zip(atypes)
+                    .all(|(f, a)| unify_type(f, a, generic_names, subst))
+            }
+            _ => false,
+        },
+        Type::Unit => matches!(actual, Type::Unit),
+        Type::Never => matches!(actual, Type::Never),
+        _ => types_equal(formal, actual),
     }
 }
-"#,
-        );
 
-        assert!(printed.contains("pub enum Color"));
-        assert!(printed.contains("pub enum Pixel"));
-        assert_eq!(printed.matches("#[derive(Clone, Copy)]").count(), 2);
-        assert!(printed.contains("Pixel::Pixel(g, b, r)"));
-    }
-
-    #[test]
-    fn binds_tuple_match_patterns() {
-        let printed = optimize_source(
-            r#"
-#[derive(Clone)]
-pub enum Color {
-    Red,
-    Green,
-}
-
-#[derive(Clone)]
-pub enum Pixel {
-    Pixel(Color, Color),
-}
-
-pub fn replace_first_color(x0: Pixel, c: Color) -> Pixel {
-    match (x0, c) {
-        (Pixel::Pixel(_, old), c) => Pixel::Pixel(c.clone(), old.clone()),
-    }
-}
-"#,
-        );
-
-        assert!(printed.contains("match (x0, c)"));
-        assert!(printed.contains("Pixel::Pixel(c, old)"));
-        assert!(!printed.contains(".clone()"));
-    }
-
-    #[test]
-    fn substitutes_generic_fields_in_constructor_patterns() {
-        let printed = optimize_source(
-            r#"
-#[derive(Clone)]
-pub enum CopyWrap<A> {
-    CopyWrap(A),
-}
-
-#[derive(Clone)]
-pub enum FlagPair {
-    FlagPair(bool, bool),
-}
-
-pub fn unwrap_flag(x0: CopyWrap<FlagPair>) -> FlagPair {
-    match x0 {
-        CopyWrap::CopyWrap(x) => x.clone(),
-    }
-}
-"#,
-        );
-
-        assert!(printed.contains("#[derive(Clone, Copy)]"));
-        assert!(printed.contains("CopyWrap::CopyWrap(x)"));
-        assert!(!printed.contains("x.clone()"));
-    }
-
-    #[test]
-    fn keeps_clones_for_non_copy_recursive_box_types() {
-        let printed = optimize_source(
-            r#"
-#[derive(Clone)]
-pub enum Option {
-    None,
-    Some(Box<Option>),
-}
-
-pub fn get(x0: Option) -> Box<Option> {
-    match x0 {
-        Option::Some(x) => x.clone(),
-        Option::None => Box::new(Option::None),
-    }
-}
-"#,
-        );
-
-        assert!(printed.contains("#[derive(Clone)]"));
-        assert!(printed.contains("x.clone()"));
-        assert!(!printed.contains("#[derive(Clone, Copy)]"));
+fn types_equal(a: &Type, b: &Type) -> bool {
+    match (a, b) {
+        (Type::Named(n1), Type::Named(n2)) => n1 == n2,
+        (Type::Generic(n1, p1), Type::Generic(n2, p2)) => {
+            n1 == n2 && p1.len() == p2.len() && p1.iter().zip(p2).all(|(x, y)| types_equal(x, y))
+        }
+        (Type::Tuple(t1), Type::Tuple(t2)) => {
+            t1.len() == t2.len() && t1.iter().zip(t2).all(|(x, y)| types_equal(x, y))
+        }
+        (Type::Path(p1), Type::Path(p2)) => p1 == p2,
+        (Type::Reference(t1, r1, m1), Type::Reference(t2, r2, m2)) => {
+            r1 == r2 && m1 == m2 && types_equal(t1, t2)
+        }
+        (Type::Slice(t1), Type::Slice(t2)) => types_equal(t1, t2),
+        (Type::Array(t1, n1), Type::Array(t2, n2)) => n1 == n2 && types_equal(t1, t2),
+        (Type::Unit, Type::Unit) | (Type::Never, Type::Never) => true,
+        _ => false,
     }
 }

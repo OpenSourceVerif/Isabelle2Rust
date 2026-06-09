@@ -15,7 +15,7 @@ class twoop =
   fixes op1 :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "<+>" 65)
     and op2 :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "<*>" 65)
 
-datatype 'a Wrap = Wrap 'a
+datatype 'a Wrap = Wrap 'a        
 
 instantiation Wrap :: (twoop) twoop
 begin

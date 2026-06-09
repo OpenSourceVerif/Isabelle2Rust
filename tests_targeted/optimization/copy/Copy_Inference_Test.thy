@@ -134,6 +134,20 @@ fun tree_is_leaf :: "copy_tree \<Rightarrow> bool" where
 fun tree_dup :: "copy_tree \<Rightarrow> copy_tree \<times> copy_tree" where
   "tree_dup x = (x, x)"
 
+(* R-Call tests: callers that delegate to Clone-bounded functions *)
+
+(* Concrete caller: wrap_dup argument is Copy, R-Call should redirect to wrap_dup_copy *)
+fun use_wrap_dup_flag :: "flag_pair copy_wrap \<Rightarrow> flag_pair copy_wrap \<times> flag_pair copy_wrap" where
+  "use_wrap_dup_flag x = wrap_dup x"
+
+(* Generic caller: when A is Copy, R-Call should redirect to wrap_dup_copy in the _copy specialization *)
+fun use_wrap_dup_generic :: "'a copy_wrap \<Rightarrow> 'a copy_wrap \<times> 'a copy_wrap" where
+  "use_wrap_dup_generic x = wrap_dup x"
+
+(* Concrete caller for value_dup: FlagPair is Copy, R-Call should redirect *)
+fun use_value_dup_flag :: "flag_pair \<Rightarrow> flag_pair \<times> flag_pair" where
+  "use_value_dup_flag x = value_dup x"
+
 export_code
   flag_left flag_right flag_swap flag_dup
   triple_first triple_second triple_rotate
@@ -147,6 +161,7 @@ export_code
   wrap_tree_dup mixed_pair_first mixed_pair_dup
   value_dup
   tree_is_leaf tree_dup
+  use_wrap_dup_flag use_wrap_dup_generic use_value_dup_flag
   in Rust
 
 end

@@ -199,7 +199,7 @@ clean:
 	find . -name "*\.cmo"  -exec rm {} \;
 	rm -rf tests_targeted/Rust_Out
 	find tests_targeted -path "*/Rust_Out" -type d -prune -exec rm -rf {} +
-	rm -rf optimize/tests/out
+	rm -rf optimize/tests/stage1 optimize/tests/stage2
 	rm -rf tests_HOL/Hol_Test/target
 
 help:
