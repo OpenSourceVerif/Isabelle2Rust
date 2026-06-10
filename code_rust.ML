@@ -182,16 +182,23 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
          of NONE => print_tyco_expr_gen (Type_Constructor tyco, tys)
           | SOME (_, print) => print print_typ_gen fxy tys)
       | print_typ_gen _ (ITyVar v) =
-        str (to_upper v);
+        (* "Self" is a sentinel injected by print_trait_typ for a class's own type
+           variable; keep it verbatim (Rust keyword), uppercase everything else. *)
+        if v = "Self" then str "Self" else str (to_upper v);
     fun print_tyco_expr (sym, tys) = print_tyco_expr_gen (sym, tys);
     fun print_typ fxy ty = print_typ_gen fxy ty;
     fun print_dicttyp (class, ty) = print_tyco_expr (Type_Class class, []); (*omit generic param Self*)
     (** Print a trait method signature: "fn method(params) -> RetType;" **)
     fun print_trait_typ fxy class ty generic_ty =
       let
-        val self_ty_s = (fn ITyVar v => to_upper v) generic_ty
-        val ts = extract_typ print_typ ty
-          |> map (fn p => (if (Pretty.string_of p) = self_ty_s then str "Self" else p))
+        (* Replace the class's own type variable with the sentinel "Self"
+           everywhere it occurs — including NESTED positions such as the `'a` of
+           `'a itself` in `len_of :: 'a itself => nat`, which must print as
+           `Itself<Self>`, not `Itself<A>` (A is unbound in the trait). *)
+        val self_var = (fn ITyVar v => v) generic_ty
+        fun subst_self (ITyVar u) = ITyVar (if u = self_var then "Self" else u)
+          | subst_self (tyco `%% tys) = tyco `%% map subst_self tys
+        val ts = extract_typ print_typ (subst_self ty)
         val param_num = (List.length ts) - 1
         val ret_typ = List.last ts 
         val param_typs = List.take (ts, param_num)
@@ -203,14 +210,19 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           in aux param_num 0 [] end
         val params = map (fn (s, p) => Pretty.block[str (s^": "), p])
           (ListPair.zip ((print_dummy_params param_num), param_typs))
-      in  
+      in
+        (* `where Self: Sized`: in a trait, Self is implicitly `?Sized`. Rust adds
+           this bound automatically for a method taking Self DIRECTLY by value, but
+           not when Self is nested in another by-value type such as `Itself<Self>`
+           (len_of), which then fails E0277. All our instances are sized, so make
+           the bound explicit on every method. *)
         Pretty.block(
           str "fn "
           :: str (deresolve_const class)
           :: enum "," " (" ")" params
           :: str " -> "
           :: ret_typ
-          :: [str ";"]
+          :: [str " where Self: Sized;"]
         )
       end;
     (** Print type scheme prefix: where-clause with trait bounds from sort annotations. **)
@@ -391,6 +403,18 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             (* A type-variable receiver is generic dispatch (`A::method`). *)
             val is_tyvar_receiver =
               (case prefix_target_ty of (ITyVar _) => true | _ => false)
+            (* For a class-method (classparam) call, the type to dispatch on is the
+               class's own type variable, carried by the dictionary — NOT
+               necessarily the first argument's type. For `equal :: 'a => ..` they
+               coincide, but for `len_of :: 'a itself => nat` the argument is
+               `'a itself` while dispatch is on the phantom `'a`. The leading
+               Dict_Var names that type variable, giving `A::method(..)`. *)
+            val classparam_dispatch_var =
+              let
+                fun plain_var (Code_Thingol.Dict_Var {var, ...}) = SOME var
+                  | plain_var (Code_Thingol.Dict_Const _) = NONE
+                fun dict_var (Code_Thingol.Dict (_, plain)) = plain_var plain
+              in get_first dict_var (List.concat dicts) end
             (* Decide the printed callee and any `Receiver::` prefix. *)
             val (generic_prefixs, funcname) =
               (case inst_method_info sym of
@@ -398,9 +422,16 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                     ([Pretty.block [str (deresolve (Type_Constructor tyco_s)), str "::"]],
                      str (deresolve_base (Constant cp_s)))
                 | NONE =>
-                    if is_some (lookup_method_class sym) andalso is_tyvar_receiver
-                    then ([Pretty.block [print_generic_prefix_typ prefix_target_ty, str "::"]],
-                          (str o deresolve_base) sym)
+                    if is_some (lookup_method_class sym)
+                    then (case classparam_dispatch_var of
+                            SOME v =>
+                              ([Pretty.block [str (to_upper v), str "::"]],
+                               (str o deresolve_base) sym)
+                          | NONE =>
+                              if is_tyvar_receiver
+                              then ([Pretty.block [print_generic_prefix_typ prefix_target_ty, str "::"]],
+                                    (str o deresolve_base) sym)
+                              else ([], (str o deresolve) sym))
                     else ([], (str o deresolve) sym))
           in
             if length ts = wanted_app
@@ -814,13 +845,28 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               ((export :: map fst exports_bindings) ~~ sig_ps))
             (Pretty.chunks2 (ps @ p :: pseudo_ps))
           end
-     | print_stmt _ (Datas [(tyco, (vs, []))]) =
+     | print_stmt export (Datas [(tyco, (vs, []))]) =
+          (* A datatype with no code-generated constructors (an abstract type such
+             as Word_Lib's `'a signed`). It has no runtime representation here and
+             is only ever used as a phantom/length marker inside other phantom
+             types, yet it still needs to be a nominal type so it can carry impls
+             (e.g. `impl Len0 for Signed<A>`). Emit a unit/phantom struct: a
+             `type _ = EMPTY__` alias would be an undefined-type parse error, and a
+             plain generic struct would trip E0392 on the unused params. *)
           let
+            val head = if Code_Namespace.not_private export then "pub struct" else "struct";
             val ty_p = print_tyco_expr (Type_Constructor tyco, map ITyVar vs);
+            val phantom_fields = map (fn v => str ("PhantomData<" ^ to_upper v ^ ">")) vs;
+            val decl =
+              Pretty.chunks [
+                str "#[derive(Clone)]",
+                if null vs
+                then concat [str head, ty_p, str ";"]
+                else Pretty.block [str head, Pretty.brk 1, ty_p,
+                       str "(", enum "," "" "" phantom_fields, str ");"]
+              ]
           in
-            pair
-            [concat [str "type", ty_p]]
-            (concat [str "type", ty_p, str "=", str "EMPTY__"])
+            pair [concat [str "type", ty_p]] decl
           end
      | print_stmt export (Datas (datas)) = 
           let
