@@ -4,7 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use isabelle2rust_optimize::{optimize_copy, parse_rust_source};
+use isabelle2rust_optimize::{optimize_borrow, optimize_copy, parse_rust_source};
 use rustlightast::RustCodeGenerator;
 
 const OPT_DIR_NAME: &str = "opt";
@@ -211,7 +211,8 @@ fn optimize_source_file(source_path: &Path, output_path: &Path) -> Result<bool, 
     // -> rustlight_print::RustCodeGenerator.
     let mut module = parse_rust_source(&source, module_name)
         .map_err(|err| format!("failed to parse {}: {err}", source_path.display()))?;
-    optimize_copy(&mut module);
+    let copy_analysis = optimize_copy(&mut module);
+    optimize_borrow(&mut module, &copy_analysis.copy_types);
 
     let mut generator = RustCodeGenerator::new();
     let printed = generator.generate_module_code(&module);

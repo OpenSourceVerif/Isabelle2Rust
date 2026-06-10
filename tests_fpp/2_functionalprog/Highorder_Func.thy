@@ -8,8 +8,8 @@ definition fof1 :: "nat \<Rightarrow> nat"
   where "fof1 x \<equiv>  power x 2"
 
 
-export_code fof1 in Rust
-export_code fof1 in Go
+export_code fof1 in Rust module_name Fof1
+export_code fof1 in Go module_name Fof1
 export_code fof1 in OCaml  
 export_code fof1 in Haskell
 

@@ -1,11 +1,11 @@
 use proc_macro2::TokenStream;
 use syn::{
     parse_file, AngleBracketedGenericArguments, ExprArray, ExprAssign, ExprBinary, ExprBlock,
-    ExprCall, ExprField, ExprGroup, ExprIf, ExprIndex, ExprLit, ExprMatch, ExprMethodCall,
-    ExprParen, ExprPath, ExprReference, ExprTuple, ExprUnary, File, GenericArgument,
-    ImplItem as SynImplItem, Item as SynItem, Lit, LocalInit, Meta, Pat, PatIdent, PathArguments,
-    ReturnType, Stmt, Type as SynType, TypeArray, TypeGroup, TypeParen, TypeReference, TypeSlice,
-    TypeTuple, Visibility as SynVisibility,
+    ExprCall, ExprClosure, ExprField, ExprGroup, ExprIf, ExprIndex, ExprLit, ExprMatch,
+    ExprMethodCall, ExprParen, ExprPath, ExprReference, ExprTuple, ExprUnary, File,
+    GenericArgument, ImplItem as SynImplItem, Item as SynItem, Lit, LocalInit, Meta, Pat,
+    PatIdent, PathArguments, ReturnType, Stmt, Type as SynType, TypeArray, TypeGroup, TypeParen,
+    TypeReference, TypeSlice, TypeTuple, Visibility as SynVisibility,
 };
 
 use rustlightast::{
@@ -531,6 +531,26 @@ fn convert_expr(expr: &syn::Expr) -> syn::Result<Expr> {
                 .map(convert_expr)
                 .collect::<syn::Result<Vec<_>>>()?,
         )),
+        syn::Expr::Closure(ExprClosure {
+            capture, inputs, body, ..
+        }) => {
+            let is_move = capture.is_some();
+            // Stringify each parameter pattern (`x`, `x: T`, etc.) using the
+            // `quote!` macro — avoids pulling in a conflicting `ToTokens` glob.
+            let params: Vec<String> = inputs
+                .iter()
+                .map(|p| {
+                    let ts = quote::quote!(#p);
+                    // Collapse double-spaces that quote sometimes inserts.
+                    ts.to_string().replace("  ", " ")
+                })
+                .collect();
+            Ok(Expr::Closure(
+                params,
+                Box::new(convert_expr(body)?),
+                is_move,
+            ))
+        }
         other => Err(syn::Error::new_spanned(
             other,
             "unsupported expression syntax in RustLightAST parser",

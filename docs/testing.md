@@ -1,9 +1,40 @@
 # Isabelle2Rust 测试与命令说明
 
-本文档按当前项目主线整理测试入口。项目现在分为两个主要阶段：
+本文档按当前项目主线整理测试入口。项目分为两个主要阶段：
 
-1. Isabelle 阶段：从 `.thy` 理论生成 baseline Rust，并编译运行导出的 Cargo 项目。
-2. optimize 阶段：读取 baseline Rust，执行优化算法，生成 optimized Rust，并检查优化结果。
+1. **阶段 1 — Isabelle 生成**：从 `.thy` 理论生成 baseline Rust，并编译运行导出的 Cargo 项目。
+2. **阶段 2 — optimize 优化**：读取 baseline Rust，串联 copy pass 与 borrow pass，生成优化后的 Rust，并检查优化结果。
+
+---
+
+## 总览：两阶段测试流程
+
+```
+tests_targeted/optimization/<pass>/
+    <Theory>.thy          ← Isabelle 理论（第 1 阶段输入）
+         │
+         ▼  make build_silent / make test
+tests_targeted/optimization/<pass>/Rust_Out/<Theory>/export1/
+    src/<Theory>.rs       ← stage1：Isabelle 生成的 baseline Rust
+    Cargo.toml / main.rs
+         │
+         ▼  cp → optimize/tests/stage1/<Theory>/
+optimize/tests/stage1/<Theory>/
+    src/<Theory>.rs       ← stage1 快照（用于本轮测试）
+         │
+         ▼  cargo run --bin cargo-opt (copy pass → borrow pass)
+optimize/tests/stage2/<Theory>/
+    src/<Theory>.rs       ← stage2：经过 copy + borrow 优化后的 Rust
+    Cargo.toml
+```
+
+cargo-opt 的优化管线（单次调用，顺序执行两个 pass）：
+
+```
+stage1 Rust → parse → RustLightAST → copy pass → borrow pass → stage2 Rust
+```
+
+---
 
 ## 阶段 1：Isabelle 生成与 baseline Rust 测试
 
@@ -13,16 +44,17 @@
 | --- | ---: | --- |
 | `tests_targeted/abstraction/` | 8 | lambda、闭包捕获、未饱和函数等 |
 | `tests_targeted/cases/` | 6 | case 表达式 |
-| `tests_targeted/classes/` | 10 | type class、instance、semigroup |
-| `tests_targeted/constructors/` | 3 | 构造器与 result |
+| `tests_targeted/classes/` | 12 | type class、instance、semigroup |
+| `tests_targeted/constructors/` | 4 | 构造器与 result |
 | `tests_targeted/functions/` | 9 | 函数、更新、高层映射、可变引用 |
 | `tests_targeted/lets/` | 3 | let 绑定 |
 | `tests_targeted/lists/` | 2 | list 相关测试 |
 | `tests_targeted/records/` | 3 | record get/set/mut |
 | `tests_targeted/types/` | 5 | tuple、pair、record、函数类型 |
 | `tests_targeted/optimization/copy/` | 4 | copy 优化的 Isabelle baseline 测试 |
+| `tests_targeted/optimization/borrow/` | 1 | borrow 优化的 Isabelle baseline 测试 |
 
-当前共有 `53` 个 targeted `.thy` 测试。
+当前共有 `57` 个 targeted `.thy` 测试。
 
 ### 单个理论：只生成 Rust
 
@@ -48,23 +80,10 @@ make build_silent TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
 make run TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
 ```
 
-作用：
-
-- 查找 `tests_targeted/lists/Rust_Out/List_Test/export*/Cargo.toml`。
-- 对每个导出的 Cargo 项目执行 `cargo run --locked`。
-- 如果导出项目缺少 `Cargo.lock`，会复制 `scripts/isabelle-exported.Cargo.lock`，避免测试时刷新 crates.io index。
-
 ### 单个理论：生成并运行
 
 ```bash
 make test TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
-```
-
-等价于：
-
-```bash
-make build TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
-make run TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
 ```
 
 ### 全量 targeted 测试
@@ -73,24 +92,11 @@ make run TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
 make targeted
 ```
 
-作用：
-
-- 递归扫描 `tests_targeted/**/*.thy`。
-- 对每个 theory 执行 `build_silent + run`。
-- 当前实测结果：`Passed: 53, Failed: 0, Total: 53`。
-
 ### 只运行已生成的 targeted Rust
 
 ```bash
 make targeted_run
 ```
-
-作用：
-
-- 不重新跑 Isabelle。
-- 递归扫描 `tests_targeted/**/Rust_Out`。
-- 只运行已有导出 Cargo 项目。
-- 当前实测结果：`Passed: 53, Failed: 0, Total: 53`。
 
 ### HOL smoke 测试
 
@@ -98,128 +104,166 @@ make targeted_run
 make hol
 ```
 
-默认运行：
-
-```bash
-make hol HOL_TEST_THEORY=Hol_Test_Integer
-```
-
-作用：
-
-- 构建 `tests_HOL/Hol_Test_Integer.thy`。
-- 替换导出项目的 `main.rs`。
-- 编译运行导出的 Cargo 项目。
-- 当前实测输出包含：`hol_test = true`。
-
-说明：
-
-- `tests_HOL/Hol_Test.thy` 仍保留，但当前会暴露旧 `int`/`Num` 构造器生成问题，不作为默认 `make hol` 主线。
-
-### 使用当前 ROOT 重新构建
-
-```bash
-make code
-```
-
-作用：
-
-- 不重新生成 `ROOT`。
-- 直接使用当前 `ROOT` 执行 Isabelle build。
-
-### 清理生成物
-
-```bash
-make clean
-```
-
-作用：
-
-- 清理临时文件。
-- 删除 `tests_targeted/**/Rust_Out`。
-- 删除 `optimize/tests/out`。
-- 删除 `tests_HOL/Hol_Test/target`。
+---
 
 ## 阶段 2：optimize 优化测试
 
-优化器源码在 `optimize/` 下。第二阶段只保留两个关键入口：阶段化端到端测试，以及优化器自身 Rust 测试。
+优化器源码在 `optimize/` 下。优化管线通过 `cargo-opt` 二进制完成：每次调用先执行 **copy pass**，再执行 **borrow pass**，两个 pass 是串联的，输出放在 `optimize/tests/stage2/` 下。
 
 ### copy 阶段主入口
 
 ```bash
 make optimize_test STAGE=copy
+# 或简写
+make optimize_copy
 ```
 
-作用：
+**完整流程：**
 
-1. 从 `tests_targeted/optimization/copy/Copy_Inference_Test.thy` 生成 baseline Rust。
-2. 编译运行 baseline Cargo 项目。
-3. 调用 `optimize` 的 `cargo-opt` 对 baseline Rust 做 copy inference 优化。
-4. 编译运行 optimized Cargo 项目。
-5. 检查 clone 数量、`Copy` derive、泛型 Copy bound、递归 `Box` 类型等行为。
+1. 从 `tests_targeted/optimization/copy/Copy_Inference_Test.thy` 生成 baseline Rust（`make build_silent`）。
+2. 将生成结果快照到 `optimize/tests/stage1/Copy_Inference_Test/`。
+3. 编译运行 stage1 Cargo 项目（验证 Isabelle 生成代码可编译）。
+4. 调用 `cargo-opt` 对 stage1 运行 **copy pass + borrow pass**，输出到 `optimize/tests/stage2/Copy_Inference_Test/`。
+5. 编译运行 stage2 Cargo 项目。
+6. 执行 60+ 项回归检查：`.clone()` 数量减少、Copy derive 数量、具体函数体内容等。
 
-代码生成位置：
+**代码位置：**
 
-- baseline Rust：`tests_targeted/optimization/copy/Rust_Out/Copy_Inference_Test/export1/`
-- optimized Rust：`optimize/tests/out/copy/Copy_Inference_Test/opt/`
-- optimized 主文件：`optimize/tests/out/copy/Copy_Inference_Test/opt/src/Copy_Inference_Test.rs`
+| 阶段 | 路径 |
+| --- | --- |
+| Isabelle 理论 | `tests_targeted/optimization/copy/Copy_Inference_Test.thy` |
+| stage1（Isabelle 生成） | `tests_targeted/optimization/copy/Rust_Out/Copy_Inference_Test/export1/` |
+| stage1 快照 | `optimize/tests/stage1/Copy_Inference_Test/` |
+| stage2（优化输出） | `optimize/tests/stage2/Copy_Inference_Test/` |
 
-当前实测结果：`copy inference regression suite passed: 62 checks`。
-
-### 未来阶段入口
+### borrow 阶段主入口
 
 ```bash
 make optimize_test STAGE=borrow
+```
+
+**完整流程：**
+
+1. 从 `tests_targeted/optimization/borrow/Borrow_Inference_Test.thy` 生成 baseline Rust（`make build_silent`）。
+2. 将生成结果快照到 `optimize/tests/stage1/Borrow_Inference_Test/`。
+3. 编译运行 stage1 Cargo 项目。
+4. 调用 `cargo-opt` 对 stage1 运行 **copy pass + borrow pass**，输出到 `optimize/tests/stage2/Borrow_Inference_Test/`。
+5. 编译运行 stage2 Cargo 项目。
+6. 执行回归检查：`_borrow` variant 存在、`&T` 参数出现、原始函数保留、`BorrowTree` 不派生 Copy 等。
+
+**代码位置：**
+
+| 阶段 | 路径 |
+| --- | --- |
+| Isabelle 理论 | `tests_targeted/optimization/borrow/Borrow_Inference_Test.thy` |
+| stage1（Isabelle 生成） | `tests_targeted/optimization/borrow/Rust_Out/Borrow_Inference_Test/export1/` |
+| stage1 快照 | `optimize/tests/stage1/Borrow_Inference_Test/` |
+| stage2（优化输出） | `optimize/tests/stage2/Borrow_Inference_Test/` |
+
+**`Borrow_Inference_Test.thy` 设计要点：**
+
+| 类型 | 原因 |
+| --- | --- |
+| `borrow_tree`（递归） | 递归类型无法派生 Copy，适合测试非 Copy 类型的 borrow 推断 |
+| `'a borrow_box`（泛型） | 验证泛型 `Clone` bound 下的 borrow variant 生成 |
+
+所有函数均可借出（borrowable），因为 Isabelle 代码生成器为每次变量使用都加 `.clone()`，产生的是 `Own` 或 `Obs` demand，从不产生 `Move`。
+
+### copy-borrow 串联阶段
+
+```bash
 make optimize_test STAGE=copy-borrow
 ```
 
-当前输出：
+顺序执行 copy 阶段，再执行 borrow 阶段（两个独立的端到端流程）。
 
-```text
-stage "borrow" has no configured tests yet
-stage "copy-borrow" has no configured tests yet
-```
-
-这两个入口用于后续扩展：
-
-- `borrow`：只测试 borrow 优化。
-- `copy-borrow`：串联 copy 与 borrow 优化后测试。
-
-### optimize crate 自身测试
-
-在 `optimize/` 目录下运行：
+### all 阶段
 
 ```bash
-cargo test -q
-cargo fmt -- --check
+make optimize_all
 ```
 
-当前实测结果：
+等价于依次执行 copy、borrow 两个阶段。
 
-- Rust 单元测试：`6 passed`
-- Rust 集成测试：`3 passed`
-- 格式检查通过
+### 快捷命令对照
 
-## 当前已执行验证结果
+| 命令 | 等价 |
+| --- | --- |
+| `make optimize_copy` | `make optimize_test STAGE=copy` |
+| `make copy_inference` | `make optimize_copy` |
+| `make optimize_all` | `make optimize_test STAGE=all` |
 
-本轮已执行并通过：
+---
+
+## 完整测试命令速查
 
 ```bash
-make targeted
-make targeted_run
+# 阶段 1：全量 Isabelle 测试
+make targeted                        # 构建并运行所有 *_Test.thy（54 个）
+make targeted_run                    # 只运行已生成的 Rust（跳过 Isabelle）
+
+# 阶段 1：单个理论测试
 make test TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
-make code
+make build TEST_DIR=tests_targeted/optimization/borrow TEST_THEORY=Borrow_Inference_Test
+make run  TEST_DIR=tests_targeted/optimization/borrow TEST_THEORY=Borrow_Inference_Test
+
+# 阶段 2：optimize 优化测试
+make optimize_test STAGE=copy        # copy 推断回归 (60+ checks)
+make optimize_test STAGE=borrow      # borrow 推断回归 (10+ checks)
+make optimize_test STAGE=copy-borrow # 串联：copy 然后 borrow
+make optimize_all                    # 同上
+
+# optimize crate 自身测试
+cd optimize && cargo test -q
+cd optimize && cargo fmt -- --check
+
+# HOL smoke 测试
 make hol
-make optimize_test STAGE=copy
-make optimize_test STAGE=borrow
-make optimize_test STAGE=copy-borrow
-cargo test -q
-cargo fmt -- --check
 ```
 
-本轮为了稳定测试入口修复了：
+---
 
-- `make targeted` 支持分类后的 `tests_targeted/**` 递归结构。
-- `ROOT.template` 启用 `HOL-Library` session，修复 `High_Level_Mapping_Test`。
-- baseline/optimized Cargo 测试使用固定 lockfile，避免刷新 crates.io index。
-- Isabelle build 增加进程锁，避免并发 make 进程同时写 session/export 数据库。
-- `make hol` 默认使用可运行的 `Hol_Test_Integer` smoke test。
+## optimize/tests/ 目录结构
+
+```
+optimize/tests/
+├── stage1/
+│   ├── Copy_Inference_Test/     ← copy 阶段的 Isabelle 生成快照
+│   │   ├── src/
+│   │   │   ├── Copy_Inference_Test.rs
+│   │   │   ├── Product_Type.rs
+│   │   │   └── main.rs
+│   │   └── Cargo.toml
+│   └── Borrow_Inference_Test/   ← borrow 阶段的 Isabelle 生成快照
+│       ├── src/
+│       │   ├── Borrow_Inference_Test.rs
+│       │   └── main.rs
+│       └── Cargo.toml
+└── stage2/
+    ├── Copy_Inference_Test/     ← cargo-opt (copy+borrow) 输出
+    │   ├── src/
+    │   │   ├── Copy_Inference_Test.rs
+    │   │   ├── Product_Type.rs
+    │   │   └── main.rs
+    │   └── Cargo.toml
+    └── Borrow_Inference_Test/   ← cargo-opt (copy+borrow) 输出
+        ├── src/
+        │   ├── Borrow_Inference_Test.rs
+        │   └── main.rs
+        └── Cargo.toml
+```
+
+`stage1/` 和 `stage2/` 目录在每次测试运行时自动重建，不提交到版本库。
+
+---
+
+## 清理生成物
+
+```bash
+make clean
+```
+
+清理范围：
+- 所有 `tests_targeted/**/Rust_Out/`
+- `optimize/tests/stage1/` 和 `optimize/tests/stage2/`
+- `tests_HOL/Hol_Test/target/`
