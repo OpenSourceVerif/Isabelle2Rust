@@ -433,13 +433,13 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     (** Print an application, applying registered const_syntax if any and
         otherwise falling back to print_app_expr. print_app prints arguments
         without Box/clone; print_app_with_clone threads the (box_prcs, clone_prcs)
-        wrappers through to argument printing. **)
+        wrappers through both ordinary calls and custom-syntax subterms. **)
     and print_app is_pseudo_fun some_thm vars =
       gen_print_app (print_app_expr is_pseudo_fun (I, I))
       (print_term_decl is_pseudo_fun) const_syntax some_thm vars
     and print_app_with_clone is_pseudo_fun (box_prcs, clone_prcs) some_thm vars =
       gen_print_app (print_app_expr is_pseudo_fun (box_prcs, clone_prcs))
-      (print_term_decl is_pseudo_fun) const_syntax some_thm vars
+      (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs)) const_syntax some_thm vars
     (** Bind a clause pattern, introducing its variables (printed as a pattern). **)
     and print_bind is_pseudo_fun = gen_print_bind (print_term_pattern is_pseudo_fun)
     (** Print a case expression. Three cases:
