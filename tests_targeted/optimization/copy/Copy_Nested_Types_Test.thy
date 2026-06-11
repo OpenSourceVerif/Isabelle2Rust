@@ -1,4 +1,4 @@
-theory Copy_Struct2_Test
+theory Copy_Nested_Types_Test
   imports Main "Rust.Rust_Setup"
 begin
 

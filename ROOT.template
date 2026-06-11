@@ -10,6 +10,6 @@ session Test in "@TEST_DIR@" = Rust +
     "HOL-Library"
   theories [document = false]
     "@TEST_THEORY@"
-  export_files (in "Rust_Out/@TEST_THEORY@") [2]
+  export_files (in "stage1/@TEST_THEORY@") [2]
     "*:**.rs"
     "*:**.toml"

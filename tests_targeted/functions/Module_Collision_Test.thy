@@ -1,5 +1,5 @@
 theory Module_Collision_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Setup" "Go.Go_Setup"
 begin
 
 (* Regression target for H4 (D.4): two constants forced into DIFFERENT modules
@@ -21,5 +21,7 @@ code_identifier
 | constant beta  \<rightharpoonup> (Rust) "ModB.dup"
 
 export_code use_both in Rust
+ (* module_name Use_both*)
+export_code use_both in Go
 
 end

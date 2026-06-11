@@ -1,4 +1,4 @@
-theory Copy_Inference_Test
+theory Copy_Generic_RCall_Test
   imports Main "Rust.Rust_Setup"
 begin
 

@@ -1,4 +1,4 @@
-theory Borrow_Inference_Test
+theory Borrow_Tree_Generic_Test
   imports Main "Rust.Rust_Setup"
 begin
 
@@ -34,15 +34,15 @@ datatype 'a borrow_box =
     BorrowBox 'a
 
 (* get inner value: single use via clone → borrowable *)
-fun bbox_get :: "'a::clone borrow_box \<Rightarrow> 'a" where
+fun bbox_get :: "'a borrow_box \<Rightarrow> 'a" where
   "bbox_get (BorrowBox x) = x"
 
 (* dup generic box: two clone uses → borrowable *)
-fun bbox_dup :: "'a::clone borrow_box \<Rightarrow> 'a borrow_box \<times> 'a borrow_box" where
+fun bbox_dup :: "'a borrow_box \<Rightarrow> 'a borrow_box \<times> 'a borrow_box" where
   "bbox_dup x = (x, x)"
 
 (* swap inside a pair of boxes: both inputs cloned → both borrowable *)
-fun bbox_swap :: "'a::clone borrow_box \<Rightarrow> 'a borrow_box \<Rightarrow> 'a borrow_box \<times> 'a borrow_box" where
+fun bbox_swap :: "'a borrow_box \<Rightarrow> 'a borrow_box \<Rightarrow> 'a borrow_box \<times> 'a borrow_box" where
   "bbox_swap x y = (y, x)"
 
 export_code btree_is_leaf btree_leaf_val btree_dup

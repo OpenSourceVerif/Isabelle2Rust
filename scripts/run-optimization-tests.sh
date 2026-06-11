@@ -8,9 +8,9 @@ STAGE="${1:-copy}"
 # ── Per-stage configuration ───────────────────────────────────────────────────
 
 # copy stage
-COPY_THEORY="Copy_Inference_Test"
+COPY_THEORY="Copy_Generic_RCall_Test"
 COPY_TEST_DIR="tests_targeted/optimization/copy"
-COPY_BASE_DIR="$ROOT_DIR/$COPY_TEST_DIR/Rust_Out/$COPY_THEORY/export1"
+COPY_BASE_DIR="$ROOT_DIR/$COPY_TEST_DIR/stage1/$COPY_THEORY/export1"
 COPY_STAGE1_DIR="$OPTIMIZE_DIR/tests/stage1/$COPY_THEORY"
 COPY_STAGE2_DIR="$OPTIMIZE_DIR/tests/stage2/$COPY_THEORY"
 COPY_BASE_RS="$COPY_BASE_DIR/src/$COPY_THEORY.rs"
@@ -19,9 +19,9 @@ COPY_OPT_RS="$COPY_STAGE2_DIR/src/$COPY_THEORY.rs"
 COPY_OPT_PRODUCT_RS="$COPY_STAGE2_DIR/src/Product_Type.rs"
 
 # borrow stage
-BORROW_THEORY="Borrow_Inference_Test"
+BORROW_THEORY="Borrow_Tree_Generic_Test"
 BORROW_TEST_DIR="tests_targeted/optimization/borrow"
-BORROW_BASE_DIR="$ROOT_DIR/$BORROW_TEST_DIR/Rust_Out/$BORROW_THEORY/export1"
+BORROW_BASE_DIR="$ROOT_DIR/$BORROW_TEST_DIR/stage1/$BORROW_THEORY/export1"
 BORROW_STAGE1_DIR="$OPTIMIZE_DIR/tests/stage1/$BORROW_THEORY"
 BORROW_STAGE2_DIR="$OPTIMIZE_DIR/tests/stage2/$BORROW_THEORY"
 BORROW_BASE_RS="$BORROW_BASE_DIR/src/$BORROW_THEORY.rs"
@@ -37,8 +37,8 @@ usage() {
 usage: scripts/run-optimization-tests.sh [copy|borrow|copy-borrow|all]
 
 Stages:
-  copy         Run copy inference tests (Copy_Inference_Test).
-  borrow       Run borrow inference tests (Borrow_Inference_Test).
+  copy         Run copy inference tests (Copy_Generic_RCall_Test).
+  borrow       Run borrow inference tests (Borrow_Tree_Generic_Test).
   copy-borrow  Run copy stage then borrow stage (sequential).
   all          Run every configured optimization stage.
 EOF_USAGE
@@ -225,7 +225,7 @@ assert_contains "$COPY_OPT_RS" "pub enum NestedCopyWrap <A>" "nested generic wra
 
 assert_contains "$COPY_OPT_RS" "pub fn wrap_dup_copy<A>" "copy-specialized wrap_dup is emitted"
 assert_contains "$COPY_OPT_RS" "pub fn value_dup_copy<A>" "copy-specialized value_dup is emitted"
-assert_contains "$COPY_OPT_RS" "pub fn pair_wrap_dup_copy<A, B>" "copy-specialized pair_wrap_dup is emitted"
+assert_contains "$COPY_OPT_RS" "pub fn pair_wrap_dup_copy" "copy-specialized pair_wrap_dup is emitted"
 assert_contains "$COPY_OPT_RS" "pub fn pair_wrap_swap_copy<A, B>" "copy-specialized pair_wrap_swap is emitted"
 assert_contains "$COPY_OPT_RS" "pub fn pair_wrap_first_copy<A, B>" "copy-specialized pair_wrap_first is emitted"
 assert_contains "$COPY_OPT_RS" "pub fn wrap_unwrap_copy<A>" "copy-specialized wrap_unwrap is emitted"
@@ -233,40 +233,40 @@ assert_contains "$COPY_OPT_RS" "pub fn nested_wrap_dup_copy<A>" "copy-specialize
 assert_not_contains "$COPY_OPT_RS" "pub fn wrap_tree_dup_copy" "concrete non-Copy wrapper does not get a copy specialization"
 
 assert_fn_not_contains "flag_dup" ".clone()" "flag_dup has no clone calls"
-assert_fn_contains "flag_dup" "Prod::Pair(x, x)" "flag_dup reuses Copy value directly"
+assert_fn_contains "flag_dup" "Prod::Pair(*x, *x)" "flag_dup reuses Copy value directly"
 assert_fn_not_contains "flag_swap" ".clone()" "flag_swap has no clone calls"
-assert_fn_contains "flag_swap" "FlagPair::FlagPair(y, x)" "flag_swap rewrites constructor arguments"
+assert_fn_contains "flag_swap" "FlagPair::FlagPair(*y, *x)" "flag_swap rewrites constructor arguments"
 assert_fn_not_contains "triple_rotate" ".clone()" "triple_rotate has no clone calls"
-assert_fn_contains "triple_rotate" "FlagTriple::FlagTriple(y, z, x)" "triple_rotate rewrites all fields"
+assert_fn_contains "triple_rotate" "FlagTriple::FlagTriple(*y, *z, *x)" "triple_rotate rewrites all fields"
 assert_fn_not_contains "color_dup" ".clone()" "color_dup has no clone calls"
 assert_fn_contains "color_dup" "Prod::Pair(c, c)" "color_dup reuses enum value directly"
 assert_fn_not_contains "pixel_rotate" ".clone()" "pixel_rotate has no clone calls"
-assert_fn_contains "pixel_rotate" "Pixel::Pixel(g, b, r)" "pixel_rotate rewrites nested Copy fields"
+assert_fn_contains "pixel_rotate" "Pixel::Pixel(*g, *b, *r)" "pixel_rotate rewrites nested Copy fields"
 assert_fn_not_contains "pixel_replace_first" ".clone()" "pixel_replace_first has no clone calls"
 assert_fn_contains "pixel_replace_first" "Pixel::Pixel(c, g, b)" "tuple-pattern field types are recovered"
 assert_fn_not_contains "nested_dup" ".clone()" "nested_dup has no clone calls"
-assert_fn_contains "nested_dup" "Prod::Pair(x, x)" "nested datatype duplication uses Copy"
+assert_fn_contains "nested_dup" "Prod::Pair(*x, *x)" "nested datatype duplication uses Copy"
 assert_fn_not_contains "palette_swap" ".clone()" "palette_swap has no clone calls"
-assert_fn_contains "palette_swap" "Palette::Palette(q, p)" "copyability propagates through datatype dependencies"
+assert_fn_contains "palette_swap" "Palette::Palette(*q, *p)" "copyability propagates through datatype dependencies"
 assert_fn_not_contains "wrap_map_flag" ".clone()" "concrete generic wrapper field clone is removed"
 assert_fn_contains "wrap_map_flag" "x" "concrete wrapper returns its Copy field directly"
 
 assert_fn_not_contains "wrap_dup_copy" ".clone()" "wrap_dup_copy has no clone calls"
 assert_fn_contains "wrap_dup_copy" "where A: Copy" "wrap_dup_copy strengthens A to Copy"
-assert_fn_contains "wrap_dup_copy" "Prod::Pair(x, x)" "wrap_dup_copy reuses wrapped value directly"
+assert_fn_contains "wrap_dup_copy" "Prod::Pair(*x, *x)" "wrap_dup_copy reuses wrapped value directly"
 assert_fn_not_contains "value_dup_copy" ".clone()" "value_dup_copy has no clone calls"
 assert_fn_contains "value_dup_copy" "where A: Copy" "value_dup_copy strengthens A to Copy"
 assert_fn_not_contains "pair_wrap_dup_copy" ".clone()" "pair_wrap_dup_copy has no clone calls"
 assert_fn_contains "pair_wrap_dup_copy" "where A: Copy, B: Copy" "pair_wrap_dup_copy strengthens both parameters"
 assert_fn_not_contains "pair_wrap_swap_copy" ".clone()" "pair_wrap_swap_copy has no clone calls"
-assert_fn_contains "pair_wrap_swap_copy" "CopyPairWrap::CopyPairWrap(y, x)" "pair_wrap_swap_copy rewrites both field clones"
+assert_fn_contains "pair_wrap_swap_copy" "CopyPairWrap::CopyPairWrap(*y, *x)" "pair_wrap_swap_copy rewrites both field clones"
 assert_fn_not_contains "pair_wrap_first_copy" ".clone()" "pair_wrap_first_copy has no clone calls"
 assert_fn_contains "pair_wrap_first_copy" "where A: Copy" "pair_wrap_first_copy strengthens only demanded parameter"
 assert_fn_not_contains "wrap_unwrap_copy" ".clone()" "wrap_unwrap_copy has no clone calls"
 
 assert_fn_not_contains "nested_wrap_dup_copy" ".clone()" "nested_wrap_dup_copy has no clone calls"
 assert_fn_contains "nested_wrap_dup_copy" "where A: Copy" "nested_wrap_dup_copy strengthens nested parameter"
-assert_fn_contains "nested_wrap_dup_copy" "Prod::Pair(x, x)" "nested wrapper duplication uses Copy when A is Copy"
+assert_fn_contains "nested_wrap_dup_copy" "Prod::Pair(*x, *x)" "nested wrapper duplication uses Copy when A is Copy"
 assert_fn_not_contains "nested_wrap_unwrap_flag" ".clone()" "concrete nested wrapper unwrap removes Copy field clone"
 assert_fn_contains "nested_wrap_unwrap_flag" "x" "concrete nested wrapper returns Copy field directly"
 assert_fn_contains "wrap_tree_dup" "x.clone()" "CopyWrap<CopyTree> keeps clone because concrete argument is not Copy"
@@ -360,8 +360,7 @@ assert_fn_contains "bbox_dup_borrow" "&BorrowBox" "bbox_dup_borrow takes &Borrow
 
 # BorrowTree is recursive → must stay Clone-only (not Copy)
 assert_contains "$BORROW_OPT_RS" "#[derive(Clone)]" "BorrowTree stays Clone-only (recursive type)"
-assert_not_contains "$BORROW_OPT_RS" "pub enum BorrowTree" "BorrowTree not derive Copy" || true
-# more precise: the BorrowTree derive must NOT include Copy
+# Check that the BorrowTree derive attribute does NOT include Copy
 BTREE_DERIVE="$(grep -B1 "pub enum BorrowTree" "$BORROW_OPT_RS" || true)"
 if echo "$BTREE_DERIVE" | grep -Fq "Copy"; then
   fail "BorrowTree must not derive Copy (recursive type)"

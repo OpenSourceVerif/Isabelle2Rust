@@ -364,7 +364,23 @@ fn convert_type_path(path: &syn::Path) -> syn::Result<Type> {
     };
 
     if !generic_args.is_empty() {
-        Ok(Type::Generic(name, generic_args))
+        // Preserve path qualifiers so that e.g. `crate::Product_Type::Prod<A>`
+        // roundtrips as `crate::Product_Type::Prod<A>` rather than bare `Prod<A>`.
+        // Without this, source files that lack a `use crate::Product_Type::*;`
+        // import fail to compile after optimiser rewriting.
+        let qualified_name = if path.segments.len() > 1 {
+            let prefix = path
+                .segments
+                .iter()
+                .take(path.segments.len() - 1)
+                .map(|s| s.ident.to_string())
+                .collect::<Vec<_>>()
+                .join("::");
+            format!("{}::{}", prefix, name)
+        } else {
+            name
+        };
+        Ok(Type::Generic(qualified_name, generic_args))
     } else if path.segments.len() > 1 {
         Ok(Type::Path(
             path.segments

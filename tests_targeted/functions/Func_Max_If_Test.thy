@@ -1,6 +1,6 @@
 theory Func_Max_If_Test
   imports
-  Main "Rust.Rust_Setup"
+  Main "Rust.Rust_Setup" "Go.Go_Setup"
 begin
 
 fun max:: "int \<Rightarrow> int \<Rightarrow> int" where
@@ -8,5 +8,6 @@ fun max:: "int \<Rightarrow> int \<Rightarrow> int" where
 "
 
 export_code max in Rust 
+export_code max in Go
 
 end

@@ -5,7 +5,7 @@ use rustlightast::*;
 /// Result of the borrow-analysis pass.
 #[derive(Debug, Clone, Default)]
 pub struct BorrowAnalysis {
-    /// Names of all `f_borrow` variants emitted by this pass.
+    /// Names of functions whose parameters were rewritten to shared borrows.
     pub borrow_fns: HashSet<String>,
 }
 
@@ -13,7 +13,7 @@ pub struct BorrowAnalysis {
 
 type TypeEnv = HashMap<String, Type>;
 
-/// Type of a variable in the *borrow variant* of a function.
+/// Type of a variable after in-place borrow rewriting.
 ///
 /// After B-Match rewrites a match on `v: &D<T>`, every pattern-bound variable
 /// `y_j` gets type `&F_j` (where `F_j` is the j-th field type).  For fields
@@ -52,7 +52,8 @@ struct TypeDef {
 ///
 /// Demands are ordered by how restrictive they are with respect to shared
 /// borrowing.  `Obs`, `Bor`, and `Own` are compatible with converting a
-/// parameter to `&T`.  `Move` and `Esc` are blocking.
+/// parameter to `&T` only when every owned demand passes `OwnOK`.  `Esc` and
+/// `Unk` are always blocking.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Demand {
     /// Purely observational (match scrutinee, boolean predicate).
@@ -62,11 +63,10 @@ enum Demand {
     /// Local owned demand satisfiable by cloning/copying without moving
     /// the original (e.g., `x.clone()` used as a constructor field).
     Own(OwnUse),
-    /// Actual ownership transfer – blocks borrow inference.
-    Move,
-    /// Borrow escape – blocks borrow inference (reserved for future closure support).
-    #[allow(dead_code)]
+    /// Borrow escape – blocks borrow inference.
     Esc,
+    /// Unknown or unsupported ownership form.
+    Unk,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -75,10 +75,12 @@ enum OwnUse {
     ExplicitClone,
     /// Owned value is obtained by copying a value whose type is known Copy.
     CopyUse,
+    /// Ownership-consuming use that is not backed by clone/copy evidence.
+    DirectOwned,
 }
 
 fn is_blocking(d: Demand) -> bool {
-    matches!(d, Demand::Move | Demand::Esc)
+    matches!(d, Demand::Esc | Demand::Unk)
 }
 
 fn own_use_ok(source: OwnUse) -> bool {
@@ -104,12 +106,11 @@ struct BorrowContext {
     /// `fn_name → sorted list of 0-indexed parameter positions that are
     /// borrowable`.  Populated during phase 1.
     borrow_positions: HashMap<String, Vec<usize>>,
-    /// Names of borrow-variant functions emitted.
+    /// Names of functions whose signatures were rewritten in place.
     borrow_fns: HashSet<String>,
 }
 
-/// Infer borrow specialisations for functions in `module` whose parameters
-/// can be safely replaced by shared borrows.
+/// Infer borrowed parameter interfaces for functions in `module`.
 ///
 /// `copy_types` must be the set produced by `optimize_copy` so that the pass
 /// can treat Copy fields as non-consuming uses.
@@ -130,12 +131,12 @@ fn optimize_module(
     let mut ctx = BorrowContext::from_items(&module.items, copy_types);
 
     // Three-pass design:
-    //  1. Analyse every function to compute Borrow(f) for each f.
-    //  2. Emit f_borrow specialisations (B-Closure applied inside their bodies).
-    //  3. Apply B-Closure to original function bodies as a standalone pass.
+    //  1. Analyse every post-copy function, including _copy specialisations.
+    //  2. Rewrite selected parameter types in place.
+    //  3. Rewrite bodies and direct calls against the final Borrow(g) summaries.
     ctx.analyse_all_functions(&module.items);
-    ctx.emit_borrow_specialisations(&mut module.items);
-    ctx.apply_bclosure_to_original_fns(&mut module.items);
+    ctx.rewrite_all_signatures_in_place(&mut module.items);
+    ctx.rewrite_all_bodies_and_calls_in_place(&mut module.items);
 
     analysis.borrow_fns.extend(ctx.borrow_fns.iter().cloned());
 
@@ -248,9 +249,7 @@ impl BorrowContext {
         let functions: Vec<&FunctionDef> = items
             .iter()
             .filter_map(|item| match item {
-                Item::Function(f) if !f.name.ends_with("_borrow") && !f.name.ends_with("_copy") => {
-                    Some(f)
-                }
+                Item::Function(f) => Some(f),
                 _ => None,
             })
             .collect();
@@ -335,7 +334,7 @@ impl BorrowContext {
             true, // tail of the function body is the return value
         );
 
-        // The parameter is borrowable iff no blocking demand was found and
+        // The parameter is borrowable iff no escaping borrow was found and
         // every owned demand can be discharged locally from the borrowed origin.
         !demands.iter().any(|d| is_blocking(*d)) && own_ok(&demands)
     }
@@ -355,13 +354,12 @@ impl BorrowContext {
                 Statement::Let(let_stmt) => {
                     if let Some(init) = &let_stmt.init {
                         // The init expression is in own context (assigned to a binding).
-                        self.collect_demands_expr(
+                        self.collect_demands_for_own_arg(
                             init,
                             derived,
                             env,
                             copy_generics,
                             demands,
-                            false,
                         );
                     }
                     // Update env for subsequent statements.
@@ -376,11 +374,8 @@ impl BorrowContext {
                         });
                     if let Some(ty) = inferred_ty {
                         if is_binding_ident(&let_stmt.name) {
-                            // If the init IS a direct use of a derived variable, the new
-                            // binding is also derived (ownership moved through let).
-                            // But moving a non-Copy derived var via `let y = x` IS a Move;
-                            // the demand was already recorded above.  We do NOT add `y` to
-                            // derived because the original param was already consumed.
+                            // A direct `let y = x` is an owned use.  The demand was already
+                            // recorded above, so we do not propagate derivedness through `y`.
                             env.insert(let_stmt.name.clone(), ty);
                         } else {
                             self.bind_pattern_env(&let_stmt.name, &ty, env);
@@ -432,15 +427,15 @@ impl BorrowContext {
                     if in_return_ctx {
                         // Returning a derived value directly.
                         if ty.map(|t| self.is_copy(t, copy_generics)).unwrap_or(false) {
-                            // Copy types can be implicitly copied – not a Move.
+                            // Copy types can be implicitly copied.
                             demands.insert(Demand::Own(OwnUse::CopyUse));
                         } else {
-                            // Non-Copy return: actual ownership transfer.
-                            demands.insert(Demand::Move);
+                            // Non-Copy direct return lacks clone/copy evidence.
+                            demands.insert(Demand::Own(OwnUse::DirectOwned));
                         }
                     }
                     // In non-return context an Ident on its own may just be
-                    // bound in a pattern or passed around; Move/Own is determined
+                    // bound in a pattern or passed around; Own is determined
                     // by the enclosing call/constructor, handled in Call below.
                 }
             }
@@ -483,6 +478,8 @@ impl BorrowContext {
                         );
                     }
                     _ => {
+                        let uses_derived = expr_has_free_var_from(receiver, derived)
+                            || args.iter().any(|arg| expr_has_free_var_from(arg, derived));
                         self.collect_demands_expr(
                             receiver,
                             derived,
@@ -501,12 +498,10 @@ impl BorrowContext {
                                 false,
                             );
                         }
-                        // A method call on a derived value that is not `.clone()`
-                        // or `.as_ref()` conservatively blocks borrowing.
-                        if let Expr::Ident(name) = receiver.as_ref() {
-                            if derived.contains(name) {
-                                demands.insert(Demand::Move);
-                            }
+                        // Unknown method calls have receiver/argument ownership
+                        // semantics outside the current model.
+                        if uses_derived {
+                            demands.insert(Demand::Unk);
                         }
                     }
                 }
@@ -537,20 +532,44 @@ impl BorrowContext {
 
             // ── Match: match e { arms } ──────────────────────────────────────
             Expr::Match { expr: scrutinee, arms } => {
-                // The scrutinee is inspected (Obs), not consumed.
-                if let Expr::Ident(name) = scrutinee.as_ref() {
-                    if derived.contains(name) {
-                        demands.insert(Demand::Obs);
+                // Isabelle's code generator wraps multi-parameter functions in a
+                // tuple match: `match (x, y) { (p1, p2) => body }`.  The tuple
+                // construction is an ownership-passing artefact, not a direct
+                // ownership demand on the whole tuple:
+                // the ownership flows directly into the pattern-bound variables.
+                // We detect this case and propagate the derived set through the
+                // tuple positions instead of recording a spurious whole-tuple demand.
+                let is_tuple_scrutinee = matches!(scrutinee.as_ref(), Expr::Tuple(_));
+
+                if !is_tuple_scrutinee {
+                    // The scrutinee is inspected (Obs), not consumed.
+                    if let Expr::Ident(name) = scrutinee.as_ref() {
+                        if derived.contains(name) {
+                            demands.insert(Demand::Obs);
+                        }
+                    }
+                    self.collect_demands_expr(
+                        scrutinee,
+                        derived,
+                        env,
+                        copy_generics,
+                        demands,
+                        false,
+                    );
+                } else {
+                    // Tuple scrutinee: only analyze non-derived elements.
+                    // Derived idents in the tuple are handled via pattern propagation.
+                    if let Expr::Tuple(elems) = scrutinee.as_ref() {
+                        for elem in elems {
+                            if let Expr::Ident(name) = elem {
+                                if derived.contains(name) {
+                                    continue; // demand tracked via arm pattern
+                                }
+                            }
+                            self.collect_demands_expr(elem, derived, env, copy_generics, demands, false);
+                        }
                     }
                 }
-                self.collect_demands_expr(
-                    scrutinee,
-                    derived,
-                    env,
-                    copy_generics,
-                    demands,
-                    false,
-                );
 
                 let scrutinee_ty = self.infer_type(scrutinee, env);
 
@@ -570,6 +589,16 @@ impl BorrowContext {
                                     &mut arm_derived,
                                 );
                             }
+                        } else if is_tuple_scrutinee {
+                            // Propagate derived set through tuple positions.
+                            // collect_derived_from_pattern handles tuple patterns
+                            // when ty is Type::Tuple — we always invoke it here
+                            // (it is a no-op when the pattern has no ident bindings).
+                            self.collect_derived_from_pattern(
+                                &arm.pattern,
+                                ty,
+                                &mut arm_derived,
+                            );
                         }
                     }
 
@@ -606,15 +635,11 @@ impl BorrowContext {
                 self.collect_demands_expr(inner, derived, env, copy_generics, demands, false);
             }
 
-            // ── &mut: conservative – treat as Move ────────────────────────────
+            // ── &mut: outside the current Isabelle2Rust borrow model ───────────
             Expr::Reference(inner, true, true) => {
-                if let Expr::Ident(name) = inner.as_ref() {
-                    if derived.contains(name) {
-                        demands.insert(Demand::Move);
-                        return;
-                    }
+                if expr_has_free_var_from(inner, derived) {
+                    demands.insert(Demand::Unk);
                 }
-                self.collect_demands_expr(inner, derived, env, copy_generics, demands, false);
             }
 
             // ── Tuple ────────────────────────────────────────────────────────
@@ -711,7 +736,8 @@ impl BorrowContext {
 
             // Closure: only generate a demand if a derived variable appears
             // free in the closure body (not shadowed by the closure's own params).
-            // For `move` closures the demand is Move; for non-move it is Esc.
+            // For `move` closures the capture is an owned demand; for non-move it
+            // is an escaping borrow.
             // The owncap pattern (`let y_cap = y.clone()` + `move |…| {…y_cap…}`)
             // does NOT capture `y` directly — only `y_cap` — so derived vars
             // for `y` don't appear free and no blocking demand is generated.
@@ -726,21 +752,39 @@ impl BorrowContext {
                     && expr_has_free_var_from(body, &outer_derived)
                 {
                     if *is_move {
-                        demands.insert(Demand::Move);
+                        demands.insert(Demand::Own(OwnUse::DirectOwned));
                     } else {
                         demands.insert(Demand::Esc);
                     }
                 }
             }
-            Expr::Path(_, _)
-            | Expr::Literal(_)
-            | Expr::Loop(_)
-            | Expr::Await(_)
-            | Expr::BuilderChain(_)
-            | Expr::Unsafe(_)
-            | Expr::Index(_, _)
-            | Expr::Assign(_, _) => {}
-            Expr::Reference(_, _, _) => {}
+            Expr::Path(_, _) | Expr::Literal(_) => {}
+            Expr::Loop(block) | Expr::Unsafe(block) => {
+                if block_has_free_var_from(block, derived) {
+                    demands.insert(Demand::Unk);
+                }
+            }
+            Expr::Await(inner) => {
+                if expr_has_free_var_from(inner, derived) {
+                    demands.insert(Demand::Unk);
+                }
+            }
+            Expr::BuilderChain(methods) => {
+                if builder_chain_has_free_var_from(methods, derived) {
+                    demands.insert(Demand::Unk);
+                }
+            }
+            Expr::Index(base, index) | Expr::Assign(base, index) => {
+                if expr_has_free_var_from(base, derived) || expr_has_free_var_from(index, derived)
+                {
+                    demands.insert(Demand::Unk);
+                }
+            }
+            Expr::Reference(inner, _, _) => {
+                if expr_has_free_var_from(inner, derived) {
+                    demands.insert(Demand::Unk);
+                }
+            }
         }
     }
 
@@ -772,8 +816,9 @@ impl BorrowContext {
                         // Copy type: direct use is an implicit copy – Own demand.
                         demands.insert(Demand::Own(OwnUse::CopyUse));
                     } else {
-                        // Non-Copy type passed directly without clone → Move.
-                        demands.insert(Demand::Move);
+                        // Non-Copy type passed directly without clone lacks
+                        // clone/copy evidence.
+                        demands.insert(Demand::Own(OwnUse::DirectOwned));
                     }
                 } else {
                     self.collect_demands_expr(arg, derived, env, copy_generics, demands, false);
@@ -796,7 +841,7 @@ impl BorrowContext {
         demands: &mut HashSet<Demand>,
     ) {
         // In a bor position a `.clone()` of a derived var becomes `.as_ref()` or
-        // the variable itself – so it is a Bor demand, not a Move.
+        // the variable itself, so it is a Bor demand.
         match arg {
             Expr::MethodCall(receiver, method, args) if method == "clone" && args.is_empty() => {
                 if let Expr::Ident(name) = receiver.as_ref() {
@@ -869,141 +914,67 @@ impl BorrowContext {
     }
 }
 
-// ── Phase 2: emit borrow specialisations ─────────────────────────────────────
+// ── Phase 2/3: rewrite signatures and bodies in place ────────────────────────
 
 impl BorrowContext {
-    fn emit_borrow_specialisations(&mut self, items: &mut Vec<Item>) {
-        let original_items = std::mem::take(items);
-        let mut existing_names: HashSet<String> = original_items
-            .iter()
-            .filter_map(|it| match it {
-                Item::Function(f) => Some(f.name.clone()),
-                _ => None,
-            })
-            .collect();
+    fn rewrite_all_signatures_in_place(&mut self, items: &mut [Item]) {
+        for item in items {
+            if let Item::Function(f) = item {
+                self.rewrite_signature_in_place(f);
+            }
+        }
+    }
 
-        for item in original_items {
-            match item {
-                Item::Function(ref f) if self.borrow_positions.contains_key(&f.name) => {
-                    let variant = self.emit_borrow_variant(f, &mut existing_names);
-                    items.push(item);
-                    if let Some(v) = variant {
-                        // Register the variant's signature so that B-Call can
-                        // redirect recursive calls inside other variants.
-                        self.fn_sigs.insert(
-                            v.name.clone(),
-                            (
-                                v.generics.clone(),
-                                v.params.iter().map(|p| p.ty.clone()).collect(),
-                                v.return_type.clone(),
-                            ),
-                        );
-                        self.borrow_fns.insert(v.name.clone());
-                        items.push(Item::Function(v));
-                    }
-                }
-                _ => items.push(item),
+    fn rewrite_signature_in_place(&mut self, f: &mut FunctionDef) {
+        let Some(positions) = self.borrow_positions.get(&f.name).cloned() else {
+            return;
+        };
+        if positions.is_empty() {
+            return;
+        }
+
+        for (i, param) in f.params.iter_mut().enumerate() {
+            if positions.contains(&i) && !is_reference_type(&param.ty) {
+                param.ty = make_ref_type(&param.ty);
             }
         }
 
-        // Drop _copy variants whose base function received a _borrow variant.
-        // Keeping both would create three versions of one function; the _borrow
-        // variant subsumes the copy optimisation for reference-passing callers.
-        items.retain(|item| {
-            if let Item::Function(f) = item {
-                if let Some(base) = f.name.strip_suffix("_copy") {
-                    let borrow_name = format!("{base}_borrow");
-                    return !self.borrow_fns.contains(&borrow_name);
-                }
-            }
-            true
-        });
+        ensure_function_comment(f, "// borrow-optimized by shared parameters");
+        self.borrow_fns.insert(f.name.clone());
     }
 
-    fn emit_borrow_variant(
-        &self,
-        f: &FunctionDef,
-        existing_names: &mut HashSet<String>,
-    ) -> Option<FunctionDef> {
-        let positions = self.borrow_positions.get(&f.name)?;
-        let borrow_name = fresh_borrow_name(&f.name, existing_names);
+    fn rewrite_all_bodies_and_calls_in_place(&self, items: &mut [Item]) {
+        for item in items {
+            if let Item::Function(f) = item {
+                self.rewrite_function_body_in_place(f);
+            }
+        }
+    }
 
-        // Build the parameter list for the borrow variant: change owned params
-        // at selected positions to shared-borrow params.
-        let mut borrow_params: Vec<Param> = f
-            .params
-            .iter()
-            .enumerate()
-            .map(|(i, param)| {
-                if positions.contains(&i) {
-                    Param {
-                        name: param.name.clone(),
-                        ty: make_ref_type(&param.ty),
-                    }
-                } else {
-                    param.clone()
-                }
-            })
-            .collect();
-
-        // Build initial BorrowEnv from parameter types.
-        let mut borrow_env: BorrowEnv = borrow_params
-            .iter()
-            .map(|p| (p.name.clone(), p.ty.clone()))
-            .collect();
-
-        // Rewrite the function body.
-        let orig_env = function_type_env(f);
+    fn rewrite_function_body_in_place(&self, f: &mut FunctionDef) {
+        let mut borrow_env = function_type_env(f);
+        let orig_env = self.original_function_type_env(f);
         let copy_generics = generic_names_with_bound(f, "Copy");
-        let new_body = self.rewrite_block_borrow(
+        f.body = self.rewrite_block_borrow(
             &f.body,
             &mut borrow_env,
             &orig_env,
             &copy_generics,
             &f.name,
         );
+    }
 
-        // Remove Clone bounds for generics that no longer appear in any
-        // `.clone()` call inside the rewritten body.  (Rule: if B-Call
-        // converted all clone-based Own uses to bor uses, the bound is gone.)
-        let all_fn_generics: HashSet<String> =
-            f.generics.iter().map(|g| g.name.clone()).collect();
-        let cloned_generics = generics_in_clone_calls(&new_body, &borrow_env, &all_fn_generics);
-        let new_generics: Vec<GenericParam> = f
-            .generics
+    fn original_function_type_env(&self, f: &FunctionDef) -> TypeEnv {
+        let Some((_, param_types, _)) = self.fn_sigs.get(&f.name) else {
+            return function_type_env(f);
+        };
+
+        f.params
             .iter()
-            .map(|g| {
-                if has_clone_bound(g) && !cloned_generics.contains(&g.name) {
-                    let mut pruned = g.clone();
-                    pruned.bounds.retain(|b| b != "Clone");
-                    pruned
-                } else {
-                    g.clone()
-                }
-            })
-            .collect();
-
-        // Similarly prune Clone-only where bounds on param types if the
-        // param's generic no longer needs it.
-        for param in &mut borrow_params {
-            if let Type::Reference(inner, true, false) = &param.ty {
-                // The borrow variant's &T parameter: if T's generic no longer
-                // appears in a clone call, the Clone where-bound has been pruned.
-                let _ = inner; // bounds controlled by new_generics above
-            }
-        }
-
-        Some(FunctionDef {
-            name: borrow_name,
-            params: borrow_params,
-            return_type: f.return_type.clone(),
-            generics: new_generics,
-            body: new_body,
-            asyncness: f.asyncness,
-            vis: f.vis.clone(),
-            docs: f.docs.clone(),
-            attrs: f.attrs.clone(),
-        })
+            .zip(param_types.iter())
+            .filter(|(param, _)| !param.name.is_empty())
+            .map(|(param, ty)| (param.name.clone(), ty.clone()))
+            .collect()
     }
 
     // ── Body rewriter ─────────────────────────────────────────────────────────
@@ -1019,17 +990,22 @@ impl BorrowContext {
         let mut stmts = Vec::new();
         let mut local_orig = orig_env.clone();
 
-        for stmt in &block.stmts {
+        for (stmt_idx, stmt) in block.stmts.iter().enumerate() {
             match stmt {
                 Statement::Let(let_stmt) => {
                     // B-Closure: try to eliminate the owncap wrapper before
                     // falling through to the general own-rewrite.
-                    // Only applied here (let-binding position) to satisfy
-                    // NonEscAbs — a closure in tail-expression position could
-                    // be returned / escape and must retain `move` semantics.
-                    let bclosure = let_stmt.init.as_ref().and_then(|init| {
-                        self.try_bclosure_rewrite(init, &local_orig, copy_generics)
-                    });
+                    // The binding must be used only as a local direct callee;
+                    // returned/stored/passed/captured closures retain `move`.
+                    let bclosure = if is_binding_ident(&let_stmt.name)
+                        && closure_binding_is_nonescaping_use(block, stmt_idx, &let_stmt.name)
+                    {
+                        let_stmt.init.as_ref().and_then(|init| {
+                            self.try_bclosure_rewrite(init, &local_orig, copy_generics)
+                        })
+                    } else {
+                        None
+                    };
                     let new_init = if let Some(closure_expr) = bclosure {
                         Some(closure_expr)
                     } else {
@@ -1143,7 +1119,7 @@ impl BorrowContext {
                                 // Actually we want Box<T>: just v.clone() is fine.
                                 // But in generated code the original `xs` was the inner T
                                 // after box pattern, so `xs.clone()` was T.
-                                // In borrow variant xs: &Box<T>, own needs T → as_ref().clone()
+                                // In the rewritten body xs: &Box<T>, own needs T → as_ref().clone()
                                 let as_ref_call = Expr::MethodCall(
                                     Box::new(Expr::Ident(name.clone())),
                                     "as_ref".to_string(),
@@ -1179,54 +1155,23 @@ impl BorrowContext {
                 )
             }
 
-            // ── Call: redirect to borrow variant if available (B-Call) ────────
+            // ── Call: adapt arguments to the callee's final parameter mode ────
             Expr::Call(callee, args) => {
                 let fn_name = callee_fn_name(callee);
-                let borrow_name = fn_name
-                    .and_then(|n| {
-                        // Accept the call if the original function has a borrow
-                        // variant registered (which includes the current function
-                        // being processed for recursive calls).
-                        let base = if n.ends_with("_borrow") {
-                            return None; // already a borrow call
-                        } else {
-                            n
-                        };
-                        let candidate = format!("{base}_borrow");
-                        if self.borrow_fns.contains(&candidate)
-                            || self.borrow_positions.contains_key(base)
-                        {
-                            Some(candidate)
-                        } else {
-                            // Also handle the case where the called function is
-                            // the function being specialised right now.
-                            if base == orig_fn_name {
-                                Some(format!("{base}_borrow"))
-                            } else {
-                                None
-                            }
-                        }
-                    });
 
-                if let Some(bname) = borrow_name {
-                    // Determine positions of the borrow variant.
-                    let fn_base = fn_name.unwrap_or("");
-                    let borrow_positions = self
-                        .borrow_positions
-                        .get(fn_base)
-                        .cloned()
-                        .unwrap_or_default();
-
-                    let new_callee = Expr::Ident(bname);
+                if let Some(borrow_positions) = fn_name.and_then(|name| {
+                    self.borrow_positions.get(name).filter(|positions| !positions.is_empty())
+                }) {
+                    let new_callee = callee.as_ref().clone();
                     let new_args: Vec<Expr> = args
                         .iter()
                         .enumerate()
                         .map(|(j, arg)| {
                             if borrow_positions.contains(&j) {
-                                // B-Call bor position: apply bor_transform.
+                                // B-Call bor position: prepare a shared argument.
                                 self.bor_transform(arg, borrow_env, orig_env, copy_generics, orig_fn_name)
                             } else {
-                                // own position: recurse normally.
+                                // Own position: preserve owned semantics.
                                 self.rewrite_expr_own(
                                     arg, borrow_env, orig_env, copy_generics, orig_fn_name,
                                 )
@@ -1236,10 +1181,20 @@ impl BorrowContext {
                     return Expr::Call(Box::new(new_callee), new_args);
                 }
 
-                // No borrow variant: all args are own positions.
-                let new_callee = self.rewrite_expr_own(
-                    callee, borrow_env, orig_env, copy_generics, orig_fn_name,
-                );
+                // Callee has no borrowed parameters: all args are own positions.
+                // A direct call of an owncap closure is call-local, so B-Closure
+                // can safely remove the owned capture wrapper here.
+                let new_callee = self
+                    .try_bclosure_rewrite(callee, orig_env, copy_generics)
+                    .unwrap_or_else(|| {
+                        self.rewrite_expr_own(
+                            callee,
+                            borrow_env,
+                            orig_env,
+                            copy_generics,
+                            orig_fn_name,
+                        )
+                    });
                 let new_args = args
                     .iter()
                     .map(|a| {
@@ -1828,8 +1783,8 @@ impl BorrowContext {
     /// substituted back to `yj`.
     ///
     /// NonEscAbs is conservatively ensured by the caller: this method is only
-    /// called for `let`-binding initialisers, never for block tail expressions
-    /// (which could be returned / escape).
+    /// used for direct call-local closures or for closure bindings whose later
+    /// uses are known not to return, store, pass, or capture the closure.
     fn try_bclosure_rewrite(
         &self,
         init: &Expr,
@@ -1887,8 +1842,8 @@ impl BorrowContext {
         // Check borrowability: for each captured variable (`y_cap`), all
         // demands it generates within the closure body must be ≤ {Obs, Bor, Own}.
         // Use `in_return_ctx = true` because the closure body's tail expression
-        // IS the closure's return value, so a derived var in tail position is a
-        // Move demand (ownership transferred out of the closure).
+        // is the closure's return value, so a derived var in tail position is an
+        // owned demand that must satisfy OwnOK.
         for (cap_name, _) in &captures {
             let derived: HashSet<String> = [cap_name.clone()].into_iter().collect();
             let mut demands = HashSet::new();
@@ -1901,10 +1856,7 @@ impl BorrowContext {
                 &mut demands,
                 true, // closure body tail = return context
             );
-            if demands.contains(&Demand::Move)
-                || demands.contains(&Demand::Esc)
-                || !own_ok(&demands)
-            {
+            if demands.iter().any(|d| is_blocking(*d)) || !own_ok(&demands) {
                 return None;
             }
         }
@@ -1925,122 +1877,6 @@ impl BorrowContext {
         ))
     }
 
-    // ── Standalone B-Closure over original function bodies ────────────────────
-
-    /// Apply B-Closure to every original (non-`_borrow`, non-`_copy`) function
-    /// body in `items`.  This eliminates owncap patterns from the generated
-    /// Isabelle code even for functions that don't receive a borrow variant.
-    fn apply_bclosure_to_original_fns(&self, items: &mut Vec<Item>) {
-        for item in items.iter_mut() {
-            match item {
-                Item::Function(f)
-                    if !f.name.ends_with("_borrow") && !f.name.ends_with("_copy") =>
-                {
-                    let env = function_type_env(f);
-                    let copy_generics = generic_names_with_bound(f, "Copy");
-                    f.body = self.bclosure_block(&f.body, &env, &copy_generics);
-                }
-                _ => {}
-            }
-        }
-    }
-
-    /// Walk `block` and apply B-Closure to every `let`-binding initialiser.
-    /// The block's tail expression is intentionally left unchanged — it may be
-    /// returned / escape, which would violate NonEscAbs.
-    fn bclosure_block(
-        &self,
-        block: &Block,
-        env: &TypeEnv,
-        copy_generics: &HashSet<String>,
-    ) -> Block {
-        let mut local_env = env.clone();
-        let mut stmts = Vec::new();
-
-        for stmt in &block.stmts {
-            match stmt {
-                Statement::Let(ls) => {
-                    // First try B-Closure on the direct init.
-                    let new_init = ls.init.as_ref().and_then(|i| {
-                        self.try_bclosure_rewrite(i, &local_env, copy_generics)
-                    }).or_else(|| {
-                        // Fallback: recurse into the init expression to find
-                        // nested owncap patterns in sub-blocks / branches.
-                        ls.init.as_ref().map(|i| {
-                            self.bclosure_expr(i, &local_env, copy_generics)
-                        })
-                    });
-
-                    if let Some(ty) = ls.ty.clone().or_else(|| {
-                        ls.init.as_ref().and_then(|e| self.infer_type(e, &local_env))
-                    }) {
-                        if is_binding_ident(&ls.name) {
-                            local_env.insert(ls.name.clone(), ty);
-                        }
-                    }
-                    stmts.push(Statement::Let(LetStmt {
-                        ifmut: ls.ifmut,
-                        name: ls.name.clone(),
-                        ty: ls.ty.clone(),
-                        init: new_init,
-                    }));
-                }
-                Statement::Expr(e) => {
-                    stmts.push(Statement::Expr(
-                        self.bclosure_expr(e, &local_env, copy_generics),
-                    ));
-                }
-                other => stmts.push(other.clone()),
-            }
-        }
-
-        // Tail expression: do NOT apply B-Closure (tail = potential escape).
-        Block {
-            stmts,
-            expr: block.expr.clone(),
-        }
-    }
-
-    /// Recurse into compound expressions looking for sub-blocks that contain
-    /// owncap patterns in their `let` statements.
-    fn bclosure_expr(
-        &self,
-        expr: &Expr,
-        env: &TypeEnv,
-        copy_generics: &HashSet<String>,
-    ) -> Expr {
-        match expr {
-            Expr::Block(block) => {
-                Expr::Block(self.bclosure_block(block, env, copy_generics))
-            }
-            Expr::Match { expr: scrutinee, arms } => Expr::Match {
-                expr: scrutinee.clone(),
-                arms: arms
-                    .iter()
-                    .map(|arm| MatchArm {
-                        pattern: arm.pattern.clone(),
-                        guard: arm.guard.clone(),
-                        body: self.bclosure_block(&arm.body, env, copy_generics),
-                    })
-                    .collect(),
-            },
-            Expr::If {
-                condition,
-                then_branch,
-                else_branch,
-            } => Expr::If {
-                condition: condition.clone(),
-                then_branch: self.bclosure_block(then_branch, env, copy_generics),
-                else_branch: else_branch
-                    .as_ref()
-                    .map(|b| self.bclosure_block(b, env, copy_generics)),
-            },
-            Expr::Parenthesized(inner) => Expr::Parenthesized(Box::new(
-                self.bclosure_expr(inner, env, copy_generics),
-            )),
-            _ => expr.clone(),
-        }
-    }
 }
 
 // ── Pattern utilities ─────────────────────────────────────────────────────────
@@ -2070,146 +1906,6 @@ fn strip_box_from_pattern(pattern: &str) -> String {
     result
 }
 
-/// Scan a `Block` and return the set of generic type names that appear as the
-/// receiver of a `.clone()` call.  Used to decide which `Clone` bounds the
-/// borrow variant still needs.
-/// Collect the set of generic type-parameter names that still appear as the
-/// effective element type of `.clone()` calls in `block`.
-///
-/// `param_type_env` contains only the **parameter** types of the borrow
-/// variant (known before body rewriting).  When a clone receiver is a
-/// pattern-bound variable whose type is not in this env (e.g. `h` from a
-/// match arm), we conservatively assume ALL generics (`all_fn_generics`) are
-/// still needed — this prevents spuriously removing `A: Clone` when
-/// `h.clone()` where `h: &A` remains in the body.
-fn generics_in_clone_calls(
-    block: &Block,
-    param_type_env: &HashMap<String, Type>,
-    all_fn_generics: &HashSet<String>,
-) -> HashSet<String> {
-    let mut out = HashSet::new();
-    collect_clone_generic_names_block(block, param_type_env, all_fn_generics, &mut out);
-    out
-}
-
-fn collect_clone_generic_names_block(
-    block: &Block,
-    type_env: &HashMap<String, Type>,
-    all_generics: &HashSet<String>,
-    out: &mut HashSet<String>,
-) {
-    for stmt in &block.stmts {
-        match stmt {
-            Statement::Let(ls) => {
-                if let Some(init) = &ls.init {
-                    collect_clone_generic_names_expr(init, type_env, all_generics, out);
-                }
-            }
-            Statement::Expr(e) => collect_clone_generic_names_expr(e, type_env, all_generics, out),
-            _ => {}
-        }
-    }
-    if let Some(tail) = &block.expr {
-        collect_clone_generic_names_expr(tail, type_env, all_generics, out);
-    }
-}
-
-fn collect_clone_generic_names_expr(
-    expr: &Expr,
-    type_env: &HashMap<String, Type>,
-    all_generics: &HashSet<String>,
-    out: &mut HashSet<String>,
-) {
-    match expr {
-        Expr::MethodCall(receiver, method, args) if method == "clone" && args.is_empty() => {
-            // Determine which generic names appear in the effective cloned type.
-            if let Expr::Ident(name) = receiver.as_ref() {
-                if let Some(ty) = type_env.get(name) {
-                    // Known parameter type: strip outer & and extract generics.
-                    let inner = ref_inner(ty).unwrap_or(ty);
-                    collect_generic_names_in_type(inner, out);
-                } else {
-                    // Unknown variable (e.g. match-bound `h: &A`): conservatively
-                    // assume all function generics are still needed.
-                    out.extend(all_generics.iter().cloned());
-                }
-            } else {
-                // Receiver is a chain like `v.as_ref()`: conservatively keep all.
-                out.extend(all_generics.iter().cloned());
-            }
-        }
-        Expr::MethodCall(receiver, _, args) => {
-            collect_clone_generic_names_expr(receiver, type_env, all_generics, out);
-            for a in args {
-                collect_clone_generic_names_expr(a, type_env, all_generics, out);
-            }
-        }
-        Expr::Call(callee, args) => {
-            collect_clone_generic_names_expr(callee, type_env, all_generics, out);
-            for a in args {
-                collect_clone_generic_names_expr(a, type_env, all_generics, out);
-            }
-        }
-        Expr::Match { expr, arms } => {
-            collect_clone_generic_names_expr(expr, type_env, all_generics, out);
-            for arm in arms {
-                collect_clone_generic_names_block(&arm.body, type_env, all_generics, out);
-            }
-        }
-        Expr::Block(block) => collect_clone_generic_names_block(block, type_env, all_generics, out),
-        Expr::Tuple(elems) => {
-            for e in elems {
-                collect_clone_generic_names_expr(e, type_env, all_generics, out);
-            }
-        }
-        Expr::Parenthesized(inner)
-        | Expr::UnaryOp(_, inner)
-        | Expr::Reference(inner, _, _)
-        | Expr::Await(inner) => collect_clone_generic_names_expr(inner, type_env, all_generics, out),
-        Expr::BinaryOp(l, _, r) => {
-            collect_clone_generic_names_expr(l, type_env, all_generics, out);
-            collect_clone_generic_names_expr(r, type_env, all_generics, out);
-        }
-        Expr::If {
-            condition,
-            then_branch,
-            else_branch,
-        } => {
-            collect_clone_generic_names_expr(condition, type_env, all_generics, out);
-            collect_clone_generic_names_block(then_branch, type_env, all_generics, out);
-            if let Some(eb) = else_branch {
-                collect_clone_generic_names_block(eb, type_env, all_generics, out);
-            }
-        }
-        _ => {}
-    }
-}
-
-/// Recursively collect uppercase `Type::Named` entries (generic type params).
-fn collect_generic_names_in_type(ty: &Type, out: &mut HashSet<String>) {
-    match ty {
-        Type::Named(name) => {
-            if name.chars().next().is_some_and(|c| c.is_uppercase()) {
-                out.insert(name.clone());
-            }
-        }
-        Type::Generic(_, params) => {
-            for p in params {
-                collect_generic_names_in_type(p, out);
-            }
-        }
-        Type::Tuple(types) => {
-            for t in types {
-                collect_generic_names_in_type(t, out);
-            }
-        }
-        Type::Reference(inner, _, _) | Type::Array(inner, _) | Type::Slice(inner) => {
-            collect_generic_names_in_type(inner, out);
-        }
-        Type::Path(_) | Type::Unit | Type::Never => {}
-    }
-}
-
 // ── B-Closure helpers ────────────────────────────────────────────────────────
 
 /// Extract the bare parameter name from a possibly-typed closure param string.
@@ -2224,12 +1920,198 @@ fn closure_param_name(param_str: &str) -> String {
         .to_string()
 }
 
+#[derive(Debug, Default)]
+struct ClosureBindingUsage {
+    call_uses: usize,
+    escapes: bool,
+}
+
+fn closure_binding_is_nonescaping_use(block: &Block, stmt_idx: usize, name: &str) -> bool {
+    let mut usage = ClosureBindingUsage::default();
+    let mut shadowed = false;
+
+    for stmt in block.stmts.iter().skip(stmt_idx + 1) {
+        if shadowed {
+            break;
+        }
+        shadowed = collect_closure_binding_usage_stmt(stmt, name, &mut usage);
+        if usage.escapes {
+            return false;
+        }
+    }
+
+    if !shadowed {
+        if let Some(tail) = &block.expr {
+            collect_closure_binding_usage_expr(tail, name, &mut usage);
+        }
+    }
+
+    usage.call_uses > 0 && !usage.escapes
+}
+
+fn collect_closure_binding_usage_stmt(
+    stmt: &Statement,
+    name: &str,
+    usage: &mut ClosureBindingUsage,
+) -> bool {
+    match stmt {
+        Statement::Let(ls) => {
+            if let Some(init) = &ls.init {
+                collect_closure_binding_usage_expr(init, name, usage);
+            }
+            pattern_binds_name(&ls.name, name)
+        }
+        Statement::Expr(expr) => {
+            collect_closure_binding_usage_expr(expr, name, usage);
+            false
+        }
+        Statement::Item(_) | Statement::Continue | Statement::Break | Statement::Comment(_) => {
+            false
+        }
+    }
+}
+
+fn collect_closure_binding_usage_block(
+    block: &Block,
+    name: &str,
+    usage: &mut ClosureBindingUsage,
+) {
+    let mut shadowed = false;
+    for stmt in &block.stmts {
+        if shadowed {
+            break;
+        }
+        shadowed = collect_closure_binding_usage_stmt(stmt, name, usage);
+        if usage.escapes {
+            return;
+        }
+    }
+
+    if !shadowed {
+        if let Some(tail) = &block.expr {
+            collect_closure_binding_usage_expr(tail, name, usage);
+        }
+    }
+}
+
+fn collect_closure_binding_usage_expr(
+    expr: &Expr,
+    name: &str,
+    usage: &mut ClosureBindingUsage,
+) {
+    if usage.escapes {
+        return;
+    }
+
+    match expr {
+        Expr::Ident(ident) => {
+            if ident == name {
+                usage.escapes = true;
+            }
+        }
+        Expr::Call(callee, args) => {
+            if expr_is_ident_named(callee, name) {
+                usage.call_uses += 1;
+            } else {
+                collect_closure_binding_usage_expr(callee, name, usage);
+            }
+            for arg in args {
+                collect_closure_binding_usage_expr(arg, name, usage);
+            }
+        }
+        Expr::MethodCall(receiver, _, args) => {
+            collect_closure_binding_usage_expr(receiver, name, usage);
+            for arg in args {
+                collect_closure_binding_usage_expr(arg, name, usage);
+            }
+        }
+        Expr::Block(block) => {
+            collect_closure_binding_usage_block(block, name, usage);
+        }
+        Expr::Loop(block) | Expr::Unsafe(block) => {
+            collect_closure_binding_usage_block(block, name, usage);
+        }
+        Expr::Await(inner)
+        | Expr::Parenthesized(inner)
+        | Expr::UnaryOp(_, inner)
+        | Expr::Reference(inner, _, _) => {
+            collect_closure_binding_usage_expr(inner, name, usage);
+        }
+        Expr::BinaryOp(left, _, right) | Expr::Index(left, right) | Expr::Assign(left, right) => {
+            collect_closure_binding_usage_expr(left, name, usage);
+            collect_closure_binding_usage_expr(right, name, usage);
+        }
+        Expr::Tuple(elems) => {
+            for elem in elems {
+                collect_closure_binding_usage_expr(elem, name, usage);
+            }
+        }
+        Expr::Match { expr, arms } => {
+            collect_closure_binding_usage_expr(expr, name, usage);
+            for arm in arms {
+                if pattern_binds_name(&arm.pattern, name) {
+                    continue;
+                }
+                if let Some(guard) = &arm.guard {
+                    collect_closure_binding_usage_expr(guard, name, usage);
+                }
+                collect_closure_binding_usage_block(&arm.body, name, usage);
+            }
+        }
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
+            collect_closure_binding_usage_expr(condition, name, usage);
+            collect_closure_binding_usage_block(then_branch, name, usage);
+            if let Some(else_branch) = else_branch {
+                collect_closure_binding_usage_block(else_branch, name, usage);
+            }
+        }
+        Expr::IfLet {
+            pattern,
+            value,
+            then_branch,
+            else_branch,
+        } => {
+            collect_closure_binding_usage_expr(value, name, usage);
+            if !pattern_binds_name(pattern, name) {
+                collect_closure_binding_usage_block(then_branch, name, usage);
+            }
+            if let Some(else_branch) = else_branch {
+                collect_closure_binding_usage_block(else_branch, name, usage);
+            }
+        }
+        Expr::Closure(params, body, _) => {
+            if !params.iter().any(|p| closure_param_name(p) == name) {
+                let vars = HashSet::from([name.to_string()]);
+                if expr_has_free_var_from(body, &vars) {
+                    usage.escapes = true;
+                }
+            }
+        }
+        Expr::BuilderChain(methods) => {
+            let vars = HashSet::from([name.to_string()]);
+            if builder_chain_has_free_var_from(methods, &vars) {
+                usage.escapes = true;
+            }
+        }
+        Expr::Path(_, _) | Expr::Literal(_) => {}
+    }
+}
+
+fn expr_is_ident_named(expr: &Expr, name: &str) -> bool {
+    matches!(strip_parens(expr), Expr::Ident(ident) if ident == name)
+}
+
 /// Returns `true` if any variable in `vars` appears free (not locally bound)
 /// anywhere in `expr`.  Conservative over-approximation: does NOT track
 /// shadowing from inner `let` bindings or match patterns.
 fn expr_has_free_var_from(expr: &Expr, vars: &HashSet<String>) -> bool {
     match expr {
         Expr::Ident(name) => vars.contains(name),
+        Expr::Path(_, _) | Expr::Literal(_) => false,
         Expr::MethodCall(recv, _, args) => {
             expr_has_free_var_from(recv, vars)
                 || args.iter().any(|a| expr_has_free_var_from(a, vars))
@@ -2239,11 +2121,12 @@ fn expr_has_free_var_from(expr: &Expr, vars: &HashSet<String>) -> bool {
                 || args.iter().any(|a| expr_has_free_var_from(a, vars))
         }
         Expr::Block(block) => block_has_free_var_from(block, vars),
+        Expr::Loop(block) | Expr::Unsafe(block) => block_has_free_var_from(block, vars),
         Expr::Parenthesized(inner)
         | Expr::UnaryOp(_, inner)
         | Expr::Reference(inner, _, _)
         | Expr::Await(inner) => expr_has_free_var_from(inner, vars),
-        Expr::BinaryOp(l, _, r) | Expr::Assign(l, r) => {
+        Expr::BinaryOp(l, _, r) | Expr::Index(l, r) | Expr::Assign(l, r) => {
             expr_has_free_var_from(l, vars) || expr_has_free_var_from(r, vars)
         }
         Expr::Tuple(elems) => elems.iter().any(|e| expr_has_free_var_from(e, vars)),
@@ -2251,7 +2134,12 @@ fn expr_has_free_var_from(expr: &Expr, vars: &HashSet<String>) -> bool {
             expr_has_free_var_from(expr, vars)
                 || arms
                     .iter()
-                    .any(|arm| block_has_free_var_from(&arm.body, vars))
+                    .any(|arm| {
+                        arm.guard
+                            .as_ref()
+                            .map_or(false, |guard| expr_has_free_var_from(guard, vars))
+                            || block_has_free_var_from(&arm.body, vars)
+                    })
         }
         Expr::If {
             condition,
@@ -2264,6 +2152,18 @@ fn expr_has_free_var_from(expr: &Expr, vars: &HashSet<String>) -> bool {
                     .as_ref()
                     .map_or(false, |b| block_has_free_var_from(b, vars))
         }
+        Expr::IfLet {
+            value,
+            then_branch,
+            else_branch,
+            ..
+        } => {
+            expr_has_free_var_from(value, vars)
+                || block_has_free_var_from(then_branch, vars)
+                || else_branch
+                    .as_ref()
+                    .map_or(false, |b| block_has_free_var_from(b, vars))
+        }
         Expr::Closure(params, body, _) => {
             // Closure params shadow outer vars.
             let shadowed: HashSet<String> =
@@ -2271,8 +2171,15 @@ fn expr_has_free_var_from(expr: &Expr, vars: &HashSet<String>) -> bool {
             let outer: HashSet<String> = vars.difference(&shadowed).cloned().collect();
             !outer.is_empty() && expr_has_free_var_from(body, &outer)
         }
-        _ => false,
+        Expr::BuilderChain(methods) => builder_chain_has_free_var_from(methods, vars),
     }
+}
+
+fn builder_chain_has_free_var_from(methods: &[BuilderMethod], vars: &HashSet<String>) -> bool {
+    methods.iter().any(|method| match method {
+        BuilderMethod::Named(_) => false,
+        BuilderMethod::Spawn { closure, .. } => expr_has_free_var_from(closure, vars),
+    })
 }
 
 fn block_has_free_var_from(block: &Block, vars: &HashSet<String>) -> bool {
@@ -2508,31 +2415,18 @@ fn function_type_env(f: &FunctionDef) -> TypeEnv {
         .collect()
 }
 
+fn ensure_function_comment(f: &mut FunctionDef, comment: &str) {
+    if !f.docs.iter().any(|doc| doc.trim() == comment) {
+        f.docs.push(comment.to_string());
+    }
+}
+
 fn generic_names_with_bound(f: &FunctionDef, bound: &str) -> HashSet<String> {
     f.generics
         .iter()
         .filter(|g| g.bounds.iter().any(|b| b == bound))
         .map(|g| g.name.clone())
         .collect()
-}
-
-fn has_clone_bound(g: &GenericParam) -> bool {
-    g.bounds.iter().any(|b| b == "Clone")
-}
-
-fn fresh_borrow_name(base: &str, existing: &mut HashSet<String>) -> String {
-    let first = format!("{base}_borrow");
-    if existing.insert(first.clone()) {
-        return first;
-    }
-    let mut suffix = 2usize;
-    loop {
-        let candidate = format!("{base}_borrow{suffix}");
-        if existing.insert(candidate.clone()) {
-            return candidate;
-        }
-        suffix += 1;
-    }
 }
 
 // ── String-level pattern utilities (shared with copy_analysis) ────────────────
@@ -2546,6 +2440,26 @@ fn is_binding_ident(input: &str) -> bool {
         && input != "_"
         && !is_reserved_pattern_word(input)
         && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
+}
+
+fn pattern_binds_name(pattern: &str, name: &str) -> bool {
+    if !is_binding_ident(name) {
+        return false;
+    }
+
+    let mut token = String::new();
+    for ch in pattern.chars() {
+        if ch == '_' || ch.is_ascii_alphanumeric() {
+            token.push(ch);
+        } else {
+            if token == name {
+                return true;
+            }
+            token.clear();
+        }
+    }
+
+    token == name
 }
 
 fn is_reserved_pattern_word(input: &str) -> bool {
@@ -2661,4 +2575,191 @@ fn split_top_level_commas(input: &str) -> Vec<String> {
         parts.push(last.to_string());
     }
     parts
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn named(name: &str) -> Type {
+        Type::Named(name.to_string())
+    }
+
+    fn lit_i(value: i64) -> Expr {
+        Expr::Literal(Literal::Int(value))
+    }
+
+    fn block_tail(expr: Expr) -> Block {
+        Block {
+            stmts: vec![],
+            expr: Some(Box::new(expr)),
+        }
+    }
+
+    fn function(name: &str, param_name: &str, param_ty: Type, body: Block) -> FunctionDef {
+        FunctionDef {
+            name: name.to_string(),
+            params: vec![Param {
+                name: param_name.to_string(),
+                ty: param_ty,
+            }],
+            return_type: named("bool"),
+            generics: vec![],
+            body,
+            asyncness: false,
+            vis: Visibility::Public,
+            docs: vec![],
+            attrs: vec![],
+        }
+    }
+
+    fn module_with(function: FunctionDef) -> RustModule {
+        RustModule {
+            name: "Test".to_string(),
+            docs: vec![],
+            items: vec![Item::Function(function)],
+            attrs: vec![],
+            vis: Visibility::Public,
+        }
+    }
+
+    fn empty_ctx() -> BorrowContext {
+        BorrowContext {
+            copy_types: HashSet::new(),
+            type_defs: HashMap::new(),
+            variant_owners: HashMap::new(),
+            fn_sigs: HashMap::new(),
+            borrow_positions: HashMap::new(),
+            borrow_fns: HashSet::new(),
+        }
+    }
+
+    fn owncap_block(orig_name: &str, cap_name: &str) -> Expr {
+        Expr::Block(Block {
+            stmts: vec![Statement::Let(LetStmt {
+                ifmut: false,
+                name: cap_name.to_string(),
+                ty: None,
+                init: Some(Expr::MethodCall(
+                    Box::new(Expr::Ident(orig_name.to_string())),
+                    "clone".to_string(),
+                    vec![],
+                )),
+            })],
+            expr: Some(Box::new(Expr::Closure(
+                vec!["x: i32".to_string()],
+                Box::new(Expr::MethodCall(
+                    Box::new(Expr::Ident(cap_name.to_string())),
+                    "clone".to_string(),
+                    vec![],
+                )),
+                true,
+            ))),
+        })
+    }
+
+    fn block_with_closure_binding(tail: Expr) -> Block {
+        Block {
+            stmts: vec![Statement::Let(LetStmt {
+                ifmut: false,
+                name: "f".to_string(),
+                ty: None,
+                init: Some(owncap_block("y", "y_cap")),
+            })],
+            expr: Some(Box::new(tail)),
+        }
+    }
+
+    fn rewrite_test_block(block: &Block) -> Block {
+        let ctx = empty_ctx();
+        let orig_env = HashMap::from([("y".to_string(), named("String"))]);
+        let mut borrow_env = orig_env.clone();
+        ctx.rewrite_block_borrow(block, &mut borrow_env, &orig_env, &HashSet::new(), "test")
+    }
+
+    fn first_let_init(block: &Block) -> &Expr {
+        match &block.stmts[0] {
+            Statement::Let(ls) => ls.init.as_ref().expect("let init"),
+            _ => panic!("expected let statement"),
+        }
+    }
+
+    fn is_move_owncap_block(expr: &Expr) -> bool {
+        let Expr::Block(block) = strip_parens(expr) else {
+            return false;
+        };
+        matches!(
+            block.expr.as_deref().map(strip_parens),
+            Some(Expr::Closure(_, _, true))
+        )
+    }
+
+    #[test]
+    fn unk_blocks_borrowing_for_unsupported_index_use() {
+        let body = block_tail(Expr::Index(
+            Box::new(Expr::Ident("x".to_string())),
+            Box::new(lit_i(0)),
+        ));
+        let mut module = module_with(function("uses_index", "x", named("Tree"), body));
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.is_empty());
+        let Item::Function(function) = &module.items[0] else {
+            panic!("expected function");
+        };
+        assert!(!is_reference_type(&function.params[0].ty));
+    }
+
+    #[test]
+    fn bclosure_rewrites_direct_local_call() {
+        let block = block_with_closure_binding(Expr::Call(
+            Box::new(Expr::Ident("f".to_string())),
+            vec![lit_i(0)],
+        ));
+
+        let rewritten = rewrite_test_block(&block);
+
+        assert!(matches!(first_let_init(&rewritten), Expr::Closure(_, _, false)));
+    }
+
+    #[test]
+    fn bclosure_keeps_move_when_returned_as_component() {
+        let block = block_with_closure_binding(Expr::Tuple(vec![
+            Expr::Ident("f".to_string()),
+            lit_i(0),
+        ]));
+
+        let rewritten = rewrite_test_block(&block);
+
+        assert!(is_move_owncap_block(first_let_init(&rewritten)));
+    }
+
+    #[test]
+    fn bclosure_keeps_move_when_passed_to_unknown_callee() {
+        let block = block_with_closure_binding(Expr::Call(
+            Box::new(Expr::Ident("consume".to_string())),
+            vec![Expr::Ident("f".to_string())],
+        ));
+
+        let rewritten = rewrite_test_block(&block);
+
+        assert!(is_move_owncap_block(first_let_init(&rewritten)));
+    }
+
+    #[test]
+    fn bclosure_keeps_move_when_captured_by_escaping_closure() {
+        let block = block_with_closure_binding(Expr::Closure(
+            vec![],
+            Box::new(Expr::Call(
+                Box::new(Expr::Ident("f".to_string())),
+                vec![lit_i(0)],
+            )),
+            false,
+        ));
+
+        let rewritten = rewrite_test_block(&block);
+
+        assert!(is_move_owncap_block(first_let_init(&rewritten)));
+    }
 }

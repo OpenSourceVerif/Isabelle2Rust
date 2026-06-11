@@ -1,4 +1,4 @@
-theory Copy_Struct_Test
+theory Copy_Bool_Fields_Test
   imports Main "Rust.Rust_Setup"
 begin
 

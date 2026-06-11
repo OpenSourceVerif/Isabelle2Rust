@@ -1,4 +1,4 @@
-theory Generic_Copy_Bound_Test
+theory Copy_Generic_Bound_Test
   imports Main "Rust.Rust_Setup"
 begin
 
