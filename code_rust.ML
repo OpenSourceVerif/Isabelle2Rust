@@ -125,6 +125,22 @@ fun extract_typ print_typ ("fun"`%%[ty1, ty2]) =
     | _ => [print_typ (INFX (1, X)) ty2])
   | extract_typ print_typ ty = [print_typ (INFX (1, X)) ty]
 
+(** Render a HOL function type as the cloneable trait object
+    `Rc<dyn Fn(params) -> ret>`. Used both for the `fun` type-constructor syntax
+    and for a function definition whose Rust signature returns a function, so the
+    two stay identical. `Rc` (not `Box`) because every datatype derives Clone and
+    the backend emits `+ Clone` bounds; `Rc<dyn Fn>` is Clone but `Box<dyn Fn>` is
+    not (E0277). The default object lifetime is `'static`, which holds for the
+    `move` closures we emit (they capture owned clones). **)
+fun rc_dyn_fn params ret =
+  Pretty.block (
+    str "Rc<dyn Fn"
+    :: enum "," "(" ")" params
+    :: str " -> "
+    :: ret
+    :: [str ">"]
+  )
+
 (** Main statement printer: given syntaxes and lookup functions, returns print_stmt.
     Contains all local printers for types, terms, patterns, cases, defs, and stmts.
     Parameters:
@@ -271,12 +287,16 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 print_app_with_clone is_pseudo_fun (box_prcs, clone_prcs) some_thm vars fxy app
               | NONE => (*closure*)
                 let
-                  val (t', ts') = Code_Thingol.unfold_app t 
+                  val (t', ts') = Code_Thingol.unfold_app t
                   val params = map (print_term_app is_pseudo_fun some_thm vars NOBR) ts'
                 in
+                  (* The callee is a function value of type Rc<dyn Fn(..)>, which
+                     is not directly callable (unlike Box, Rc has no Fn impl).
+                     Deref to the `dyn Fn` place, emitting the form  ( * f )(args). *)
                   Pretty.block(
-                    print_term_decl is_pseudo_fun some_thm vars NOBR t'
-                    :: str " ("
+                    str "(*"
+                    :: print_term_decl is_pseudo_fun some_thm vars NOBR t'
+                    :: str ")("
                     :: commas_append params
                     @ [str ")"]
                   )
@@ -436,23 +456,30 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           in
             if length ts = wanted_app
             then
-              let 
+              let
                 val (ts1, ts2) = chop wanted_fn ts
-              in 
-                [Pretty.block (
+                val call1 =
                   generic_prefixs
                   @ funcname
-                  :: enum "," "(" ")"
+                  :: [enum "," "(" ")"
                        (map
                          (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
-                       ts1)
-                  :: (if List.null ts2
-                      then []
-                      else [enum "," "(" ")"
-                             (map
-                               (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
-                             ts2)])
-                )]
+                       ts1)]
+              in
+                if List.null ts2
+                then [Pretty.block call1]
+                else
+                  (* funcname(ts1) yields an Rc<dyn Fn(..)> result; deref it to
+                     call the remaining argument group, emitting ( * funcname(ts1) )(ts2). *)
+                  [Pretty.block (
+                    str "(*"
+                    :: Pretty.block call1
+                    :: str ")"
+                    :: [enum "," "(" ")"
+                          (map
+                            (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
+                          ts2)]
+                  )]
               end
             else
               let 
@@ -542,10 +569,14 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         val (ps, vars') =
           fold_map (print_bind is_pseudo_fun some_thm BR o fst) binds vars_capped;
         val typs = map ((print_typ NOBR) o snd) binds;
+        (* Wrap in Rc::new so the closure value has the cloneable trait-object
+           type Rc<dyn Fn(..)>. The unsizing coercion Rc<{anon}> -> Rc<dyn Fn>
+           happens at the enclosing coercion site (function return, constructor
+           argument, typed let), so no `as`/annotation is emitted here. *)
         val closure_pretty =
           Pretty.block_enclose (
             Pretty.block (
-              str "(move |"
+              str "Rc::new(move |"
               :: commas_append
                 (map (fn (p1, p2) => Pretty.block [p1, str ": ", p2])
                   (ListPair.zip (ps, typs)))
@@ -646,24 +677,31 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 val generic_params = distinct (op =) (extract_generics ty)
                 fun print_traits vs generic_params = 
                   let
-                    fun print_vs_traits vs = 
-                      map 
+                    (* Every type parameter carries a `'static` bound: function
+                       values are erased to `Rc<dyn Fn(..)>`, whose default object
+                       lifetime is `'static`, so any captured type parameter must
+                       outlive `'static` (E0310). In this owned-value model all
+                       instantiations are owned and `'static`, so this is sound.
+                       `'static` is emitted last so it follows the trait bounds. *)
+                    fun print_vs_traits vs =
+                      map
                       (fn (vname, sort) =>
                         Pretty.block(
                           str ((to_upper vname)^" : Clone")
-                          :: [if List.null sort
-                            then str ""
-                            else enum " +" " + " ""  (map (fn s => print_tyco_expr (Type_Class s, [])) sort)]
+                          :: (if List.null sort
+                            then []
+                            else [enum " +" " + " ""  (map (fn s => print_tyco_expr (Type_Class s, [])) sort)])
+                          @ [str " + 'static"]
                         )
                       )
                       vs
                     val vl = map to_upper (map fst vs)
-                    val other_traits = 
-                      map_filter 
-                      (fn s => 
+                    val other_traits =
+                      map_filter
+                      (fn s =>
                         if List.exists (fn s' => (s' = s)) vl
                         then NONE
-                        else SOME (str (s^" : Clone")))
+                        else SOME (str (s^" : Clone + 'static")))
                       generic_params
                   in
                      commas_append ((print_vs_traits vs) @ other_traits)
@@ -724,12 +762,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                           val ret = List.last ts
                           val params = List.take (ts, ((List.length ts) - 1))
                         in
-                          Pretty.block(
-                            str "impl Fn"
-                            :: enum "," "(" ")" params
-                            :: str " -> "
-                            :: [ret]
-                          )
+                          rc_dyn_fn params ret
                         end)
                     val dummy_parms_with_typs = ListPair.zip (dummy_parms, param_typs)
                       |> map (fn (prt1, prt2) => Pretty.block ([prt1, str ": ", prt2]))
@@ -983,10 +1016,19 @@ fun print_rust_module name decls trait_uses includes body =
        a module other than the datatype's declaring module. *)
     val uses_phantom =
       List.exists (fn p => String.isSubstring "PhantomData" (Pretty.string_of p)) body
+    (* Import Rc only for files that materialise a function value or type as
+       Rc<dyn Fn(..)> (HOL function types -> cloneable trait objects). Both the
+       type `Rc<` and the constructor `Rc::new` surface the substring, covering
+       declaration and value sites. *)
+    val uses_rc =
+      List.exists (fn p =>
+        let val s = Pretty.string_of p
+        in String.isSubstring "Rc<" s orelse String.isSubstring "Rc::" s end) body
     val headers =
       (if List.null includes' then [] else [includes_p])
       @ (if List.null trait_uses then [] else [trait_uses_p])
       @ (if uses_phantom then [str "use std::marker::PhantomData;"] else [])
+      @ (if uses_rc then [str "use std::rc::Rc;"] else [])
   in
     Pretty.chunks2 (headers @ body)
   end
@@ -1554,20 +1596,14 @@ val serializer_rust : Code_Target.serializer =
 (** Isar setup **)
 
 (** Custom type syntax for "fun" type constructor:
-    renders as "impl Fn(A, B) -> C + Clone" in Rust. **)
+    renders as "Rc<dyn Fn(A, B) -> C>" in Rust. **)
 fun fn_trait_impl_syntax print_typ fxy [ty1, ty2] =
   let
     val ts = extract_typ print_typ ("fun"`%%[ty1, ty2])
     val ret = List.last ts
     val params = List.take (ts, ((List.length ts) - 1))
   in
-    Pretty.block(
-      str "impl Fn"
-      :: enum "," "(" ")" params
-      :: str " -> "
-      :: ret
-      :: [str " + Clone"]
-    )
+    rc_dyn_fn params ret
   end;
 
 (** Register Rust as a code generation target in Isabelle.

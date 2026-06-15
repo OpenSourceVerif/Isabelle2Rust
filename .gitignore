@@ -18,3 +18,5 @@ package-lock.json
 ROOT
 optimize/target/
 optimize/tests/out/
+**/stage1
+**/stage2

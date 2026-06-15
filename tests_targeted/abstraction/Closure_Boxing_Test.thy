@@ -23,8 +23,8 @@ begin
    register file (`BpfIreg => Word`) and memory (`Word => Word option`) as fields
    and rebuilds them with capturing closures (fun_upd, memory update).
 
-   EXPECTED-RED until closure boxing (HOL function type -> Rc<dyn Fn>) is
-   implemented; see memory step-export-remaining-bugs. *)
+   Now GREEN: the backend maps HOL function types to Rc<dyn Fn(..)> and wraps
+   lambda values in Rc::new, so both OP1 and OP2 translate faithfully. *)
 
 (* OP1: a function stored in a datatype field. *)
 datatype reg = Reg "nat \<Rightarrow> nat"
