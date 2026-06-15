@@ -1641,14 +1641,21 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       | segs => "crate::" ^ String.concatWith "::" segs)
 
     (** Print a single statement within its module context. **)
-    fun print_stmt prefix_fragments (_, (export, stmt)) = (print_rust_stmt
-      tyco_syntax const_syntax (make_vars reserved_syms)
-      (Code_Thingol.is_constr program) (modify_deresolver (deresolver prefix_fragments))
-      box_table phantom_table
-      lookup_constant_typeco lookup_constant_fun
-      lookup_method_class inst_method_info lookup_class_methods)
-      export stmt
-      |> apfst (fn decl => if Code_Namespace.not_private export then SOME decl else NONE);
+    fun print_stmt prefix_fragments (sym, (export, stmt)) =
+      let
+        val _ = tracing ("[Thingol] "
+          ^ Code_Debug_Info.print_debug_info_sym sym ^ ": "
+          ^ Code_Debug_Info.print_debug_info_thingol_stmt (get_node program sym))
+      in
+        (print_rust_stmt
+          tyco_syntax const_syntax (make_vars reserved_syms)
+          (Code_Thingol.is_constr program) (modify_deresolver (deresolver prefix_fragments))
+          box_table phantom_table
+          lookup_constant_typeco lookup_constant_fun
+          lookup_method_class inst_method_info lookup_class_methods)
+          export stmt
+        |> apfst (fn decl => if Code_Namespace.not_private export then SOME decl else NONE)
+      end;
 
     (** Print a module: gather declarations, resolve imports, and wrap in module body. **)
     fun print_module _ base _ xs =

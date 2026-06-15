@@ -22,6 +22,6 @@ code_identifier
 
 export_code use_both in Rust
  (* module_name Use_both*)
-export_code use_both in Go
+ (*export_code use_both in Go*)
 
 end
