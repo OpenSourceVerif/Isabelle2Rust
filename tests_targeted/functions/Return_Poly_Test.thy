@@ -19,11 +19,9 @@ begin
    of_int :: int => 'a::len word results in step, where the word WIDTH is the
    return-only-polymorphic parameter.
 
-   Fix (pending): at a call whose result type variable is not fixed by its
-   argument types, emit turbofish conv::<A>(..) / of_int::<Width>(..) from the
-   concrete type carried in the call's IConst record (typargs/range).
-
-   EXPECTED-RED until that turbofish handling lands. *)
+   Fix: at a call whose result type variable is not fixed by its argument
+   types, emit turbofish conv::<A>(..) / of_int::<Width>(..) reconstructed from
+   the concrete types carried in the call's IConst record (dom/range). *)
 
 class pseudo_num =
   fixes pn_zero :: "'a"

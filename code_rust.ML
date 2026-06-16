@@ -437,6 +437,71 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   | plain_var (Code_Thingol.Dict_Const _) = NONE
                 fun dict_var (Code_Thingol.Dict (_, plain)) = plain_var plain
               in get_first dict_var (List.concat dicts) end
+            (* Return-type polymorphism turbofish. When a generic parameter of the
+               called function occurs ONLY in its result type and not in any
+               argument type, the call site has nothing from which to infer that
+               type argument, so rustc reports E0282 ("type annotations needed").
+               Emit an explicit `name::<T..>(..)` reconstructed from the concrete
+               types this IConst is instantiated to. Only plain (non-constructor,
+               non-method, non-pseudo) `fun` definitions are affected; class
+               methods dispatch through a `Receiver::` prefix instead. The type
+               arguments are aligned to the declared generic order — the same
+               traversal the fn declaration uses to print its `<..>` list — and
+               each is filled from a substitution matching the declared
+               polymorphic signature against the instantiated dom/range. *)
+            val turbofish =
+              if is_some (lookup_method_class sym) orelse is_some (inst_method_info sym)
+              then NONE
+              else
+                (case lookup_constant_fun sym of
+                    NONE => NONE
+                  | SOME (((_, decl_ty), _), _) =>
+                      let
+                        fun tyvars_in t =
+                          let
+                            fun aux (ITyVar v, acc) = insert (op =) v acc
+                              | aux ((_ `%% ts), acc) = List.foldl aux acc ts
+                          in aux (t, []) end
+                        val (decl_doms_all, decl_final) = Code_Thingol.unfold_fun decl_ty
+                        val n = length dom
+                        val decl_arg_tys = take n decl_doms_all
+                        val decl_res_tys = drop n decl_doms_all @ [decl_final]
+                        val tyvars_of_list =
+                          List.foldl (fn (t, acc) => union (op =) (tyvars_in t) acc) []
+                        val arg_tyvars = tyvars_of_list decl_arg_tys
+                        val res_tyvars = tyvars_of_list decl_res_tys
+                        val return_only = subtract (op =) arg_tyvars res_tyvars
+                        (* Declared generic parameters, in the order the fn decl
+                           prints them (see print_generics_and_traits). *)
+                        fun decl_generics t =
+                          let
+                            fun aux (ITyVar v, acc) = v :: acc
+                              | aux ((_ `%% ts), acc) = List.foldl aux acc ts
+                          in distinct (op =) (aux (t, [])) end
+                        val gens = decl_generics decl_ty
+                        (* declared tyvar -> instantiated itype, by structural
+                           match of the declared full type vs. the instantiated one. *)
+                        fun mk_fun ([], r) = r
+                          | mk_fun (d :: ds, r) = "fun" `%% [d, mk_fun (ds, r)]
+                        val inst_ty = mk_fun (dom, range)
+                        fun unify (ITyVar v, inst) subst =
+                              if AList.defined (op =) subst v then subst
+                              else (v, inst) :: subst
+                          | unify (_ `%% ds, _ `%% is) subst =
+                              if length ds = length is
+                              then List.foldl (fn ((d, i), s) => unify (d, i) s)
+                                     subst (ListPair.zip (ds, is))
+                              else subst
+                          | unify (_, _) subst = subst
+                        val subst = unify (decl_ty, inst_ty) []
+                      in
+                        if null return_only orelse null gens then NONE
+                        else SOME (enum "," "::<" ">"
+                          (map (fn v =>
+                             case AList.lookup (op =) subst v of
+                               SOME ity => print_typ NOBR ity
+                             | NONE => str "_") gens))
+                      end)
             (* Decide the printed callee and any `Receiver::` prefix. *)
             val (generic_prefixs, funcname) =
               (case inst_method_info sym of
@@ -463,7 +528,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 val call1 =
                   generic_prefixs
                   @ funcname
-                  :: [enum "," "(" ")"
+                  :: the_list turbofish
+                   @ [enum "," "(" ")"
                        (map
                          (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
                        ts1)]
