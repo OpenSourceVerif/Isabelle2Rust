@@ -1,3 +1,5 @@
+use crate::Product_Type::Prod;
+
 #[derive(Clone)]
 pub enum MutColor { 
   MRed, 
@@ -22,12 +24,10 @@ pub fn color_tint  (x0: bool, c: MutColor) -> MutColor
                      }
                    }
 
-pub fn color_step 
-  (flag: bool, c: MutColor) -> MutColor
-     {
-    match (flag, c){(flag, c) => color_tint(flag.clone(),
-     color_next(c.clone()))}
-  }
+pub fn color_step  (flag: bool, c: MutColor) -> MutColor
+                      {
+                     color_tint(flag.clone(), color_next(c.clone()))
+                   }
 
 pub fn color_adjacent_chain  (c: MutColor) -> MutColor
                                 {
@@ -63,13 +63,12 @@ pub fn color_interleaved_chain
     }
   }
 
-pub fn color_saved_value_blocks_chain 
-  (c: MutColor) -> crate::Product_Type::Prod<MutColor, MutColor>
-     {
-    {
-      let x = c.clone();
-      let saved = x.clone();
-      let a = color_next(x.clone());
-      crate::Product_Type::Prod::Pair (saved.clone(), a.clone())
-    }
-  }
+pub fn color_saved_value_blocks_chain  (c: MutColor) -> Prod<MutColor, MutColor>
+  {
+ {
+   let x = c.clone();
+   let saved = x.clone();
+   let a = color_next(x.clone());
+   Prod::Pair (saved.clone(), a.clone())
+ }
+                                       }
