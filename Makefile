@@ -1,4 +1,4 @@
-.PHONY: open build build_silent code gen opt test targeted clean help
+.PHONY: open build build_silent code gen opt test targeted sbpf clean help
 
 #### Configuration ####
 
@@ -291,6 +291,41 @@ hol:
 	RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" cargo run --locked --manifest-path "$$CARGO_TOML"
 
 
+# sbpf: Rust<->OCaml runtime cross-test of the exported sBPF semantics.
+#   Feeds the Rust-exported bpf_interp_test / step_test the SAME inputs the OCaml
+#   reference uses and asserts each self-checking call returns true (i.e. the Rust
+#   export agrees, case-for-case, with the OCaml-validated expected values).
+#   Runs against the existing export under tests_sbpf/theory/stage1/bpf_generator.
+#   Pass REBUILD=1 to regenerate that export via Isabelle first.
+SBPF_THEORY_DIR := tests_sbpf/theory
+SBPF_RUST       := tests_sbpf/tests/exec_semantics/rust
+SBPF_DATA       := $(CURDIR)/tests_sbpf/tests/data
+sbpf:
+	@if [ "$(REBUILD)" = "1" ]; then \
+	  echo ">>> [sbpf] regenerating Rust export (bpf_generator)..."; \
+	  $(MAKE) build TEST_DIR=$(SBPF_THEORY_DIR) TEST_THEORY=bpf_generator; \
+	fi
+	@_sbpf_run() { \
+	  crate="$$1"; main="$$2"; json="$$3"; \
+	  toml=$$(find "$(SBPF_THEORY_DIR)/stage1/bpf_generator/$$crate" -maxdepth 2 -name Cargo.toml 2>/dev/null | head -1); \
+	  if [ -z "$$toml" ]; then \
+	    echo "ERROR: no export for $$crate under $(SBPF_THEORY_DIR)/stage1 — run 'make sbpf REBUILD=1'"; \
+	    return 2; \
+	  fi; \
+	  src="$$(dirname "$$toml")/src"; \
+	  cp "$$main" "$$src/main.rs"; \
+	  grep -q '^serde ' "$$toml" || \
+	    sed -i '/^\[dependencies\]/a serde = { version = "1", features = ["derive"] }\nserde_json = "1"' "$$toml"; \
+	  CROSS_JSON="$$json" RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) run -q --manifest-path "$$toml"; \
+	}; \
+	echo ">>> [sbpf] interp cross-test (bpf_interp_test) over 146 OCaml-reference cases"; \
+	_sbpf_run interp_test "$(SBPF_RUST)/interp_main.rs" "$(SBPF_DATA)/interp_in.json"; \
+	interp_rc=$$?; \
+	echo ">>> [sbpf] step cross-test (step_test, best-effort)"; \
+	_sbpf_run step_test "$(SBPF_RUST)/step_main.rs" "$(SBPF_DATA)/ocaml_in.json" \
+	  || echo ">>> step cross-test red — known step-export compile issues (best-effort)"; \
+	exit $$interp_rc
+
 clean:
 	@echo "Cleaning temp files and generated output..."
 	find . -name "*\.thy~" -exec rm {} \;
@@ -299,6 +334,7 @@ clean:
 	find tests_targeted -path "*/stage1" -type d -prune -exec rm -rf {} +
 	find tests_targeted -path "*/stage2" -type d -prune -exec rm -rf {} +
 	find tests_HOL -path "*/stage1" -type d -prune -exec rm -rf {} +
+	find tests_sbpf/theory/stage1 -name target -type d -prune -exec rm -rf {} + 2>/dev/null || true
 	rm -rf optimize/tests/stage1 optimize/tests/stage2
 	rm -rf tests_HOL/Hol_Test/target
 
@@ -331,5 +367,9 @@ help:
 	@echo "      Example: make targeted"
 	@echo "  hol"
 	@echo "      Build and run the HOL smoke test. Default: HOL_TEST_THEORY=$(HOL_TEST_THEORY)."
+	@echo "  sbpf [REBUILD=1]"
+	@echo "      Rust<->OCaml runtime cross-test of the exported sBPF semantics"
+	@echo "      (interp_test over 146 cases + step_test best-effort). REBUILD=1 first"
+	@echo "      regenerates the export via Isabelle. Example: make sbpf"
 	@echo "  clean"
 	@echo "      Remove temp files and generated output (stage1, stage2 under tests_targeted/tests_HOL)."
