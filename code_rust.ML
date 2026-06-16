@@ -156,11 +156,14 @@ fun rc_dyn_fn params ret =
       lookup_method_class: SOME class if the symbol is a class parameter (trait
         method), NONE otherwise
       inst_method_info: SOME (tyco, classparam) if the symbol is a reconstructed
-        instance method living in an `impl` block, NONE otherwise **)
+        instance method living in an `impl` block, NONE otherwise
+      constr_method_of: SOME constructor-sym if (classparam, tyco) is a class
+        method realised by a nullary data constructor (e.g. `0::int`), so the
+        Inst printer fills its body with the constructor instead of a panic stub **)
 fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
   box_table phantom_table
   lookup_constant_typeco lookup_constant_fun
-  lookup_method_class inst_method_info lookup_class_methods =
+  lookup_method_class inst_method_info lookup_class_methods constr_method_of =
   let
     val deresolve_const = deresolve o Constant;
     val deresolve_typco = deresolve o Type_Constructor;
@@ -1083,12 +1086,16 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       snd (print_def (K false) false "fn" (SOME method_name) (Function (const_s, fb)))
                   | NONE => str ("/* unresolved instance method "^method_name^" */")
               end
-            (** Stub the class methods this instance does not code-generate.
-                Isabelle only emits the methods reachable from the export root, so
-                an instance may legitimately implement a subset (e.g. word uses
-                only push_bit/drop_bit/and/or/xor of semiring_bit_operations).
-                Rust requires every trait method, so emit `fn m(..) -> Self {
-                panic!(..) }` for the rest; being unreachable, the panic is dead.
+            (** Fill in the class methods this instance does not code-generate as a
+                `Fun`. Two cases:
+                * the method is realised by a nullary data constructor (e.g.
+                  `0::int`): emit `fn m(..) -> Self { Tyco::Variant }`, taking the
+                  constructor from `constr_method_of`;
+                * otherwise Isabelle simply did not emit it (only methods reachable
+                  from the export root are generated, e.g. word uses only a subset
+                  of semiring_bit_operations). Rust still requires every trait
+                  method, so emit `fn m(..) -> Self { panic!(..) }`; being
+                  unreachable, the panic is dead.
                 The signature is taken from the class's classparam type with the
                 class type variable mapped to Self. **)
             val provided_cps = map fst methods
@@ -1099,10 +1106,17 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                     map_filter (fn (cp, mty) =>
                       if member (op =) provided_cps cp then NONE
                       else
-                        let val nm = deresolve_base (Constant cp)
-                        in SOME (print_method_sig nm mty cls_v
-                              [str (" { panic!(\"unimplemented instance method: " ^ nm ^ "\") }")])
-                        end)
+                        let
+                          val nm = deresolve_base (Constant cp)
+                          val tail =
+                            (case constr_method_of cp tyco of
+                                SOME csym =>
+                                  [str (" { " ^ deresolve (Type_Constructor tyco)
+                                        ^ "::" ^ deresolve_base csym ^ " }")]
+                              | NONE =>
+                                  [str (" { panic!(\"unimplemented instance method: "
+                                        ^ nm ^ "\") }")])
+                        in SOME (print_method_sig nm mty cls_v tail) end)
                       all_cps)
           in pair
             []
@@ -1448,6 +1462,82 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         map (fn (cp, msym) => (msym, (tyc, cp))) methods) inst_table;
     fun inst_method_info sym = AList.lookup (op =) inst_method_lookup sym;
 
+    (** Constructor-backed instance methods. A class method whose `int`-style
+        instance is realised by a `code_datatype` constructor — e.g. `0::int`,
+        declared `code_datatype "0::int" Pos Neg` in HOL/Int.thy — reaches the
+        backend as a NULLARY `Datatypecons` named like an instance method
+        (`<class>_<tyco>_inst.<method>_<tyco>`, e.g. `Int.zero_int_inst.zero_int`),
+        NOT as a `Fun`. So `inst_methods` (which scans only `Fun` nodes) misses it
+        and no `impl Zero for Int` is reconstructed, even though `Int::zero()` is
+        dispatched polymorphically (`of_bool::<Int>`). Detect those constructors so
+        the instance impl is emitted with the constructor itself as the method body
+        (`fn zero() -> Self { Int::ZeroInta }`) instead of a `panic!` stub.
+
+        These are kept SEPARATE from `inst_method_lookup` on purpose: the symbol is
+        a constructor, so its value/pattern sites must keep printing as
+        `Int::ZeroInta` (handled by the `is_constr` branch of `print_app_expr`),
+        never as a `Tyco::zero()` call. **)
+    val constr_inst_data =
+      let
+        fun after_last_dot s =
+          (case List.rev (String.fields (fn c => c = #".") s) of [] => s | x :: _ => x);
+        fun before_last_dot s =
+          (case List.rev (String.fields (fn c => c = #".") s) of _ :: x2 :: _ => x2 | _ => s);
+        fun class_classparams cls =
+          (case Code_Symbol.Graph.get_node program (Type_Class cls) of
+              Code_Thingol.Class (_, (_, cps)) => cps
+            | _ => [])
+          handle Code_Symbol.Graph.UNDEF _ => [];
+        val all_classes =
+          distinct (op =) (map_filter (fn ((s, st), _) =>
+            case (s, st) of
+              (Type_Class c, Code_Thingol.Class _) => SOME c
+            | _ => NONE) stmt_list);
+        (* A constructor is nullary iff its parent datatype lists it with no
+           field types — only such constructors realise a value-typed class
+           method like `zero :: 'a`. *)
+        fun is_nullary_constr parent const =
+          (case Code_Symbol.Graph.get_node program (Type_Constructor parent) of
+              Code_Thingol.Datatype (_, cos) =>
+                (case AList.lookup (op =) (map (fn ((co, _), tys) => (co, tys)) cos) const of
+                    SOME tys => null tys
+                  | NONE => false)
+            | _ => false)
+          handle Code_Symbol.Graph.UNDEF _ => false;
+      in
+        map_filter (fn ((sym, stmt), _) =>
+          case (sym, stmt) of
+            (Constant const, Code_Thingol.Datatypecons parent) =>
+              if not (is_nullary_constr parent const) then NONE
+              else
+                let
+                  val inst_s = before_last_dot const
+                  val hit = find_first (fn cls =>
+                    (after_last_dot cls ^ "_" ^ after_last_dot parent ^ "_inst") = inst_s)
+                    all_classes
+                in
+                  case hit of
+                    NONE => NONE
+                  | SOME cls =>
+                      let
+                        val cps = class_classparams cls
+                        val cp_opt = Option.map fst (find_first (fn (cp, _) =>
+                          after_last_dot const = after_last_dot cp ^ "_" ^ after_last_dot parent) cps)
+                      in Option.map (fn cp => (cls, parent, cp, sym)) cp_opt end
+                end
+          | _ => NONE)
+          stmt_list
+      end;
+    (** Map (classparam, tyco) -> the constructor that realises that method, so the
+        Inst printer fills the method body with the constructor instead of a stub. **)
+    val constr_method_lookup =
+      map (fn (_, tyc, cp, sym) => ((cp, tyc), sym)) constr_inst_data;
+    fun constr_method_of cp tyc = AList.lookup (op =) constr_method_lookup (cp, tyc);
+    (** The (class, tyco) pairs realised by a constructor — emitted as instance
+        impls (so the impl exists even when no superclass closure pulls it in) and
+        treated as "provided" by the closure pass to avoid a duplicate stub. **)
+    val constr_inst_ct = distinct (op =) (map (fn (cls, t, _, _) => (cls, t)) constr_inst_data);
+
     (** Superclass-closure completion. A reconstructed `impl C for T` obliges T to
         implement every superclass of C too (the trait hierarchy declares those as
         supertrait bounds). Isabelle only code-generates the instances reachable
@@ -1475,17 +1565,35 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                     else go (x :: acc) (direct_supers x @ xs)
           in go [] (direct_supers c) end
         val reconstructed_ct = distinct (op =) (map (fn (_, ((c, t), _)) => (c, t)) inst_table)
+        (* A (class, tyco) is already provided either by a reconstructed Fun
+           instance or by a constructor-backed one; the closure pass must not also
+           stub it. *)
+        val provided_ct = distinct (op =) (reconstructed_ct @ constr_inst_ct)
+        fun datatype_vs t =
+          (case Code_Symbol.Graph.get_node program (Type_Constructor t) of
+              Code_Thingol.Datatype (vns, _) => map (fn v => (v, [])) vns
+            | _ => [])
+          handle Code_Symbol.Graph.UNDEF _ => [];
         val tyco_vs = map (fn (_, ((_, t), (vs, _))) => (t, vs)) inst_table
-        fun vs_of_tyco t = the_default [] (AList.lookup (op =) tyco_vs t)
+        fun vs_of_tyco t =
+          (case AList.lookup (op =) tyco_vs t of SOME vs => vs | NONE => datatype_vs t)
         val missing =
           distinct (op =)
             (maps (fn (c, t) =>
                map_filter (fn s =>
-                 if class_nonempty s andalso not (member (op =) reconstructed_ct (s, t))
+                 if class_nonempty s andalso not (member (op =) provided_ct (s, t))
                  then SOME (s, t) else NONE)
                  (supers_closure c))
                reconstructed_ct)
-      in map (fn (s, t) => (s, t, vs_of_tyco t)) missing end;
+        (* Constructor-backed instances are emitted here too (with the constructor
+           filled in as the method body by the Inst printer), so the impl is
+           present even when no superclass closure references it. Drop any that a
+           Fun instance already reconstructs — that impl's stub pass fills the
+           constructor body, and emitting it again would be a duplicate impl. *)
+        val all_pairs =
+          distinct (op =)
+            (missing @ filter_out (member (op =) reconstructed_ct) constr_inst_ct)
+      in map (fn (s, t) => (s, t, vs_of_tyco t)) all_pairs end;
 
     (* build program *)
     val { deresolver, hierarchical_program = rust_program } =
@@ -1718,7 +1826,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           (Code_Thingol.is_constr program) (modify_deresolver (deresolver prefix_fragments))
           box_table phantom_table
           lookup_constant_typeco lookup_constant_fun
-          lookup_method_class inst_method_info lookup_class_methods)
+          lookup_method_class inst_method_info lookup_class_methods constr_method_of)
           export stmt
         |> apfst (fn decl => if Code_Namespace.not_private export then SOME decl else NONE)
       end;
