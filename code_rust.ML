@@ -160,7 +160,7 @@ fun rc_dyn_fn params ret =
 fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
   box_table phantom_table
   lookup_constant_typeco lookup_constant_fun
-  lookup_method_class inst_method_info =
+  lookup_method_class inst_method_info lookup_class_methods =
   let
     val deresolve_const = deresolve o Constant;
     val deresolve_typco = deresolve o Type_Constructor;
@@ -204,43 +204,41 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     fun print_tyco_expr (sym, tys) = print_tyco_expr_gen (sym, tys);
     fun print_typ fxy ty = print_typ_gen fxy ty;
     fun print_dicttyp (class, ty) = print_tyco_expr (Type_Class class, []); (*omit generic param Self*)
-    (** Print a trait method signature: "fn method(params) -> RetType;" **)
-    fun print_trait_typ fxy class ty generic_ty =
+    (** Print a method signature "fn name(x0: T0, ..) -> Ret <tail>", with the
+        class's own type variable `self_var` replaced by the sentinel "Self"
+        everywhere it occurs — including NESTED positions such as the `'a` of
+        `'a itself` in `len_of :: 'a itself => nat`, which must print as
+        `Itself<Self>`, not `Itself<A>` (A is unbound in the trait). `tail` is the
+        suffix after the return type: a trait declaration uses
+        " where Self: Sized;"; an inlined/stub method body uses " { .. }". **)
+    fun print_method_sig method_name ty self_var tail =
       let
-        (* Replace the class's own type variable with the sentinel "Self"
-           everywhere it occurs — including NESTED positions such as the `'a` of
-           `'a itself` in `len_of :: 'a itself => nat`, which must print as
-           `Itself<Self>`, not `Itself<A>` (A is unbound in the trait). *)
-        val self_var = (fn ITyVar v => v) generic_ty
         fun subst_self (ITyVar u) = ITyVar (if u = self_var then "Self" else u)
           | subst_self (tyco `%% tys) = tyco `%% map subst_self tys
         val ts = extract_typ print_typ (subst_self ty)
         val param_num = (List.length ts) - 1
-        val ret_typ = List.last ts 
+        val ret_typ = List.last ts
         val param_typs = List.take (ts, param_num)
-        fun print_dummy_params param_num =
-          let fun aux param_num index param_l =
-            if index < param_num 
-            then "x"^(Int.toString index)::(aux param_num (index+1) param_l)
-            else param_l
-          in aux param_num 0 [] end
+        val dummy_params = List.tabulate (param_num, fn i => "x" ^ Int.toString i)
         val params = map (fn (s, p) => Pretty.block[str (s^": "), p])
-          (ListPair.zip ((print_dummy_params param_num), param_typs))
+          (ListPair.zip (dummy_params, param_typs))
       in
-        (* `where Self: Sized`: in a trait, Self is implicitly `?Sized`. Rust adds
-           this bound automatically for a method taking Self DIRECTLY by value, but
-           not when Self is nested in another by-value type such as `Itself<Self>`
-           (len_of), which then fails E0277. All our instances are sized, so make
-           the bound explicit on every method. *)
         Pretty.block(
           str "fn "
-          :: str (deresolve_const class)
+          :: str method_name
           :: enum "," " (" ")" params
           :: str " -> "
           :: ret_typ
-          :: [str " where Self: Sized;"]
+          :: tail
         )
       end;
+    (* `where Self: Sized`: in a trait, Self is implicitly `?Sized`. Rust adds
+       this bound automatically for a method taking Self DIRECTLY by value, but
+       not when Self is nested in another by-value type such as `Itself<Self>`
+       (len_of), which then fails E0277. All our instances are sized, so make the
+       bound explicit on every trait method declaration. *)
+    fun print_trait_typ class ty self_var =
+      print_method_sig (deresolve_const class) ty self_var [str " where Self: Sized;"];
     (** Print type scheme prefix: where-clause with trait bounds from sort annotations. **)
     fun print_typscheme_prefix (vs, p) = enum " ->" "" ""
       (map_filter (fn (v, sort) =>
@@ -256,8 +254,12 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           fun print_vs_trait (vname, sort) =
             Pretty.block (
               str ((to_upper vname)^" : Clone")
-              :: [if List.null sort then str ""
-                  else enum " +" " + " "" (map (fn s => print_tyco_expr (Type_Class s, [])) sort)])
+              :: (if List.null sort then []
+                  else [enum " +" " + " "" (map (fn s => print_tyco_expr (Type_Class s, [])) sort)])
+              (* `'static` to match the function bound printer: impl methods call
+                 free functions (e.g. power) that require it, and our closures are
+                 `Rc<dyn Fn + 'static>` capturing owned clones (E0310). *)
+              @ [str " + 'static"])
         in enum "" "<" ">" (commas_append (map print_vs_trait vs)) end;
     (** Main term printer. Handles all iterm constructors:
         IConst (constants/constructors), IVar (variables), `$ (application),
@@ -435,6 +437,71 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   | plain_var (Code_Thingol.Dict_Const _) = NONE
                 fun dict_var (Code_Thingol.Dict (_, plain)) = plain_var plain
               in get_first dict_var (List.concat dicts) end
+            (* Return-type polymorphism turbofish. When a generic parameter of the
+               called function occurs ONLY in its result type and not in any
+               argument type, the call site has nothing from which to infer that
+               type argument, so rustc reports E0282 ("type annotations needed").
+               Emit an explicit `name::<T..>(..)` reconstructed from the concrete
+               types this IConst is instantiated to. Only plain (non-constructor,
+               non-method, non-pseudo) `fun` definitions are affected; class
+               methods dispatch through a `Receiver::` prefix instead. The type
+               arguments are aligned to the declared generic order — the same
+               traversal the fn declaration uses to print its `<..>` list — and
+               each is filled from a substitution matching the declared
+               polymorphic signature against the instantiated dom/range. *)
+            val turbofish =
+              if is_some (lookup_method_class sym) orelse is_some (inst_method_info sym)
+              then NONE
+              else
+                (case lookup_constant_fun sym of
+                    NONE => NONE
+                  | SOME (((_, decl_ty), _), _) =>
+                      let
+                        fun tyvars_in t =
+                          let
+                            fun aux (ITyVar v, acc) = insert (op =) v acc
+                              | aux ((_ `%% ts), acc) = List.foldl aux acc ts
+                          in aux (t, []) end
+                        val (decl_doms_all, decl_final) = Code_Thingol.unfold_fun decl_ty
+                        val n = length dom
+                        val decl_arg_tys = take n decl_doms_all
+                        val decl_res_tys = drop n decl_doms_all @ [decl_final]
+                        val tyvars_of_list =
+                          List.foldl (fn (t, acc) => union (op =) (tyvars_in t) acc) []
+                        val arg_tyvars = tyvars_of_list decl_arg_tys
+                        val res_tyvars = tyvars_of_list decl_res_tys
+                        val return_only = subtract (op =) arg_tyvars res_tyvars
+                        (* Declared generic parameters, in the order the fn decl
+                           prints them (see print_generics_and_traits). *)
+                        fun decl_generics t =
+                          let
+                            fun aux (ITyVar v, acc) = v :: acc
+                              | aux ((_ `%% ts), acc) = List.foldl aux acc ts
+                          in distinct (op =) (aux (t, [])) end
+                        val gens = decl_generics decl_ty
+                        (* declared tyvar -> instantiated itype, by structural
+                           match of the declared full type vs. the instantiated one. *)
+                        fun mk_fun ([], r) = r
+                          | mk_fun (d :: ds, r) = "fun" `%% [d, mk_fun (ds, r)]
+                        val inst_ty = mk_fun (dom, range)
+                        fun unify (ITyVar v, inst) subst =
+                              if AList.defined (op =) subst v then subst
+                              else (v, inst) :: subst
+                          | unify (_ `%% ds, _ `%% is) subst =
+                              if length ds = length is
+                              then List.foldl (fn ((d, i), s) => unify (d, i) s)
+                                     subst (ListPair.zip (ds, is))
+                              else subst
+                          | unify (_, _) subst = subst
+                        val subst = unify (decl_ty, inst_ty) []
+                      in
+                        if null return_only orelse null gens then NONE
+                        else SOME (enum "," "::<" ">"
+                          (map (fn v =>
+                             case AList.lookup (op =) subst v of
+                               SOME ity => print_typ NOBR ity
+                             | NONE => str "_") gens))
+                      end)
             (* Decide the printed callee and any `Receiver::` prefix. *)
             val (generic_prefixs, funcname) =
               (case inst_method_info sym of
@@ -461,7 +528,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 val call1 =
                   generic_prefixs
                   @ funcname
-                  :: [enum "," "(" ")"
+                  :: the_list turbofish
+                   @ [enum "," "(" ")"
                        (map
                          (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
                        ts1)]
@@ -543,7 +611,13 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               ),
               str "}"
             )
-            (commas_append (map print_select clauses))
+            (* HOL functions may be partial (e.g. `nth [] n` has no equation), so
+               the clauses need not cover every constructor; Rust requires total
+               matches. Add a catch-all that panics on the undefined inputs. On a
+               match that is already exhaustive this arm is unreachable — a warning
+               (suppressed), not an error. *)
+            (commas_append (map print_select clauses
+              @ [str "_ => panic!(\"non-exhaustive match\")"]))
           end
     (** Print a `move` closure with explicit capture-by-clone.
         For each outer variable v that occurs free in the body 
@@ -793,15 +867,19 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       ),
                       str "}"
                     )
-                    ([(case eqs 
-                    of [eq as ((ts, t), _)] => 
-                    if List.all is_var_pattern ts
+                    ([(case eqs
+                    of [eq as ((ts, t), _)] =>
+                    if List.all is_var_pattern ts andalso is_const_expr ts t
                     then (print_eqn true eq)
                     else Pretty.block (
-                        str "match " 
+                        str "match "
                         :: to_tuple dummy_parms ((Pretty.block o commas) dummy_parms)
                         :: str "{"
-                        :: print_eqn false eq 
+                        :: print_eqn false eq
+                        (* catch-all for a partial HOL function (refutable single
+                           clause that need not cover every input); see the ICase
+                           match printer. *)
+                        :: str ", _ => panic!(\"non-exhaustive match\")"
                         :: [str "}"]
                       )
                     | _ =>
@@ -815,7 +893,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                         ),
                         str "}"
                       )
-                      (commas_append (map (print_eqn false) eqs))
+                      (* catch-all: HOL functions may be partial, but Rust matches
+                         must be total (e.g. `nth [] n` has no clause). *)
+                      (commas_append (map (print_eqn false) eqs
+                        @ [str "_ => panic!(\"non-exhaustive match\")"]))
                     ))])
                   end;
             val prolog =
@@ -919,9 +1000,9 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             fun print_super_traits classrels =
               if (List.length classrels) = 0 then str ""
               else enum " +" " : " ""  (map (fn s => print_dicttyp (s, ITyVar "_")) (map snd classrels))
-            fun print_trait_method (class, ty) = 
-              print_trait_typ NOBR class ty (ITyVar v) 
-            val trait_decl_p = 
+            fun print_trait_method (class, ty) =
+              print_trait_typ class ty v
+            val trait_decl_p =
               Pretty.block_enclose(
                 Pretty.block(
                   str "pub trait "
@@ -931,13 +1012,35 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 str "}"
               )
               (map print_trait_method classparams)
+            (** A class with no parameters is an empty marker trait (only a bundle
+                of superclasses). Isabelle knows which types inhabit it but emits
+                no instance methods, so the per-type `impl` is never reconstructed
+                and `T: Marker` bounds go unsatisfied (E0277; some nightly rustc
+                even ICEs on the unsatisfied supertrait of another impl). Emit one
+                blanket impl `impl<T: supers> Marker for T {}` instead: it holds
+                for exactly the types meeting the superclass bounds, and cannot
+                clash with any explicit impl (empty traits are never reconstructed
+                as one). **)
+            val blanket_impl_p =
+              if null classparams
+              then SOME (Pretty.block [
+                     str "impl<T",
+                     print_super_traits classrels,
+                     str "> ",
+                     str (deresolve_class class),
+                     str " for T {}"])
+              else NONE
+            val body_p =
+              case blanket_impl_p
+                of SOME bi => Pretty.chunks2 [trait_decl_p, bi]
+                 | NONE => trait_decl_p
           in pair
            (if Code_Namespace.is_public export
               then [trait_decl_p]
               else if null classrels andalso null classparams
               then [trait_decl_p] (*work around weakness in export calculation*)
               else [concat [str "type", print_dicttyp (class, ITyVar v)]])
-          (trait_decl_p)
+          body_p
           end
      | print_stmt _ (Inst ((class, tyco), (vs, methods))) =
           let
@@ -980,10 +1083,31 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       snd (print_def (K false) false "fn" (SOME method_name) (Function (const_s, fb)))
                   | NONE => str ("/* unresolved instance method "^method_name^" */")
               end
+            (** Stub the class methods this instance does not code-generate.
+                Isabelle only emits the methods reachable from the export root, so
+                an instance may legitimately implement a subset (e.g. word uses
+                only push_bit/drop_bit/and/or/xor of semiring_bit_operations).
+                Rust requires every trait method, so emit `fn m(..) -> Self {
+                panic!(..) }` for the rest; being unreachable, the panic is dead.
+                The signature is taken from the class's classparam type with the
+                class type variable mapped to Self. **)
+            val provided_cps = map fst methods
+            val stub_methods =
+              (case lookup_class_methods class of
+                  NONE => []
+                | SOME (cls_v, all_cps) =>
+                    map_filter (fn (cp, mty) =>
+                      if member (op =) provided_cps cp then NONE
+                      else
+                        let val nm = deresolve_base (Constant cp)
+                        in SOME (print_method_sig nm mty cls_v
+                              [str (" { panic!(\"unimplemented instance method: " ^ nm ^ "\") }")])
+                        end)
+                      all_cps)
           in pair
             []
             (Pretty.block_enclose (Pretty.block [header, str " {"], str "}")
-              (map print_method methods))
+              (map print_method methods @ stub_methods))
           end;
   in print_stmt end;
 
@@ -1072,7 +1196,7 @@ fun variant_upper_camel_case s ctxt =
     Handles naming conventions (snake_case for fns, CamelCase for types),
     converts Thingol statements to the local binding/stmt datatypes,
     and builds the hierarchical module structure via Code_Namespace. **)
-fun rust_program_of_program ctxt module_name reserved identifiers (inst_method_syms, inst_table) =
+fun rust_program_of_program ctxt module_name reserved identifiers (inst_method_syms, inst_table) closure_inst_data =
   let
     (** A constant that implements a polymorphic instance method: its body is
         inlined into the generated impl block (see the Inst printer), so it must
@@ -1151,14 +1275,23 @@ fun rust_program_of_program ctxt module_name reserved identifiers (inst_method_s
       let
         val datas = map_filter
           (fn (Type_Constructor tyco, (export, Code_Thingol.Datatype stmt)) => SOME (export, (tyco, stmt)) | _ => NONE) stmts
+        (* Emit each datatype's missing superclass-closure impls right beside it.
+           A datatype is declared in exactly one group, so this needs no
+           cross-group de-duplication; closure_inst_data is already distinct. *)
+        val closure_stmts =
+          maps (fn (export, (tyco, _)) =>
+            map_filter (fn (cls, t, vs) =>
+              if t = tyco then SOME (SOME (export, Inst ((cls, t), (vs, [])))) else NONE)
+              closure_inst_data)
+            datas
       in
         if null datas then [] (*for abstract types wrt. code_reflect*)
-        else datas
+        else (datas
           |> split_list
           |> apfst Code_Namespace.join_exports
           |> apsnd Datas
           |> SOME
-          |> single
+          |> single) @ closure_stmts
       end;
     (** Collect the Class node of a class SCC into a single Class stmt (trait).
         The Code_Thingol.Class node already carries the superclass relations and
@@ -1314,10 +1447,49 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         map (fn (cp, msym) => (msym, (tyc, cp))) methods) inst_table;
     fun inst_method_info sym = AList.lookup (op =) inst_method_lookup sym;
 
+    (** Superclass-closure completion. A reconstructed `impl C for T` obliges T to
+        implement every superclass of C too (the trait hierarchy declares those as
+        supertrait bounds). Isabelle only code-generates the instances reachable
+        from the export root, so some superclass instances are absent — e.g.
+        `impl Zero for Int` is missing because Int's zero is the constructor
+        `Int::ZeroInta`, so no `zero` method is generated, yet `SemiringBits` &c.
+        transitively require `Int: Zero`. Empty marker superclasses are already
+        covered by the blanket impl emitted with each trait; the NON-EMPTY ones
+        need a stub `impl S for T { fn m(..) { panic!() } }` (the method is
+        unreachable, so the panic is dead). Compute those missing (class, tyco)
+        pairs here and emit them next to T's datatype declaration. **)
+    val closure_inst_data =
+      let
+        fun class_node c =
+          (SOME (Code_Symbol.Graph.get_node program (Type_Class c))
+           handle Code_Symbol.Graph.UNDEF _ => NONE)
+        fun direct_supers c =
+          (case class_node c of SOME (Code_Thingol.Class (_, (classrels, _))) => map snd classrels | _ => [])
+        fun class_nonempty c =
+          (case class_node c of SOME (Code_Thingol.Class (_, (_, cps))) => not (null cps) | _ => false)
+        fun supers_closure c =
+          let fun go acc [] = acc
+                | go acc (x :: xs) =
+                    if member (op =) acc x then go acc xs
+                    else go (x :: acc) (direct_supers x @ xs)
+          in go [] (direct_supers c) end
+        val reconstructed_ct = distinct (op =) (map (fn (_, ((c, t), _)) => (c, t)) inst_table)
+        val tyco_vs = map (fn (_, ((_, t), (vs, _))) => (t, vs)) inst_table
+        fun vs_of_tyco t = the_default [] (AList.lookup (op =) tyco_vs t)
+        val missing =
+          distinct (op =)
+            (maps (fn (c, t) =>
+               map_filter (fn s =>
+                 if class_nonempty s andalso not (member (op =) reconstructed_ct (s, t))
+                 then SOME (s, t) else NONE)
+                 (supers_closure c))
+               reconstructed_ct)
+      in map (fn (s, t) => (s, t, vs_of_tyco t)) missing end;
+
     (* build program *)
     val { deresolver, hierarchical_program = rust_program } =
       rust_program_of_program ctxt module_name (Name.make_context reserved_syms)
-        identifiers (inst_method_syms, inst_table) exports program;
+        identifiers (inst_method_syms, inst_table) closure_inst_data exports program;
 
 
     (** Global lookup functions: query the program graph for type/class info. **)
@@ -1438,6 +1610,17 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         of Code_Thingol.Classparam c => SOME c
          | _ => NONE)
     val lookup_method_class = lookup_method_class_gen program
+    (** A class's own type variable and its full classparam list
+        [(classparam_const, method_itype), ..]. NONE for non-class symbols.
+        Lets the Inst printer complete an instance impl with stub bodies for
+        methods that the instance does not code-generate (e.g. word's unused
+        mask/set_bit/.. in semiring_bit_operations), which Rust would otherwise
+        reject as an incomplete impl (E0046). **)
+    fun lookup_class_methods_gen program class =
+      (case get_node program (Type_Class class)
+        of Code_Thingol.Class (v, (_, cps)) => SOME (v, cps)
+         | _ => NONE)
+    val lookup_class_methods = lookup_class_methods_gen program
       
     (** Compute module-level import dependencies.
         Module and item paths must come from the namespace deresolver so
@@ -1588,7 +1771,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           (Code_Thingol.is_constr program) (modify_deresolver current_module (deresolver prefix_fragments))
           box_table phantom_table
           lookup_constant_typeco lookup_constant_fun
-          lookup_method_class inst_method_info)
+          lookup_method_class inst_method_info lookup_class_methods)
           export stmt
         |> apfst (fn decl => if Code_Namespace.not_private export then SOME decl else NONE)
       end;
