@@ -36,6 +36,8 @@ code_printing
     (Rust) infixl 3 "&&"
 | constant HOL.disj \<rightharpoonup>
     (Rust) infixl 2 "||"
+| constant HOL.If \<rightharpoonup>
+    (Rust) "!if _ { _ } else { _ }"
 
 
 code_reserved
