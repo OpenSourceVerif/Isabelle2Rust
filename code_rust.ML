@@ -204,7 +204,22 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         (* "Self" is a sentinel injected by print_trait_typ for a class's own type
            variable; keep it verbatim (Rust keyword), uppercase everything else. *)
         if v = "Self" then str "Self" else str (to_upper v);
-    fun print_tyco_expr (sym, tys) = print_tyco_expr_gen (sym, tys);
+    (* A type constructor must honour user code_printing (tyco_syntax) here too,
+       not only in print_typ_gen: an instance header `impl Class for Tyco` prints
+       its `Tyco` through this function, and a code_printing-mapped type (e.g.
+       int/nat -> BigInt) has no program node, so a bare deresolve would raise
+       "Unknown statement name". Route Type_Constructor through print_typ_gen
+       (which dispatches on tyco_syntax); other symbols (classes) deresolve. *)
+    fun print_tyco_expr (Type_Constructor t, tys) = print_typ_gen NOBR (t `%% tys)
+      | print_tyco_expr (sym, tys) = print_tyco_expr_gen (sym, tys);
+    (* The printed name of a type constructor for use as a path prefix
+       (`Tyco::method`) or enum qualifier (`Tyco::Variant`). A code_printing-mapped
+       type (e.g. int/nat -> BigInt) has no program node, so deresolve would raise
+       "Unknown statement name"; fall back to its tyco_syntax rendering. *)
+    fun tyco_name_str t =
+      (case tyco_syntax t of
+          SOME (_, pr) => Pretty.unformatted_string_of (pr print_typ_gen NOBR [])
+        | NONE => deresolve (Type_Constructor t));
     fun print_typ fxy ty = print_typ_gen fxy ty;
     fun print_dicttyp (class, ty) = print_tyco_expr (Type_Class class, []); (*omit generic param Self*)
     (** Print a method signature "fn name(x0: T0, ..) -> Ret <tail>", with the
@@ -273,10 +288,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           clone_prcs: clone wrapping function (clone for exprs, I for patterns) **)
     fun print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy (IConst const) =
           let
-            fun print_const (IConst const) =
-              print_app_with_clone is_pseudo_fun (box_prcs, clone_prcs) some_thm vars fxy (const, [])
+            fun print_const f =
+              print_app_with_clone is_pseudo_fun (box_prcs, clone_prcs) some_thm vars f (const, [])
           in
-            print_term_with_cons_and_box (need_box, box_prcs) print_const (IConst const) 
+            print_term_with_cons_and_box (need_box, box_prcs) print_const fxy (IConst const)
           end
       | print_term_gen _ _ _ _ _ (IVar NONE) =
           str "_"
@@ -285,11 +300,11 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           then box_prcs (clone_prcs (str (lookup_var vars v)))
           else clone_prcs (str (lookup_var vars v))
       | print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy (t as t1 `$ t2)=
-          let                 
-            fun print_app_term (t as t1 `$ t2) =
+          let
+            fun print_app_term f =
               (case Code_Thingol.unfold_const_app t
               of SOME app => (*function or typeco*)
-                print_app_with_clone is_pseudo_fun (box_prcs, clone_prcs) some_thm vars fxy app
+                print_app_with_clone is_pseudo_fun (box_prcs, clone_prcs) some_thm vars f app
               | NONE => (*closure*)
                 let
                   val (t', ts') = Code_Thingol.unfold_app t
@@ -307,7 +322,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   )
                 end)
           in
-            print_term_with_cons_and_box (need_box, box_prcs) print_app_term t
+            print_term_with_cons_and_box (need_box, box_prcs) print_app_term fxy t
           end
       | print_term_gen is_pseudo_fun _ some_thm vars _ (t as _ `|=> _) =
           print_lambda is_pseudo_fun some_thm vars t
@@ -328,7 +343,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     and print_term_app is_pseudo_fun some_thm vars fxy t = 
       print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars fxy t
     (** Prepend type constructor prefix (e.g. "List::") and apply Box wrapping if needed. **)
-    and print_term_with_cons_and_box (need_box, box_prcs) print_term t = 
+    and print_term_with_cons_and_box (need_box, box_prcs) print_term fxy t =
       let
         fun lookup_typeco t =
           (case (Code_Thingol.unfold_const_app t)
@@ -338,7 +353,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         (* The `Enum::` prefix is the (possibly crate-qualified) name of the parent
            datatype, taken straight from the deresolver so it matches the enum
            declaration and resolves across modules without a glob import. *)
-        fun print_cons (SOME parent) = deresolve (Type_Constructor parent)
+        fun print_cons (SOME parent) = tyco_name_str parent
           | print_cons NONE = ""
         (* A constructor used as a first-class value (no args, non-empty domain)
            is eta-expanded into a closure by print_app_expr, so it must NOT get
@@ -349,7 +364,12 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             of SOME (({ dom, ... }), []) => not (null dom)
             | _ => false)
         val typeco_s = if is_eta_constr then "" else print_cons (lookup_typeco t)
-        val term = print_term t
+        (* When a `Tyco::` prefix is prepended, the constructor application is
+           atomic (`Tyco::Cons(args)` never needs outer brackets), so print it at
+           NOBR -- otherwise gen_print_app may brackify it at BR and the prefix
+           lands outside the parens, producing the invalid `Tyco::(Cons(args))`.
+           Non-prefixed terms keep fxy so infix operands still bracket correctly. *)
+        val term = print_term (if typeco_s = "" then fxy else NOBR)
         val term_with_cons =
           if typeco_s = "" then term
           else Pretty.block [str (typeco_s ^ "::"), term]
@@ -509,7 +529,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             val (generic_prefixs, funcname) =
               (case inst_method_info sym of
                   SOME (tyco_s, cp_s) =>
-                    ([Pretty.block [str (deresolve (Type_Constructor tyco_s)), str "::"]],
+                    ([Pretty.block [str (tyco_name_str tyco_s), str "::"]],
                      str (deresolve_base (Constant cp_s)))
                 | NONE =>
                     if is_some (lookup_method_class sym)
@@ -1111,7 +1131,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                           val tail =
                             (case constr_method_of cp tyco of
                                 SOME csym =>
-                                  [str (" { " ^ deresolve (Type_Constructor tyco)
+                                  [str (" { " ^ tyco_name_str tyco
                                         ^ "::" ^ deresolve_base csym ^ " }")]
                               | NONE =>
                                   [str (" { panic!(\"unimplemented instance method: "
@@ -1145,7 +1165,14 @@ fun print_rust_module name decls crate_uses includes body =
     val includes' =
       if uses_bigint then includes
       else filter_out (member (op =) bigint_includes) includes
-    val includes_p = Pretty.chunks (map (fn i => str ("use "^i^"::*;")) includes')
+    (* num_traits::sign is needed only for the `Signed::abs` method (BigInt
+       div/mod). Import the trait ANONYMOUSLY (`as _`) rather than glob-importing
+       it: a generated phantom-type marker `struct Signed<..>` (signed words) would
+       otherwise shadow `num_traits::sign::Signed` and hide `.abs()` (E0599). *)
+    val includes_p = Pretty.chunks (map (fn i =>
+        if i = "num_traits::sign"
+        then str "use num_traits::sign::Signed as _;"
+        else str ("use "^i^"::*;")) includes')
     val crate_uses_p = Pretty.chunks (map (fn p => str ("use "^p^";")) crate_uses)
     (* Import std::marker::PhantomData only for files that actually emit a phantom
        marker, so the short `PhantomData` form stays valid without polluting other
@@ -1350,7 +1377,14 @@ fun rust_program_of_program ctxt module_name reserved identifiers (inst_method_s
     Code_Namespace.hierarchical_program ctxt {
       module_name = module_name, reserved = reserved, identifiers = identifiers,
       empty_nsp = (reserved, reserved), namify_module = pair, namify_stmt = namify_stmt,
-      cyclic_modules = false, class_transitive = true,
+      (* Rust modules may reference each other freely (cross-module refs are
+         emitted as fully-qualified `crate::Mod::name` paths), so mutually
+         recursive modules are legal -- unlike OCaml. Allowing cycles is required
+         once numeric types are code_printing-mapped (e.g. nat/int -> BigInt):
+         the reconstructed `impl Zero/One for int` instances land in the Arith
+         module while their trait/superclass relations live elsewhere, which the
+         acyclic check would otherwise reject (zero_neq_one < one cycle). *)
+      cyclic_modules = true, class_transitive = true,
       class_relation_public = true, empty_data = (),
       memorize_data = K I, modify_stmts = modify_stmts }
   end;
@@ -1442,9 +1476,18 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
 
     (** All instance-method constants (suppressed as standalone functions). **)
     val inst_method_syms = map (fn (_, (_, _, _, _, sym)) => sym) inst_methods;
+    (** Canonical key for a type constructor at the Rust level. A code_printing-
+        mapped type (e.g. nat/int -> BigInt) collapses onto its target name, so
+        two HOL types sharing one Rust type get the same key. Rust rejects two
+        `impl Trait for BigInt`, so this drives deduplication of reconstructed
+        instances; an UNmapped type keys on its own (distinct) name. **)
+    fun canon_tyco t =
+      (case tyco_syntax t of
+          SOME (_, pr) => "\^E" ^ Pretty.unformatted_string_of (pr (fn _ => fn _ => Pretty.str "_") NOBR [])
+        | NONE => t);
     (** One impl per instance, keyed by a representative method constant; the
         Inst payload carries (class, tyco), the instance vs, and every method. **)
-    val inst_table =
+    val inst_table_all =
       map (fn seg =>
         let
           val members = filter (fn (s, _) => s = seg) inst_methods
@@ -1452,13 +1495,37 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           val methods = map (fn (_, (_, _, _, cp, msym)) => (cp, msym)) members
         in (repr_sym, ((cls, tyc), (vs, methods))) end)
         (distinct (op =) (map fst inst_methods));
+    (** Deduplicate instances that target the same Rust type: when several HOL
+        types map to one Rust type (int & nat -> BigInt), they would each emit
+        `impl C for BigInt` (E0119). Group by (class, canon_tyco), keep one
+        representative, and union the methods by classparam so the surviving impl
+        is as complete as any contributor. Distinct unmapped types are unaffected
+        (their canon keys differ). **)
+    val inst_table =
+      let
+        fun key (_, ((cls, tyc), _)) = (cls, canon_tyco tyc)
+        val keys = distinct (op =) (map key inst_table_all)
+      in
+        map (fn k =>
+          let
+            val members = filter (fn e => key e = k) inst_table_all
+            val (repr_sym, ((cls, tyc), (vs, _))) = hd members
+            val methods =
+              distinct (fn ((cp1, _), (cp2, _)) => cp1 = cp2)
+                (maps (fn (_, (_, (_, ms))) => ms) members)
+          in (repr_sym, ((cls, tyc), (vs, methods))) end)
+          keys
+      end;
 
     (** Map each reconstructed instance-method constant to (tyco, classparam):
         the concrete type it is implemented for and the trait method it realizes.
-        Used at call sites to emit `Tyco::<trait_method>(..)`. **)
+        Used at call sites to emit `Tyco::<trait_method>(..)`. Built from the FULL
+        (pre-dedup) set so that a call to a dropped duplicate's method still
+        resolves -- the call site canonicalizes the tyco (-> BigInt) and lands on
+        the surviving impl. **)
     val inst_method_lookup =
       maps (fn (_, ((_, tyc), (_, methods))) =>
-        map (fn (cp, msym) => (msym, (tyc, cp))) methods) inst_table;
+        map (fn (cp, msym) => (msym, (tyc, cp))) methods) inst_table_all;
     fun inst_method_info sym = AList.lookup (op =) inst_method_lookup sym;
 
     (** Constructor-backed instance methods. A class method whose `int`-style
@@ -1564,10 +1631,13 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                     else go (x :: acc) (direct_supers x @ xs)
           in go [] (direct_supers c) end
         val reconstructed_ct = distinct (op =) (map (fn (_, ((c, t), _)) => (c, t)) inst_table)
-        (* A (class, tyco) is already provided either by a reconstructed Fun
+        (* A (class, Rust-type) is already provided either by a reconstructed Fun
            instance or by a constructor-backed one; the closure pass must not also
-           stub it. *)
-        val provided_ct = distinct (op =) (reconstructed_ct @ constr_inst_ct)
+           stub it. Compared on canon_tyco so a mapped type (int/nat -> BigInt) is
+           recognised as provided regardless of which HOL type reconstructed it. *)
+        val provided_canon =
+          distinct (op =)
+            (map (fn (c, t) => (c, canon_tyco t)) (reconstructed_ct @ constr_inst_ct))
         fun datatype_vs t =
           (case Code_Symbol.Graph.get_node program (Type_Constructor t) of
               Code_Thingol.Datatype (vns, _) => map (fn v => (v, [])) vns
@@ -1577,21 +1647,27 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         fun vs_of_tyco t =
           (case AList.lookup (op =) tyco_vs t of SOME vs => vs | NONE => datatype_vs t)
         val missing =
-          distinct (op =)
-            (maps (fn (c, t) =>
-               map_filter (fn s =>
-                 if class_nonempty s andalso not (member (op =) provided_ct (s, t))
-                 then SOME (s, t) else NONE)
-                 (supers_closure c))
-               reconstructed_ct)
+          maps (fn (c, t) =>
+             map_filter (fn s =>
+               if class_nonempty s andalso not (member (op =) provided_canon (s, canon_tyco t))
+               then SOME (s, t) else NONE)
+               (supers_closure c))
+             reconstructed_ct
         (* Constructor-backed instances are emitted here too (with the constructor
            filled in as the method body by the Inst printer), so the impl is
            present even when no superclass closure references it. Drop any that a
            Fun instance already reconstructs — that impl's stub pass fills the
            constructor body, and emitting it again would be a duplicate impl. *)
+        val all_pairs0 =
+          missing
+          @ filter_out (fn (c, t) => member (op =) (map (fn (c', t') => (c', canon_tyco t')) reconstructed_ct) (c, canon_tyco t))
+              constr_inst_ct
+        (* Collapse pairs onto one impl per (class, Rust-type): two HOL types
+           mapping to the same Rust type (int & nat -> BigInt) must not both emit a
+           superclass stub `impl S for BigInt`. *)
         val all_pairs =
-          distinct (op =)
-            (missing @ filter_out (member (op =) reconstructed_ct) constr_inst_ct)
+          let val ks = distinct (op =) (map (fn (s, t) => (s, canon_tyco t)) all_pairs0)
+          in map (fn k => the (find_first (fn (s, t) => (s, canon_tyco t) = k) all_pairs0)) ks end
       in map (fn (s, t) => (s, t, vs_of_tyco t)) all_pairs end;
 
     (* build program *)
@@ -1762,10 +1838,20 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         end) stmt_list []
 
     fun import_syms_for_dep sym =
-      (case get_node program sym of
-        Code_Thingol.Datatypecons parent => [Type_Constructor parent]
-      | Code_Thingol.Classparam class => [Type_Class class]
-      | _ => [sym])
+      (case inst_method_info sym of
+        (* A call dispatched as `Tyco::method()` through a reconstructed instance
+           needs the TRAIT in scope (Rust resolves the inherent/trait method only
+           if the trait is imported), plus the receiver type. The dependency is
+           recorded on the instance-method constant (which is itself suppressed),
+           so neither would be imported by the constant alone. *)
+        SOME (tyco, cp) =>
+          (case lookup_method_class (Constant cp) of SOME c => [Type_Class c] | NONE => [])
+          @ [Type_Constructor tyco]
+      | NONE =>
+          (case get_node program sym of
+            Code_Thingol.Datatypecons parent => [Type_Constructor parent]
+          | Code_Thingol.Classparam class => [Type_Class class]
+          | _ => [sym]))
 
     fun emitted_import_symbol sym =
       (case (sym, get_node program sym) of
@@ -1778,12 +1864,15 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       | _ => false)
 
     fun import_candidate source_module sym =
-      let
-        val qual = deresolver [] sym
-        val segs = fields qual
-      in
-        if not (emitted_import_symbol sym) then NONE
-        else
+      (* Guard on emitted_import_symbol FIRST: a code_printing-mapped symbol (e.g.
+         Type_Constructor nat/int -> BigInt) has no program node, so calling
+         deresolver on it would raise "Unknown statement name". *)
+      if not (emitted_import_symbol sym) then NONE
+      else
+        let
+          val qual = deresolver [] sym
+          val segs = fields qual
+        in
           (case segs of
             [_] => NONE
           | _ =>
@@ -1795,7 +1884,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                 then SOME (sym, qual, base, crate_path qual)
                 else NONE
               end)
-      end
+        end
 
     fun same_candidate ((_, qual1, _, _), (_, qual2, _, _)) = qual1 = qual2
 

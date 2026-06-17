@@ -13,7 +13,8 @@
 
 pub mod Interp_test;
 
-use crate::Interp_test::{bpf_interp_test, Int, List, Num};
+use crate::Interp_test::{bpf_interp_test, List};
+use num_bigint::BigInt;
 use serde::Deserialize;
 use std::env;
 use std::fs::File;
@@ -33,30 +34,13 @@ struct Case {
     isok: bool,
 }
 
-// int64 -> exported Int / Num, mirroring glue.ml's num_of_int / int_of_standard_int.
-fn num_of_pos(n: u64) -> Num {
-    if n == 1 {
-        Num::One
-    } else if n % 2 == 0 {
-        Num::Bit0(Box::new(num_of_pos(n / 2)))
-    } else {
-        Num::Bit1(Box::new(num_of_pos(n / 2)))
-    }
+// int64 -> exported BigInt (int maps to num_bigint::BigInt under
+// Rust_BigInt_Nat_Setup), mirroring glue.ml's int conversion.
+fn int_of_i64(n: i64) -> BigInt {
+    BigInt::from(n)
 }
 
-fn int_of_i64(n: i64) -> Int {
-    if n == 0 {
-        Int::ZeroInta
-    } else if n > 0 {
-        Int::Pos(num_of_pos(n as u64))
-    } else {
-        // magnitude of a negative i64 (incl. i64::MIN) always fits in u64
-        let mag = (n as i128).unsigned_abs() as u64;
-        Int::Neg(num_of_pos(mag))
-    }
-}
-
-fn list_of_i64s(xs: &[i64]) -> List<Int> {
+fn list_of_i64s(xs: &[i64]) -> List<BigInt> {
     let mut acc = List::Nil;
     for &x in xs.iter().rev() {
         acc = List::Cons(int_of_i64(x), Box::new(acc));

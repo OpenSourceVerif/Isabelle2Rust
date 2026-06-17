@@ -13,7 +13,8 @@
 
 pub mod Step_test;
 
-use crate::Step_test::{step_test, Int, List, Num};
+use crate::Step_test::{step_test, List};
+use num_bigint::BigInt;
 use serde::Deserialize;
 use std::env;
 use std::fs::File;
@@ -42,28 +43,12 @@ fn hex_i64(s: &str) -> i64 {
     u64::from_str_radix(t, 16).unwrap_or_else(|e| panic!("bad hex {}: {}", s, e)) as i64
 }
 
-fn num_of_pos(n: u64) -> Num {
-    if n == 1 {
-        Num::One
-    } else if n % 2 == 0 {
-        Num::Bit0(Box::new(num_of_pos(n / 2)))
-    } else {
-        Num::Bit1(Box::new(num_of_pos(n / 2)))
-    }
+// int maps to num_bigint::BigInt under Rust_BigInt_Nat_Setup.
+fn int_of_i64(n: i64) -> BigInt {
+    BigInt::from(n)
 }
 
-fn int_of_i64(n: i64) -> Int {
-    if n == 0 {
-        Int::ZeroInta
-    } else if n > 0 {
-        Int::Pos(num_of_pos(n as u64))
-    } else {
-        let mag = (n as i128).unsigned_abs() as u64;
-        Int::Neg(num_of_pos(mag))
-    }
-}
-
-fn list_of_hex(xs: &[String]) -> List<Int> {
+fn list_of_hex(xs: &[String]) -> List<BigInt> {
     let mut acc = List::Nil;
     for x in xs.iter().rev() {
         acc = List::Cons(int_of_i64(hex_i64(x)), Box::new(acc));
