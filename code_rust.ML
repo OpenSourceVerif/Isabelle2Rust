@@ -363,7 +363,17 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           (case Code_Thingol.unfold_const_app t
             of SOME (({ dom, ... }), []) => not (null dom)
             | _ => false)
-        val typeco_s = if is_eta_constr then "" else print_cons (lookup_typeco t)
+        (* When a constructor has registered const_syntax (e.g. Product_Type.Pair
+           mapped to native tuple syntax "!( _ , _ )"), the template already encodes
+           the full printed form.  Prepending Tyco:: would produce malformed output
+           like "Prod::(a, b)".  Suppress the prefix whenever custom syntax is in use. *)
+        val has_const_syntax =
+          (case Code_Thingol.unfold_const_app t
+            of SOME ({sym = Constant c, ...}, _) => is_some (const_syntax c)
+            | _ => false)
+        val typeco_s =
+          if is_eta_constr orelse has_const_syntax then ""
+          else print_cons (lookup_typeco t)
         (* When a `Tyco::` prefix is prepended, the constructor application is
            atomic (`Tyco::Cons(args)` never needs outer brackets), so print it at
            NOBR -- otherwise gen_print_app may brackify it at BR and the prefix
@@ -1408,7 +1418,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
     val rust_version = if rust_version = "" then "\"0.1.0\"" else rust_version;
     val rust_edition = if rust_edition = "" then "\"2024\"" else rust_edition;
     val rust_dependencies = if rust_dependencies = "" then "num-bigint = \"0.4.6\"\nnum-traits = \"0.2.19\"" else rust_dependencies;
-    val rust_lints = if rust_lints = "" then "unused = \"allow\"\nnonstandard_style = \"allow\"" else rust_lints;
+    val rust_lints = if rust_lints = "" then "unused = \"allow\"\nnonstandard_style = \"allow\"\nunreachable_patterns = \"allow\"" else rust_lints;
 
     val rust_includes = "num_bigint" :: "num_traits::sign" :: rust_includes
 
