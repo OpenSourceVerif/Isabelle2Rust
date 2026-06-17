@@ -870,7 +870,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       ),
                       str "}"
                     )
-                    ([(case eqs 
+                    ([(case eqs
                     of [eq as ((ts, t), _)] =>
                     if List.all is_var_pattern ts andalso is_const_expr ts t
                     then (print_eqn true eq)
@@ -1129,11 +1129,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
 
 (** Print a Rust module: prepend `use` statements to the body.
     `includes` are external crates, imported with a glob (`use num_bigint::*;`).
-    `trait_uses` are explicit crate-internal paths (e.g. "crate::HOL::Equal") for
-    the traits this module needs in scope so that `Type::method` trait-method
-    dispatch resolves; every other cross-module reference is already fully
-    crate::-qualified, so no module-glob import is emitted. **)
-fun print_rust_module name decls trait_uses includes body =
+    `crate_uses` are explicit crate-internal item paths, emitted only when the
+    short imported name is unambiguous inside this module. Other cross-module
+    references remain fully `crate::`-qualified at their use sites. **)
+fun print_rust_module name decls crate_uses includes body =
   let
     (* Import the BigInt support crates (num_bigint / num_traits::sign) only for
        files that actually use BigInt, so the `use ...::*;` globs stay out of
@@ -1147,7 +1146,7 @@ fun print_rust_module name decls trait_uses includes body =
       if uses_bigint then includes
       else filter_out (member (op =) bigint_includes) includes
     val includes_p = Pretty.chunks (map (fn i => str ("use "^i^"::*;")) includes')
-    val trait_uses_p = Pretty.chunks (map (fn p => str ("use "^p^";")) trait_uses)
+    val crate_uses_p = Pretty.chunks (map (fn p => str ("use "^p^";")) crate_uses)
     (* Import std::marker::PhantomData only for files that actually emit a phantom
        marker, so the short `PhantomData` form stays valid without polluting other
        files. Detection is per-file: it also covers construction/pattern sites in
@@ -1164,7 +1163,7 @@ fun print_rust_module name decls trait_uses includes body =
         in String.isSubstring "Rc<" s orelse String.isSubstring "Rc::" s end) body
     val headers =
       (if List.null includes' then [] else [includes_p])
-      @ (if List.null trait_uses then [] else [trait_uses_p])
+      @ (if List.null crate_uses then [] else [crate_uses_p])
       @ (if uses_phantom then [str "use std::marker::PhantomData;"] else [])
       @ (if uses_rc then [str "use std::rc::Rc;"] else [])
   in
@@ -1731,10 +1730,9 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
          | _ => NONE)
     val lookup_class_methods = lookup_class_methods_gen program
       
-    (** Compute module-level import dependencies:
-        for each module, collect the set of other modules it depends on.
-        Module names must come from the namespace deresolver so code_identifier
-        remappings such as Nat/Power -> Arith are respected. **)
+    (** Compute module-level import dependencies.
+        Module and item paths must come from the namespace deresolver so
+        code_identifier remappings such as Nat/Power -> Arith are respected. **)
     val generated_modules =
       Code_Namespace.print_hierarchical {
         print_module = fn _ => fn base => fn _ => fn _ => base,
@@ -1742,88 +1740,143 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         lift_markup = K I } rust_program
       |> filter (fn s => s <> "")
       |> distinct (op =)
-    val module_imports =
-      let
-        fun before_first_dot s =
-          (case (String.fields (fn c => c = #".") s) 
-            of [] => s
-            | x::_ => x)
-        fun is_generated_module module =
-          List.exists (fn module' => module' = module) generated_modules
-        fun get_sym_module sym = before_first_dot (deresolver [] sym)
-        fun get_import_sym sym = 
-          let 
-            val module = get_sym_module sym
-            val children = Code_Symbol.Graph.immediate_succs program sym
-            fun add_dpdnc sym' dpdncs =
-              if List.exists (fn x => x = (get_sym_module sym')) dpdncs then dpdncs
-              else (get_sym_module sym')::dpdncs  
-          in
-            (module, fold add_dpdnc children [])  
-          end
-        fun get_imports sym imports = 
-          let 
-            val (module, import) = get_import_sym sym
-          in
-            if (List.exists (fn (mdl, _) => (mdl = module)) imports)
-            then (map (fn (mdl, import') => 
-              if (mdl = module) 
-              then (mdl, distinct (op =) (import @ import'))
-              else (mdl, import'))
-              imports)
-            else (module, import)::imports
-          end
-        val mod_dpdncs = fold get_imports (map fst sym_dpdnc_list) []
-        val mod_imports = map (fn (sym, dpdncs) =>
-          (sym, filter (fn x => x <> sym andalso is_generated_module x) dpdncs)) mod_dpdncs
-      in
-        filter (is_generated_module o fst) mod_imports
-      end
-      val raw_modules = generated_modules
+    val raw_modules = generated_modules
 
-    (** For each module, the crate-paths of the traits it DEFINES, keyed by
-        module name. A module that depends on another only needs that module's
-        *traits* in scope (for `Type::method` dispatch), emitted as explicit
-        `use crate::<mod>::<Trait>;`; everything else is referenced by a
-        fully-qualified `crate::` path. **)
-    val module_to_traits =
+    fun fields s = String.fields (fn c => c = #".") s
+    fun before_first_dot s = (case fields s of x :: _ => x | [] => s)
+    fun after_last_dot s = (case List.rev (fields s) of x :: _ => x | [] => s)
+    fun crate_path qual = "crate::" ^ String.concatWith "::" (fields qual)
+    fun is_generated_module module =
+      List.exists (fn module' => module' = module) generated_modules
+
+    val module_local_bases =
+      fold (fn ((sym, _), _) =>
+        let
+          val qual = deresolver [] sym
+          val module = before_first_dot qual
+          val base = after_last_dot qual
+        in
+          if is_generated_module module
+          then AList.map_default (op =) (module, []) (insert (op =) base)
+          else I
+        end) stmt_list []
+
+    fun import_syms_for_dep sym =
+      (case get_node program sym of
+        Code_Thingol.Datatypecons parent => [Type_Constructor parent]
+      | Code_Thingol.Classparam class => [Type_Class class]
+      | _ => [sym])
+
+    fun emitted_import_symbol sym =
+      (case (sym, get_node program sym) of
+        (Constant const, stmt as Code_Thingol.Fun _) =>
+          is_none (const_syntax const) andalso
+          not (Code_Thingol.is_case stmt) andalso
+          not (member (op =) inst_method_syms sym)
+      | (Type_Constructor tyco, Code_Thingol.Datatype _) => is_none (tyco_syntax tyco)
+      | (Type_Class _, Code_Thingol.Class _) => true
+      | _ => false)
+
+    fun import_candidate source_module sym =
       let
-        fun fields s = String.fields (fn c => c = #".") s
-        fun before_first_dot s = (case fields s of x :: _ => x | [] => s)
-        fun trait_entry c =
-          let val qual = deresolver [] (Type_Class c)
-          in (before_first_dot qual, "crate::" ^ String.concatWith "::" (fields qual)) end
+        val qual = deresolver [] sym
+        val segs = fields qual
       in
-        fold (fn (mdl, path) => AList.map_default (op =) (mdl, []) (insert (op =) path))
-          (map_filter (fn ((sym, stmt), _) =>
-            case (sym, stmt) of
-              (Type_Class c, Code_Thingol.Class _) => SOME (trait_entry c)
-            | _ => NONE)
-            stmt_list)
-          []
+        if not (emitted_import_symbol sym) then NONE
+        else
+          (case segs of
+            [_] => NONE
+          | _ =>
+              let
+                val dep_module = before_first_dot qual
+                val base = after_last_dot qual
+              in
+                if dep_module <> source_module andalso is_generated_module dep_module
+                then SOME (sym, qual, base, crate_path qual)
+                else NONE
+              end)
       end
+
+    fun same_candidate ((_, qual1, _, _), (_, qual2, _, _)) = qual1 = qual2
+
+    val module_import_candidates =
+      let
+        fun add_candidate module cand =
+          AList.map_default (op =) (module, []) (insert same_candidate cand)
+        fun add_sym_import source_module dep imports =
+          (case import_candidate source_module dep of
+            SOME cand => add_candidate source_module cand imports
+          | NONE => imports)
+        fun add_imports_for_sym (sym, children) imports =
+          let
+            val source_module = before_first_dot (deresolver [] sym)
+            val deps = maps import_syms_for_dep children
+          in
+            if is_generated_module source_module
+            then fold (add_sym_import source_module) deps imports
+            else imports
+          end
+      in
+        fold add_imports_for_sym sym_dpdnc_list []
+      end
+
+    fun candidate_sym (sym, _, _, _) = sym
+    fun candidate_base (_, _, base, _) = base
+    fun candidate_crate_path (_, _, _, path) = path
+
+    fun local_base module base =
+      member (op =) (these (AList.lookup (op =) module_local_bases module)) base
+
+    fun candidate_is_ambiguous cands base =
+      let
+        val paths =
+          cands
+          |> filter (fn cand => candidate_base cand = base)
+          |> map candidate_crate_path
+          |> distinct (op =)
+      in length paths > 1 end
+
+    fun importable_candidate cands module cand =
+      not (candidate_is_ambiguous cands (candidate_base cand)) andalso
+      not (local_base module (candidate_base cand))
+
+    val module_symbol_imports =
+      module_import_candidates
+      |> map (fn (module, cands) =>
+          let
+            val safe_cands = filter (importable_candidate cands module) cands
+            val paths = map candidate_crate_path safe_cands |> sort_distinct string_ord
+            val syms = map candidate_sym safe_cands |> distinct (op =)
+          in (module, (paths, syms)) end)
+
+    fun sym_uses_short_path module sym =
+      (case AList.lookup (op =) module_symbol_imports module of
+        SOME (_, syms) => member (op =) syms sym
+      | NONE => false)
 
     (** Map a Code_Namespace resolved name to a Rust path. The deresolver returns
-        a dot-separated name relative to the current module: a single segment for
-        a local symbol, `Module.base` for a sibling module. Local names stay bare;
-        cross-module names become an absolute `crate::Module::base` path, so equal
-        base names in different modules stay distinct without relying on glob
-        imports to disambiguate them. **)
-    fun modify_deresolver deresolver sym =
-      (case String.fields (fn c => c = #".") (deresolver sym) of
+        a dot-separated name relative to the current module. Local names stay
+        bare. Cross-module names use an imported short name only when that base
+        name is unique in this module; otherwise they stay fully crate-qualified. **)
+    fun modify_deresolver module deresolver sym =
+      (case fields (deresolver sym) of
         [base] => base
-      | segs => "crate::" ^ String.concatWith "::" segs)
+      | segs =>
+          if sym_uses_short_path module sym
+          then List.last segs
+          else "crate::" ^ String.concatWith "::" segs)
 
     (** Print a single statement within its module context. **)
     fun print_stmt prefix_fragments (sym, (export, stmt)) =
       let
+        val current_module = before_first_dot (deresolver [] sym)
         val _ = tracing ("[Thingol] "
           ^ Code_Debug_Info.print_debug_info_sym sym ^ ": "
           ^ Code_Debug_Info.print_debug_info_thingol_stmt (get_node program sym))
       in
         (print_rust_stmt
           tyco_syntax const_syntax (make_vars reserved_syms)
-          (Code_Thingol.is_constr program) (modify_deresolver (deresolver prefix_fragments))
+          (Code_Thingol.is_constr program) (modify_deresolver current_module (deresolver prefix_fragments))
           box_table phantom_table
           lookup_constant_typeco lookup_constant_fun
           lookup_method_class inst_method_info lookup_class_methods constr_method_of)
@@ -1836,11 +1889,11 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       let
         val (raw_decls, body) = split_list xs;
         val decls = maps these raw_decls
-        val dep_modules = filter (fn (sym, _) => (sym = base)) module_imports
-          |> (fn mods => case mods of [(_, deps)] => deps | _ => [])
-        val trait_uses = distinct (op =)
-          (maps (fn dep => these (AList.lookup (op =) module_to_traits dep)) dep_modules)
-      in (SOME [str base], print_rust_module base decls trait_uses rust_includes body) end;
+        val crate_uses =
+          (case AList.lookup (op =) module_symbol_imports base of
+            SOME (paths, _) => paths
+          | NONE => [])
+      in (SOME [str base], print_rust_module base decls crate_uses rust_includes body) end;
 
     (** Assemble final output: Cargo.toml + main.rs + per-module .rs files.
         Unused modules get empty placeholder files to pass compilation. **)

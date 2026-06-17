@@ -1,5 +1,5 @@
 theory Module_Collision_Test
-  imports Main "Rust.Rust_Setup" "Go.Go_Setup"
+  imports Main "Rust.Rust_Setup" 
 begin
 
 (* Regression target for H4 (D.4): two constants forced into DIFFERENT modules

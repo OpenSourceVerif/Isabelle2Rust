@@ -15,16 +15,19 @@ pub struct MutAnalysis {
 /// This is the third optimization pass (after copy and borrow).  It implements
 /// the three rewrite rules from the paper:
 ///
-///   * **M-Shadow** recovers the shadowed source name: the generated chain
-///     `let x0 = s0; let x1 = s1; …; let xn = sn` (where each `s_{i+1}` reads
-///     `x_i` exactly once — the *handoff* and *single-use* conditions) is the
-///     same logical variable, so all the `x_i` are unified to one name.
-///   * **M-Mut** turns the unified chain into `let mut x = s0; x = s1; …; x = sn`
-///     under the side condition `NoEsc(x)` (no borrow of the previous value of
-///     `x` outlives the assignment).
+///   * **M-Shadow** recovers the shadowed source name.  Thingol prints the
+///     successive bindings of one source variable `x` under a deterministic
+///     suffix convention (`x`, `xa`, `xb`, …); inverting that convention
+///     (`predecessor`) groups the generated names back into one chain and
+///     unifies them to a single name.
+///   * **M-Mut** turns the unified chain `let x = s0; let x = s1; …` into
+///     `let mut x = s0; x = s1; …`.  This is sound because each intermediate
+///     value is *confined*: it is never read after the binding that overwrites
+///     it (which also discharges the paper's `NoEsc` side condition, since an
+///     owned value left unread carries no live borrow past the assignment).
 ///   * **M-LastUse** rewrites `v.clone()` to `v` wherever `v` is at its last
-///     use, which removes the handoff clones the mut rewrite exposes (and any
-///     other already-dead clone receiver).
+///     use, which removes the clones the mut rewrite exposes (and any other
+///     already-dead clone receiver).
 ///
 /// The pass acts purely on the ownership structure of the binding chain; the
 /// right-hand sides are left untouched.
@@ -34,30 +37,18 @@ pub fn optimize_mut(module: &mut RustModule) -> MutAnalysis {
     analysis
 }
 
-type TypeEnv = HashMap<String, Type>;
-
-/// Module-local information used to infer the type of a chain element so the
-/// pass can require every element of a chain to share one owned type.
-struct MutContext {
-    /// `fn name → return type` (top-level functions and impl methods).
-    fn_returns: HashMap<String, Type>,
-    /// `variant name → owning enum` (`None` if the variant name is ambiguous).
-    variant_owners: HashMap<String, Option<String>>,
-}
-
 fn optimize_module(module: &mut RustModule, analysis: &mut MutAnalysis) {
-    let ctx = MutContext::from_items(&module.items);
     for item in &mut module.items {
         match item {
             Item::Function(function) => {
-                if transform_function(&ctx, function) {
+                if transform_function(function) {
                     analysis.mut_fns.insert(function.name.clone());
                 }
             }
             Item::Impl(impl_block) => {
                 for impl_item in &mut impl_block.items {
                     if let ImplItem::Method(method) = impl_item {
-                        if transform_function(&ctx, method) {
+                        if transform_function(method) {
                             analysis.mut_fns.insert(method.name.clone());
                         }
                     }
@@ -69,129 +60,17 @@ fn optimize_module(module: &mut RustModule, analysis: &mut MutAnalysis) {
     }
 }
 
-impl MutContext {
-    fn from_items(items: &[Item]) -> Self {
-        let mut fn_returns = HashMap::new();
-        let mut variant_owners: HashMap<String, Option<String>> = HashMap::new();
-
-        for item in items {
-            match item {
-                Item::Function(function) => {
-                    fn_returns.insert(function.name.clone(), function.return_type.clone());
-                }
-                Item::Impl(impl_block) => {
-                    for impl_item in &impl_block.items {
-                        if let ImplItem::Method(method) = impl_item {
-                            fn_returns.insert(method.name.clone(), method.return_type.clone());
-                        }
-                    }
-                }
-                Item::Enum(def) => {
-                    for variant in &def.variants {
-                        variant_owners
-                            .entry(variant.name.clone())
-                            .and_modify(|existing| {
-                                if existing.as_deref() != Some(def.name.as_str()) {
-                                    *existing = None;
-                                }
-                            })
-                            .or_insert_with(|| Some(def.name.clone()));
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        Self {
-            fn_returns,
-            variant_owners,
-        }
-    }
-
-    /// Infer the type of `expr` under `env`, returning `None` when the shape is
-    /// outside the small fragment we model.  Only used to compare chain-element
-    /// types, so a `None` simply means "do not collapse this chain".
-    fn infer_type(&self, expr: &Expr, env: &TypeEnv) -> Option<Type> {
-        match expr {
-            Expr::Ident(name) => env.get(name).cloned(),
-            Expr::Path(path, PathType::Namespace) => self
-                .owner_for_variant_path(path)
-                .map(Type::Named)
-                .or_else(|| path.last().and_then(|n| self.fn_returns.get(n).cloned())),
-            Expr::Literal(Literal::Bool(_)) => Some(Type::Named("bool".to_string())),
-            Expr::Call(callee, _) => self.infer_call_type(callee),
-            Expr::MethodCall(receiver, method, args) if method == "clone" && args.is_empty() => {
-                // `v.clone()` where `v: &T` yields an owned `T`.
-                self.infer_type(receiver, env).map(strip_ref)
-            }
-            Expr::Reference(inner, true, mutable) => self
-                .infer_type(inner, env)
-                .map(|ty| Type::Reference(Box::new(ty), true, *mutable)),
-            Expr::Parenthesized(inner) => self.infer_type(inner, env),
-            // `*r` dereferences one reference layer; other unary ops keep the type.
-            Expr::UnaryOp(op, inner) if op == "*" => self.infer_type(inner, env).map(strip_ref),
-            Expr::UnaryOp(_, inner) => self.infer_type(inner, env),
-            Expr::BinaryOp(left, op, right) => {
-                if binop_returns_bool(op) {
-                    Some(Type::Named("bool".to_string()))
-                } else {
-                    self.infer_type(left, env)
-                        .or_else(|| self.infer_type(right, env))
-                }
-            }
-            Expr::Tuple(items) => {
-                let types: Option<Vec<_>> =
-                    items.iter().map(|item| self.infer_type(item, env)).collect();
-                types.map(|types| {
-                    if types.is_empty() {
-                        Type::Unit
-                    } else {
-                        Type::Tuple(types)
-                    }
-                })
-            }
-            Expr::Block(block) => block.expr.as_ref().and_then(|e| self.infer_type(e, env)),
-            _ => None,
-        }
-    }
-
-    fn infer_call_type(&self, callee: &Expr) -> Option<Type> {
-        match callee {
-            Expr::Ident(name) => self
-                .owner_for_variant(name)
-                .map(Type::Named)
-                .or_else(|| self.fn_returns.get(name).cloned()),
-            Expr::Path(path, PathType::Namespace) => self
-                .owner_for_variant_path(path)
-                .map(Type::Named)
-                .or_else(|| path.last().and_then(|n| self.fn_returns.get(n).cloned())),
-            Expr::Parenthesized(inner) => self.infer_call_type(inner),
-            _ => None,
-        }
-    }
-
-    fn owner_for_variant(&self, name: &str) -> Option<String> {
-        self.variant_owners.get(name).cloned().flatten()
-    }
-
-    fn owner_for_variant_path(&self, path: &[String]) -> Option<String> {
-        self.owner_for_variant(path.last()?)
-    }
-}
-
 /// Run the chain transform and last-use elimination over a single function.
 /// Returns `true` if a mut chain was collapsed.
-fn transform_function(ctx: &MutContext, function: &mut FunctionDef) -> bool {
+fn transform_function(function: &mut FunctionDef) -> bool {
     // M-Shadow + M-Mut: collapse every chain in the body (recursing into nested
-    // blocks).  This leaves the handoff clones in place; they are removed next.
-    let env = function_param_env(function);
-    let collapsed = transform_block(ctx, &mut function.body, &env);
+    // blocks).  This leaves the clones in place; they are removed next.
+    let collapsed = transform_block(&mut function.body);
 
     // M-LastUse: a global backward-liveness pass that turns `v.clone()` into `v`
     // when `v` is owned and not read afterwards.  Running it unconditionally is
-    // sound, but it is only useful (and only changes anything) where clones are
-    // genuinely dead — most importantly the handoff clones the mut rewrite just
-    // exposed.
+    // sound, but it only changes anything where clones are genuinely dead — most
+    // importantly the clones the mut rewrite just exposed.
     let owned = compute_owned(function);
     let mut live: HashSet<String> = HashSet::new();
     rewrite_lastuse_block(&mut function.body, &mut live, &owned);
@@ -205,72 +84,53 @@ fn transform_function(ctx: &MutContext, function: &mut FunctionDef) -> bool {
 // ── M-Shadow + M-Mut: mut-chain detection and rewrite ────────────────────────
 
 /// Detect and rewrite every mut chain reachable from `block`, recursing into
-/// nested blocks first.  `outer_env` carries the variable types in scope on
-/// entry to the block.  Returns `true` if any chain was collapsed.
-fn transform_block(ctx: &MutContext, block: &mut Block, outer_env: &TypeEnv) -> bool {
+/// nested blocks first.  Returns `true` if any chain was collapsed.
+fn transform_block(block: &mut Block) -> bool {
     let mut changed = false;
-    let mut env = outer_env.clone();
-    // Type of each statement's binding (by statement index), used to require
-    // chain elements to share one owned type.
-    let mut elem_types: HashMap<usize, Type> = HashMap::new();
 
-    // Recurse into nested blocks (inside match arms, if/else, sub-blocks, …),
-    // building up the local type environment as we go.  The Isabelle code
-    // generator wraps function bodies in an inner block, so the actual chain
-    // usually lives one level down.
-    for idx in 0..block.stmts.len() {
-        match &mut block.stmts[idx] {
+    // Recurse into nested blocks first (match arms, if/else, sub-blocks, …); the
+    // Isabelle code generator wraps function bodies in an inner block, so the
+    // actual chain usually lives one level down.
+    for stmt in &mut block.stmts {
+        match stmt {
             Statement::Let(let_stmt) => {
                 if let Some(init) = &mut let_stmt.init {
-                    changed |= transform_expr(ctx, init, &env);
-                }
-                let inferred = let_stmt.ty.clone().or_else(|| {
-                    let_stmt
-                        .init
-                        .as_ref()
-                        .and_then(|init| ctx.infer_type(init, &env))
-                });
-                if is_binding_ident(&let_stmt.name) {
-                    if let Some(ty) = inferred {
-                        elem_types.insert(idx, ty.clone());
-                        env.insert(let_stmt.name.clone(), ty);
-                    }
+                    changed |= transform_expr(init);
                 }
             }
-            Statement::Expr(expr) => changed |= transform_expr(ctx, expr, &env),
+            Statement::Expr(expr) => changed |= transform_expr(expr),
             Statement::Item(item) => {
                 if let Item::Function(function) = item.as_mut() {
-                    let fn_env = function_param_env(function);
-                    changed |= transform_block(ctx, &mut function.body, &fn_env);
+                    changed |= transform_block(&mut function.body);
                 }
             }
             _ => {}
         }
     }
     if let Some(tail) = &mut block.expr {
-        changed |= transform_expr(ctx, tail, &env);
+        changed |= transform_expr(tail);
     }
 
     // Now collapse chains whose `let` bindings are direct statements of *this*
     // block (so they can be turned into assignments in place).
-    changed |= collapse_chains_in_block(block, &elem_types);
+    changed |= collapse_chains_in_block(block);
     changed
 }
 
-fn transform_expr(ctx: &MutContext, expr: &mut Expr, env: &TypeEnv) -> bool {
+fn transform_expr(expr: &mut Expr) -> bool {
     let mut changed = false;
     match expr {
-        Expr::Block(block) => changed |= transform_block(ctx, block, env),
-        Expr::Loop(block) | Expr::Unsafe(block) => changed |= transform_block(ctx, block, env),
+        Expr::Block(block) => changed |= transform_block(block),
+        Expr::Loop(block) | Expr::Unsafe(block) => changed |= transform_block(block),
         Expr::If {
             condition,
             then_branch,
             else_branch,
         } => {
-            changed |= transform_expr(ctx, condition, env);
-            changed |= transform_block(ctx, then_branch, env);
+            changed |= transform_expr(condition);
+            changed |= transform_block(then_branch);
             if let Some(else_branch) = else_branch {
-                changed |= transform_block(ctx, else_branch, env);
+                changed |= transform_block(else_branch);
             }
         }
         Expr::IfLet {
@@ -279,49 +139,49 @@ fn transform_expr(ctx: &MutContext, expr: &mut Expr, env: &TypeEnv) -> bool {
             else_branch,
             ..
         } => {
-            changed |= transform_expr(ctx, value, env);
-            changed |= transform_block(ctx, then_branch, env);
+            changed |= transform_expr(value);
+            changed |= transform_block(then_branch);
             if let Some(else_branch) = else_branch {
-                changed |= transform_block(ctx, else_branch, env);
+                changed |= transform_block(else_branch);
             }
         }
         Expr::Match { expr, arms } => {
-            changed |= transform_expr(ctx, expr, env);
+            changed |= transform_expr(expr);
             for arm in arms {
                 if let Some(guard) = &mut arm.guard {
-                    changed |= transform_expr(ctx, guard, env);
+                    changed |= transform_expr(guard);
                 }
-                changed |= transform_block(ctx, &mut arm.body, env);
+                changed |= transform_block(&mut arm.body);
             }
         }
         Expr::Call(callee, args) => {
-            changed |= transform_expr(ctx, callee, env);
+            changed |= transform_expr(callee);
             for arg in args {
-                changed |= transform_expr(ctx, arg, env);
+                changed |= transform_expr(arg);
             }
         }
         Expr::MethodCall(receiver, _, args) => {
-            changed |= transform_expr(ctx, receiver, env);
+            changed |= transform_expr(receiver);
             for arg in args {
-                changed |= transform_expr(ctx, arg, env);
+                changed |= transform_expr(arg);
             }
         }
         Expr::Tuple(items) => {
             for item in items {
-                changed |= transform_expr(ctx, item, env);
+                changed |= transform_expr(item);
             }
         }
         Expr::BinaryOp(left, _, right) | Expr::Assign(left, right) | Expr::Index(left, right) => {
-            changed |= transform_expr(ctx, left, env);
-            changed |= transform_expr(ctx, right, env);
+            changed |= transform_expr(left);
+            changed |= transform_expr(right);
         }
         Expr::UnaryOp(_, inner)
         | Expr::Parenthesized(inner)
         | Expr::Reference(inner, _, _)
         | Expr::Await(inner) => {
-            changed |= transform_expr(ctx, inner, env);
+            changed |= transform_expr(inner);
         }
-        Expr::Closure(_, body, _) => changed |= transform_expr(ctx, body, env),
+        Expr::Closure(_, body, _) => changed |= transform_expr(body),
         Expr::Ident(_) | Expr::Path(_, _) | Expr::Literal(_) | Expr::BuilderChain(_) => {}
     }
     changed
@@ -329,8 +189,8 @@ fn transform_expr(ctx: &MutContext, expr: &mut Expr, env: &TypeEnv) -> bool {
 
 /// Find every mut chain among the direct `let` statements of `block` and rewrite
 /// it to the `let mut` + assignment form.
-fn collapse_chains_in_block(block: &mut Block, elem_types: &HashMap<usize, Type>) -> bool {
-    let chains = detect_chains(block, elem_types);
+fn collapse_chains_in_block(block: &mut Block) -> bool {
+    let chains = detect_chains(block);
     if chains.is_empty() {
         return false;
     }
@@ -394,87 +254,82 @@ fn collapse_chains_in_block(block: &mut Block, elem_types: &HashMap<usize, Type>
 /// Detect all mut chains whose bindings are direct statements of `block`.
 /// Each returned chain is the ordered list of statement indices `x0, …, xn`
 /// (with `n >= 1`, i.e. at least one shadowing binding).
-fn detect_chains(block: &Block, elem_types: &HashMap<usize, Type>) -> Vec<Vec<usize>> {
-    // Statement indices that are `let <ident> = <init>;` bindings.
-    let candidate_lets: Vec<usize> = block
-        .stmts
-        .iter()
-        .enumerate()
-        .filter(|(_, stmt)| is_simple_let_with_init(stmt))
-        .map(|(idx, _)| idx)
-        .collect();
+///
+/// Identity is recovered from Thingol's deterministic suffix convention: the
+/// successive bindings of one source variable `x` are printed `x`, `xa`, `xb`,
+/// …, so the predecessor of a generated name is obtained by stripping a trailing
+/// `a` (recovering the base) or decrementing a trailing `b`..`z` (see
+/// [`predecessor`]).  A link is kept only when the predecessor is *confined* —
+/// not read after the successor's binding overwrites it — so collapsing the
+/// chain into one in-place update is sound.  A name whose suffix the convention
+/// cannot invert (e.g. a single letter) simply forms no link, which is safe: the
+/// pass optimizes less, never wrongly.
+fn detect_chains(block: &Block) -> Vec<Vec<usize>> {
+    // Map each simple-`let` binding name to its statement index.
+    let mut name_to_idx: HashMap<String, usize> = HashMap::new();
+    for (idx, stmt) in block.stmts.iter().enumerate() {
+        if is_simple_let_with_init(stmt) {
+            if let Some(name) = let_binding_name(stmt) {
+                name_to_idx.insert(name.to_string(), idx);
+            }
+        }
+    }
 
-    let mut chains = Vec::new();
-    let mut consumed: HashSet<usize> = HashSet::new();
+    // Build predecessor/successor links between binding indices.
+    let mut pred_of: HashMap<usize, usize> = HashMap::new();
+    let mut succ_of: HashMap<usize, usize> = HashMap::new();
 
-    for &start in &candidate_lets {
-        if consumed.contains(&start) {
+    for (idx, stmt) in block.stmts.iter().enumerate() {
+        if !is_simple_let_with_init(stmt) {
             continue;
         }
-
-        // A chain can only be anchored on an element whose owned type we know,
-        // so the type-equality check below is meaningful.
-        let Some(start_ty) = elem_types.get(&start) else {
+        let Some(name) = let_binding_name(stmt) else {
             continue;
         };
-        if !is_owned_type(start_ty) {
+        let Some(pred_name) = predecessor(name) else {
+            continue;
+        };
+        let Some(&pred_idx) = name_to_idx.get(&pred_name) else {
+            continue;
+        };
+        if pred_idx >= idx {
             continue;
         }
-
-        let mut chain = vec![start];
-        let mut current = start;
-
-        loop {
-            let name = let_binding_name(&block.stmts[current]).expect("simple let");
-
-            // The interior of a chain requires the single-use condition: the
-            // current name must be read exactly once in the whole block scope.
-            // A name re-bound elsewhere in the block is unsafe to unify, so the
-            // binding count must be exactly one (its own definition).
-            if count_bindings_in_block(block, name) != 1 {
-                break;
-            }
-            if count_reads_in_block(block, name) != 1 {
-                break;
-            }
-
-            // The single read must land in the initialiser of a later simple
-            // `let` of this block (the handoff to the next chain element).
-            let Some(next) = next_let_reading(block, current, name) else {
-                break;
-            };
-            if consumed.contains(&next) {
-                break;
-            }
-
-            // M-Shadow recovers names "introduced for the same source variable",
-            // which the rewrite collapses to one `let mut`.  The recoverable
-            // proxy for "same logical variable" is that consecutive elements
-            // share one owned type: a value used merely as an argument while a
-            // different-typed result is produced (e.g. `flag` feeding a
-            // `color_tint(flag, x)` that yields a colour) is *not* a shadowed
-            // continuation and must not be unified.
-            //
-            // The shared *owned* type also discharges `NoEsc(x)`: an owned,
-            // non-reference value cannot carry a live borrow of the previous
-            // value of `x` past the assignment.
-            let (Some(cur_ty), Some(next_ty)) =
-                (elem_types.get(&current), elem_types.get(&next))
-            else {
-                break;
-            };
-            if !is_owned_type(next_ty) || !types_equal(cur_ty, next_ty) {
-                break;
-            }
-
-            chain.push(next);
-            current = next;
+        // Each name must be bound exactly once in this block, so renaming its
+        // reads cannot capture an unrelated binding.
+        if count_bindings_in_block(block, name) != 1
+            || count_bindings_in_block(block, &pred_name) != 1
+        {
+            continue;
         }
+        // Confinement: the predecessor's value must not be read after the
+        // successor's binding overwrites it.
+        if !is_confined(block, &pred_name, idx) {
+            continue;
+        }
+        // `predecessor` is injective on names, so each predecessor index gets at
+        // most one successor; guard against an unexpected clash anyway.
+        if succ_of.contains_key(&pred_idx) {
+            continue;
+        }
+        pred_of.insert(idx, pred_idx);
+        succ_of.insert(pred_idx, idx);
+    }
 
+    // Assemble maximal chains from each head: a binding that has a successor but
+    // no predecessor link of its own.
+    let mut chains = Vec::new();
+    for &head in succ_of.keys() {
+        if pred_of.contains_key(&head) {
+            continue;
+        }
+        let mut chain = vec![head];
+        let mut cur = head;
+        while let Some(&next) = succ_of.get(&cur) {
+            chain.push(next);
+            cur = next;
+        }
         if chain.len() >= 2 {
-            for &idx in &chain {
-                consumed.insert(idx);
-            }
             chains.push(chain);
         }
     }
@@ -482,72 +337,52 @@ fn detect_chains(block: &Block, elem_types: &HashMap<usize, Type>) -> Vec<Vec<us
     chains
 }
 
-/// Find the first simple-`let` statement after `from` whose initialiser reads
-/// `name`.  With the single-use condition already checked, this is the handoff
-/// target if it exists.
-fn next_let_reading(block: &Block, from: usize, name: &str) -> Option<usize> {
-    block
-        .stmts
-        .iter()
-        .enumerate()
-        .skip(from + 1)
-        .find(|(_, stmt)| match stmt {
-            Statement::Let(let_stmt) if is_binding_ident(&let_stmt.name) => let_stmt
+/// The predecessor of a Thingol-generated shadow name, by inverting its suffix
+/// convention: strip a trailing `a` (the first shadow of a base name) or
+/// decrement a trailing `b`..`z`.  Returns `None` when the name carries no such
+/// suffix, so it cannot be recognized as a shadow continuation.
+fn predecessor(name: &str) -> Option<String> {
+    let last = name.chars().last()?;
+    match last {
+        'a' => {
+            let base = &name[..name.len() - 1];
+            (!base.is_empty()).then(|| base.to_string())
+        }
+        'b'..='z' => {
+            let mut pred = name[..name.len() - 1].to_string();
+            pred.push((last as u8 - 1) as char);
+            Some(pred)
+        }
+        _ => None,
+    }
+}
+
+/// Whether every read of `name` occurs at or before statement index `limit`
+/// (the binding that overwrites it).  Reads in the tail expression count as
+/// occurring after every statement.
+fn is_confined(block: &Block, name: &str, limit: usize) -> bool {
+    for (idx, stmt) in block.stmts.iter().enumerate() {
+        if idx <= limit {
+            continue;
+        }
+        let reads = match stmt {
+            Statement::Let(let_stmt) => let_stmt
                 .init
                 .as_ref()
-                .is_some_and(|init| count_reads_in_expr(init, name) >= 1),
-            _ => false,
-        })
-        .map(|(idx, _)| idx)
-}
-
-/// Seed a type environment from a function's parameters.
-fn function_param_env(function: &FunctionDef) -> TypeEnv {
-    function
-        .params
-        .iter()
-        .filter(|param| !param.name.is_empty())
-        .map(|param| (param.name.clone(), param.ty.clone()))
-        .collect()
-}
-
-/// Strip one layer of shared/mutable reference (`&T` → `T`).
-fn strip_ref(ty: Type) -> Type {
-    match ty {
-        Type::Reference(inner, true, _) => *inner,
-        other => other,
+                .map_or(0, |init| count_reads_in_expr(init, name)),
+            Statement::Expr(expr) => count_reads_in_expr(expr, name),
+            _ => 0,
+        };
+        if reads > 0 {
+            return false;
+        }
     }
-}
-
-/// A value of this type can be held by a single `let mut` binding and cannot
-/// itself carry a borrow of a previous value (no references/slices at the top).
-fn is_owned_type(ty: &Type) -> bool {
-    !matches!(ty, Type::Reference(_, _, _) | Type::Slice(_))
-}
-
-fn binop_returns_bool(op: &str) -> bool {
-    matches!(op, "==" | "!=" | "<" | "<=" | ">" | ">=" | "&&" | "||")
-}
-
-/// Structural type equality (no inference variables).
-fn types_equal(a: &Type, b: &Type) -> bool {
-    match (a, b) {
-        (Type::Named(x), Type::Named(y)) => x == y,
-        (Type::Path(x), Type::Path(y)) => x == y,
-        (Type::Generic(xn, xp), Type::Generic(yn, yp)) => {
-            xn == yn && xp.len() == yp.len() && xp.iter().zip(yp).all(|(p, q)| types_equal(p, q))
+    if let Some(tail) = &block.expr {
+        if count_reads_in_expr(tail, name) > 0 {
+            return false;
         }
-        (Type::Tuple(x), Type::Tuple(y)) => {
-            x.len() == y.len() && x.iter().zip(y).all(|(p, q)| types_equal(p, q))
-        }
-        (Type::Array(x, n), Type::Array(y, m)) => n == m && types_equal(x, y),
-        (Type::Slice(x), Type::Slice(y)) => types_equal(x, y),
-        (Type::Reference(x, xr, xm), Type::Reference(y, yr, ym)) => {
-            xr == yr && xm == ym && types_equal(x, y)
-        }
-        (Type::Unit, Type::Unit) | (Type::Never, Type::Never) => true,
-        _ => false,
     }
+    true
 }
 
 // ── M-LastUse: backward-liveness clone elimination ───────────────────────────

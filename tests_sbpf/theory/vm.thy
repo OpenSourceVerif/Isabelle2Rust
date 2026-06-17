@@ -28,7 +28,6 @@ stack_frame_size :: usize
 \<comment> \<open> Enables gaps in VM address space between the stack frames \<close>
 enable_stack_frame_gaps :: bool
 \<comment> \<open> Have the verifier reject "callx r10" \<close>
-<<<<<<< HEAD
 reject_callx_r10 :: bool *)
 
 \<comment> \<open> Maximal pc distance after which a new instruction meter validation
