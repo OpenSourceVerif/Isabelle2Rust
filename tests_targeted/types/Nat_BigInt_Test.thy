@@ -2,8 +2,9 @@ theory Nat_BigInt_Test
   imports Main "Rust.Rust_BigInt_Nat_Setup"
 begin
 
-(* Exercise the nat/int -> BigInt mapping from Rust_BigInt_Nat_Setup: neither nat
-   nor int may be emitted as a unary `enum`, but mapped to BigInt with
+(* Exercise the nat/int -> BigInt mapping from Rust_BigInt_Nat_Setup, which
+   imports Rust_BigInt_Int_Setup: neither nat nor int may be emitted as a unary
+   `enum`, but mapped to BigInt with
    arithmetic/comparisons printed as native BigInt ops. Includes int equality /
    ordering (which reconstruct an `impl Equal/Ord for int` whose header must print
    `int` via tyco_syntax, not deresolve), mirroring the bpf_generator usage. *)

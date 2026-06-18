@@ -1,5 +1,5 @@
 theory Infix_Prec_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_BigInt_Int_Setup"
 begin
 
 (* Regression test for the D.1 term-layer de-stringification.

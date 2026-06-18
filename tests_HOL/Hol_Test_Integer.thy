@@ -1,7 +1,7 @@
 theory Hol_Test_Integer
 imports
   "HOL-Library.Code_Test"
-  "Rust.Rust_Setup"
+  "Rust.Rust_BigInt_Int_Setup"
   Code_Lazy_Test
 begin
 

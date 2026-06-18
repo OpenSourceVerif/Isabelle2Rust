@@ -1166,7 +1166,7 @@ fun print_rust_module name decls crate_uses includes body =
   let
     (* Import the BigInt support crates (num_bigint / num_traits::sign) only for
        files that actually use BigInt, so the `use ...::*;` globs stay out of
-       files that map integers nowhere. The integer mapping (Rust_Setup.thy) and
+       files that map integers nowhere. The optional BigInt setup theories and
        numeral literals both surface the substring "BigInt", so a per-file body
        scan covers every use site. *)
     val bigint_includes = ["num_bigint", "num_traits::sign"]

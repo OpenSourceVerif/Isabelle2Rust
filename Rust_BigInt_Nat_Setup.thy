@@ -1,22 +1,11 @@
 theory Rust_BigInt_Nat_Setup
   imports
-    Rust_Setup
-    "HOL-Library.Code_Target_Int"
+    Rust_BigInt_Int_Setup
     "HOL-Library.Code_Target_Nat"
 begin
 
 code_identifier
-  code_module Int \<rightharpoonup> (Rust) Arith
-| code_module Code_Target_Int \<rightharpoonup> (Rust) Arith
-| code_module Code_Target_Nat \<rightharpoonup> (Rust) Arith
-
-code_printing
-  type_constructor int \<rightharpoonup>
-    (Rust) "BigInt"
-| constant int_of_integer \<rightharpoonup>
-    (Rust) "_"
-| constant integer_of_int \<rightharpoonup>
-    (Rust) "_"
+  code_module Code_Target_Nat \<rightharpoonup> (Rust) Arith
 
 code_printing
   type_constructor nat \<rightharpoonup>
