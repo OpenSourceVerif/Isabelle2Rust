@@ -5,7 +5,7 @@
  * interaction between the various components of the system.
  *)
 
-(* The following code are equally added to `interp_test.ml` and `step_test.ml` *)
+(* Legacy glue reference for the OCaml modules generated from bpf_generator.thy. *)
 
 let i64_MIN
   = (Neg (Bit0 (Bit0 (Bit0 (Bit0 (Bit0 (Bit0

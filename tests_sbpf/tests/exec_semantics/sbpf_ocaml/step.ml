@@ -1,7 +1,7 @@
 (* 
  * This file demonstrates how to input a large set of test cases 
- * (./tests/data/ocaml_in.json) into the `step_test.ml` file,
- * execute them, and generate human-readable results.
+ * (tests_sbpf/tests/data/ocaml_in.json) into the Isabelle-generated
+ * `Step_test` module after the OCaml runner injects the required glue code.
  *)
 
 
@@ -81,7 +81,12 @@ let read_test_cases filename =
   | _ -> failwith "Expected a list of test cases"
 
 let () =
-  let test_cases = read_test_cases "../data/ocaml_in.json" in
+  let test_json =
+    match Sys.getenv_opt "CROSS_JSON" with
+    | Some path -> path
+    | None -> "../../data/ocaml_in.json"
+  in
+  let test_cases = read_test_cases test_json in
   List.iter run_test_case test_cases;
   Printf.printf "\nSummary:\n";
   Printf.printf "%sPassed: %d%s\n" green !passed reset;

@@ -1,13 +1,10 @@
-// Rust <-> OCaml runtime cross-test harness for the exported sBPF single-step
-// semantics.  Copied over the `step_test` export's src/main.rs by `make sbpf`.
+// Rust runtime micro-test harness for the exported sBPF single-step semantics.
 //
-// Feeds the Rust-exported `step_test` the OCaml-reference step vectors
-// (tests_sbpf/tests/data/ocaml_in.json, whose ipc/result_expected were produced by
-// the OCaml reference) and asserts each self-checking call returns `true`.
+// Feeds the Rust-exported `step_test` the local step vectors in
+// tests_sbpf/tests/data/ocaml_in.json and asserts each self-checking call
+// returns `true`.
 //
-// Best-effort: the `step_test` Rust export currently has unresolved compile issues
-// (word phantom-type machinery + closure boxing), so this may not build yet. It
-// will run green automatically once those are fixed. JSON path via CROSS_JSON.
+// JSON path via CROSS_JSON.
 #![feature(box_patterns)]
 #![allow(non_snake_case)]
 
@@ -43,7 +40,8 @@ fn hex_i64(s: &str) -> i64 {
     u64::from_str_radix(t, 16).unwrap_or_else(|e| panic!("bad hex {}: {}", s, e)) as i64
 }
 
-// int maps to num_bigint::BigInt under Rust_BigInt_Nat_Setup.
+// int maps to num_bigint::BigInt under Rust_BigInt_Int_Setup, which
+// Rust_BigInt_Nat_Setup imports.
 fn int_of_i64(n: i64) -> BigInt {
     BigInt::from(n)
 }
@@ -68,8 +66,8 @@ fn main() {
     let cases: Vec<Case> = serde_json::from_reader(BufReader::new(file))
         .expect("parse step json");
 
-    // A panic in the exported code is a divergence from the OCaml reference; we
-    // report it as a failed case rather than aborting the whole run.
+    // A panic in the exported code is a failed case; report it instead of
+    // aborting the whole run.
     panic::set_hook(Box::new(|_| {}));
 
     let mut passed = 0usize;
@@ -115,7 +113,7 @@ fn main() {
         );
     }
 
-    println!("\nSummary (step cross-test, Rust export vs OCaml reference):");
+    println!("\nSummary (step micro test, Rust export):");
     println!("{}Passed: {}{}", GREEN, passed, RESET);
     println!("{}Failed: {} (of which {} panicked){}", RED, failed, panicked, RESET);
     if failed > 0 {

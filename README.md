@@ -13,7 +13,8 @@ The most recent updates can be found at:
 The repository consists of these major components:
 
 - **`code_rust.ML`** : the core of the Isabelle2Rust backend, implemented in Poly/ML. Link to paper‘s Section3.
-- **`Rust_Setup.thy`** : the code adaptation layer that contains lightweight mapping rules.
+- **`Rust_Setup.thy`** : the base Rust adaptation layer with lightweight mapping rules.
+- **`Rust_BigInt_Int_Setup.thy`** and **`Rust_BigInt_Nat_Setup.thy`** : optional BigInt-backed mappings for `integer`/`int` and `nat`; import them explicitly when that representation is intended.
 - **`tests_HOL/`** : a collection of 7 official `HOL codegenerator_tests`, evaluates to a Boolean result. Link to paper's Section 4.
 - **`tests_targeted/`** : a suite of 41 targeted test cases designed to exercise representative translation scenarios. All tests compile and execute successfully via Cargo. Link to paper's Section 4.
 
@@ -70,6 +71,37 @@ isabelle version
 sudo apt install make
 ```
 
+- Fixed environment for sBPF macro validation
+
+The sBPF macro validation target runs both the OCaml and Rust versions exported
+from `tests_sbpf/theory/bpf_generator.thy`. The OCaml side is fixed to
+`ocamlc 4.11.2` with `ocamlfind` and `zarith`:
+
+```bash
+# one possible setup path
+opam switch create 4.11.2 ocaml-base-compiler.4.11.2
+eval $(opam env --switch=4.11.2)
+opam install zarith
+
+ocamlc -version
+# expected: 4.11.2
+ocamlfind query zarith
+```
+
+The Rust side is fixed to the same nightly toolchain used by the rest of this
+artifact:
+
+```bash
+rustup toolchain install nightly-2025-12-01
+cargo +nightly-2025-12-01 --version
+rustc +nightly-2025-12-01 --version
+```
+
+`make macro_sbpf` passes these fixed versions as
+`OCAML_VERSION=4.11.2` and `RUST_TOOLCHAIN=nightly-2025-12-01` by default. The
+Rust runner invokes Cargo with `--locked` and sets `RUSTC_BOOTSTRAP=1` and
+`RUSTFLAGS=-Awarnings` internally.
+
 ### 3.2 Quick start
 
 The minimal set of commands required to execute the Isabelle2Rust workflow and reproduce the core results:
@@ -83,6 +115,9 @@ make targeted
 
 # Run the HOL codegenerator tests benchmarks
 make hol
+
+# Run the sBPF macro validation suite
+make macro_sbpf
 
 # More commands
 make help
@@ -204,3 +239,86 @@ fn main(){
 ```
 
 A result of `true` indicates that all HOL tests pass successfully.
+
+#### sBPF macro validation
+
+The sBPF macro validation follows the program-level validation flow used by
+CertSBF's `make macro-test`. The input suite is the Solana official program
+test set already encoded in `tests_sbpf/tests/exec_semantics/sbpf_ocaml/test.ml`,
+so this target does not generate random tests.
+
+Fixed execution environment:
+
+```bash
+# OCaml execution path
+ocamlc -version
+# expected: 4.11.2
+ocamlfind query zarith
+
+# Rust execution path
+cargo +nightly-2025-12-01 --version
+rustc +nightly-2025-12-01 --version
+
+# Isabelle generation path
+isabelle version
+# expected: Isabelle2025
+```
+
+Run the full macro validation from the repository root:
+
+```bash
+make macro_sbpf
+```
+
+The target follows this path strictly:
+
+- Shared stage (`tests_sbpf/tests/exec_semantics/run_macro_sbpf.py`): ensures
+  `bpf_generator.thy` has been exported by Isabelle and refreshes the shared
+  local data file `tests_sbpf/tests/data/interp_in.json` from
+  `tests_sbpf/tests/exec_semantics/sbpf_ocaml/test.ml` only when the cached
+  source hash changes.
+- OCaml stage (`tests_sbpf/tests/exec_semantics/sbpf_ocaml/`): reads the
+  Isabelle-generated
+  `tests_sbpf/theory/stage1/bpf_generator/interp_test.ocaml`, injects the OCaml
+  conversion glue, compiles it with the local macro data in `sbpf_ocaml/test.ml`,
+  and runs the 146 Solana macro cases. The compiled OCaml macro binary is cached
+  and reused until the generated OCaml export, local macro data, glue version, or
+  fixed OCaml version changes.
+- Rust stage (`tests_sbpf/tests/exec_semantics/sbpf_rust/`): reads the
+  Isabelle-generated `interp_test` Cargo project, installs the Rust glue harness
+  `interp_main.rs`, reads `interp_in.json`, and runs the same 146 macro cases
+  through Cargo. By default the Rust runner does not impose a per-case timeout;
+  it prints each case before starting it and reports elapsed time after the case
+  finishes, then lists the slowest Rust cases in the summary.
+
+Useful options:
+
+```bash
+# Force Isabelle to regenerate the OCaml and Rust exports before running the macro suite
+make macro_sbpf REBUILD=1
+
+# Override the fixed versions only when intentionally changing the test setup
+make macro_sbpf OCAML_VERSION=4.11.2 RUST_TOOLCHAIN=nightly-2025-12-01
+
+# Rebuild only the cached shared JSON data
+make macro_sbpf DATA_REBUILD=1
+
+# Rebuild only the cached OCaml glue/binary
+OCAML_REBUILD=1 make macro_sbpf
+
+# Optional Rust diagnostic timeout, in seconds
+RUST_CASE_TIMEOUT=30 make macro_sbpf
+```
+
+The command prints progress messages for both environments and ends with a
+statistical summary, for example:
+
+```text
+macro_sbpf summary
+  OCaml export: Passed 146 / Failed 0 / Total 146
+  Rust export: Passed 146 / Failed 0 / Total 146
+  Overall: PASS
+```
+
+The final status is `PASS` only when both the OCaml export run and the Rust
+export run have zero failed cases.

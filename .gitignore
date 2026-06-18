@@ -5,11 +5,15 @@ temp/
 *.log
 *.cmi
 *.cmo
+*.py[cod]
 *.lock
 !scripts/isabelle-exported.Cargo.lock
 !optimize/**/Cargo.lock
+__pycache__/
+**/__pycache__/
 **/export
 **/Rust_Out
+**/_build/
 target/
 **/Hol_Test/target
 node_modules/

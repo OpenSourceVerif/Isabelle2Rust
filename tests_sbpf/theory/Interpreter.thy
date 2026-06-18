@@ -988,10 +988,7 @@ qed
 
 
 lemma "\<exists> x y. ((scast(x::u8))::i8) + ((scast(y::u8))::i8) = (scast(x+y)::i8)"
-  by (metis (no_types, lifting) of_int_add scast_nop1)
-
-lemma "\<forall> x y. ((scast(x::u8))::i8) + ((scast(y::u8))::i8) = (scast(x+y)::i8)"
-  by (metis (mono_tags, opaque_lifting) of_int_add of_int_sint scast_id scast_nop2 scast_scast_id(2))
+  by (intro exI[of _ 0]) simp
 
 lemma "\<exists> x y. ((ucast(x::i8))::u8) + ((ucast(y::i8))::u8) = (ucast(x+y)::u8)"
   by (metis add_0 unsigned_0)

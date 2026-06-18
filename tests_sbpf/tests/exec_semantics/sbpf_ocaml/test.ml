@@ -1,7 +1,7 @@
 (* 
  * This file contains 146 test cases manually extracted from the official Solana test suites. 
- * It inputs these test cases into the `interp_test.ml` file, executes them, 
- * and generates human-readable results.
+ * It inputs these test cases into the Isabelle-generated `Interp_test` module
+ * after the OCaml runner injects the required glue code.
  *)
 
  open Interp_test
