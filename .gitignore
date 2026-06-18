@@ -13,9 +13,8 @@ temp/
 target/
 **/Hol_Test/target
 node_modules/
-ROOT
 package-lock.json
-ROOT
+test-root/
 optimize/target/
 optimize/tests/out/
 **/stage1

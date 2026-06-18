@@ -94,7 +94,10 @@ This section provides detailed instructions for generating Rust code from Isabel
 
 ```bash
 # to open Isabelle/jedit
-make
+make open
+
+# to open one generated test session in Isabelle/jEdit
+make open_test TEST_DIR=tests_targeted/types TEST_THEORY=Type_Tuple_Test
 ```
 
 ### 4.1 Code generation
@@ -108,11 +111,11 @@ make build TEST_DIR=<dir> TEST_THEORY=<thy>
 
 This command performs the following:
 
-- creates a temporary `ROOT` file based on `ROOT.template`,
+- creates a temporary `test-root/ROOT` file,
 - triggers the Rust backend and produces the corresponding Rust project under:
 
 ```bash
-<TEST_DIR>/Rust_Out/<TEST_THEORY>/export/
+<TEST_DIR>/stage1/<TEST_THEORY>/export*/
 ```
 
 To enable Rust code export, the Isabelle theory must contain an explicit `export_code` command, for example:
@@ -137,16 +140,16 @@ export1/
       └── ...
 ```
 
-To compile and run the generated Rust code, use:
+To generate and run the exported Rust code in one step, use:
 
 ```bash
-make run TEST_DIR=<dir> TEST_THEORY=<thy>
-# for example: make run TEST_DIR=tests_targeted TEST_THEORY=List_Test
+make gen DIR=<dir> Name=<thy>
+# for example: make gen DIR=tests_targeted/lists Name=List_Test
 ```
 
-This triggers a `cargo run` on the generated project.
+This builds the Isabelle theory and triggers `cargo run` on the generated project.
 
-Please ensure that the Rust sources remain in their original locations under `Rust_Out/<TEST_THEORY>/export/`, as the build pipeline relies on this structure.
+Please ensure that the Rust sources remain in their original locations under `stage1/<TEST_THEORY>/export*/`, as the build pipeline relies on this structure.
 
 For convenience, you can run the entire workflow (build + execute)using:
 
@@ -164,8 +167,8 @@ To run all 41 targeted test cases:
 ```bash
 make targeted
 # >>> [1] Abs_Addn_Test
-# Running Test ...
-# Exporting Test ...
+# Running Rust ...
+# Exporting Rust ...
 # === cargo run: .../Abs_Addn_Test/export1/Cargo.toml ===
 # Compiling ...
 # Finished ...

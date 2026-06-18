@@ -1,23 +1,37 @@
-.PHONY: open build build_silent code gen opt test targeted sbpf clean help
+.PHONY: open open_test build build_silent code gen opt test targeted hol sbpf clean help
 
 #### Configuration ####
 
 DEFAULT_FILE := $(CURDIR)/Rust_Setup.thy
-SESSION      := Test
-ROOT_FILE    := ROOT
+PROJECT_SESSION := Rust
+TEST_SESSION    := Rust
+TEST_ROOT_DIR   := test-root
+TEST_ROOT_FILE  := $(TEST_ROOT_DIR)/ROOT
 HOL_TEST_THEORY ?= Hol_Test_Integer
 
 CARGO                  ?= cargo
 ISABELLE_EXPORTED_LOCK := $(CURDIR)/scripts/isabelle-exported.Cargo.lock
 OPTIMIZE_DIR           := $(CURDIR)/optimize
 ISABELLE_BUILD_LOCK    := $(CURDIR)/.isabelle-build.lock
-ISABELLE_BUILD_VERBOSE := isabelle build -v -e -d . $(SESSION)
-ISABELLE_BUILD_SILENT  := isabelle build -e -d . $(SESSION)
+ISABELLE_PROJECT_BUILD := isabelle build -v -e -d . $(PROJECT_SESSION)
+ISABELLE_TEST_VERBOSE  := isabelle build -v -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
+ISABELLE_TEST_SILENT   := isabelle build -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
+
+WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = 300]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "$(TEST_DIR)"' '  theories [document = false]' '    Rust_Setup' '    Rust_BigInt_Nat_Setup' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"'; } > $(TEST_ROOT_FILE)
 
 #### Targets ####
 
 open:
-	isabelle jedit -d . $(DEFAULT_FILE)
+	isabelle jedit -n -d . -R $(PROJECT_SESSION) $(DEFAULT_FILE)
+
+open_test:
+	@if [ -z "$(TEST_DIR)" ] || [ -z "$(TEST_THEORY)" ]; then \
+	  echo "Usage: make open_test TEST_DIR=<dir> TEST_THEORY=<thy>"; \
+	  echo "Example: make open_test TEST_DIR=tests_targeted/types TEST_THEORY=Type_Tuple_Test"; \
+	  exit 1; \
+	fi
+	@$(WRITE_TEST_ROOT)
+	isabelle jedit -n -d $(TEST_ROOT_DIR) -R $(TEST_SESSION) "$(TEST_DIR)/$(TEST_THEORY).thy"
 
 # build one theory (verbose)
 build:
@@ -28,13 +42,10 @@ build:
 	fi
 	@{ \
 	  flock 9; \
-	  echo ">> ROOT for $(TEST_DIR)/$(TEST_THEORY).thy"; \
-	  sed \
-	    -e 's|@TEST_DIR@|$(TEST_DIR)|g' \
-	    -e 's|@TEST_THEORY@|$(TEST_THEORY)|g' \
-	    ROOT.template > $(ROOT_FILE); \
+	  echo ">> $(TEST_ROOT_FILE) for $(TEST_DIR)/$(TEST_THEORY).thy"; \
+	  $(WRITE_TEST_ROOT); \
 	  echo ">> isabelle build (verbose)..."; \
-	  $(ISABELLE_BUILD_VERBOSE); \
+	  $(ISABELLE_TEST_VERBOSE); \
 	} 9>$(ISABELLE_BUILD_LOCK)
 
 # build one theory (quiet, for targeted)
@@ -45,15 +56,12 @@ build_silent:
 	fi
 	@{ \
 	  flock 9; \
-	  sed \
-	    -e 's|@TEST_DIR@|$(TEST_DIR)|g' \
-	    -e 's|@TEST_THEORY@|$(TEST_THEORY)|g' \
-	    ROOT.template > $(ROOT_FILE); \
-	  $(ISABELLE_BUILD_SILENT); \
+	  $(WRITE_TEST_ROOT); \
+	  $(ISABELLE_TEST_SILENT); \
 	} 9>$(ISABELLE_BUILD_LOCK)
 
 code:
-	@{ flock 9; $(ISABELLE_BUILD_VERBOSE); } 9>$(ISABELLE_BUILD_LOCK)
+	@{ flock 9; $(ISABELLE_PROJECT_BUILD); } 9>$(ISABELLE_BUILD_LOCK)
 
 # gen: Isabelle build → stage1 + cargo run on stage1
 # Usage: make gen DIR=<dir> Name=<theory>   (single)
@@ -337,19 +345,19 @@ clean:
 	find tests_sbpf/theory/stage1 -name target -type d -prune -exec rm -rf {} + 2>/dev/null || true
 	rm -rf optimize/tests/stage1 optimize/tests/stage2
 	rm -rf tests_HOL/Hol_Test/target
+	rm -rf $(TEST_ROOT_DIR)
 
 help:
 	@echo "Available targets:"
 	@echo "  open"
 	@echo "      Open $(DEFAULT_FILE) in Isabelle/jEdit."
+	@echo "  open_test TEST_DIR=<dir> TEST_THEORY=<thy-name>"
+	@echo "      Generate test-root/ROOT and open the test theory in Isabelle/jEdit."
 	@echo "  build TEST_DIR=<dir> TEST_THEORY=<thy-name>"
-	@echo "      Generate ROOT from ROOT.template and run isabelle build (verbose)."
+	@echo "      Generate test-root/ROOT and run isabelle build (verbose)."
 	@echo "      Example: make build TEST_DIR=tests_targeted TEST_THEORY=List_Test"
 	@echo "  code"
-	@echo "      Run isabelle build using the existing ROOT file."
-	@echo "  run TEST_DIR=<dir> TEST_THEORY=<thy-name>"
-	@echo "      Run all Cargo projects under TEST_DIR/stage1/TEST_THEORY/export*/."
-	@echo "      Example: make run TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test"
+	@echo "      Build the project session from ROOT."
 	@echo "  gen DIR=<dir> [Name=<theory>]"
 	@echo "      Isabelle build -> stage1 + cargo run on stage1."
 	@echo "      Example: make gen DIR=tests_targeted/optimization/copy Name=Copy_Bool_Fields_Test"

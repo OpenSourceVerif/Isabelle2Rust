@@ -14,7 +14,7 @@ tests_targeted/optimization/<pass>/
     <Theory>.thy          ← Isabelle 理论（第 1 阶段输入）
          │
          ▼  make build_silent / make test
-tests_targeted/optimization/<pass>/Rust_Out/<Theory>/export1/
+tests_targeted/optimization/<pass>/stage1/<Theory>/export1/
     src/<Theory>.rs       ← stage1：Isabelle 生成的 baseline Rust
     Cargo.toml / main.rs
          │
@@ -64,9 +64,9 @@ make build TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
 
 作用：
 
-- 根据 `ROOT.template` 生成临时 `ROOT`。
-- 调用 `isabelle build -v -e -d . Test`。
-- 导出 Rust 到 `TEST_DIR/Rust_Out/TEST_THEORY/export*/`。
+- 生成临时 `test-root/ROOT`。
+- 调用 `isabelle build -v -e -d test-root Rust`。
+- 导出 Rust 到 `TEST_DIR/stage1/TEST_THEORY/export*/`。
 
 静默版本：
 
@@ -74,28 +74,24 @@ make build TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
 make build_silent TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
 ```
 
-### 单个理论：只运行已生成的 Rust
+### 单个理论：在 Isabelle/jEdit 中打开
 
 ```bash
-make run TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
+make open_test TEST_DIR=tests_targeted/types TEST_THEORY=Type_Tuple_Test
 ```
+
+该命令使用 `-R Rust` 打开测试 session，使 `Rust_Setup` 和测试理论处于可编辑的当前 session 中。
 
 ### 单个理论：生成并运行
 
 ```bash
-make test TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
+make gen DIR=tests_targeted/lists Name=List_Test
 ```
 
 ### 全量 targeted 测试
 
 ```bash
 make targeted
-```
-
-### 只运行已生成的 targeted Rust
-
-```bash
-make targeted_run
 ```
 
 ### HOL smoke 测试
@@ -132,7 +128,7 @@ make optimize_copy
 | 阶段 | 路径 |
 | --- | --- |
 | Isabelle 理论 | `tests_targeted/optimization/copy/Copy_Inference_Test.thy` |
-| stage1（Isabelle 生成） | `tests_targeted/optimization/copy/Rust_Out/Copy_Inference_Test/export1/` |
+| stage1（Isabelle 生成） | `tests_targeted/optimization/copy/stage1/Copy_Inference_Test/export1/` |
 | stage1 快照 | `optimize/tests/stage1/Copy_Inference_Test/` |
 | stage2（优化输出） | `optimize/tests/stage2/Copy_Inference_Test/` |
 
@@ -156,7 +152,7 @@ make optimize_test STAGE=borrow
 | 阶段 | 路径 |
 | --- | --- |
 | Isabelle 理论 | `tests_targeted/optimization/borrow/Borrow_Inference_Test.thy` |
-| stage1（Isabelle 生成） | `tests_targeted/optimization/borrow/Rust_Out/Borrow_Inference_Test/export1/` |
+| stage1（Isabelle 生成） | `tests_targeted/optimization/borrow/stage1/Borrow_Inference_Test/export1/` |
 | stage1 快照 | `optimize/tests/stage1/Borrow_Inference_Test/` |
 | stage2（优化输出） | `optimize/tests/stage2/Borrow_Inference_Test/` |
 
@@ -200,12 +196,10 @@ make optimize_all
 ```bash
 # 阶段 1：全量 Isabelle 测试
 make targeted                        # 构建并运行所有 *_Test.thy（54 个）
-make targeted_run                    # 只运行已生成的 Rust（跳过 Isabelle）
 
 # 阶段 1：单个理论测试
-make test TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
+make gen DIR=tests_targeted/lists Name=List_Test
 make build TEST_DIR=tests_targeted/optimization/borrow TEST_THEORY=Borrow_Inference_Test
-make run  TEST_DIR=tests_targeted/optimization/borrow TEST_THEORY=Borrow_Inference_Test
 
 # 阶段 2：optimize 优化测试
 make optimize_test STAGE=copy        # copy 推断回归 (60+ checks)
@@ -264,6 +258,6 @@ make clean
 ```
 
 清理范围：
-- 所有 `tests_targeted/**/Rust_Out/`
+- 所有 `tests_targeted/**/stage1/` 和 `tests_targeted/**/stage2/`
 - `optimize/tests/stage1/` 和 `optimize/tests/stage2/`
 - `tests_HOL/Hol_Test/target/`
