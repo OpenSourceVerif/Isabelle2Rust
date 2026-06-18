@@ -44,6 +44,14 @@ code_reserved
   (Rust) bool
 
 
+(* Tuples *)
+code_printing
+  type_constructor "Product_Type.prod" \<rightharpoonup>
+    (Rust) "!( _ , _ )"
+| constant "Product_Type.Pair" \<rightharpoonup>
+    (Rust) "!( _ , _ )"
+
+
 
 (* Integers via num-bigint *)
 code_printing
@@ -73,7 +81,7 @@ code_printing
 | constant "times :: integer \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
     (Rust) infixl 7 "*"
 | constant Code_Numeral.divmod_abs \<rightharpoonup>
-    (Rust) "!(match (_.clone(), _.clone()) { (k, l) => { let k = k.abs(); let l = l.abs(); if l == BigInt::ZERO { Prod::Pair(BigInt::ZERO, k) } else { let q = k.clone() '/ l.clone(); let r = k % l; Prod::Pair(q, r) } } })"
+    (Rust) "!(match (_.clone(), _.clone()) { (k, l) => { let k = k.abs(); let l = l.abs(); if l == BigInt::ZERO { (BigInt::ZERO, k) } else { let q = k.clone() '/ l.clone(); let r = k % l; (q, r) } } })"
 | constant "HOL.equal :: integer \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
     (Rust) infix 4 "=="
 | constant "less_eq :: integer \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
