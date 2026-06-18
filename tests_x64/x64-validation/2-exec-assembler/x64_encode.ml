@@ -3787,9 +3787,18 @@ let parse_ireg_option (s : string) : ireg option option =
     | Some reg -> Some (Some reg)
     | None -> None
 
+let starts_with ~prefix s =
+  let prefix_len = String.length prefix in
+  String.length s >= prefix_len && String.sub s 0 prefix_len = prefix
+
+let ends_with ~suffix s =
+  let suffix_len = String.length suffix in
+  let len = String.length s in
+  len >= suffix_len && String.sub s (len - suffix_len) suffix_len = suffix
+
 let parse_addrmode (s : string) : addrmode option =
   let prefix = "(Addrmode " in
-  if String.starts_with ~prefix s && String.ends_with ~suffix:")" s then
+  if starts_with ~prefix s && ends_with ~suffix:")" s then
     let inner =
       let len = String.length s in
       String.sub s (String.length prefix) (len - String.length prefix - 1)
