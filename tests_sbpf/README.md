@@ -100,3 +100,32 @@ the shared instruction-level flow:
 - `tests/exec_semantics/sbpf_rust/`: Rust-specific glue harness and runner.
 - `tests/rbpf/`: local copy of the Solana/rBPF test material.
 - `tests/data/`: generated or stored validation data.
+
+## Build Caching
+
+Both the OCaml and Rust runners avoid redundant compilation across repeated runs
+via a two-layer cache.
+
+**Layer 1 — Isabelle export** (`ensure_isabelle_export` in `run_macro/micro_sbpf.py`):
+checks whether the exported files under `theory/stage1/bpf_generator/` already
+exist.  If so, `isabelle build` is skipped entirely.  Pass `REBUILD=1` to force
+a re-export.
+
+**Layer 2 — language build** (each runner script):
+after the export step, each runner computes a SHA256 hash of the Isabelle-generated
+source file (`Interp_test.rs` / `Step_test.rs` for Rust, the `.ocaml` export for
+OCaml) together with the handwritten glue file (`interp_main.rs` / `step_main.rs`).
+This key is compared against a stamp file written after the last successful compile.
+If the key matches and the compiled binary still exists, the compile step is skipped.
+
+Stamp file locations:
+
+| runner | stamp |
+|--------|-------|
+| OCaml macro | `sbpf_ocaml/_build/macro_interp/.macro_interp_cache.json` |
+| OCaml micro | `sbpf_ocaml/_build/micro_step/.micro_step_cache.json` |
+| Rust macro  | `theory/stage1/bpf_generator/interp_test/.rust_macro_cache.json` |
+| Rust micro  | `theory/stage1/bpf_generator/step_test/.rust_micro_cache.json` |
+
+Rebuilds are triggered when: the Isabelle export produces different content,
+the glue file is edited, the toolchain changes, or `REBUILD=1` is set.
