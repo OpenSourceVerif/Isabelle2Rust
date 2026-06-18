@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -21,6 +22,7 @@ EXPORT_DIR = Path(os.environ.get("SBPF_EXPORT_DIR", ROOT / "tests_sbpf" / "theor
 RUST_DIR = EXEC_DIR / "sbpf_rust"
 
 RUST_TOOLCHAIN = os.environ.get("RUST_TOOLCHAIN", "nightly-2025-12-01")
+GLUE_VERSION = "interp-macro-rust-v1"
 
 
 def rel(path: Path) -> str:
@@ -111,6 +113,36 @@ def rust_case_timeout() -> float | None:
     return timeout
 
 
+def file_sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def cache_key(export_rs: Path, glue_rs: Path) -> dict[str, str]:
+    return {
+        "rust_toolchain": RUST_TOOLCHAIN,
+        "glue_version": GLUE_VERSION,
+        "export_rs_sha256": file_sha256(export_rs),
+        "glue_rs_sha256": file_sha256(glue_rs),
+    }
+
+
+def cache_is_valid(pkg_dir: Path, key: dict[str, str]) -> bool:
+    stamp = pkg_dir / ".rust_macro_cache.json"
+    binary = pkg_dir / "target" / "debug" / "isabelle_exported"
+    if os.environ.get("REBUILD") == "1":
+        return False
+    if not stamp.exists() or not binary.exists():
+        return False
+    try:
+        return json.loads(stamp.read_text(encoding="utf-8")) == key
+    except json.JSONDecodeError:
+        return False
+
+
 def prepare_rust_cargo(toml: Path) -> None:
     text = toml.read_text(encoding="utf-8")
     cleaned = re.sub(r"(?m)^serde(_json)?\s*=.*\n?", "", text)
@@ -133,24 +165,39 @@ def main() -> int:
     if not check_rust_environment(cargo):
         return 2
 
-    src_dir = toml.parent / "src"
+    pkg_dir = toml.parent
+    export_rs = pkg_dir / "src" / "Interp_test.rs"
     main_rs = RUST_DIR / "interp_main.rs"
-    announce("glue", f"installing {rel(main_rs)} into {rel(src_dir / 'main.rs')}")
-    shutil.copy2(main_rs, src_dir / "main.rs")
-    prepare_rust_cargo(toml)
+
+    if not export_rs.exists():
+        print(f"ERROR: missing Isabelle Rust export: {rel(export_rs)}")
+        return 2
+
+    key = cache_key(export_rs, main_rs)
 
     env = os.environ.copy()
     env["CROSS_JSON"] = str(DATA_DIR / "interp_in.json")
     env["RUSTC_BOOTSTRAP"] = "1"
     env["RUSTFLAGS"] = "-Awarnings"
 
-    build_cmd = cargo + ["build", "--locked", "-q", "--manifest-path", str(toml)]
-    announce("build", shlex.join(build_cmd))
-    rc, _ = run_command(build_cmd, cwd=ROOT, env=env)
-    if rc != 0:
-        return rc
+    if cache_is_valid(pkg_dir, key):
+        announce("cache", "reusing compiled Rust macro binary (no source changes)")
+    else:
+        announce("glue", f"installing {rel(main_rs)} into {rel(pkg_dir / 'src' / 'main.rs')}")
+        shutil.copy2(main_rs, pkg_dir / "src" / "main.rs")
+        prepare_rust_cargo(toml)
 
-    binary = toml.parent / "target" / "debug" / "isabelle_exported"
+        build_cmd = cargo + ["build", "--locked", "-q", "--manifest-path", str(toml)]
+        announce("build", shlex.join(build_cmd))
+        rc, _ = run_command(build_cmd, cwd=ROOT, env=env)
+        if rc != 0:
+            return rc
+
+        stamp = pkg_dir / ".rust_macro_cache.json"
+        stamp.write_text(json.dumps(key, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        announce("cache", f"wrote stamp {rel(stamp)}")
+
+    binary = pkg_dir / "target" / "debug" / "isabelle_exported"
     with open(DATA_DIR / "interp_in.json", "r", encoding="utf-8") as f:
         cases = json.load(f)
 

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import shlex
@@ -20,6 +22,7 @@ STEP_JSON = Path(os.environ.get("SBPF_STEP_JSON", DATA_DIR / "ocaml_in.json"))
 RUST_DIR = EXEC_DIR / "sbpf_rust"
 
 RUST_TOOLCHAIN = os.environ.get("RUST_TOOLCHAIN", "nightly-2025-12-01")
+GLUE_VERSION = "step-micro-rust-v1"
 
 
 def rel(path: Path) -> str:
@@ -103,6 +106,36 @@ def lock_has_step_deps(lock: Path) -> bool:
     return 'name = "serde"' in text and 'name = "serde_json"' in text
 
 
+def file_sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def cache_key(export_rs: Path, glue_rs: Path) -> dict[str, str]:
+    return {
+        "rust_toolchain": RUST_TOOLCHAIN,
+        "glue_version": GLUE_VERSION,
+        "export_rs_sha256": file_sha256(export_rs),
+        "glue_rs_sha256": file_sha256(glue_rs),
+    }
+
+
+def cache_is_valid(pkg_dir: Path, key: dict[str, str]) -> bool:
+    stamp = pkg_dir / ".rust_micro_cache.json"
+    binary = pkg_dir / "target" / "debug" / "isabelle_exported"
+    if os.environ.get("REBUILD") == "1":
+        return False
+    if not stamp.exists() or not binary.exists():
+        return False
+    try:
+        return json.loads(stamp.read_text(encoding="utf-8")) == key
+    except json.JSONDecodeError:
+        return False
+
+
 def main() -> int:
     toml = EXPORT_DIR / "step_test" / "Cargo.toml"
     if not toml.exists():
@@ -116,28 +149,49 @@ def main() -> int:
     if not check_rust_environment(cargo):
         return 2
 
-    src_dir = toml.parent / "src"
+    pkg_dir = toml.parent
+    export_rs = pkg_dir / "src" / "Step_test.rs"
     main_rs = RUST_DIR / "step_main.rs"
-    announce("glue", f"installing {rel(main_rs)} into {rel(src_dir / 'main.rs')}")
-    shutil.copy2(main_rs, src_dir / "main.rs")
-    prepare_rust_cargo(toml)
+
+    if not export_rs.exists():
+        print(f"ERROR: missing Isabelle Rust export: {rel(export_rs)}")
+        return 2
+
+    key = cache_key(export_rs, main_rs)
 
     env = os.environ.copy()
     env["CROSS_JSON"] = str(STEP_JSON)
     env["RUSTC_BOOTSTRAP"] = "1"
     env["RUSTFLAGS"] = "-Awarnings"
 
-    lock = toml.parent / "Cargo.lock"
-    if not lock_has_step_deps(lock):
-        lock_cmd = cargo + ["generate-lockfile", "--manifest-path", str(toml)]
-        announce("lockfile", shlex.join(lock_cmd))
-        rc, _ = run_command(lock_cmd, cwd=ROOT, env=env)
+    if cache_is_valid(pkg_dir, key):
+        announce("cache", "reusing compiled Rust micro binary (no source changes)")
+    else:
+        announce("glue", f"installing {rel(main_rs)} into {rel(pkg_dir / 'src' / 'main.rs')}")
+        shutil.copy2(main_rs, pkg_dir / "src" / "main.rs")
+        prepare_rust_cargo(toml)
+
+        lock = toml.parent / "Cargo.lock"
+        if not lock_has_step_deps(lock):
+            lock_cmd = cargo + ["generate-lockfile", "--manifest-path", str(toml)]
+            announce("lockfile", shlex.join(lock_cmd))
+            rc, _ = run_command(lock_cmd, cwd=ROOT, env=env)
+            if rc != 0:
+                return rc
+
+        build_cmd = cargo + ["build", "--locked", "-q", "--manifest-path", str(toml)]
+        announce("build", shlex.join(build_cmd))
+        rc, _ = run_command(build_cmd, cwd=ROOT, env=env)
         if rc != 0:
             return rc
 
-    run_cmd = cargo + ["run", "--locked", "-q", "--manifest-path", str(toml)]
-    announce("run", shlex.join(run_cmd))
-    rc, _ = run_command(run_cmd, cwd=ROOT, env=env)
+        stamp = pkg_dir / ".rust_micro_cache.json"
+        stamp.write_text(json.dumps(key, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        announce("cache", f"wrote stamp {rel(stamp)}")
+
+    binary = pkg_dir / "target" / "debug" / "isabelle_exported"
+    announce("run", f"{rel(binary)} over {rel(STEP_JSON)}")
+    rc, _ = run_command([str(binary)], cwd=ROOT, env=env)
     return rc
 
 
