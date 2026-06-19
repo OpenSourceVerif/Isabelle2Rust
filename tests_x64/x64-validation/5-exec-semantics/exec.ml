@@ -128,3 +128,5 @@ let () =
 
   Printf.printf "\nSummary: %s%d passed%s / %s%d failed%s\n\n"
   green !passed reset red !failed reset;
+
+  if !failed = 0 then exit 0 else exit 1

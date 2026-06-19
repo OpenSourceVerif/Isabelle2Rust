@@ -1,4 +1,4 @@
-.PHONY: open open_test build build_silent code gen opt test targeted hol macro_sbpf micro_sbpf micro_sbpf_gen sbpf clean help
+.PHONY: open open_test build build_silent code gen opt test targeted hol macro_sbpf micro_sbpf micro_sbpf_gen sbpf x64 x64_gen x64_test clean help
 
 #### Configuration ####
 
@@ -10,6 +10,8 @@ TEST_ROOT_FILE  := $(TEST_ROOT_DIR)/ROOT
 HOL_TEST_THEORY ?= Hol_Test_Integer
 
 CARGO                  ?= cargo
+OCAMLC                 ?= ocamlc
+OCAMLFIND              ?= ocamlfind
 ISABELLE_EXPORTED_LOCK := $(CURDIR)/scripts/isabelle-exported.Cargo.lock
 OPTIMIZE_DIR           := $(CURDIR)/optimize
 ISABELLE_BUILD_LOCK    := $(CURDIR)/.isabelle-build.lock
@@ -318,6 +320,35 @@ micro_sbpf_gen:
 
 sbpf: macro_sbpf
 
+# x64 validation:
+#   x64_gen builds the random instruction/state data under tests_x64/x64-validation/0-data.
+#   x64_test compares the real x64 CPU stepper against the Isabelle-exported OCaml semantics.
+X64_VALIDATION      := tests_x64/x64-validation
+X64_INS_GEN         := $(X64_VALIDATION)/1-x64-ins-gen
+X64_ASSEMBLER       := $(X64_VALIDATION)/2-exec-assembler
+X64_MAP_GEN         := $(X64_VALIDATION)/3-x64-map-gen
+X64_STEPPER_C       := $(X64_VALIDATION)/4-x64-stepper-c
+X64_SEMANTICS       := $(X64_VALIDATION)/5-exec-semantics
+X64_COUNT           ?= 10000
+X64_OCAML_PACKAGES  ?= yojson
+X64_JANSSON_LIBS    ?= $(shell pkg-config --libs jansson 2>/dev/null || echo -ljansson)
+
+x64_gen:
+	@echo ">>> [x64_gen] generating $(X64_COUNT) random x64 instructions"
+	@$(CARGO) run --quiet --manifest-path $(X64_INS_GEN)/Cargo.toml -- $(X64_COUNT)
+	@echo ">>> [x64_gen] encoding instructions with the existing OCaml x64 encoder"
+	@cd "$(X64_ASSEMBLER)" && $(OCAMLC) -o exec x64_encode.ml && ./exec
+	@echo ">>> [x64_gen] generating register and memory maps"
+	@$(CARGO) run --quiet --manifest-path $(X64_MAP_GEN)/Cargo.toml
+
+x64_test:
+	@echo ">>> [x64_test] running cases on the real x64 CPU stepper"
+	@cd "$(X64_STEPPER_C)" && $(CC) -O2 -Wall -Wextra -o ptrace_exec ptrace_exec.c $(X64_JANSSON_LIBS) && ./ptrace_exec
+	@echo ">>> [x64_test] running Isabelle-exported OCaml semantics and comparing results"
+	@cd "$(X64_SEMANTICS)" && $(OCAMLFIND) ocamlc -package $(X64_OCAML_PACKAGES) -linkpkg -c x64_step_test.ml && $(OCAMLFIND) ocamlc -package $(X64_OCAML_PACKAGES) -linkpkg -o exec x64_step_test.cmo exec.ml && ./exec
+
+x64: x64_gen x64_test
+
 clean:
 	@echo "Cleaning temp files and generated output..."
 	find . -name "*\.thy~" -exec rm {} \;
@@ -331,6 +362,9 @@ clean:
 	rm -rf tests_sbpf/tests/exec_semantics/_build
 	rm -rf tests_sbpf/tests/exec_semantics/sbpf_ocaml/_build
 	rm -rf tests_sbpf/tests/exec_semantics/sbpf_rust/_build
+	rm -f tests_x64/x64-validation/2-exec-assembler/exec tests_x64/x64-validation/2-exec-assembler/*.cmi tests_x64/x64-validation/2-exec-assembler/*.cmo
+	rm -f tests_x64/x64-validation/4-x64-stepper-c/ptrace_exec
+	rm -f tests_x64/x64-validation/5-exec-semantics/exec tests_x64/x64-validation/5-exec-semantics/*.cmi tests_x64/x64-validation/5-exec-semantics/*.cmo
 	rm -rf optimize/tests/stage1 optimize/tests/stage2
 	rm -rf tests_HOL/Hol_Test/target
 	rm -rf $(TEST_ROOT_DIR)
@@ -378,5 +412,12 @@ help:
 	@echo "      Example: make micro_sbpf_gen X=100"
 	@echo "  sbpf"
 	@echo "      Alias for macro_sbpf."
+	@echo "  x64_gen [X64_COUNT=10000]"
+	@echo "      Generate x64 validation data under tests_x64/x64-validation/0-data"
+	@echo "      without running the Isabelle export or the final comparison."
+	@echo "  x64_test"
+	@echo "      Run the real x64 CPU stepper, then compare it with the OCaml semantics."
+	@echo "  x64"
+	@echo "      Run x64_gen followed by x64_test."
 	@echo "  clean"
 	@echo "      Remove temp files and generated output (stage1, stage2 under tests_targeted/tests_HOL)."

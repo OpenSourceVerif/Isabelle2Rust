@@ -1,7 +1,9 @@
 use rand::Rng;
+use std::env;
 use std::fmt;
 use std::fs::File;
 use std::io::Write;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Register {
@@ -404,14 +406,18 @@ fn generate_instruction() -> Instruction {
 }
 
 fn main() {
-    let mut file = File::create("../0-data/step1.in").unwrap();
-    let n = 100000;
+    let n = env::args()
+        .nth(1)
+        .map(|arg| arg.parse::<usize>().unwrap_or_else(|_| panic!("invalid instruction count: {}", arg)))
+        .unwrap_or(100000);
+    let out_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../0-data/step1.in");
+    let mut file = File::create(&out_path).unwrap();
     for _ in 0..n {
         let instruction = generate_instruction();
         writeln!(file, "{}", instruction).unwrap();
     }
     
-    println!("Generated {} x64 instructions in ../0-data/step1.in",n);
+    println!("Generated {} x64 instructions in {}", n, out_path.display());
 }
 
         

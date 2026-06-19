@@ -3,7 +3,7 @@ use rand::{thread_rng, Rng};
 use serde::Serialize;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 struct HexI64 {
@@ -39,6 +39,10 @@ struct TestCase {
 
 fn parse_numbers(line: &str) -> Vec<i64> {
     line.split_whitespace().filter_map(|s| s.parse::<i64>().ok()).collect()
+}
+
+fn manifest_path(relative: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join(relative)
 }
 
 fn rand_vec_by_mode(n: usize, bits: u32) -> Vec<i64> {
@@ -79,8 +83,8 @@ const SHIFT_OPS: &[&str] = &[
 ];
 
 fn main() -> Result<()> {
-    let inp_path = Path::new("../0-data/step2.in");
-    let file = File::open(inp_path).with_context(|| format!("Cannot open {}", inp_path.display()))?;
+    let inp_path = manifest_path("../0-data/step2.in");
+    let file = File::open(&inp_path).with_context(|| format!("Cannot open {}", inp_path.display()))?;
     let mut lines = BufReader::new(file).lines();
 
     let mut cases = Vec::new();
@@ -186,8 +190,8 @@ fn main() -> Result<()> {
         });
     }
 
-    let out_path = Path::new("../0-data/step3.json");
-    let out = File::create(out_path).with_context(|| format!("Cannot create {}", out_path.display()))?;
+    let out_path = manifest_path("../0-data/step3.json");
+    let out = File::create(&out_path).with_context(|| format!("Cannot create {}", out_path.display()))?;
 
     serde_json::to_writer_pretty(out, &cases)
         .with_context(|| format!("Cannot write {}", out_path.display()))?;
