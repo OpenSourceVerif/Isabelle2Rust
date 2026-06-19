@@ -64,7 +64,6 @@ let exec_x64_encode () =
 
   try
   while true do
-    (* 读取一行 *)
     let line = input_line ic in
 
     let line = String.trim line in
