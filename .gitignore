@@ -21,5 +21,6 @@ package-lock.json
 test-root/
 optimize/target/
 optimize/tests/out/
+tests_x64/x64-validation/backups/
 **/stage1
 **/stage2
