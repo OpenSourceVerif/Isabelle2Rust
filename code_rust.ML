@@ -1994,7 +1994,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           | NONE => [])
       in (SOME [str base], print_rust_module base decls crate_uses rust_includes body) end;
 
-    (** Assemble final output: Cargo.toml + main.rs + per-module .rs files.
+    (** Assemble final output: Cargo.toml + lib.rs + per-module .rs files.
         Unused modules get empty placeholder files to pass compilation. **)
     val ps = Code_Namespace.print_hierarchical {
         print_module = print_module, print_stmt = print_stmt,
@@ -2019,15 +2019,14 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           Pretty.chunks ([str "[dependencies]", str rust_dependencies]),
           Pretty.chunks ([str "[lints.rust]", str rust_lints])
       ]))
-    val main = pair
-      (["src", "main.rs"])
+    val lib = pair
+      (["src", "lib.rs"])
       (Pretty.chunks([
         str "#![feature(box_patterns)]",
-        str (fold (fn s => (fn acc => ("pub mod "^s^";\n")^acc)) modules "" ),
-        str "fn main(){}"
+        str (fold (fn s => (fn acc => ("pub mod "^s^";\n")^acc)) modules "" )
       ]))
   in
-    (Code_Target.Hierarchy (toml :: main :: srcs @ empty_mods),
+    (Code_Target.Hierarchy (toml :: lib :: srcs @ empty_mods),
     try (deresolver []))
   end;
 

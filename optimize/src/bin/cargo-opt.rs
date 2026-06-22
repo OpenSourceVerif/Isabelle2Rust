@@ -242,12 +242,12 @@ fn write_opt_manifest(package_root: &Path, summary: &Summary) -> Result<(), Stri
     let manifest_path = package_root.join("Cargo.toml");
     let manifest = fs::read_to_string(&manifest_path)
         .map_err(|err| format!("failed to read {}: {err}", manifest_path.display()))?;
-    let main_path = summary.output_root.join("src").join("main.rs");
+    let lib_path = summary.output_root.join("src").join("lib.rs");
 
-    if !main_path.is_file() {
+    if !lib_path.is_file() {
         return Err(format!(
-            "cannot generate optimized Cargo.toml: optimized binary entry {} does not exist",
-            main_path.display()
+            "cannot generate optimized Cargo.toml: optimized crate entry {} does not exist",
+            lib_path.display()
         ));
     }
 

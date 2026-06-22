@@ -193,8 +193,8 @@ cp -r "$COPY_BASE_DIR/." "$COPY_STAGE1_DIR/"
 pass "stage1 snapshot written to optimize/tests/stage1/$COPY_THEORY"
 
 printf '>>> compiling stage1 Cargo project\n'
-RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" cargo run --manifest-path "$COPY_STAGE1_DIR/Cargo.toml" >/dev/null
-pass "stage1 Rust project compiles and runs"
+RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" cargo build --manifest-path "$COPY_STAGE1_DIR/Cargo.toml" >/dev/null
+pass "stage1 Rust project compiles"
 test -f "$COPY_BASE_LOCK" || fail "baseline Cargo.lock was generated"
 
 printf '>>> optimizing: stage1 -> stage2 (copy + borrow passes)\n'
@@ -206,8 +206,8 @@ pass "optimizer produced stage2 rewritten Rust"
 
 printf '>>> compiling stage2 Cargo project\n'
 cp "$COPY_BASE_LOCK" "$COPY_STAGE2_DIR/Cargo.lock"
-RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" cargo run --locked --manifest-path "$COPY_STAGE2_DIR/Cargo.toml" >/dev/null
-pass "stage2 Rust project compiles and runs"
+RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" cargo build --locked --manifest-path "$COPY_STAGE2_DIR/Cargo.toml" >/dev/null
+pass "stage2 Rust project compiles"
 
 COPY_BASE_CLONES="$(grep -Fc ".clone()" "$COPY_BASE_RS" || true)"
 COPY_OPT_CLONES="$(grep -Fc ".clone()" "$COPY_OPT_RS" || true)"
@@ -314,8 +314,8 @@ cp -r "$BORROW_BASE_DIR/." "$BORROW_STAGE1_DIR/"
 pass "borrow stage1 snapshot written to optimize/tests/stage1/$BORROW_THEORY"
 
 printf '>>> compiling borrow stage1 Cargo project\n'
-RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" cargo run --manifest-path "$BORROW_STAGE1_DIR/Cargo.toml" >/dev/null
-pass "borrow stage1 Rust project compiles and runs"
+RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" cargo build --manifest-path "$BORROW_STAGE1_DIR/Cargo.toml" >/dev/null
+pass "borrow stage1 Rust project compiles"
 test -f "$BORROW_BASE_LOCK" || fail "borrow baseline Cargo.lock was generated"
 
 printf '>>> optimizing: borrow stage1 -> stage2 (copy + borrow passes)\n'
@@ -327,8 +327,8 @@ pass "optimizer produced borrow stage2 rewritten Rust"
 
 printf '>>> compiling borrow stage2 Cargo project\n'
 cp "$BORROW_BASE_LOCK" "$BORROW_STAGE2_DIR/Cargo.lock"
-RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" cargo run --locked --manifest-path "$BORROW_STAGE2_DIR/Cargo.toml" >/dev/null
-pass "borrow stage2 Rust project compiles and runs"
+RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" cargo build --locked --manifest-path "$BORROW_STAGE2_DIR/Cargo.toml" >/dev/null
+pass "borrow stage2 Rust project compiles"
 
 # ── Structural checks on stage2 output ───────────────────────────────────────
 
