@@ -56,18 +56,43 @@ specification / inductive theories. They build (PASS) but export nothing:
 
 ## The 9 failures, grouped by cause
 
-### A. Rust backend cannot print the requested type (genuine backend findings)
-- **`Set_Relation_Test`** — `export_code Set0 Set5 Set6 graph1 graph2 Vset`: backend
-  raises `exception Match (code_printer.ML:359)` on the HOL `set` type. (`Id`/`Id_int`
-  additionally need `int :: enum`.) → **The Rust backend has no `set` support.**
-- **`Compiler2_Test`** — `succs`/`isuccs`/`exits` return `int set`; Wellsortedness /
-  `set` again. The theory has no non-`set` executable constant (`exec_n` is an
-  existential predicate).
-- **`AVL_Set_Code_Test`** — `export_code … balL balR insert …`: backend raises
-  `exception Match (code_printer.ML:359)`. The `balL`/`balR` definitions use
-  **non-exhaustive nested `case`** (no `Leaf` branch); the Rust printer crashes on the
-  resulting partial match. → **backend bug on incomplete-pattern functions.**
-- **`AVL_Set_Test`** — cascades from `AVL_Set_Code_Test` (imports it). `avl` itself is clean.
+### A. Category-A failures — cross-target classification
+
+The four Category-A files were each minimized to a single-definition probe and
+re-exported in Rust, OCaml, Haskell and SML (separate single-target runs). The result
+overturns the earlier guesses ("no `set` support", "incomplete-pattern bug"): there is
+**one** Rust-only backend bug — `HOL.equal` on `prod` — plus one **target-independent**
+Isabelle codegen requirement (`int :: enum`).
+
+**A.1 — Rust-only: `HOL.equal` on a tuple / `prod` crashes the printer.**
+Minimal trigger `eq_pair p = (p = (0,0))`. `prod`/`Pair` are registered in
+`Rust_Setup.thy` only as the binary mixfix templates `( _ , _ )` (no nominal Pair
+constructor, no `impl Equal for (_,_)`), so reconstructing the prod equality instance
+applies a binary template at the wrong arity → `exception Match (code_printer.ML:359)`
+(the `fillin` clause of `printer_of_mixfix`). The **same** definition exports cleanly
+`in OCaml`, `in Haskell` and `in SML` (all have native structural tuple equality), which
+proves it is Rust-backend-only. This single bug is the real cause of:
+- **`Set_Relation_Test`** — `graph1`/`graph2` are `(string × string) set` literals;
+  the finite-set representation deduplicates via element equality → prod equality.
+  (`Set0`/`Set5`/`Set6` `nat set` and `Vset` `string set` export **fine** in Rust — sets
+  are not the problem, the *pair element* is.) Regression: `types/Set_Pair_Test.thy`.
+- **`AVL_Set_Code_Test`** — bisected to `split_max`/`delete`, which test `r = Leaf` on a
+  `('a × nat) tree`, i.e. equality on a constructor carrying a pair field. `balL`/`balR`
+  alone export fine; non-exhaustive / nested `case` is **not** the trigger (verified:
+  `cases/Partial_Match_Test.thy` and minimized partial-case probes all pass).
+- **`AVL_Set_Test`** — cascades from `AVL_Set_Code_Test` (imports it). `avl` is clean.
+
+Root-cause regression: `classes/Equal_Pair_Test.thy`.
+
+**A.2 — Target-independent: `int set` comprehension needs `int :: enum`.**
+Minimal trigger `c = {x. 0 ≤ x ∧ x < 5}` raises `Wellsortedness error / Type int not of
+sort enum` — and it fails **identically `in OCaml`**, so it is an Isabelle codegen
+requirement (a `{x. P x}` set over an infinite element type needs a finite/enumerable
+universe), **not** a Rust-backend bug. No regression test added.
+- **`Compiler2_Test`** — `succs`/`isuccs`/`exits` return `int set` built by comprehension;
+  the theory has no non-`set` executable constant (`exec_n` is an existential predicate).
+- **`Set_Relation_Test`**'s `Id_int = (Id :: (int×int) set)` hits the same `int :: enum`
+  requirement (separate from the A.1 prod-equality crash above).
 
 ### B. Locale-local constants have no code equations (Isabelle codegen limitation)
 - **`Locale_Test`** — `db_list.*`, `db_map.*`: "No code equations …". Constants defined
@@ -111,8 +136,9 @@ of `export_code` (listed here so nothing is silently dropped):
 - **`Recursion_Test`**: excluded `ev` (`2*n` pattern), `fib3` (`n+2` pattern),
   `gcd`/`check` (conditional/guarded equations) — not constructor-pattern executable.
 - **`Highorder_Func_Test`**: excluded `limit` (`real` + unbounded quantifier).
-- **`Set_Relation_Test`**: dropped `Id_int` (needs `int :: enum`); the remaining
-  finite-set probes still hit the `set` backend `Match` crash (see A).
+- **`Set_Relation_Test`**: `Id_int` needs `int :: enum` (target-independent, A.2);
+  `graph1`/`graph2` (`(string×string) set`) hit the Rust-only prod-equality `Match`
+  crash (A.1). The `nat set` / `string set` probes export fine.
 
 ---
 
