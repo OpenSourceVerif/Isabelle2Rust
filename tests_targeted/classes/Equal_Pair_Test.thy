@@ -2,37 +2,28 @@ theory Equal_Pair_Test
   imports Main "Rust.Rust_Setup"
 begin
 
-(* REGRESSION MARKER — currently FAILS `export_code ... in Rust`.
+(* REGRESSION — `HOL.equal` on a tuple / `prod` (now FIXED, exports + compiles).
 
-   Bug: `HOL.equal` on a tuple / `prod` crashes the Rust backend.
-
-   Minimal trigger: comparing a pair with `=` forces the code generator to emit
-   the `equal :: prod ⇒ prod ⇒ bool` instance (`equal_prod`). But `prod`/`Pair`
-   are registered in `Rust_Setup.thy` only as the mixfix templates
+   Trigger: comparing a pair with `=` forces the code generator to emit the
+   `equal :: prod ⇒ prod ⇒ bool` instance (`equal_prod`). `prod`/`Pair` are
+   registered in `Rust_Setup.thy` only as the mixfix templates
    `type_constructor prod ⇀ "( _ , _ )"` and `constant Pair ⇀ "( _ , _ )"`
-   (Rust has no nominal Pair constructor / no `impl Equal for (_, _)`), so
-   reconstructing the prod equality instance applies a binary mixfix template at
-   the wrong arity and the printer raises
+   (Rust has no nominal Pair constructor), so the instance must be reconstructed
+   as `impl<A: Equal, B: Equal> Equal for (A, B)`.
 
-       exception Match raised (line 359 of "~~/src/Tools/Code/code_printer.ML")
+   The fix is in `code_rust.ML`:
+   * `canon_tyco` now feeds the tuple mixfix template placeholder args matching
+     its arity (it formerly passed `[]`, crashing `printer_of_mixfix`);
+   * an instance-method call whose receiver type is mixfix-mapped (a tuple) is
+     dispatched through Rust's fully qualified form
+     `<(A, B) as Equal>::equal(..)` instead of the inexpressible `Tyco::equal`.
 
-   (the `fillin` clause of `printer_of_mixfix`).
+   The reconstructed `impl Equal for (A, B)` recurses through the element
+   `Equal` bounds, exactly mirroring the native structural tuple equality the
+   OCaml/Haskell/SML backends rely on.
 
-   Cross-target evidence (proves this is Rust-backend-only, not an Isabelle
-   codegen limitation): the SAME definition exports cleanly `in OCaml`,
-   `in Haskell` and `in SML`, which all have native structural tuple equality.
-
-   This is the shared root cause behind two fpp Category-A failures:
-   * `AVL_Set_Code_Test` — `split_max`/`delete` test `r = Leaf` on a
-     `('a × nat) tree`, i.e. equality on a constructor carrying a pair field;
-   * `Set_Relation_Test` — `graph1`/`graph2` are `(string × string) set`
-     literals, whose finite-set representation needs element (pair) equality
-     (see also `types/Set_Pair_Test.thy`).
-
-   Plain pairs are fine (construction, destructuring, partial `Pair`, tuple
-   types, tuple-returning functions — see `types/Type_Tuple_Test.thy`); only
-   `equal` on a pair triggers the crash. This file flips to PASS once the
-   backend reconstructs an `Equal` instance for `prod`. *)
+   Same root cause behind the fpp `AVL_Set_Code_Test` and `Set_Relation_Test`
+   (`(string × string) set`) failures; see also `types/Set_Pair_Test.thy`. *)
 
 definition eq_pair :: "nat \<times> nat \<Rightarrow> bool" where
   "eq_pair p = (p = (0, 0))"
