@@ -47,6 +47,13 @@ This stage consumes the files from `0-data/`:
 Each successful case prints `true`. A mismatch prints `false` with expected and
 actual values. The target exits with status 1 if any case fails.
 
+The comparison always checks `PC` and the 15 tracked general-purpose registers.
+For cases marked `cond = true`, it also checks the condition-code bits. `cmov`
+and `jcc` cases compare all tracked flags (`ZF`, `CF`, `PF`, `SF`, `OF`).
+`cmp` and `test` cases compare the flags that are defined by the current
+Isabelle model and skip `PF`, because the model currently writes `PF` as
+`Vundef`. Memory-state comparison is not enabled yet.
+
 To run both stages:
 
 ```bash
