@@ -539,8 +539,27 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             val (generic_prefixs, funcname) =
               (case inst_method_info sym of
                   SOME (tyco_s, cp_s) =>
-                    ([Pretty.block [str (tyco_name_str tyco_s), str "::"]],
-                     str (deresolve_base (Constant cp_s)))
+                    (* A mixfix-typed receiver (e.g. a tuple `(A, B)`) has no
+                       nominal path, so `Tyco::method` is not expressible — and
+                       applying the binary tuple template as a path prefix would
+                       crash the mixfix printer. Dispatch through Rust's fully
+                       qualified form `<(A, B) as Trait>::method(..)` instead. *)
+                    (case tyco_syntax tyco_s of
+                        SOME _ =>
+                          let
+                            val recv_ty = print_typ NOBR prefix_target_ty
+                            val trait_p =
+                              (case lookup_method_class (Constant cp_s) of
+                                  SOME c => str (deresolve_class c)
+                                | NONE => str (tyco_name_str tyco_s))
+                          in
+                            ([Pretty.block
+                                [str "<", recv_ty, str " as ", trait_p, str ">::"]],
+                             str (deresolve_base (Constant cp_s)))
+                          end
+                      | NONE =>
+                          ([Pretty.block [str (tyco_name_str tyco_s), str "::"]],
+                           str (deresolve_base (Constant cp_s))))
                 | NONE =>
                     if is_some (lookup_method_class sym)
                     then (case classparam_dispatch_var of
@@ -1493,7 +1512,8 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         instances; an UNmapped type keys on its own (distinct) name. **)
     fun canon_tyco t =
       (case tyco_syntax t of
-          SOME (_, pr) => "\^E" ^ Pretty.unformatted_string_of (pr (fn _ => fn _ => Pretty.str "_") NOBR [])
+          SOME (n, pr) => "\^E" ^ Pretty.unformatted_string_of
+            (pr (fn _ => fn _ => Pretty.str "_") NOBR (replicate n (ITyVar "_")))
         | NONE => t);
     (** One impl per instance, keyed by a representative method constant; the
         Inst payload carries (class, tyco), the instance vs, and every method. **)
@@ -1994,7 +2014,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           | NONE => [])
       in (SOME [str base], print_rust_module base decls crate_uses rust_includes body) end;
 
-    (** Assemble final output: Cargo.toml + main.rs + per-module .rs files.
+    (** Assemble final output: Cargo.toml + lib.rs + per-module .rs files.
         Unused modules get empty placeholder files to pass compilation. **)
     val ps = Code_Namespace.print_hierarchical {
         print_module = print_module, print_stmt = print_stmt,
@@ -2019,15 +2039,14 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           Pretty.chunks ([str "[dependencies]", str rust_dependencies]),
           Pretty.chunks ([str "[lints.rust]", str rust_lints])
       ]))
-    val main = pair
-      (["src", "main.rs"])
+    val lib = pair
+      (["src", "lib.rs"])
       (Pretty.chunks([
         str "#![feature(box_patterns)]",
-        str (fold (fn s => (fn acc => ("pub mod "^s^";\n")^acc)) modules "" ),
-        str "fn main(){}"
+        str (fold (fn s => (fn acc => ("pub mod "^s^";\n")^acc)) modules "" )
       ]))
   in
-    (Code_Target.Hierarchy (toml :: main :: srcs @ empty_mods),
+    (Code_Target.Hierarchy (toml :: lib :: srcs @ empty_mods),
     try (deresolver []))
   end;
 

@@ -65,7 +65,7 @@ build_silent:
 code:
 	@{ flock 9; $(ISABELLE_PROJECT_BUILD); } 9>$(ISABELLE_BUILD_LOCK)
 
-# gen: Isabelle build → stage1 + cargo run on stage1
+# gen: Isabelle build → stage1 + cargo build on stage1
 # Usage: make gen DIR=<dir> Name=<theory>   (single)
 #        make gen DIR=<dir>                 (all *_Test.thy under dir)
 gen:
@@ -81,7 +81,7 @@ gen:
 	    if [ ! -f "$$pkg_dir/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
 	      cp "$(ISABELLE_EXPORTED_LOCK)" "$$pkg_dir/Cargo.lock"; \
 	    fi; \
-	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) run --locked --manifest-path "$$m" || return 1; \
+	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked --manifest-path "$$m" || return 1; \
 	  done; \
 	}; \
 	if [ -n "$(DIR)" ] && [ -n "$(Name)" ]; then \
@@ -114,12 +114,12 @@ gen:
 	  fi; \
 	else \
 	  echo "Usage:"; \
-	  echo "  make gen DIR=<dir> Name=<theory>  # build Isabelle + cargo run stage1"; \
+	  echo "  make gen DIR=<dir> Name=<theory>  # build Isabelle + cargo build stage1"; \
 	  echo "  make gen DIR=<dir>                # all *_Test.thy under dir"; \
 	  exit 1; \
 	fi
 
-# opt: optimizer stage1 -> stage2 + cargo run on stage2 (no Isabelle build)
+# opt: optimizer stage1 -> stage2 + cargo build on stage2 (no Isabelle build)
 # Usage: make opt DIR=<dir> Name=<theory>   (single)
 #        make opt DIR=<dir>                 (all theories in dir/stage1/)
 opt:
@@ -139,8 +139,8 @@ opt:
 	    elif [ -f "$(ISABELLE_EXPORTED_LOCK)" ];  then cp "$(ISABELLE_EXPORTED_LOCK)" "$$s2/Cargo.lock"; \
 	    fi; \
 	  fi; \
-	  echo ">>> [opt] cargo run stage2: $$name"; \
-	  RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) run --locked \
+	  echo ">>> [opt] cargo build stage2: $$name"; \
+	  RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
 	    --manifest-path "$$s2/Cargo.toml" || return 1; \
 	}; \
 	if [ -n "$(DIR)" ] && [ -n "$(Name)" ]; then \
@@ -172,12 +172,12 @@ opt:
 	  fi; \
 	else \
 	  echo "Usage:"; \
-	  echo "  make opt DIR=<dir> Name=<theory>  # optimize stage1 -> stage2 + cargo run"; \
+	  echo "  make opt DIR=<dir> Name=<theory>  # optimize stage1 -> stage2 + cargo build"; \
 	  echo "  make opt DIR=<dir>                # all theories in dir/stage1/"; \
 	  exit 1; \
 	fi
 
-# test: full two-phase pipeline — stage1 (no cargo run) → "stage1 done" → stage2 + cargo run
+# test: full two-phase pipeline — stage1 (no cargo build) → "stage1 done" → stage2 + cargo build
 # Usage: make test DIR=<dir> Name=<theory>   (single)
 #        make test DIR=<dir>                 (all *_Test.thy under dir)
 test:
@@ -193,7 +193,7 @@ test:
 	    elif [ -f "$(ISABELLE_EXPORTED_LOCK)" ];  then cp "$(ISABELLE_EXPORTED_LOCK)" "$$s2/Cargo.lock"; \
 	    fi; \
 	  fi; \
-	  RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) run --locked \
+	  RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
 	    --manifest-path "$$s2/Cargo.toml" || return 1; \
 	}; \
 	if [ -n "$(DIR)" ] && [ -n "$(Name)" ]; then \
@@ -230,12 +230,12 @@ test:
 	  fi; \
 	else \
 	  echo "Usage:"; \
-	  echo "  make test DIR=<dir> Name=<theory>  # stage1 -> stage2 + cargo run (single)"; \
+	  echo "  make test DIR=<dir> Name=<theory>  # stage1 -> stage2 + cargo build (single)"; \
 	  echo "  make test DIR=<dir>                # all *_Test.thy under dir"; \
 	  exit 1; \
 	fi
 
-# targeted: build + cargo run stage1 for all *_Test.thy under tests_targeted
+# targeted: build + cargo build stage1 for all *_Test.thy under tests_targeted
 targeted:
 	@_cargo_run_stage1() { \
 	  local dir="$$1" name="$$2"; \
@@ -249,7 +249,7 @@ targeted:
 	    if [ ! -f "$$pkg_dir/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
 	      cp "$(ISABELLE_EXPORTED_LOCK)" "$$pkg_dir/Cargo.lock"; \
 	    fi; \
-	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) run --locked --manifest-path "$$m" || return 1; \
+	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked --manifest-path "$$m" || return 1; \
 	  done; \
 	}; \
 	TD="tests_targeted"; \
