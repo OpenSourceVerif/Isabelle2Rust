@@ -152,6 +152,7 @@ fun rc_dyn_fn params ret =
         field) saying which fields need Box<> indirection (used both for the enum
         declaration and for construction/pattern term printing)
       lookup_constant_typeco: look up which type constructor a constant belongs to
+      is_single_constr: true if a data constructor is the only constructor of its datatype
       lookup_constant_fun: look up the exact definition of
       lookup_method_class: SOME class if the symbol is a class parameter (trait
         method), NONE otherwise
@@ -162,7 +163,7 @@ fun rc_dyn_fn params ret =
         Inst printer fills its body with the constructor instead of a panic stub **)
 fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
   box_table phantom_table
-  lookup_constant_typeco lookup_constant_fun
+  lookup_constant_typeco is_single_constr lookup_constant_fun
   lookup_method_class inst_method_info lookup_class_methods constr_method_of =
   let
     val deresolve_const = deresolve o Constant;
@@ -279,6 +280,50 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                  `Rc<dyn Fn + 'static>` capturing owned clones (E0310). *)
               @ [str " + 'static"])
         in enum "" "<" ">" (commas_append (map print_vs_trait vs)) end;
+
+    type rust_var_ctxt = Code_Printer.var_ctxt * itype Symtab.table;
+    fun rv_names (vars: rust_var_ctxt) = #1 vars;
+    fun rv_types (vars: rust_var_ctxt) = #2 vars;
+    fun rv_intro_base_names_for no_syntax deresolve ts (vars: rust_var_ctxt) =
+      (intro_base_names_for no_syntax deresolve ts (rv_names vars), rv_types vars);
+    fun rv_lookup_var vars v = lookup_var (rv_names vars) v;
+    fun rv_lookup_type vars v = Symtab.lookup (rv_types vars) v;
+    fun rv_intro_typed_pat pat ty (vars: rust_var_ctxt) =
+      let
+        val vs = build (Code_Thingol.add_varnames pat);
+        val names' = intro_vars vs (rv_names vars);
+        val tys' =
+          let
+            fun add_pat_ty t ty =
+              (case t of
+                IVar (SOME v) => Symtab.update (v, ty)
+              | IVar NONE => I
+              | _ =>
+                  (case Code_Thingol.unfold_const_app t of
+                    SOME ({dom, ...}, ts) =>
+                      if length dom = length ts
+                      then fold (fn (t_ty as (t, ty)) => add_pat_ty t ty)
+                        (ListPair.zip (ts, dom))
+                      else fold (fn v => Symtab.update (v, ty)) vs
+                  | NONE => fold (fn v => Symtab.update (v, ty)) vs))
+          in add_pat_ty pat ty (rv_types vars) end
+      in (names', tys') end;
+    fun rv_intro_typed_pats pats_tys vars = fold (fn (pat, ty) => rv_intro_typed_pat pat ty) pats_tys vars;
+    fun fun_typs ("fun"`%%[ty1, ty2]) =
+          let val (tys, ret) = fun_typs ty2 in (ty1 :: tys, ret) end
+      | fun_typs ty = ([], ty);
+    fun mk_fun_ty ([], ret) = ret
+      | mk_fun_ty (ty :: tys, ret) = "fun"`%%[ty, mk_fun_ty (tys, ret)];
+    fun term_type vars (IConst {dom, range, ...}) = SOME (mk_fun_ty (dom, range))
+      | term_type vars (IVar (SOME v)) = rv_lookup_type vars v
+      | term_type _ (IVar NONE) = NONE
+      | term_type vars (t1 `$ _) =
+          (case term_type vars t1 of
+            SOME ("fun"`%%[_, ty2]) => SOME ty2
+          | _ => NONE)
+      | term_type vars ((_, ty) `|=> (_, rty)) = SOME ("fun"`%%[ty, rty])
+      | term_type vars (ICase {clauses = (_, body) :: _, ...}) = term_type vars body
+      | term_type _ (ICase {clauses = [], ...}) = NONE;
     (** Main term printer. Handles all iterm constructors:
         IConst (constants/constructors), IVar (variables), `$ (application),
         `|=> (lambda/pattern abstraction), ICase (case/let/match).
@@ -297,8 +342,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           str "_"
       | print_term_gen _ (need_box, box_prcs, clone_prcs) _ vars _ (t as (IVar (SOME v))) =
           if need_box
-          then box_prcs (clone_prcs (str (lookup_var vars v)))
-          else clone_prcs (str (lookup_var vars v))
+          then box_prcs (clone_prcs (str (rv_lookup_var vars v)))
+          else clone_prcs (str (rv_lookup_var vars v))
       | print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy (t as t1 `$ t2)=
           let
             fun print_app_term f =
@@ -309,17 +354,59 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 let
                   val (t', ts') = Code_Thingol.unfold_app t
                   val params = map (print_term_app is_pseudo_fun some_thm vars NOBR) ts'
+                  val (partial, over_arity) =
+                    (case term_type vars t' of
+                      SOME callee_ty =>
+                        let
+                          val (arg_tys, ret_ty) = fun_typs callee_ty
+                          val explicit_arity =
+                            (case Code_Thingol.unfold_pat_abs t' of
+                              ([], _) => length arg_tys
+                            | (binds, _) => length binds)
+                          val given = length ts'
+                        in
+                          if given < explicit_arity
+                          then
+                            let
+                              val rem_tys = drop given arg_tys
+                              val names =
+                                Name.invent (rv_names vars |> snd) "a" (length rem_tys)
+                                |> map SOME
+                              val rem_vars = map IVar names
+                              val full_app = Library.foldl (op `$) (t', ts' @ rem_vars)
+                              val lambda_t =
+                                (ListPair.zip (names, rem_tys)) `|==> (full_app, ret_ty)
+                            in (SOME lambda_t, NONE) end
+                          else if given > explicit_arity andalso explicit_arity > 0
+                          then (NONE, SOME explicit_arity)
+                          else (NONE, NONE)
+                        end
+                    | NONE => (NONE, NONE))
                 in
-                  (* The callee is a function value of type Rc<dyn Fn(..)>, which
-                     is not directly callable (unlike Box, Rc has no Fn impl).
-                     Deref to the `dyn Fn` place, emitting the form  ( * f )(args). *)
-                  Pretty.block(
-                    str "(*"
-                    :: print_term_decl is_pseudo_fun some_thm vars NOBR t'
-                    :: str ")("
-                    :: commas_append params
-                    @ [str ")"]
-                  )
+                  case partial of
+                    SOME lambda_t => print_lambda is_pseudo_fun some_thm vars lambda_t
+                  | NONE =>
+                      let
+                        fun call callee args =
+                          Pretty.block(
+                            str "(*"
+                            :: callee
+                            :: str ")("
+                            :: commas_append args
+                            @ [str ")"])
+                      in
+                        case over_arity of
+                          SOME n =>
+                            let
+                              val (params1, params2) = chop n params
+                              val first = call (print_term_decl is_pseudo_fun some_thm vars NOBR t') params1
+                            in call first params2 end
+                        | NONE =>
+                            (* The callee is a function value of type Rc<dyn Fn(..)>, which
+                               is not directly callable (unlike Box, Rc has no Fn impl).
+                               Deref to the `dyn Fn` place, emitting the form  ( * f )(args). *)
+                            call (print_term_decl is_pseudo_fun some_thm vars NOBR t') params
+                      end
                 end)
           in
             print_term_with_cons_and_box (need_box, box_prcs) print_app_term fxy t
@@ -612,41 +699,102 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         otherwise falling back to print_app_expr. print_app prints arguments
         without Box/clone; print_app_with_clone threads the (box_prcs, clone_prcs)
         wrappers through both ordinary calls and custom-syntax subterms. **)
+    and gen_print_app_rvars print_app_expr print_term some_thm vars fxy
+        (app as (const as { sym, dom, ... }, ts)) =
+      (case sym of
+        Constant name => (case const_syntax name of
+          NONE => brackify fxy (print_app_expr some_thm vars app)
+        | SOME (_, Plain_printer s) =>
+            brackify fxy (str s :: map (print_term some_thm vars BR) ts)
+        | SOME (wanted, Complex_printer print) =>
+            let
+              val ((vs_tys, (ts1, rty)), ts2) =
+                Code_Thingol.satisfied_application wanted app;
+              fun print_term_raw some_thm raw_vars fxy t =
+                print_term some_thm (raw_vars, rv_types vars) fxy t;
+              fun print' fxy =
+                print (print_term_raw some_thm) some_thm (rv_names vars) fxy (ts1 ~~ take wanted dom);
+            in
+              if null vs_tys then
+                if null ts2 then
+                  print' fxy
+                else
+                  brackify fxy (print' APP :: map (print_term some_thm vars BR) ts2)
+              else
+                print_term some_thm vars fxy (vs_tys `|==> (IConst const `$$ ts1, rty))
+            end)
+      | _ => brackify fxy (print_app_expr some_thm vars app))
     and print_app is_pseudo_fun some_thm vars =
-      gen_print_app (print_app_expr is_pseudo_fun (I, I))
-      (print_term_decl is_pseudo_fun) const_syntax some_thm vars
+      gen_print_app_rvars (print_app_expr is_pseudo_fun (I, I))
+      (print_term_decl is_pseudo_fun) some_thm vars
     and print_app_with_clone is_pseudo_fun (box_prcs, clone_prcs) some_thm vars =
-      gen_print_app (print_app_expr is_pseudo_fun (box_prcs, clone_prcs))
-      (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs)) const_syntax some_thm vars
+      gen_print_app_rvars (print_app_expr is_pseudo_fun (box_prcs, clone_prcs))
+      (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs)) some_thm vars
     (** Bind a clause pattern, introducing its variables (printed as a pattern). **)
-    and print_bind is_pseudo_fun = gen_print_bind (print_term_pattern is_pseudo_fun)
+    and print_bind_typed is_pseudo_fun some_thm fxy pat ty vars =
+      let val vars' = rv_intro_typed_pat pat ty vars
+      in (print_term_pattern is_pseudo_fun some_thm vars' fxy pat, vars') end
     (** Print a case expression. Three cases:
         - Empty clauses: generates panic
         - Single clause: emitted as let-binding block
         - Multiple clauses: emitted as match block **)
     and print_case _ _ _ _ _ { clauses = [], ... } =
           (concat o map str) ["panic!(\"empty case\")", "\"empty case\""]
-        (*let bind*)
       | print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy (case_expr as { clauses = [_], ... }) =
           let
             val (binds, body) = Code_Thingol.unfold_let (ICase case_expr);
-            fun print_let ((pat, _), t) vars =
+            fun pat_irrefutable pat =
+              (case pat of
+                IVar _ => true
+              | _ =>
+                  (case Code_Thingol.unfold_const_app pat of
+                    SOME ({sym, ...}, ts) =>
+                      is_single_constr sym andalso List.all pat_irrefutable ts
+                  | NONE => false))
+            fun print_let ((pat, ty), t) vars =
               vars
-              |> print_bind is_pseudo_fun some_thm NOBR pat
+              |> print_bind_typed is_pseudo_fun some_thm NOBR pat ty
               |>> (fn p => Pretty.block
                   [str "let ", p, str " = ", 
                   print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars NOBR t, str ";"])
             val (ps, vars') = fold_map print_let binds vars;
+            val all_irrefutable = List.all (pat_irrefutable o fst o fst) binds;
           in
-            Pretty.block_enclose (str "{", str "}")
-            (ps @ [print_term_app is_pseudo_fun some_thm vars' NOBR body])
+            if all_irrefutable then
+              Pretty.block_enclose (str "{", str "}")
+              (ps @ [print_term_app is_pseudo_fun some_thm vars' NOBR body])
+            else
+              (case case_expr of {term = t, typ = ty, clauses = clauses, ...} =>
+                let
+                  fun print_select (pat, body) =
+                    let
+                      val (p, vars') = print_bind_typed is_pseudo_fun some_thm NOBR pat ty vars;
+                    in
+                      Pretty.block (
+                        p
+                        :: str " => "
+                        :: [(print_term_app is_pseudo_fun some_thm vars' NOBR body)]
+                      )
+                    end
+                in
+                  Pretty.block_enclose(
+                    Pretty.block(
+                      [str "match ",
+                      print_term_app is_pseudo_fun some_thm vars NOBR t,
+                      str " {"]
+                    ),
+                    str "}"
+                  )
+                  (commas_append (map print_select clauses
+                    @ [str "_ => panic!(\"non-exhaustive match\")"]))
+                end)
           end     
         (*match block*)     
       | print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars _ (icase as { term = t, typ = _, clauses = clauses, ... }) =
           let
             fun print_select (pat, body) =
               let
-                val (p, vars') = print_bind is_pseudo_fun some_thm NOBR pat vars;
+                val (p, vars') = print_bind_typed is_pseudo_fun some_thm NOBR pat (#typ icase) vars;
               in 
                 Pretty.block (
                   p 
@@ -680,7 +828,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     and print_lambda is_pseudo_fun some_thm vars t =
       let
         val (binds, t') = Code_Thingol.unfold_pat_abs t;
-        val (outer_namemap, outer_namectxt) = vars;
+        val (outer_namemap, outer_namectxt) = rv_names vars;
         val pat_vars = fold (Code_Thingol.add_varnames o fst) binds [];
         val body_free = Code_Thingol.add_varnames t' [];
         val captured_vars =
@@ -691,9 +839,14 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           fold_map Name.variant (map (fn v => v ^ "_cap") captured_vars) outer_namectxt;
         val outer_namemap' =
           fold2 (curry Symtab.update) captured_vars cap_names outer_namemap;
-        val vars_capped = (outer_namemap', outer_namectxt');
+        val cap_tys =
+          fold (fn v =>
+            case rv_lookup_type vars v of
+              SOME ty => Symtab.update (v, ty)
+            | NONE => I) captured_vars (rv_types vars);
+        val vars_capped = ((outer_namemap', outer_namectxt'), cap_tys);
         val (ps, vars') =
-          fold_map (print_bind is_pseudo_fun some_thm BR o fst) binds vars_capped;
+          fold_map (fn (pat, ty) => print_bind_typed is_pseudo_fun some_thm BR pat ty) binds vars_capped;
         val typs = map ((print_typ NOBR) o snd) binds;
         (* Wrap in Rc::new so the closure value has the cloneable trait-object
            type Rc<dyn Fn(..)>. The unsizing coercion Rc<{anon}> -> Rc<dyn Fn>
@@ -718,7 +871,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             val cap_lets =
               map2
                 (fn v => fn vcap =>
-                  str ("let " ^ vcap ^ " = " ^ (lookup_var vars v) ^ ".clone();"))
+                  str ("let " ^ vcap ^ " = " ^ (rv_lookup_var vars v) ^ ".clone();"))
                 captured_vars cap_names
           in
             Pretty.block_enclose (str "{", str "}")
@@ -852,10 +1005,13 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 If is_degenerated (single clause), prints just the expression body. **)
             fun print_eqn is_degenerated ((ts, t), (some_thm, _)) =
               let
-                val vars = reserved
-                  |> intro_base_names_for (is_none o const_syntax)
+                val typs = extract_typ (fn _ => fn ty => ty) ty
+                val param_tys = take (length ts) typs
+                val vars =
+                  (reserved, Symtab.empty)
+                  |> rv_intro_base_names_for (is_none o const_syntax)
                       deresolve (t :: ts)
-                  |> intro_vars (build (fold Code_Thingol.add_varnames ts));
+                  |> rv_intro_typed_pats (ListPair.zip (ts, param_tys));
                 val print_pattern_term = (print_term_pattern is_pseudo_fun some_thm vars NOBR)
                 val print_expr_term = (print_term_app is_pseudo_fun some_thm vars NOBR)
               in 
@@ -873,10 +1029,11 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 and dispatches to direct expr / single match / multi match body. **)
             fun print_eqns (vs_ty as (vs, ty)) is_pseudo eqs =
                   let
-                    val vars = reserved
+                    val vars0 = reserved
                           |> intro_base_names_for (is_none o const_syntax)
                               deresolve (map (snd o fst) eqs)
-                    val dummy_parms = (map str o aux_params vars o map (fst o fst)) eqs;
+                    val dummy_parms = (map str o aux_params vars0 o map (fst o fst)) eqs;
+                    val vars = (vars0, Symtab.empty);
                     val typs = extract_typ print_typ ty
                     val param_typs = List.take (typs, (List.length dummy_parms))
                     val ret_typs = List.drop (typs, (List.length dummy_parms))
@@ -966,17 +1123,52 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         Exc -> exception stub, Val -> single binding, Funs -> function group,
         Datas -> enum declarations, Class -> trait declaration, Inst -> impl block. **)
     (*fun print_stmt: Code_Namespace.export -> stmt -> Pretty.T list * Pretty.T*)
-     fun print_stmt _ (Exc (const, (vs_ty, n))) = pair
-          [print_val_decl print_typscheme (Constant const, vs_ty)]
-          (String.concat (
-            "let"
-            :: deresolve_const const
-            :: replicate n "_"
-            @ "="
-            :: "failwith"
-            @@ print_rust_string const
-          ) 
-          |> str)
+     fun print_stmt _ (Exc (const, (vs_ty as (vs, ty), n))) =
+          let
+            val typs = extract_typ print_typ ty
+            val param_typs = take n typs
+            val ret_typs = drop n typs
+            val ret_typ = (case ret_typs
+              of [] => str "!"
+              | [t] => t
+              | ts =>
+                  let
+                    val ret = List.last ts
+                    val params = List.take (ts, ((List.length ts) - 1))
+                  in rc_dyn_fn params ret end)
+            val params =
+              map_index (fn (i, ty) =>
+                Pretty.block [str ("x" ^ Int.toString i ^ ": "), ty]) param_typs
+            fun print_vs_trait (vname, sort) =
+              Pretty.block(
+                str ((to_upper vname)^" : Clone")
+                :: (if List.null sort
+                  then []
+                  else [enum " +" " + " "" (map (fn s => print_tyco_expr (Type_Class s, [])) sort)])
+                @ [str " + 'static"])
+            val generics =
+              if List.null vs then str ""
+              else enum "," "<" ">" (map (str o to_upper o fst) vs)
+            val traits =
+              if List.null vs then str ""
+              else Pretty.block_enclose (str "where", str "") (commas_append (map print_vs_trait vs))
+          in pair
+            [print_val_decl print_typscheme (Constant const, vs_ty)]
+            (Pretty.block_enclose(
+              Pretty.block (
+                str "pub fn "
+                :: str (deresolve_const const)
+                :: generics
+                :: enum "," "(" ")" params
+                :: str " -> "
+                :: ret_typ
+                :: Pretty.fbrk
+                :: traits
+                :: [str " {"]
+              ),
+              str "}"
+            ) [Pretty.block [str "panic!(", str (print_rust_string const), str ")"]])
+          end
       | print_stmt _ (Val binding) =
           let
             val (sig_p, p) = print_def (K false) true "fn" NONE binding
@@ -1807,6 +1999,13 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           | _ => NONE)
       end; 
     val lookup_constant_typeco = lookup_constant_typeco_gen program;
+    fun is_single_constr sym =
+      (case lookup_constant_typeco sym of
+        SOME parent =>
+          (case get_node program (Type_Constructor parent) of
+            Code_Thingol.Datatype (_, cos) => length cos = 1
+          | _ => false)
+      | NONE => false);
     (** Look up whether a constant is a function; returns SOME function signiture or NONE. **)    
     fun lookup_constant_fun_gen program sym = 
       let
@@ -1997,7 +2196,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           tyco_syntax const_syntax (make_vars reserved_syms)
           (Code_Thingol.is_constr program) (modify_deresolver current_module (deresolver prefix_fragments))
           box_table phantom_table
-          lookup_constant_typeco lookup_constant_fun
+          lookup_constant_typeco is_single_constr lookup_constant_fun
           lookup_method_class inst_method_info lookup_class_methods constr_method_of)
           export stmt
         |> apfst (fn decl => if Code_Namespace.not_private export then SOME decl else NONE)
