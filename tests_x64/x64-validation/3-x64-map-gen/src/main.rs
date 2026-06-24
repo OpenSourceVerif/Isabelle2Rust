@@ -62,9 +62,14 @@ fn is_mem_op(ins: &str) -> bool {
     ins.contains("_rm") || ins.contains("_mr") || ins.contains("_mi")
 }
 
-fn uses_flags(ins: &str) -> bool {
-    let l = ins.to_ascii_lowercase();
-    l.contains("cmp")  || l.contains("cmov") || l.contains("test")
+fn compares_flags(ins: &str) -> bool {
+    let opcode = ins.split_whitespace().next().unwrap_or("");
+    matches!(
+        opcode,
+        "Pcmovl" | "Pcmovq" | "Pjcc"
+            | "Ptestl_rr" | "Ptestl_ri" | "Ptestq_rr" | "Ptestq_ri"
+            | "Pcmpl_rr" | "Pcmpl_ri" | "Pcmpq_rr" | "Pcmpq_ri"
+    )
 }
 
 fn parse_register(reg: &str) -> u8 {
@@ -184,7 +189,7 @@ fn main() -> Result<()> {
             cr: cr_raw,
             ir: wrap_hex_vec(ir_raw, bits),
             mem: wrap_hex_vec(mem_raw, bits),
-            cond: uses_flags(&ins_line),
+            cond: compares_flags(&ins_line),
             rd,
             rs,
         });

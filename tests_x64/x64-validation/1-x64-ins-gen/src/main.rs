@@ -324,22 +324,7 @@ impl fmt::Display for Instruction {
 fn generate_instruction() -> Instruction {
     use Instruction::*;
     let mut rng = rand::thread_rng();
-    match rng.gen_range(0..56) {
-        
-        
-        /*
-        TODO
-        0  => Test(random_register(&mut rng), random_register(&mut rng)),
-        1  => TestImm(random_register(&mut rng), rng.r#gen::<u32>()),
-        2  => Test32(random_register(&mut rng), random_register(&mut rng)),
-        3  => TestImm32(random_register(&mut rng), rng.r#gen::<u32>()),
-        4  => Cmp(random_register(&mut rng), random_register(&mut rng)),
-        5  => CmpImm(random_register(&mut rng), rng.r#gen::<u32>()),
-        6  => Cmp32(random_register(&mut rng), random_register(&mut rng)),
-        7  => CmpImm32(random_register(&mut rng), rng.r#gen::<u32>()),*/
-
-
-
+    match rng.gen_range(0..64) {
         0  => Add(random_register(&mut rng), random_register(&mut rng)),
         1  => Sub(random_register(&mut rng), random_register(&mut rng)),
         2  => And(random_register(&mut rng), random_register(&mut rng)),
@@ -399,6 +384,14 @@ fn generate_instruction() -> Instruction {
         53  => Lea(random_register(&mut rng), generate_addrmode(&mut rng, false)),
         54 => JmpImm32(rng.gen_range(0..10)),
         55 => JccImm32(random_test_cond(&mut rng), rng.gen_range(0..10)),
+        56 => Test(random_register(&mut rng), random_register(&mut rng)),
+        57 => TestImm(random_register(&mut rng), rng.r#gen::<u32>()),
+        58 => Test32(random_register(&mut rng), random_register(&mut rng)),
+        59 => TestImm32(random_register(&mut rng), rng.r#gen::<u32>()),
+        60 => Cmp(random_register(&mut rng), random_register(&mut rng)),
+        61 => CmpImm(random_register(&mut rng), rng.r#gen::<u32>()),
+        62 => Cmp32(random_register(&mut rng), random_register(&mut rng)),
+        63 => CmpImm32(random_register(&mut rng), rng.r#gen::<u32>()),
 
 
     _   => unreachable!(),

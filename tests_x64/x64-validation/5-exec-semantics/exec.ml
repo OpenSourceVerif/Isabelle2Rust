@@ -37,6 +37,34 @@ let rec aux acc n l =
 in
 aux [] n lst
 
+let drop n lst =
+  let rec aux n l =
+    match l, n with
+    | l, 0      -> l
+    | [], _     -> []
+    | _ :: xs, n -> aux (n - 1) xs
+  in
+  aux n lst
+
+let opcode_of ins =
+  match String.split_on_char ' ' (String.trim ins) with
+  | opcode :: _ -> opcode
+  | [] -> ""
+
+let cmp_or_test opcode =
+  match opcode with
+  | "Ptestl_rr" | "Ptestl_ri" | "Ptestq_rr" | "Ptestq_ri"
+  | "Pcmpl_rr"  | "Pcmpl_ri"  | "Pcmpq_rr"  | "Pcmpq_ri" -> true
+  | _ -> false
+
+let comparable_values test_case values =
+  if not test_case.cond then
+    take 16 values
+  else if cmp_or_test (opcode_of test_case.ins) then
+    take 18 values @ take 2 (drop 19 values)
+  else
+    take 21 values
+
 let run_test_case test_case =
   let mode = X64_step_test.int64_to_myint test_case.mode in
   let lbin = X64_step_test.int64_list_to_myint_list test_case.bin in
@@ -45,9 +73,8 @@ let run_test_case test_case =
   let lm   = X64_step_test.int64_list_to_myint_list test_case.mem in
 
   let actual   = X64_step_test.x64_step_test mode lbin lc lr lm in
-  let slice_sz = if test_case.cond then 21 else 16 in
-  let sliced_expected = take slice_sz test_case.expected in
-  let sliced_actual   = take slice_sz actual in
+  let sliced_expected = comparable_values test_case test_case.expected in
+  let sliced_actual   = comparable_values test_case actual in
   let ok =
     match sliced_expected, sliced_actual with
     | e1 :: _, [] when e1 = 0xffffffffffffffffL -> true

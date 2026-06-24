@@ -7709,9 +7709,9 @@ let rec exec_instr
                 (compare_longs
                   (and64 (rs (IR rd))
                     (Vlong
-                      (cast (len_bit0
-                              (len_bit0
-                                (len_bit0 (len_bit0 (len_bit0 len_num1)))))
+                      (signed_cast (len_bit0
+                                     (len_bit0
+                                       (len_bit0 (len_bit0 (len_bit0 len_num1)))))
                         (len_bit0
                           (len_bit0
                             (len_bit0
@@ -7726,18 +7726,18 @@ let rec exec_instr
                   rs),
                m)
       | Pcmpl_rr (r1, r2) ->
-        Next (nextinstr sz (compare_ints (rs (IR r1)) (rs (IR r2)) rs), m)
+        Next (nextinstr sz (compare_ints (rs (IR r2)) (rs (IR r1)) rs), m)
       | Pcmpq_rr (r1, r2) ->
-        Next (nextinstr sz (compare_longs (rs (IR r1)) (rs (IR r2)) rs), m)
+        Next (nextinstr sz (compare_longs (rs (IR r2)) (rs (IR r1)) rs), m)
       | Pcmpl_ri (r1, n) ->
         Next (nextinstr sz (compare_ints (rs (IR r1)) (Vint n) rs), m)
       | Pcmpq_ri (r1, n) ->
         Next (nextinstr sz
                 (compare_longs (rs (IR r1))
                   (Vlong
-                    (cast (len_bit0
-                            (len_bit0
-                              (len_bit0 (len_bit0 (len_bit0 len_num1)))))
+                    (signed_cast (len_bit0
+                                   (len_bit0
+                                     (len_bit0 (len_bit0 (len_bit0 len_num1)))))
                       (len_bit0
                         (len_bit0
                           (len_bit0 (len_bit0 (len_bit0 (len_bit0 len_num1))))))
