@@ -519,6 +519,7 @@ impl CopyContext {
             }
             // Constructs outside the generated fragment are left unchanged here.
             Expr::Ident(_)
+            | Expr::Macro(_)
             | Expr::Path(_, _)
             | Expr::Literal(_)
             | Expr::Loop(_)
@@ -807,6 +808,7 @@ impl CopyContext {
             // Clone calls under unsupported Rust constructs do not participate
             // in copy-specialization inference.
             Expr::Ident(_)
+            | Expr::Macro(_)
             | Expr::Path(_, _)
             | Expr::Literal(_)
             | Expr::Loop(_)

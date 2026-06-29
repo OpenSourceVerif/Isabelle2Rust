@@ -547,6 +547,12 @@ fn convert_expr(expr: &syn::Expr) -> syn::Result<Expr> {
                 .map(convert_expr)
                 .collect::<syn::Result<Vec<_>>>()?,
         )),
+        syn::Expr::Macro(expr_macro) => {
+            // Preserve generated fallback arms such as
+            // `_ => panic!("non-exhaustive match")` as opaque Rust source.
+            let source = normalize_tokens(expr_macro.to_token_stream()).replace(" !", "!");
+            Ok(Expr::Macro(source))
+        }
         syn::Expr::Closure(ExprClosure {
             capture, inputs, body, ..
         }) => {
@@ -945,5 +951,22 @@ pub fn get(x0: Option) -> Int {
         assert!(printed.contains("Option::Rec(box op) => {"));
         assert!(printed.contains("get(op.clone())"));
         assert!(!printed.is_empty());
+    }
+
+    #[test]
+    fn preserves_expression_macros_as_opaque_rust() {
+        let source = r#"
+pub fn unwrap_or_panic(x0: Option<bool>) -> bool {
+    match x0 {
+        Some(x) => x,
+        _ => panic!("non-exhaustive match"),
+    }
+}
+"#;
+        let module = parse_rust_source(source, "Macro_Test").expect("macro expression parses");
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains(r#"panic!("non-exhaustive match")"#));
     }
 }

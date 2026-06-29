@@ -182,7 +182,11 @@ fn transform_expr(expr: &mut Expr) -> bool {
             changed |= transform_expr(inner);
         }
         Expr::Closure(_, body, _) => changed |= transform_expr(body),
-        Expr::Ident(_) | Expr::Path(_, _) | Expr::Literal(_) | Expr::BuilderChain(_) => {}
+        Expr::Ident(_)
+        | Expr::Macro(_)
+        | Expr::Path(_, _)
+        | Expr::Literal(_)
+        | Expr::BuilderChain(_) => {}
     }
     changed
 }
@@ -482,7 +486,11 @@ fn collect_owned_expr(expr: &Expr, owned: &mut HashSet<String>) {
         | Expr::Reference(inner, _, _)
         | Expr::Await(inner) => collect_owned_expr(inner, owned),
         Expr::Closure(_, body, _) => collect_owned_expr(body, owned),
-        Expr::Ident(_) | Expr::Path(_, _) | Expr::Literal(_) | Expr::BuilderChain(_) => {}
+        Expr::Ident(_)
+        | Expr::Macro(_)
+        | Expr::Path(_, _)
+        | Expr::Literal(_)
+        | Expr::BuilderChain(_) => {}
     }
 }
 
@@ -539,7 +547,7 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
                 live.insert(head.clone());
             }
         }
-        Expr::Path(_, _) | Expr::Literal(_) => {}
+        Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) => {}
 
         // M-LastUse: `v.clone()` → `v` when `v` is owned and dead afterwards.
         Expr::MethodCall(receiver, method, args) if method == "clone" && args.is_empty() => {
@@ -672,7 +680,7 @@ fn collect_live_expr(expr: &Expr, live: &mut HashSet<String>) {
                 live.insert(head.clone());
             }
         }
-        Expr::Path(_, _) | Expr::Literal(_) => {}
+        Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) => {}
         Expr::Call(callee, args) => {
             collect_live_expr(callee, live);
             args.iter().for_each(|a| collect_live_expr(a, live));
@@ -777,7 +785,7 @@ fn count_reads_in_expr(expr: &Expr, name: &str) -> usize {
     match expr {
         Expr::Ident(id) => usize::from(id == name),
         Expr::Path(path, PathType::Member) => usize::from(path.first().is_some_and(|h| h == name)),
-        Expr::Path(_, _) | Expr::Literal(_) | Expr::BuilderChain(_) => 0,
+        Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) | Expr::BuilderChain(_) => 0,
         Expr::Call(callee, args) => {
             count_reads_in_expr(callee, name)
                 + args.iter().map(|a| count_reads_in_expr(a, name)).sum::<usize>()
@@ -918,7 +926,11 @@ fn count_bindings_in_expr(expr: &Expr, name: &str) -> usize {
         | Expr::Parenthesized(inner)
         | Expr::Reference(inner, _, _)
         | Expr::Await(inner) => count_bindings_in_expr(inner, name),
-        Expr::Ident(_) | Expr::Path(_, _) | Expr::Literal(_) | Expr::BuilderChain(_) => 0,
+        Expr::Ident(_)
+        | Expr::Macro(_)
+        | Expr::Path(_, _)
+        | Expr::Literal(_)
+        | Expr::BuilderChain(_) => 0,
     }
 }
 
@@ -955,7 +967,7 @@ fn rename_reads_expr(expr: &mut Expr, map: &HashMap<String, String>) {
                 }
             }
         }
-        Expr::Path(_, _) | Expr::Literal(_) | Expr::BuilderChain(_) => {}
+        Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) | Expr::BuilderChain(_) => {}
         Expr::Call(callee, args) => {
             rename_reads_expr(callee, map);
             args.iter_mut().for_each(|a| rename_reads_expr(a, map));

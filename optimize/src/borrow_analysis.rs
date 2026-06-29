@@ -758,7 +758,7 @@ impl BorrowContext {
                     }
                 }
             }
-            Expr::Path(_, _) | Expr::Literal(_) => {}
+            Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) => {}
             Expr::Loop(block) | Expr::Unsafe(block) => {
                 if block_has_free_var_from(block, derived) {
                     demands.insert(Demand::Unk);
@@ -1399,7 +1399,8 @@ impl BorrowContext {
             ),
 
             // Leaves and unsupported constructs: return unchanged.
-            Expr::Path(_, _)
+            Expr::Macro(_)
+            | Expr::Path(_, _)
             | Expr::Literal(_)
             | Expr::Loop(_)
             | Expr::Await(_)
@@ -2097,7 +2098,7 @@ fn collect_closure_binding_usage_expr(
                 usage.escapes = true;
             }
         }
-        Expr::Path(_, _) | Expr::Literal(_) => {}
+        Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) => {}
     }
 }
 
@@ -2111,7 +2112,7 @@ fn expr_is_ident_named(expr: &Expr, name: &str) -> bool {
 fn expr_has_free_var_from(expr: &Expr, vars: &HashSet<String>) -> bool {
     match expr {
         Expr::Ident(name) => vars.contains(name),
-        Expr::Path(_, _) | Expr::Literal(_) => false,
+        Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) => false,
         Expr::MethodCall(recv, _, args) => {
             expr_has_free_var_from(recv, vars)
                 || args.iter().any(|a| expr_has_free_var_from(a, vars))
