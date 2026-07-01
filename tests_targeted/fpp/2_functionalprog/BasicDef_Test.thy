@@ -78,8 +78,6 @@ definition next_nat :: "nat \<Rightarrow> nat"
 definition next_nat2 :: "nat \<Rightarrow> nat"
   where "next_nat2 n \<equiv> n + 1"
 
-export_code next_nat next_nat2 in Rust
-
 lemma "next_nat n = next_nat2 n"
   by (simp add: next_nat_def next_nat2_def)
 
@@ -98,19 +96,11 @@ definition greater3 :: "(nat \<times> nat) \<Rightarrow> bool"
 definition greater4 :: "nat \<Rightarrow> nat \<Rightarrow> bool"
   where "greater4 \<equiv> \<lambda>m n. (m > n)"
 
-export_code times5 greater greater2 greater3 greater4 in Rust
-
-
 definition make_add :: "int \<Rightarrow> int \<Rightarrow> int" where
 "make_add y = (\<lambda>x. x + y)"
 
-export_code make_add in Rust
-
-
 definition make_pair :: "int \<Rightarrow> (int \<Rightarrow> int) \<times> int" where
 "make_pair y = ((\<lambda>x. x + y), y)"
-
-export_code make_pair in Rust
 
 lemma "\<forall>m n. greater2 (m,n) = greater3 (m,n)"
    by (simp add: greater2_def greater3_def) 
@@ -155,8 +145,6 @@ term h
 definition h2 :: "(nat \<times> nat) \<Rightarrow> nat"
   where "h2 \<equiv> \<lambda>(x,y). x + y"
 
-export_code h2 h in Rust
-
 value "h 3 5"
 value "h 3"
 value "h2 (3,5)"
@@ -178,8 +166,6 @@ definition "cst3 = (3::int)"
 term cst3
 
 thm cst3_def
-
-export_code cst3 in Rust
 
 consts fun1 :: "nat \<Rightarrow> nat"
 specification(fun1)

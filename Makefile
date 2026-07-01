@@ -1,4 +1,4 @@
-.PHONY: open open_test build build_silent code gen opt test targeted hol macro_sbpf micro_sbpf micro_sbpf_gen sbpf x64 x64_gen x64_test clean help
+.PHONY: open open_test build build_silent code gen opt test targeted hol hol-gcd hol-stress macro_sbpf micro_sbpf micro_sbpf_gen sbpf x64 x64_gen x64_test clean help
 
 #### Configuration ####
 
@@ -7,7 +7,9 @@ PROJECT_SESSION := Rust
 TEST_SESSION    := Rust
 TEST_ROOT_DIR   := test-root
 TEST_ROOT_FILE  := $(TEST_ROOT_DIR)/ROOT
-HOL_TEST_THEORY ?= Hol_Test_Integer
+HOL_DIR         ?= test/HOL_Codegenerator
+HOL_GCD_THEORY ?= Code_Test_Rust
+HOL_STRESS_SESSION ?= Rust-HOL-Codegenerator_Test
 
 CARGO                  ?= cargo
 OCAMLC                 ?= ocamlc
@@ -276,20 +278,20 @@ targeted:
 	  exit 1; \
 	fi
 
-hol:
-	@echo ">>> Building $(HOL_TEST_THEORY)..."
-	$(MAKE) build TEST_DIR=tests_HOL TEST_THEORY=$(HOL_TEST_THEORY)
+hol-gcd:
+	@echo ">>> Building HOL gcd smoke test ($(HOL_GCD_THEORY))..."
+	$(MAKE) build TEST_DIR=$(HOL_DIR) TEST_THEORY=$(HOL_GCD_THEORY)
 
-	@OUT_DIR="tests_HOL/stage1/$(HOL_TEST_THEORY)/export1/src"; \
+	@OUT_DIR="$(HOL_DIR)/stage1/$(HOL_GCD_THEORY)/export1/src"; \
 	if [ ! -d "$$OUT_DIR" ]; then \
 	  echo "ERROR: $$OUT_DIR does not exist. Build may have failed."; \
 	  exit 1; \
 	fi; \
 	echo ">>> Replacing main.rs with template..."; \
-	cp tests_HOL/template/main.rs "$$OUT_DIR/main.rs"
+	cp "$(HOL_DIR)/template/main.rs" "$$OUT_DIR/main.rs"
 
 	@echo ">>> Running cargo..."
-	@CARGO_TOML="tests_HOL/stage1/$(HOL_TEST_THEORY)/export1/Cargo.toml"; \
+	@CARGO_TOML="$(HOL_DIR)/stage1/$(HOL_GCD_THEORY)/export1/Cargo.toml"; \
 	if [ ! -f "$$CARGO_TOML" ]; then \
 	  echo "ERROR: Cargo.toml not found at $$CARGO_TOML"; \
 	  exit 1; \
@@ -298,7 +300,12 @@ hol:
 	if [ ! -f "$$package_dir/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
 	  cp "$(ISABELLE_EXPORTED_LOCK)" "$$package_dir/Cargo.lock"; \
 	fi; \
-	RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" cargo run --locked --manifest-path "$$CARGO_TOML"
+	RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) run --locked --manifest-path "$$CARGO_TOML"
+
+hol-stress:
+	@echo "HOL-Codegenerator stress test is not wired yet."
+	@echo "Expected entry point once Generate/Candidates are complete:"
+	@echo "  isabelle build -v -e -d . $(HOL_STRESS_SESSION)"
 
 
 # sbpf macro validation:
@@ -357,7 +364,8 @@ clean:
 	find . -name "__pycache__" -type d -prune -exec rm -rf {} +
 	find tests_targeted -path "*/stage1" -type d -prune -exec rm -rf {} +
 	find tests_targeted -path "*/stage2" -type d -prune -exec rm -rf {} +
-	find tests_HOL -path "*/stage1" -type d -prune -exec rm -rf {} +
+	find tests_HOL -path "*/stage1" -type d -prune -exec rm -rf {} + 2>/dev/null || true
+	find $(HOL_DIR) -path "*/stage1" -type d -prune -exec rm -rf {} + 2>/dev/null || true
 	find tests_sbpf/theory/stage1 -name target -type d -prune -exec rm -rf {} + 2>/dev/null || true
 	rm -rf tests_sbpf/tests/exec_semantics/_build
 	rm -rf tests_sbpf/tests/exec_semantics/sbpf_ocaml/_build
@@ -367,6 +375,7 @@ clean:
 	rm -f tests_x64/x64-validation/5-exec-semantics/exec tests_x64/x64-validation/5-exec-semantics/*.cmi tests_x64/x64-validation/5-exec-semantics/*.cmo
 	rm -rf optimize/tests/stage1 optimize/tests/stage2
 	rm -rf tests_HOL/Hol_Test/target
+	rm -rf $(HOL_DIR)/Hol_Test/target
 	rm -rf $(TEST_ROOT_DIR)
 
 help:
@@ -395,8 +404,12 @@ help:
 	@echo "  targeted"
 	@echo "      Build + cargo run stage1 for all *_Test.thy under tests_targeted."
 	@echo "      Example: make targeted"
+	@echo "  hol-gcd"
+	@echo "      Build and run the HOL gcd smoke test. Default: HOL_GCD_THEORY=$(HOL_GCD_THEORY)."
+	@echo "  hol-stress"
+	@echo "      Placeholder for the HOL-Codegenerator pressure test session."
 	@echo "  hol"
-	@echo "      Build and run the HOL smoke test. Default: HOL_TEST_THEORY=$(HOL_TEST_THEORY)."
+	@echo "      Alias for hol-gcd."
 	@echo "  macro_sbpf [REBUILD=1]"
 	@echo "      Run program-level sBPF validation over the Solana official macro cases"
 	@echo "      from Isabelle-generated OCaml and Rust exports. REBUILD=1 regenerates"
@@ -420,4 +433,4 @@ help:
 	@echo "  x64"
 	@echo "      Run x64_gen followed by x64_test."
 	@echo "  clean"
-	@echo "      Remove temp files and generated output (stage1, stage2 under tests_targeted/tests_HOL)."
+	@echo "      Remove temp files and generated output (stage1, stage2 under tests_targeted/$(HOL_DIR))."

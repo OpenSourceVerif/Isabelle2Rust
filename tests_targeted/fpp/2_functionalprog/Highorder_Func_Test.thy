@@ -8,8 +8,6 @@ definition fof1 :: "nat \<Rightarrow> nat"
   where "fof1 x \<equiv>  power x 2"
 
 
-export_code fof1 in Rust module_name Fof1
-
 export_code fof1 in OCaml  
 export_code fof1 in Haskell
 
@@ -33,8 +31,6 @@ value "arith minus 10 20"
 
 definition hof1 :: "('a \<Rightarrow> 'b \<Rightarrow> 'c) \<Rightarrow> 'a \<Rightarrow> 'b \<Rightarrow> 'c"
   where "hof1 f x y \<equiv> f x y"
-
-export_code hof1 in Rust
 
 value "hof1 plus (1::int) 2"
 value "hof1 times (3::int) 4"
@@ -71,8 +67,6 @@ definition hof2 :: "'a \<Rightarrow> ('a \<Rightarrow> 'b \<Rightarrow> 'c) \<Ri
   where "hof2 x f \<equiv> f x"
 
 export_code hof2 in OCaml
-
-export_code hof2 in Rust
 
 term "hof2 (1::int) plus"
 term "hof2 (2::int) plus"
@@ -262,9 +256,6 @@ fun concat2 :: "(string \<times> string) \<Rightarrow> string"
 
 fun concat3 :: "(string \<times> string \<times> string) \<Rightarrow> string"
   where "concat3 (x,y,z) = x@y@z"
-
-export_code concat2 in Rust
-export_code concat3 in Rust
 
 value "concat2 (''aaa'',''bbb'')"
 value "concat3 (''aaa'',''bbb'',''ccc'')"
