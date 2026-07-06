@@ -3,16 +3,17 @@ use syn::{
     parse_file, AngleBracketedGenericArguments, ExprArray, ExprAssign, ExprBinary, ExprBlock,
     ExprCall, ExprClosure, ExprField, ExprGroup, ExprIf, ExprIndex, ExprLit, ExprMatch,
     ExprMethodCall, ExprParen, ExprPath, ExprReference, ExprTuple, ExprUnary, File,
-    GenericArgument, ImplItem as SynImplItem, Item as SynItem, Lit, LocalInit, Meta, Pat,
-    PatIdent, PathArguments, ReturnType, Stmt, Type as SynType, TypeArray, TypeGroup, TypeParen,
-    TypeReference, TypeSlice, TypeTuple, Visibility as SynVisibility,
+    GenericArgument, ImplItem as SynImplItem, Item as SynItem, Lit, LocalInit, Meta,
+    ParenthesizedGenericArguments, Pat, PatIdent, PathArguments, ReturnType, Stmt, TraitBound,
+    Type as SynType, TypeArray, TypeGroup, TypeImplTrait, TypeParamBound, TypeParen, TypeReference,
+    TypeSlice, TypeTraitObject, TypeTuple, Visibility as SynVisibility,
 };
 
 use rustlightast::{
-    Attribute, AttributeArg, Block, ConstDef, EnumDef, Expr, Field, FunctionDef, GenericParam,
-    ImplBlock, ImplItem, Item, LetStmt, Literal, MatchArm, Param, PathType, RustCodeGenerator,
-    RustModule, Statement, StructDef, Type, TypeAlias, UnionDef, UseKind, UseStatement, Variant,
-    Visibility,
+    Attribute, AttributeArg, Block, CallableTraitQualifier, CallableTraitType, ConstDef, EnumDef,
+    Expr, Field, FunctionDef, GenericParam, ImplBlock, ImplItem, Item, LetStmt, Literal, MatchArm,
+    Param, PathType, RustCodeGenerator, RustModule, Statement, StructDef, Type, TypeAlias,
+    UnionDef, UseKind, UseStatement, Variant, Visibility,
 };
 
 pub fn parse_rust_source(source: &str, module_name: impl Into<String>) -> syn::Result<RustModule> {
@@ -328,6 +329,12 @@ fn convert_type(ty: &SynType) -> syn::Result<Type> {
             Box::new(convert_type(elem)?),
             parse_array_len(len)?,
         )),
+        SynType::TraitObject(TypeTraitObject { bounds, .. }) => {
+            convert_callable_trait_bounds(bounds.iter(), CallableTraitQualifier::Dyn)
+        }
+        SynType::ImplTrait(TypeImplTrait { bounds, .. }) => {
+            convert_callable_trait_bounds(bounds.iter(), CallableTraitQualifier::Impl)
+        }
         SynType::Never(_) => Ok(Type::Never),
         SynType::Paren(TypeParen { elem, .. }) | SynType::Group(TypeGroup { elem, .. }) => {
             convert_type(elem)
@@ -337,6 +344,60 @@ fn convert_type(ty: &SynType) -> syn::Result<Type> {
             "unsupported type syntax in RustLightAST parser",
         )),
     }
+}
+
+fn convert_callable_trait_bounds<'a>(
+    bounds: impl Iterator<Item = &'a TypeParamBound>,
+    qualifier: CallableTraitQualifier,
+) -> syn::Result<Type> {
+    let callable_bounds = bounds
+        .filter_map(|bound| match bound {
+            TypeParamBound::Trait(trait_bound) => Some(trait_bound),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    if callable_bounds.len() != 1 {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "unsupported callable trait bounds in RustLightAST parser",
+        ));
+    }
+
+    convert_callable_trait_bound(callable_bounds[0], qualifier)
+}
+
+fn convert_callable_trait_bound(
+    trait_bound: &TraitBound,
+    qualifier: CallableTraitQualifier,
+) -> syn::Result<Type> {
+    let last =
+        trait_bound.path.segments.last().ok_or_else(|| {
+            syn::Error::new_spanned(&trait_bound.path, "empty callable trait path")
+        })?;
+    let trait_name = last.ident.to_string();
+
+    let PathArguments::Parenthesized(ParenthesizedGenericArguments { inputs, output, .. }) =
+        &last.arguments
+    else {
+        return Err(syn::Error::new_spanned(
+            &last.arguments,
+            "unsupported non-callable trait bound in RustLightAST parser",
+        ));
+    };
+
+    let args = inputs
+        .iter()
+        .map(convert_type)
+        .collect::<syn::Result<Vec<_>>>()?;
+    let return_type = Box::new(convert_return_type(output)?);
+
+    Ok(Type::CallableTrait(CallableTraitType {
+        qualifier,
+        trait_name,
+        args,
+        return_type,
+    }))
 }
 
 fn convert_type_path(path: &syn::Path) -> syn::Result<Type> {
@@ -554,7 +615,10 @@ fn convert_expr(expr: &syn::Expr) -> syn::Result<Expr> {
             Ok(Expr::Macro(source))
         }
         syn::Expr::Closure(ExprClosure {
-            capture, inputs, body, ..
+            capture,
+            inputs,
+            body,
+            ..
         }) => {
             let is_move = capture.is_some();
             // Stringify each parameter pattern (`x`, `x: T`, etc.) using the
@@ -968,5 +1032,40 @@ pub fn unwrap_or_panic(x0: Option<bool>) -> bool {
         let mut generator = RustCodeGenerator::new();
         let printed = generator.generate_module_code(&module);
         assert!(printed.contains(r#"panic!("non-exhaustive match")"#));
+    }
+
+    #[test]
+    fn parses_callable_trait_types() {
+        let source = r#"
+use std::rc::Rc;
+
+pub fn apply<A, B>(f: Rc<dyn Fn(A) -> B>, x: A) -> B {
+    (*f)(x)
+}
+
+pub fn call_impl<A, B>(f: impl Fn(A) -> B, x: A) -> B {
+    f(x)
+}
+"#;
+        let module = parse_rust_source(source, "Callable_Test").expect("callable types parse");
+
+        match &module.items[1] {
+            Item::Function(def) => match &def.params[0].ty {
+                Type::Generic(name, params) => {
+                    assert_eq!(name, "Rc");
+                    assert!(matches!(&params[0], Type::CallableTrait(callable)
+                        if callable.trait_name == "Fn"
+                            && callable.args.len() == 1
+                            && matches!(callable.return_type.as_ref(), Type::Named(name) if name == "B")));
+                }
+                other => panic!("unexpected callable parameter type: {other:?}"),
+            },
+            other => panic!("unexpected item: {other:?}"),
+        }
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("Rc<dyn Fn(A) -> B>"));
+        assert!(printed.contains("impl Fn(A) -> B"));
     }
 }

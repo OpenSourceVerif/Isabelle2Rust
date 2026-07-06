@@ -114,10 +114,7 @@ struct BorrowContext {
 ///
 /// `copy_types` must be the set produced by `optimize_copy` so that the pass
 /// can treat Copy fields as non-consuming uses.
-pub fn optimize_borrow(
-    module: &mut RustModule,
-    copy_types: &HashSet<String>,
-) -> BorrowAnalysis {
+pub fn optimize_borrow(module: &mut RustModule, copy_types: &HashSet<String>) -> BorrowAnalysis {
     let mut analysis = BorrowAnalysis::default();
     optimize_module(module, copy_types, &mut analysis);
     analysis
@@ -366,12 +363,7 @@ impl BorrowContext {
                     let inferred_ty = let_stmt
                         .ty
                         .clone()
-                        .or_else(|| {
-                            let_stmt
-                                .init
-                                .as_ref()
-                                .and_then(|e| self.infer_type(e, env))
-                        });
+                        .or_else(|| let_stmt.init.as_ref().and_then(|e| self.infer_type(e, env)));
                     if let Some(ty) = inferred_ty {
                         if is_binding_ident(&let_stmt.name) {
                             // A direct `let y = x` is an owned use.  The demand was already
@@ -383,29 +375,17 @@ impl BorrowContext {
                     }
                 }
                 Statement::Expr(expr) => {
-                    self.collect_demands_expr(
-                        expr,
-                        derived,
-                        env,
-                        copy_generics,
-                        demands,
-                        false,
-                    );
+                    self.collect_demands_expr(expr, derived, env, copy_generics, demands, false);
                 }
-                Statement::Item(_) | Statement::Continue | Statement::Break
+                Statement::Item(_)
+                | Statement::Continue
+                | Statement::Break
                 | Statement::Comment(_) => {}
             }
         }
 
         if let Some(tail) = &block.expr {
-            self.collect_demands_expr(
-                tail,
-                derived,
-                env,
-                copy_generics,
-                demands,
-                in_return_ctx,
-            );
+            self.collect_demands_expr(tail, derived, env, copy_generics, demands, in_return_ctx);
         }
     }
 
@@ -531,7 +511,10 @@ impl BorrowContext {
             }
 
             // ── Match: match e { arms } ──────────────────────────────────────
-            Expr::Match { expr: scrutinee, arms } => {
+            Expr::Match {
+                expr: scrutinee,
+                arms,
+            } => {
                 // Isabelle's code generator wraps multi-parameter functions in a
                 // tuple match: `match (x, y) { (p1, p2) => body }`.  The tuple
                 // construction is an ownership-passing artefact, not a direct
@@ -566,7 +549,14 @@ impl BorrowContext {
                                     continue; // demand tracked via arm pattern
                                 }
                             }
-                            self.collect_demands_expr(elem, derived, env, copy_generics, demands, false);
+                            self.collect_demands_expr(
+                                elem,
+                                derived,
+                                env,
+                                copy_generics,
+                                demands,
+                                false,
+                            );
                         }
                     }
                 }
@@ -594,11 +584,7 @@ impl BorrowContext {
                             // collect_derived_from_pattern handles tuple patterns
                             // when ty is Type::Tuple — we always invoke it here
                             // (it is a no-op when the pattern has no ident bindings).
-                            self.collect_derived_from_pattern(
-                                &arm.pattern,
-                                ty,
-                                &mut arm_derived,
-                            );
+                            self.collect_derived_from_pattern(&arm.pattern, ty, &mut arm_derived);
                         }
                     }
 
@@ -724,7 +710,14 @@ impl BorrowContext {
             }
 
             Expr::Parenthesized(inner) => {
-                self.collect_demands_expr(inner, derived, env, copy_generics, demands, in_return_ctx);
+                self.collect_demands_expr(
+                    inner,
+                    derived,
+                    env,
+                    copy_generics,
+                    demands,
+                    in_return_ctx,
+                );
             }
             Expr::BinaryOp(l, _, r) => {
                 self.collect_demands_expr(l, derived, env, copy_generics, demands, false);
@@ -742,15 +735,11 @@ impl BorrowContext {
             // does NOT capture `y` directly — only `y_cap` — so derived vars
             // for `y` don't appear free and no blocking demand is generated.
             Expr::Closure(params, body, is_move) => {
-                let shadowed: HashSet<String> = params
-                    .iter()
-                    .map(|p| closure_param_name(p))
-                    .collect();
+                let shadowed: HashSet<String> =
+                    params.iter().map(|p| closure_param_name(p)).collect();
                 let outer_derived: HashSet<String> =
                     derived.difference(&shadowed).cloned().collect();
-                if !outer_derived.is_empty()
-                    && expr_has_free_var_from(body, &outer_derived)
-                {
+                if !outer_derived.is_empty() && expr_has_free_var_from(body, &outer_derived) {
                     if *is_move {
                         demands.insert(Demand::Own(OwnUse::DirectOwned));
                     } else {
@@ -775,8 +764,7 @@ impl BorrowContext {
                 }
             }
             Expr::Index(base, index) | Expr::Assign(base, index) => {
-                if expr_has_free_var_from(base, derived) || expr_has_free_var_from(index, derived)
-                {
+                if expr_has_free_var_from(base, derived) || expr_has_free_var_from(index, derived) {
                     demands.insert(Demand::Unk);
                 }
             }
@@ -955,13 +943,8 @@ impl BorrowContext {
         let mut borrow_env = function_type_env(f);
         let orig_env = self.original_function_type_env(f);
         let copy_generics = generic_names_with_bound(f, "Copy");
-        f.body = self.rewrite_block_borrow(
-            &f.body,
-            &mut borrow_env,
-            &orig_env,
-            &copy_generics,
-            &f.name,
-        );
+        f.body =
+            self.rewrite_block_borrow(&f.body, &mut borrow_env, &orig_env, &copy_generics, &f.name);
     }
 
     fn original_function_type_env(&self, f: &FunctionDef) -> TypeEnv {
@@ -1020,16 +1003,12 @@ impl BorrowContext {
                         })
                     };
                     // Update environments.
-                    if let Some(ty) = let_stmt
-                        .ty
-                        .clone()
-                        .or_else(|| {
-                            let_stmt
-                                .init
-                                .as_ref()
-                                .and_then(|e| self.infer_type(e, &local_orig))
-                        })
-                    {
+                    if let Some(ty) = let_stmt.ty.clone().or_else(|| {
+                        let_stmt
+                            .init
+                            .as_ref()
+                            .and_then(|e| self.infer_type(e, &local_orig))
+                    }) {
                         if is_binding_ident(&let_stmt.name) {
                             local_orig.insert(let_stmt.name.clone(), ty.clone());
                             borrow_env.insert(let_stmt.name.clone(), ty);
@@ -1062,13 +1041,7 @@ impl BorrowContext {
         }
 
         let tail = block.expr.as_ref().map(|e| {
-            Box::new(self.rewrite_expr_own(
-                e,
-                borrow_env,
-                &local_orig,
-                copy_generics,
-                orig_fn_name,
-            ))
+            Box::new(self.rewrite_expr_own(e, borrow_env, &local_orig, copy_generics, orig_fn_name))
         });
 
         Block { stmts, expr: tail }
@@ -1125,11 +1098,7 @@ impl BorrowContext {
                                     "as_ref".to_string(),
                                     vec![],
                                 );
-                                Expr::MethodCall(
-                                    Box::new(as_ref_call),
-                                    "clone".to_string(),
-                                    vec![],
-                                )
+                                Expr::MethodCall(Box::new(as_ref_call), "clone".to_string(), vec![])
                             } else {
                                 // &T.clone() in own context → v.clone() (gives T)
                                 Expr::MethodCall(
@@ -1144,12 +1113,22 @@ impl BorrowContext {
                 // Recurse into non-borrowed receiver.
                 Expr::MethodCall(
                     Box::new(self.rewrite_expr_own(
-                        receiver, borrow_env, orig_env, copy_generics, orig_fn_name,
+                        receiver,
+                        borrow_env,
+                        orig_env,
+                        copy_generics,
+                        orig_fn_name,
                     )),
                     method.clone(),
                     args.iter()
                         .map(|a| {
-                            self.rewrite_expr_own(a, borrow_env, orig_env, copy_generics, orig_fn_name)
+                            self.rewrite_expr_own(
+                                a,
+                                borrow_env,
+                                orig_env,
+                                copy_generics,
+                                orig_fn_name,
+                            )
                         })
                         .collect(),
                 )
@@ -1160,7 +1139,9 @@ impl BorrowContext {
                 let fn_name = callee_fn_name(callee);
 
                 if let Some(borrow_positions) = fn_name.and_then(|name| {
-                    self.borrow_positions.get(name).filter(|positions| !positions.is_empty())
+                    self.borrow_positions
+                        .get(name)
+                        .filter(|positions| !positions.is_empty())
                 }) {
                     let new_callee = callee.as_ref().clone();
                     let new_args: Vec<Expr> = args
@@ -1169,11 +1150,21 @@ impl BorrowContext {
                         .map(|(j, arg)| {
                             if borrow_positions.contains(&j) {
                                 // B-Call bor position: prepare a shared argument.
-                                self.bor_transform(arg, borrow_env, orig_env, copy_generics, orig_fn_name)
+                                self.bor_transform(
+                                    arg,
+                                    borrow_env,
+                                    orig_env,
+                                    copy_generics,
+                                    orig_fn_name,
+                                )
                             } else {
                                 // Own position: preserve owned semantics.
                                 self.rewrite_expr_own(
-                                    arg, borrow_env, orig_env, copy_generics, orig_fn_name,
+                                    arg,
+                                    borrow_env,
+                                    orig_env,
+                                    copy_generics,
+                                    orig_fn_name,
                                 )
                             }
                         })
@@ -1205,7 +1196,10 @@ impl BorrowContext {
             }
 
             // ── Match: B-Match rule ───────────────────────────────────────────
-            Expr::Match { expr: scrutinee, arms } => {
+            Expr::Match {
+                expr: scrutinee,
+                arms,
+            } => {
                 // For a borrowed scrutinee keep it as-is: Rust match ergonomics
                 // handles matching on `&T` with plain `T` patterns.  Calling
                 // rewrite_expr_own would wrongly insert a `.clone()`.
@@ -1222,7 +1216,11 @@ impl BorrowContext {
                     scrutinee.as_ref().clone()
                 } else {
                     self.rewrite_expr_own(
-                        scrutinee, borrow_env, orig_env, copy_generics, orig_fn_name,
+                        scrutinee,
+                        borrow_env,
+                        orig_env,
+                        copy_generics,
+                        orig_fn_name,
                     )
                 };
 
@@ -1255,17 +1253,24 @@ impl BorrowContext {
                             // Non-borrowed scrutinee: pattern unchanged.
                             if let Some(ty) = self.infer_type(scrutinee, orig_env) {
                                 self.bind_pattern_env(&arm.pattern, &ty, &mut arm_orig);
-                                self.bind_pattern_env_for_borrow(&arm.pattern, &ty, &mut arm_borrow);
+                                self.bind_pattern_env_for_borrow(
+                                    &arm.pattern,
+                                    &ty,
+                                    &mut arm_borrow,
+                                );
                             }
                             new_pattern = arm.pattern.clone();
                         }
 
-                        let new_guard =
-                            arm.guard.as_ref().map(|g| {
-                                self.rewrite_expr_own(
-                                    g, &arm_borrow, &arm_orig, copy_generics, orig_fn_name,
-                                )
-                            });
+                        let new_guard = arm.guard.as_ref().map(|g| {
+                            self.rewrite_expr_own(
+                                g,
+                                &arm_borrow,
+                                &arm_orig,
+                                copy_generics,
+                                orig_fn_name,
+                            )
+                        });
                         let new_body = self.rewrite_block_borrow(
                             &arm.body,
                             &mut arm_borrow,
@@ -1313,7 +1318,11 @@ impl BorrowContext {
             // ── Reference ────────────────────────────────────────────────────
             Expr::Reference(inner, is_ref, is_mut) => Expr::Reference(
                 Box::new(self.rewrite_expr_own(
-                    inner, borrow_env, orig_env, copy_generics, orig_fn_name,
+                    inner,
+                    borrow_env,
+                    orig_env,
+                    copy_generics,
+                    orig_fn_name,
                 )),
                 *is_ref,
                 *is_mut,
@@ -1326,16 +1335,28 @@ impl BorrowContext {
                 else_branch,
             } => {
                 let new_cond = self.rewrite_expr_own(
-                    condition, borrow_env, orig_env, copy_generics, orig_fn_name,
+                    condition,
+                    borrow_env,
+                    orig_env,
+                    copy_generics,
+                    orig_fn_name,
                 );
                 let mut then_borrow = borrow_env.clone();
                 let new_then = self.rewrite_block_borrow(
-                    then_branch, &mut then_borrow, orig_env, copy_generics, orig_fn_name,
+                    then_branch,
+                    &mut then_borrow,
+                    orig_env,
+                    copy_generics,
+                    orig_fn_name,
                 );
                 let new_else = else_branch.as_ref().map(|eb| {
                     let mut else_borrow = borrow_env.clone();
                     self.rewrite_block_borrow(
-                        eb, &mut else_borrow, orig_env, copy_generics, orig_fn_name,
+                        eb,
+                        &mut else_borrow,
+                        orig_env,
+                        copy_generics,
+                        orig_fn_name,
                     )
                 });
                 Expr::If {
@@ -1351,17 +1372,24 @@ impl BorrowContext {
                 then_branch,
                 else_branch,
             } => {
-                let new_value = self.rewrite_expr_own(
-                    value, borrow_env, orig_env, copy_generics, orig_fn_name,
-                );
+                let new_value =
+                    self.rewrite_expr_own(value, borrow_env, orig_env, copy_generics, orig_fn_name);
                 let mut then_borrow = borrow_env.clone();
                 let new_then = self.rewrite_block_borrow(
-                    then_branch, &mut then_borrow, orig_env, copy_generics, orig_fn_name,
+                    then_branch,
+                    &mut then_borrow,
+                    orig_env,
+                    copy_generics,
+                    orig_fn_name,
                 );
                 let new_else = else_branch.as_ref().map(|eb| {
                     let mut else_borrow = borrow_env.clone();
                     self.rewrite_block_borrow(
-                        eb, &mut else_borrow, orig_env, copy_generics, orig_fn_name,
+                        eb,
+                        &mut else_borrow,
+                        orig_env,
+                        copy_generics,
+                        orig_fn_name,
                     )
                 });
                 Expr::IfLet {
@@ -1373,22 +1401,46 @@ impl BorrowContext {
             }
 
             Expr::Parenthesized(inner) => Expr::Parenthesized(Box::new(self.rewrite_expr_own(
-                inner, borrow_env, orig_env, copy_generics, orig_fn_name,
+                inner,
+                borrow_env,
+                orig_env,
+                copy_generics,
+                orig_fn_name,
             ))),
             Expr::BinaryOp(l, op, r) => Expr::BinaryOp(
-                Box::new(self.rewrite_expr_own(l, borrow_env, orig_env, copy_generics, orig_fn_name)),
+                Box::new(self.rewrite_expr_own(
+                    l,
+                    borrow_env,
+                    orig_env,
+                    copy_generics,
+                    orig_fn_name,
+                )),
                 op.clone(),
-                Box::new(self.rewrite_expr_own(r, borrow_env, orig_env, copy_generics, orig_fn_name)),
+                Box::new(self.rewrite_expr_own(
+                    r,
+                    borrow_env,
+                    orig_env,
+                    copy_generics,
+                    orig_fn_name,
+                )),
             ),
             Expr::UnaryOp(op, inner) => Expr::UnaryOp(
                 op.clone(),
                 Box::new(self.rewrite_expr_own(
-                    inner, borrow_env, orig_env, copy_generics, orig_fn_name,
+                    inner,
+                    borrow_env,
+                    orig_env,
+                    copy_generics,
+                    orig_fn_name,
                 )),
             ),
             Expr::MethodCall(receiver, method, args) => Expr::MethodCall(
                 Box::new(self.rewrite_expr_own(
-                    receiver, borrow_env, orig_env, copy_generics, orig_fn_name,
+                    receiver,
+                    borrow_env,
+                    orig_env,
+                    copy_generics,
+                    orig_fn_name,
                 )),
                 method.clone(),
                 args.iter()
@@ -1451,7 +1503,8 @@ impl BorrowContext {
                     }
                 }
                 // Recurse and wrap in &.
-                let inner = self.rewrite_expr_own(arg, borrow_env, orig_env, copy_generics, orig_fn_name);
+                let inner =
+                    self.rewrite_expr_own(arg, borrow_env, orig_env, copy_generics, orig_fn_name);
                 Expr::Reference(Box::new(inner), true, false)
             }
             Expr::Ident(name) => {
@@ -1470,7 +1523,8 @@ impl BorrowContext {
                 Expr::Reference(Box::new(Expr::Ident(name.clone())), true, false)
             }
             _ => {
-                let inner = self.rewrite_expr_own(arg, borrow_env, orig_env, copy_generics, orig_fn_name);
+                let inner =
+                    self.rewrite_expr_own(arg, borrow_env, orig_env, copy_generics, orig_fn_name);
                 Expr::Reference(Box::new(inner), true, false)
             }
         }
@@ -1556,10 +1610,7 @@ impl BorrowContext {
             // Field type is Box<F>; after stripping box in the pattern the
             // variable binds to &Box<F>.
             let box_ty = inner_ty.clone(); // already Box<F> at this point if called correctly
-            env.insert(
-                inner_p.trim().to_string(),
-                make_ref_type(&box_ty),
-            );
+            env.insert(inner_p.trim().to_string(), make_ref_type(&box_ty));
             return;
         }
 
@@ -1622,25 +1673,24 @@ impl BorrowContext {
             Expr::Literal(Literal::Bool(_)) => Some(Type::Named("bool".to_string())),
             Expr::Tuple(elems) => {
                 let types: Option<Vec<_>> = elems.iter().map(|e| self.infer_type(e, env)).collect();
-                types.map(|ts| if ts.is_empty() { Type::Unit } else { Type::Tuple(ts) })
+                types.map(|ts| {
+                    if ts.is_empty() {
+                        Type::Unit
+                    } else {
+                        Type::Tuple(ts)
+                    }
+                })
             }
             Expr::Call(callee, _) => match callee.as_ref() {
-                Expr::Ident(name) => {
+                Expr::Ident(name) => self
+                    .owner_for_variant_name(name)
+                    .map(Type::Named)
+                    .or_else(|| self.fn_sigs.get(name).map(|(_, _, ret)| ret.clone())),
+                Expr::Path(path, PathType::Namespace) => path.last().and_then(|name| {
                     self.owner_for_variant_name(name)
                         .map(Type::Named)
-                        .or_else(|| {
-                            self.fn_sigs.get(name).map(|(_, _, ret)| ret.clone())
-                        })
-                }
-                Expr::Path(path, PathType::Namespace) => path
-                    .last()
-                    .and_then(|name| {
-                        self.owner_for_variant_name(name)
-                            .map(Type::Named)
-                            .or_else(|| {
-                                self.fn_sigs.get(name).map(|(_, _, ret)| ret.clone())
-                            })
-                    }),
+                        .or_else(|| self.fn_sigs.get(name).map(|(_, _, ret)| ret.clone()))
+                }),
                 _ => None,
             },
             Expr::MethodCall(receiver, method, args) if method == "clone" && args.is_empty() => {
@@ -1654,10 +1704,7 @@ impl BorrowContext {
                 })
             }
             Expr::Parenthesized(inner) => self.infer_type(inner, env),
-            Expr::Block(block) => block
-                .expr
-                .as_ref()
-                .and_then(|e| self.infer_type(e, env)),
+            Expr::Block(block) => block.expr.as_ref().and_then(|e| self.infer_type(e, env)),
             _ => None,
         }
     }
@@ -1688,7 +1735,10 @@ impl BorrowContext {
                         if variant_name == type_name || constructor.trim() == type_name =>
                     {
                         return Some(
-                            fields.iter().map(|f| apply_type_subst(&f.ty, &subst)).collect(),
+                            fields
+                                .iter()
+                                .map(|f| apply_type_subst(&f.ty, &subst))
+                                .collect(),
                         );
                     }
                     TypeDefKind::Struct(_) => {}
@@ -1721,9 +1771,7 @@ impl BorrowContext {
                 return Some(owner.to_string());
             }
         }
-        parts
-            .last()
-            .and_then(|v| self.owner_for_variant_name(v))
+        parts.last().and_then(|v| self.owner_for_variant_name(v))
     }
 
     fn owner_for_variant_name(&self, variant_name: &str) -> Option<String> {
@@ -1805,10 +1853,7 @@ impl BorrowContext {
             if let Statement::Let(ls) = stmt {
                 if let Some(init_expr) = &ls.init {
                     if let Expr::MethodCall(recv, method, args) = init_expr {
-                        if method == "clone"
-                            && args.is_empty()
-                            && ls.name.ends_with("_cap")
-                        {
+                        if method == "clone" && args.is_empty() && ls.name.ends_with("_cap") {
                             if let Expr::Ident(orig) = recv.as_ref() {
                                 captures.push((ls.name.clone(), orig.clone()));
                                 continue;
@@ -1877,7 +1922,6 @@ impl BorrowContext {
             false,
         ))
     }
-
 }
 
 // ── Pattern utilities ─────────────────────────────────────────────────────────
@@ -1972,11 +2016,7 @@ fn collect_closure_binding_usage_stmt(
     }
 }
 
-fn collect_closure_binding_usage_block(
-    block: &Block,
-    name: &str,
-    usage: &mut ClosureBindingUsage,
-) {
+fn collect_closure_binding_usage_block(block: &Block, name: &str, usage: &mut ClosureBindingUsage) {
     let mut shadowed = false;
     for stmt in &block.stmts {
         if shadowed {
@@ -1995,11 +2035,7 @@ fn collect_closure_binding_usage_block(
     }
 }
 
-fn collect_closure_binding_usage_expr(
-    expr: &Expr,
-    name: &str,
-    usage: &mut ClosureBindingUsage,
-) {
+fn collect_closure_binding_usage_expr(expr: &Expr, name: &str, usage: &mut ClosureBindingUsage) {
     if usage.escapes {
         return;
     }
@@ -2133,14 +2169,12 @@ fn expr_has_free_var_from(expr: &Expr, vars: &HashSet<String>) -> bool {
         Expr::Tuple(elems) => elems.iter().any(|e| expr_has_free_var_from(e, vars)),
         Expr::Match { expr, arms } => {
             expr_has_free_var_from(expr, vars)
-                || arms
-                    .iter()
-                    .any(|arm| {
-                        arm.guard
-                            .as_ref()
-                            .map_or(false, |guard| expr_has_free_var_from(guard, vars))
-                            || block_has_free_var_from(&arm.body, vars)
-                    })
+                || arms.iter().any(|arm| {
+                    arm.guard
+                        .as_ref()
+                        .map_or(false, |guard| expr_has_free_var_from(guard, vars))
+                        || block_has_free_var_from(&arm.body, vars)
+                })
         }
         Expr::If {
             condition,
@@ -2167,8 +2201,7 @@ fn expr_has_free_var_from(expr: &Expr, vars: &HashSet<String>) -> bool {
         }
         Expr::Closure(params, body, _) => {
             // Closure params shadow outer vars.
-            let shadowed: HashSet<String> =
-                params.iter().map(|p| closure_param_name(p)).collect();
+            let shadowed: HashSet<String> = params.iter().map(|p| closure_param_name(p)).collect();
             let outer: HashSet<String> = vars.difference(&shadowed).cloned().collect();
             !outer.is_empty() && expr_has_free_var_from(body, &outer)
         }
@@ -2188,7 +2221,11 @@ fn block_has_free_var_from(block: &Block, vars: &HashSet<String>) -> bool {
     for stmt in &block.stmts {
         match stmt {
             Statement::Let(ls) => {
-                if ls.init.as_ref().map_or(false, |i| expr_has_free_var_from(i, vars)) {
+                if ls
+                    .init
+                    .as_ref()
+                    .map_or(false, |i| expr_has_free_var_from(i, vars))
+                {
                     return true;
                 }
             }
@@ -2237,19 +2274,26 @@ fn subst_idents_in_expr(expr: &Expr, subst: &HashMap<String, String>) -> Expr {
         Expr::MethodCall(recv, method, args) => Expr::MethodCall(
             Box::new(subst_idents_in_expr(recv, subst)),
             method.clone(),
-            args.iter().map(|a| subst_idents_in_expr(a, subst)).collect(),
+            args.iter()
+                .map(|a| subst_idents_in_expr(a, subst))
+                .collect(),
         ),
         Expr::Call(callee, args) => Expr::Call(
             Box::new(subst_idents_in_expr(callee, subst)),
-            args.iter().map(|a| subst_idents_in_expr(a, subst)).collect(),
+            args.iter()
+                .map(|a| subst_idents_in_expr(a, subst))
+                .collect(),
         ),
         Expr::Block(block) => Expr::Block(subst_idents_in_block(block, subst)),
         Expr::Parenthesized(inner) => {
             Expr::Parenthesized(Box::new(subst_idents_in_expr(inner, subst)))
         }
-        Expr::Tuple(elems) => {
-            Expr::Tuple(elems.iter().map(|e| subst_idents_in_expr(e, subst)).collect())
-        }
+        Expr::Tuple(elems) => Expr::Tuple(
+            elems
+                .iter()
+                .map(|e| subst_idents_in_expr(e, subst))
+                .collect(),
+        ),
         Expr::BinaryOp(l, op, r) => Expr::BinaryOp(
             Box::new(subst_idents_in_expr(l, subst)),
             op.clone(),
@@ -2386,15 +2430,21 @@ fn apply_type_subst(ty: &Type, subst: &HashMap<String, Type>) -> Type {
         Type::Tuple(types) => {
             Type::Tuple(types.iter().map(|t| apply_type_subst(t, subst)).collect())
         }
-        Type::Array(inner, len) => {
-            Type::Array(Box::new(apply_type_subst(inner, subst)), *len)
+        Type::Array(inner, len) => Type::Array(Box::new(apply_type_subst(inner, subst)), *len),
+        Type::Reference(inner, is_ref, mutable) => {
+            Type::Reference(Box::new(apply_type_subst(inner, subst)), *is_ref, *mutable)
         }
-        Type::Reference(inner, is_ref, mutable) => Type::Reference(
-            Box::new(apply_type_subst(inner, subst)),
-            *is_ref,
-            *mutable,
-        ),
         Type::Slice(inner) => Type::Slice(Box::new(apply_type_subst(inner, subst))),
+        Type::CallableTrait(callable) => Type::CallableTrait(CallableTraitType {
+            qualifier: callable.qualifier.clone(),
+            trait_name: callable.trait_name.clone(),
+            args: callable
+                .args
+                .iter()
+                .map(|arg| apply_type_subst(arg, subst))
+                .collect(),
+            return_type: Box::new(apply_type_subst(&callable.return_type, subst)),
+        }),
         Type::Path(_) | Type::Unit | Type::Never => ty.clone(),
     }
 }
@@ -2721,15 +2771,16 @@ mod tests {
 
         let rewritten = rewrite_test_block(&block);
 
-        assert!(matches!(first_let_init(&rewritten), Expr::Closure(_, _, false)));
+        assert!(matches!(
+            first_let_init(&rewritten),
+            Expr::Closure(_, _, false)
+        ));
     }
 
     #[test]
     fn bclosure_keeps_move_when_returned_as_component() {
-        let block = block_with_closure_binding(Expr::Tuple(vec![
-            Expr::Ident("f".to_string()),
-            lit_i(0),
-        ]));
+        let block =
+            block_with_closure_binding(Expr::Tuple(vec![Expr::Ident("f".to_string()), lit_i(0)]));
 
         let rewritten = rewrite_test_block(&block);
 

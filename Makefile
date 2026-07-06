@@ -16,6 +16,7 @@ OCAMLC                 ?= ocamlc
 OCAMLFIND              ?= ocamlfind
 ISABELLE_EXPORTED_LOCK := $(CURDIR)/scripts/isabelle-exported.Cargo.lock
 OPTIMIZE_DIR           := $(CURDIR)/optimize
+EXPORT_ITEM_COUNTER    := $(CURDIR)/scripts/count-rust-export-items.pl
 ISABELLE_BUILD_LOCK    := $(CURDIR)/.isabelle-build.lock
 ISABELLE_PROJECT_BUILD := isabelle build -v -e -d . $(PROJECT_SESSION)
 ISABELLE_TEST_VERBOSE  := isabelle build -v -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
@@ -87,7 +88,8 @@ gen:
 	  done; \
 	}; \
 	if [ -n "$(DIR)" ] && [ -n "$(Name)" ]; then \
-	  echo ">>> [gen] $(Name)"; \
+	  ITEMS=$$(perl "$(EXPORT_ITEM_COUNTER)" "$(DIR)/$(Name).thy"); \
+	  echo ">>> [gen] $(Name) ($$ITEMS exported definitions)"; \
 	  $(MAKE) build_silent TEST_DIR="$(DIR)" TEST_THEORY="$(Name)"; \
 	  _cargo_run_stage1 "$(DIR)" "$(Name)"; \
 	elif [ -n "$(DIR)" ]; then \
@@ -95,21 +97,25 @@ gen:
 	  if [ -z "$$FILES" ]; then \
 	    echo "No *_Test.thy found under $(DIR)"; exit 1; \
 	  fi; \
-	  SUCCESS=0; FAIL=0; TOTAL=0; FAILED=""; \
+	  SUCCESS=0; FAIL=0; TOTAL=0; SUCCESS_ITEMS=0; FAIL_ITEMS=0; TOTAL_ITEMS=0; FAILED=""; \
 	  for f in $$FILES; do \
 	    D=$$(dirname "$$f"); T=$${f##*/}; T=$${T%.thy}; \
+	    ITEMS=$$(perl "$(EXPORT_ITEM_COUNTER)" "$$f"); \
 	    TOTAL=$$((TOTAL+1)); \
-	    echo ">>> [gen $$TOTAL] $$T"; \
+	    TOTAL_ITEMS=$$((TOTAL_ITEMS+ITEMS)); \
+	    echo ">>> [gen $$TOTAL] $$T ($$ITEMS exported definitions)"; \
 	    if $(MAKE) -s build_silent TEST_DIR="$$D" TEST_THEORY="$$T" && \
 	       _cargo_run_stage1 "$$D" "$$T"; then \
 	      SUCCESS=$$((SUCCESS+1)); \
+	      SUCCESS_ITEMS=$$((SUCCESS_ITEMS+ITEMS)); \
 	    else \
-	      FAIL=$$((FAIL+1)); FAILED="$$FAILED $$T"; \
+	      FAIL=$$((FAIL+1)); FAIL_ITEMS=$$((FAIL_ITEMS+ITEMS)); FAILED="$$FAILED $$T"; \
 	    fi; \
 	  done; \
 	  echo "================================"; \
 	  echo "gen summary ($(DIR)):"; \
-	  echo "  Passed: $$SUCCESS / Failed: $$FAIL / Total: $$TOTAL"; \
+	  echo "  Exported definitions: Passed: $$SUCCESS_ITEMS / Failed: $$FAIL_ITEMS / Total: $$TOTAL_ITEMS"; \
+	  echo "  Theories:             Passed: $$SUCCESS / Failed: $$FAIL / Total: $$TOTAL"; \
 	  if [ -n "$$FAILED" ]; then \
 	    for T in $$FAILED; do echo "    - $$T"; done; \
 	    exit 1; \
@@ -129,10 +135,12 @@ opt:
 	  local dir="$$1" name="$$2"; \
 	  local s1="$$dir/stage1/$$name/export1"; \
 	  local s2="$$dir/stage2/$$name"; \
+	  local items=0; \
+	  if [ -f "$$dir/$$name.thy" ]; then items=$$(perl "$(EXPORT_ITEM_COUNTER)" "$$dir/$$name.thy"); fi; \
 	  if [ ! -d "$$s1" ]; then \
 	    echo "ERROR: stage1 not found at $$s1 — run make gen first"; return 1; \
 	  fi; \
-	  echo ">>> [opt] $$name  stage1 -> stage2"; \
+	  echo ">>> [opt] $$name ($$items exported definitions)  stage1 -> stage2"; \
 	  rm -rf "$$s2"; \
 	  $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
 	    "$$s1" --out-dir "$$s2" || return 1; \
@@ -156,18 +164,23 @@ opt:
 	  if [ -z "$$NAMES" ]; then \
 	    echo "No theories found under $$S1BASE"; exit 1; \
 	  fi; \
-	  SUCCESS=0; FAIL=0; TOTAL=0; FAILED=""; \
+	  SUCCESS=0; FAIL=0; TOTAL=0; SUCCESS_ITEMS=0; FAIL_ITEMS=0; TOTAL_ITEMS=0; FAILED=""; \
 	  for N in $$NAMES; do \
+	    ITEMS=0; \
+	    if [ -f "$(DIR)/$$N.thy" ]; then ITEMS=$$(perl "$(EXPORT_ITEM_COUNTER)" "$(DIR)/$$N.thy"); fi; \
 	    TOTAL=$$((TOTAL+1)); \
+	    TOTAL_ITEMS=$$((TOTAL_ITEMS+ITEMS)); \
 	    if _run_opt "$(DIR)" "$$N"; then \
 	      SUCCESS=$$((SUCCESS+1)); \
+	      SUCCESS_ITEMS=$$((SUCCESS_ITEMS+ITEMS)); \
 	    else \
-	      FAIL=$$((FAIL+1)); FAILED="$$FAILED $$N"; \
+	      FAIL=$$((FAIL+1)); FAIL_ITEMS=$$((FAIL_ITEMS+ITEMS)); FAILED="$$FAILED $$N"; \
 	    fi; \
 	  done; \
 	  echo "================================"; \
 	  echo "opt summary ($(DIR)):"; \
-	  echo "  Passed: $$SUCCESS / Failed: $$FAIL / Total: $$TOTAL"; \
+	  echo "  Exported definitions: Passed: $$SUCCESS_ITEMS / Failed: $$FAIL_ITEMS / Total: $$TOTAL_ITEMS"; \
+	  echo "  Theories:             Passed: $$SUCCESS / Failed: $$FAIL / Total: $$TOTAL"; \
 	  if [ -n "$$FAILED" ]; then \
 	    for N in $$FAILED; do echo "    - $$N"; done; \
 	    exit 1; \
@@ -199,6 +212,8 @@ test:
 	    --manifest-path "$$s2/Cargo.toml" || return 1; \
 	}; \
 	if [ -n "$(DIR)" ] && [ -n "$(Name)" ]; then \
+	  ITEMS=$$(perl "$(EXPORT_ITEM_COUNTER)" "$(DIR)/$(Name).thy"); \
+	  echo ">>> [test] $(Name) ($$ITEMS exported definitions)"; \
 	  $(MAKE) -s build_silent TEST_DIR="$(DIR)" TEST_THEORY="$(Name)"; \
 	  echo ">>> stage1 done: $(Name)"; \
 	  _run_opt "$(DIR)" "$(Name)"; \
@@ -207,25 +222,29 @@ test:
 	  if [ -z "$$FILES" ]; then \
 	    echo "No *_Test.thy found under $(DIR)"; exit 1; \
 	  fi; \
-	  SUCCESS=0; FAIL=0; TOTAL=0; FAILED=""; \
+	  SUCCESS=0; FAIL=0; TOTAL=0; SUCCESS_ITEMS=0; FAIL_ITEMS=0; TOTAL_ITEMS=0; FAILED=""; \
 	  for f in $$FILES; do \
 	    D=$$(dirname "$$f"); T=$${f##*/}; T=$${T%.thy}; \
+	    ITEMS=$$(perl "$(EXPORT_ITEM_COUNTER)" "$$f"); \
 	    TOTAL=$$((TOTAL+1)); \
-	    echo ">>> [test $$TOTAL] $$T"; \
+	    TOTAL_ITEMS=$$((TOTAL_ITEMS+ITEMS)); \
+	    echo ">>> [test $$TOTAL] $$T ($$ITEMS exported definitions)"; \
 	    if $(MAKE) -s build_silent TEST_DIR="$$D" TEST_THEORY="$$T"; then \
 	      echo ">>> stage1 done: $$T"; \
 	      if _run_opt "$$D" "$$T"; then \
 	        SUCCESS=$$((SUCCESS+1)); \
+	        SUCCESS_ITEMS=$$((SUCCESS_ITEMS+ITEMS)); \
 	      else \
-	        FAIL=$$((FAIL+1)); FAILED="$$FAILED $$T"; \
+	        FAIL=$$((FAIL+1)); FAIL_ITEMS=$$((FAIL_ITEMS+ITEMS)); FAILED="$$FAILED $$T"; \
 	      fi; \
 	    else \
-	      FAIL=$$((FAIL+1)); FAILED="$$FAILED $$T"; \
+	      FAIL=$$((FAIL+1)); FAIL_ITEMS=$$((FAIL_ITEMS+ITEMS)); FAILED="$$FAILED $$T"; \
 	    fi; \
 	  done; \
 	  echo "================================"; \
 	  echo "test summary ($(DIR)):"; \
-	  echo "  Passed: $$SUCCESS / Failed: $$FAIL / Total: $$TOTAL"; \
+	  echo "  Exported definitions: Passed: $$SUCCESS_ITEMS / Failed: $$FAIL_ITEMS / Total: $$TOTAL_ITEMS"; \
+	  echo "  Theories:             Passed: $$SUCCESS / Failed: $$FAIL / Total: $$TOTAL"; \
 	  if [ -n "$$FAILED" ]; then \
 	    for T in $$FAILED; do echo "    - $$T"; done; \
 	    exit 1; \

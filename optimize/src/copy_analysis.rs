@@ -256,6 +256,7 @@ impl CopyContext {
             Type::Array(inner, _) => self.type_is_copy_in_env(inner, copy_generics),
             Type::Unit | Type::Never => true,
             Type::Reference(_, _, _) => false,
+            Type::CallableTrait(_) => false,
             Type::Slice(_) => false,
         }
     }
@@ -300,8 +301,10 @@ impl CopyContext {
                     items.push(item);
                     if let Some(specialization) = specialization {
                         // Register the _copy variant's signature so R-Call can redirect to it.
-                        self.functions
-                            .insert(specialization.name.clone(), specialization.return_type.clone());
+                        self.functions.insert(
+                            specialization.name.clone(),
+                            specialization.return_type.clone(),
+                        );
                         self.fn_sigs.insert(
                             specialization.name.clone(),
                             (
@@ -1230,6 +1233,16 @@ fn apply_type_subst(ty: &Type, subst: &HashMap<String, Type>) -> Type {
             Type::Reference(Box::new(apply_type_subst(inner, subst)), *is_ref, *mutable)
         }
         Type::Slice(inner) => Type::Slice(Box::new(apply_type_subst(inner, subst))),
+        Type::CallableTrait(callable) => Type::CallableTrait(CallableTraitType {
+            qualifier: callable.qualifier.clone(),
+            trait_name: callable.trait_name.clone(),
+            args: callable
+                .args
+                .iter()
+                .map(|arg| apply_type_subst(arg, subst))
+                .collect(),
+            return_type: Box::new(apply_type_subst(&callable.return_type, subst)),
+        }),
         Type::Path(_) | Type::Unit | Type::Never => ty.clone(),
     }
 }
@@ -1253,6 +1266,12 @@ fn generic_names_in_type(ty: &Type, out: &mut HashSet<String>) {
         }
         Type::Reference(inner, _, _) | Type::Slice(inner) | Type::Array(inner, _) => {
             generic_names_in_type(inner, out);
+        }
+        Type::CallableTrait(callable) => {
+            for arg in &callable.args {
+                generic_names_in_type(arg, out);
+            }
+            generic_names_in_type(&callable.return_type, out);
         }
     }
 }
@@ -1421,12 +1440,10 @@ fn unify_type(
             _ => false,
         },
         Type::Tuple(ftypes) => match actual {
-            Type::Tuple(atypes) if ftypes.len() == atypes.len() => {
-                ftypes
-                    .iter()
-                    .zip(atypes)
-                    .all(|(f, a)| unify_type(f, a, generic_names, subst))
-            }
+            Type::Tuple(atypes) if ftypes.len() == atypes.len() => ftypes
+                .iter()
+                .zip(atypes)
+                .all(|(f, a)| unify_type(f, a, generic_names, subst)),
             _ => false,
         },
         Type::Unit => matches!(actual, Type::Unit),
@@ -1447,6 +1464,13 @@ fn types_equal(a: &Type, b: &Type) -> bool {
         (Type::Path(p1), Type::Path(p2)) => p1 == p2,
         (Type::Reference(t1, r1, m1), Type::Reference(t2, r2, m2)) => {
             r1 == r2 && m1 == m2 && types_equal(t1, t2)
+        }
+        (Type::CallableTrait(c1), Type::CallableTrait(c2)) => {
+            std::mem::discriminant(&c1.qualifier) == std::mem::discriminant(&c2.qualifier)
+                && c1.trait_name == c2.trait_name
+                && c1.args.len() == c2.args.len()
+                && c1.args.iter().zip(&c2.args).all(|(x, y)| types_equal(x, y))
+                && types_equal(&c1.return_type, &c2.return_type)
         }
         (Type::Slice(t1), Type::Slice(t2)) => types_equal(t1, t2),
         (Type::Array(t1, n1), Type::Array(t2, n2)) => n1 == n2 && types_equal(t1, t2),
