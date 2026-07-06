@@ -64,6 +64,37 @@ fun commas_append prts =
     combine (Pretty.commas prts)
   end
 
+(** Rust layout helpers.  They keep syntactic printers responsible for tokens
+    and centralise only indentation / line breaking for braced Rust forms. **)
+fun comma_lines [] = []
+  | comma_lines [p] = [p]
+  | comma_lines (p :: ps) = Pretty.block [p, str ","] :: comma_lines ps;
+
+fun rust_indent prts = indent 4 (Pretty.chunks prts);
+
+fun rust_parens prts =
+  Pretty.block [str "(", Pretty.block (commas_append prts), str ")"];
+
+fun rust_block header body =
+  Pretty.chunks [Pretty.block [header, str " {"], rust_indent body, str "}"];
+
+fun rust_bare_block body =
+  Pretty.block (str "{ " :: separate (str " ") body @ [str " }"]);
+
+fun rust_inline_block body =
+  Pretty.block (str "{ " :: separate (str " ") body @ [str " }"]);
+
+fun rust_match scrutinee arms =
+  rust_block (Pretty.block [str "match ", scrutinee]) (comma_lines arms);
+
+fun rust_where [] = []
+  | rust_where bounds = [str "where", rust_indent (comma_lines bounds)];
+
+fun rust_fn sig_head bounds body =
+  if null bounds
+  then rust_block sig_head body
+  else Pretty.chunks ([sig_head] @ rust_where bounds @ [str "{", rust_indent body, str "}"]);
+
 (** Convert CamelCase identifier to snake_case (for Rust function/variable names). **)
 fun to_snake_case s =
   let
@@ -499,16 +530,18 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             then
               if phantom_count = 0
               then [(str o deresolve_base) sym]
-              else [(str o deresolve_base) sym, enum "," "(" ")" phantom_args]
+              else [Pretty.block [(str o deresolve_base) sym, str " ", rust_parens phantom_args]]
             else if length ts = wanted
             then
-              [(str o deresolve_base) sym,
-               enum "," "(" ")"
-                 (map
-                   (fn (t, need_box) =>
-                     print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars NOBR t)
-                   (ListPair.zip (ts, need_box_list))
-                  @ phantom_args)]
+              [Pretty.block [
+                (str o deresolve_base) sym,
+                str " ",
+                rust_parens
+                  (map
+                    (fn (t, need_box) =>
+                      print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars NOBR t)
+                    (ListPair.zip (ts, need_box_list))
+                   @ phantom_args)]]
             else 
               let 
                 val saturated_t = Code_Thingol.saturated_application wanted app
@@ -668,7 +701,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   generic_prefixs
                   @ funcname
                   :: the_list turbofish
-                   @ [enum "," "(" ")"
+                   @ [rust_parens
                        (map
                          (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
                        ts1)]
@@ -682,7 +715,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                     str "(*"
                     :: Pretty.block call1
                     :: str ")"
-                    :: [enum "," "(" ")"
+                    :: [rust_parens
                           (map
                             (print_term_gen is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR)
                           ts2)]
@@ -761,8 +794,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             val all_irrefutable = List.all (pat_irrefutable o fst o fst) binds;
           in
             if all_irrefutable then
-              Pretty.block_enclose (str "{", str "}")
-              (ps @ [print_term_app is_pseudo_fun some_thm vars' NOBR body])
+              rust_bare_block (ps @ [print_term_app is_pseudo_fun some_thm vars' NOBR body])
             else
               (case case_expr of {term = t, typ = ty, clauses = clauses, ...} =>
                 let
@@ -777,16 +809,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       )
                     end
                 in
-                  Pretty.block_enclose(
-                    Pretty.block(
-                      [str "match ",
-                      print_term_app is_pseudo_fun some_thm vars NOBR t,
-                      str " {"]
-                    ),
-                    str "}"
-                  )
-                  (commas_append (map print_select clauses
-                    @ [str "_ => panic!(\"non-exhaustive match\")"]))
+                  rust_match
+                    (print_term_app is_pseudo_fun some_thm vars NOBR t)
+                    (map print_select clauses
+                      @ [str "_ => panic!(\"non-exhaustive match\")"])
                 end)
           end     
         (*match block*)     
@@ -803,21 +829,15 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 )
               end;
           in
-            Pretty.block_enclose(
-              Pretty.block(
-                [str "match ",
-                print_term_app is_pseudo_fun some_thm vars NOBR t,
-                str " {"]
-              ),
-              str "}"
-            )
             (* HOL functions may be partial (e.g. `nth [] n` has no equation), so
                the clauses need not cover every constructor; Rust requires total
                matches. Add a catch-all that panics on the undefined inputs. On a
                match that is already exhaustive this arm is unreachable — a warning
                (suppressed), not an error. *)
-            (commas_append (map print_select clauses
-              @ [str "_ => panic!(\"non-exhaustive match\")"]))
+            rust_match
+              (print_term_app is_pseudo_fun some_thm vars NOBR t)
+              (map print_select clauses
+                @ [str "_ => panic!(\"non-exhaustive match\")"])
           end
     (** Print a `move` closure with explicit capture-by-clone.
         For each outer variable v that occurs free in the body 
@@ -848,22 +868,22 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         val (ps, vars') =
           fold_map (fn (pat, ty) => print_bind_typed is_pseudo_fun some_thm BR pat ty) binds vars_capped;
         val typs = map ((print_typ NOBR) o snd) binds;
+        val params =
+          commas_append
+            (map (fn (p1, p2) => Pretty.block [p1, str ": ", p2])
+              (ListPair.zip (ps, typs)))
+        val closure_body =
+          print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars' NOBR t'
         (* Wrap in Rc::new so the closure value has the cloneable trait-object
            type Rc<dyn Fn(..)>. The unsizing coercion Rc<{anon}> -> Rc<dyn Fn>
            happens at the enclosing coercion site (function return, constructor
            argument, typed let), so no `as`/annotation is emitted here. *)
         val closure_pretty =
-          Pretty.block_enclose (
-            Pretty.block (
-              str "Rc::new(move |"
-              :: commas_append
-                (map (fn (p1, p2) => Pretty.block [p1, str ": ", p2])
-                  (ListPair.zip (ps, typs)))
-              @ [str "| {"]
-            ),
-            str "})"
+          Pretty.block (
+            str "Rc::new(move |"
+            :: params
+            @ [str "| { ", closure_body, str " })"]
           )
-          ([print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars' NOBR t'])
       in
         if null captured_vars then closure_pretty
         else
@@ -874,8 +894,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   str ("let " ^ vcap ^ " = " ^ (rv_lookup_var vars v) ^ ".clone();"))
                 captured_vars cap_names
           in
-            Pretty.block_enclose (str "{", str "}")
-              (cap_lets @ [closure_pretty])
+            rust_inline_block (cap_lets @ [closure_pretty])
           end
       end;          
     (** Print a `val name : typescheme` signature line. **)
@@ -893,9 +912,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           map (fn v => str ("PhantomData<" ^ to_upper v ^ ">")) phantoms
         fun print_co ((co, _), []) =
               if null phantoms then str (deresolve_const co)
-              else concat [
+              else Pretty.block [
                 str (deresolve_const co),
-                Pretty.block [str "(", enum "," "" "" phantom_fields, str ")"]
+                str " ",
+                rust_parens phantom_fields
               ]
           | print_co ((co, _), tys) =
             let
@@ -907,30 +927,22 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 (if needbox then box else I) (print_typ (INFX (2, X)) ty)
               val data_fields = map print_field (ListPair.zip (tys, boxes'))
             in
-              concat [
+              Pretty.block [
                 str (deresolve_const co),
-                Pretty.block(
-                  [
-                  str "(",
-                  enum "," "" "" (data_fields @ phantom_fields),
-                  str")"]
-                )
+                str " ",
+                rust_parens (data_fields @ phantom_fields)
               ]
             end;
       in
-        Pretty.block_enclose (
-          Pretty.chunks([
-            str "#[derive(Clone)]",
-            Pretty.block (
-              [str definer,
+        Pretty.chunks [
+          str "#[derive(Clone)]",
+          rust_block
+            (Pretty.block [
+              str definer,
               Pretty.brk 1,
-              print_tyco_expr (Type_Constructor tyco, map ITyVar vs),
-              str " { "]
-            )
-          ]),         
-          str "}"          
-        )
-        (commas_append (map print_co cos))
+              print_tyco_expr (Type_Constructor tyco, map ITyVar vs)])
+            (comma_lines (map print_co cos))
+        ]
       end;
     (** Print a function definition.
         Emits an fn signature with generics, trait bounds, and either a direct
@@ -983,23 +995,21 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                         else SOME (str (s^" : Clone + 'static")))
                       generic_params
                   in
-                     commas_append ((print_vs_traits vs) @ other_traits)
+                     (print_vs_traits vs) @ other_traits
                   end
               in
                 pair
                 (if List.null generic_params
-                then str ""
-                else enum "," "<" ">" (map str generic_params))
+                then []
+                else [Pretty.brk 1, enum "," "<" ">" (map str generic_params)])
                 (if List.null generic_params
-                then str ""
-                else
-                  Pretty.block_enclose (str "where",str "")
-                  (print_traits vs generic_params))
+                then []
+                else print_traits vs generic_params)
               end;
             (* impl methods carry no generics/where-clause of their own; the bounds
                live on the surrounding impl header (printed by the Inst stmt). *)
-            val (generics, traits) =
-              if is_impl then (str "", str "")
+            val (generics, trait_bounds) =
+              if is_impl then ([], [])
               else print_generics_and_traits vs ty;
             (** Print a single equation as a match arm: "pattern => expr".
                 If is_degenerated (single clause), prints just the expression body. **)
@@ -1027,7 +1037,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             (** Print the function signature and body:
                 generates dummy parameter names, type annotations, return type,
                 and dispatches to direct expr / single match / multi match body. **)
-            fun print_eqns (vs_ty as (vs, ty)) is_pseudo eqs =
+            fun print_eqns prolog (vs_ty as (vs, ty)) is_pseudo eqs =
                   let
                     val vars0 = reserved
                           |> intro_base_names_for (is_none o const_syntax)
@@ -1063,61 +1073,41 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       in
                         not (fold (fn t => fn acc => (List.exists (fn t' => t' = t) pattern_terms) orelse acc) expr_terms false)
                       end
+                    val sig_head =
+                      Pretty.block [
+                        prolog,
+                        Pretty.brk_indent 1 2,
+                        enum "," "(" ")" dummy_parms_with_typs,
+                        str " -> ",
+                        ret_typ
+                      ]
+                    val scrutinee = to_tuple dummy_parms ((Pretty.block o commas) dummy_parms)
+                    val body =
+                      (case eqs
+                        of [eq as ((ts, t), _)] =>
+                            if List.all is_var_pattern ts andalso is_const_expr ts t
+                            then print_eqn true eq
+                            else rust_match scrutinee
+                              [print_eqn false eq,
+                               str "_ => panic!(\"non-exhaustive match\")"]
+                         | _ =>
+                            (* catch-all: HOL functions may be partial, but Rust matches
+                               must be total (e.g. `nth [] n` has no clause). *)
+                            rust_match scrutinee
+                              (map (print_eqn false) eqs
+                                @ [str "_ => panic!(\"non-exhaustive match\")"]))
                   in
-                    Pretty.block_enclose(
-                      Pretty.block (
-                        (str "("
-                        :: Pretty.commas dummy_parms_with_typs)
-                        @ str ") -> "
-                        :: ret_typ
-                        :: Pretty.fbrk
-                        :: traits
-                        :: [str " {"]
-                      ),
-                      str "}"
-                    )
-                    ([(case eqs
-                    of [eq as ((ts, t), _)] =>
-                    if List.all is_var_pattern ts andalso is_const_expr ts t
-                    then (print_eqn true eq)
-                    else Pretty.block (
-                        str "match "
-                        :: to_tuple dummy_parms ((Pretty.block o commas) dummy_parms)
-                        :: str "{"
-                        :: print_eqn false eq
-                        (* catch-all for a partial HOL function (refutable single
-                           clause that need not cover every input); see the ICase
-                           match printer. *)
-                        :: str ", _ => panic!(\"non-exhaustive match\")"
-                        :: [str "}"]
-                      )
-                    | _ =>
-                    ( Pretty.block_enclose (
-                        Pretty.block (
-                          (str "match"
-                          :: Pretty.brk 1
-                          :: to_tuple dummy_parms ((Pretty.block o commas) dummy_parms)
-                          :: Pretty.brk 1
-                          :: [str "{"])
-                        ),
-                        str "}"
-                      )
-                      (* catch-all: HOL functions may be partial, but Rust matches
-                         must be total (e.g. `nth [] n` has no clause). *)
-                      (commas_append (map (print_eqn false) eqs
-                        @ [str "_ => panic!(\"non-exhaustive match\")"]))
-                    ))])
+                    rust_fn sig_head trait_bounds [body]
                   end;
             val prolog =
               case impl_method
-               of NONE => concat [str ("pub "^definer), (str o deresolve_const) const, generics]
-                | SOME method_name => (concat o map str) [definer, method_name]
+               of NONE =>
+                    Pretty.block ([str ("pub "^definer), Pretty.brk 1,
+                      (str o deresolve_const) const] @ generics)
+                | SOME method_name => Pretty.block [str definer, Pretty.brk 1, str method_name]
           in pair
             (print_val_decl print_typscheme (Constant const, vs_ty))
-            (concat (
-              prolog
-              :: [print_eqns vs_ty (is_pseudo_fun (Constant const)) eqs]
-            ))
+            (print_eqns prolog vs_ty (is_pseudo_fun (Constant const)) eqs)
           end;
     (** Top-level statement dispatcher: routes each stmt variant to its printer.
         Exc -> exception stub, Val -> single binding, Funs -> function group,
@@ -1149,25 +1139,21 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             val generics =
               if List.null vs then str ""
               else enum "," "<" ">" (map (str o to_upper o fst) vs)
-            val traits =
-              if List.null vs then str ""
-              else Pretty.block_enclose (str "where", str "") (commas_append (map print_vs_trait vs))
+            val trait_bounds =
+              if List.null vs then [] else map print_vs_trait vs
+            val sig_head =
+              Pretty.block [
+                str "pub fn ",
+                str (deresolve_const const),
+                generics,
+                enum "," "(" ")" params,
+                str " -> ",
+                ret_typ
+              ]
           in pair
             [print_val_decl print_typscheme (Constant const, vs_ty)]
-            (Pretty.block_enclose(
-              Pretty.block (
-                str "pub fn "
-                :: str (deresolve_const const)
-                :: generics
-                :: enum "," "(" ")" params
-                :: str " -> "
-                :: ret_typ
-                :: Pretty.fbrk
-                :: traits
-                :: [str " {"]
-              ),
-              str "}"
-            ) [Pretty.block [str "panic!(", str (print_rust_string const), str ")"]])
+            (rust_fn sig_head trait_bounds
+              [Pretty.block [str "panic!(", str (print_rust_string const), str ")"]])
           end
       | print_stmt _ (Val binding) =
           let
@@ -1247,15 +1233,12 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             fun print_trait_method (class, ty) =
               print_trait_typ class ty v
             val trait_decl_p =
-              Pretty.block_enclose(
-                Pretty.block(
-                  str "pub trait "
-                  :: print_dicttyp (class, ITyVar v)
-                  :: print_super_traits classrels
-                  :: [str " {"]),
-                str "}"
-              )
-              (map print_trait_method classparams)
+              rust_block
+                (Pretty.block [
+                  str "pub trait ",
+                  print_dicttyp (class, ITyVar v),
+                  print_super_traits classrels])
+                (map print_trait_method classparams)
             (** A class with no parameters is an empty marker trait (only a bundle
                 of superclasses). Isabelle knows which types inhabit it but emits
                 no instance methods, so the per-type `impl` is never reconstructed
@@ -1289,11 +1272,14 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
      | print_stmt _ (Inst ((class, tyco), (vs, methods))) =
           let
             (** "impl<A : Clone + Bound, ..> Class for Tyco<A, ..>" header. **)
-            val header = concat [
+            val header = Pretty.block [
               str "impl",
+              if null vs then str "" else Pretty.brk 1,
               print_impl_generics vs,
+              Pretty.brk_indent 1 2,
               str (deresolve_class class),
-              str " for ",
+              str " for",
+              Pretty.brk_indent 1 2,
               print_tyco_expr (Type_Constructor tyco, map (ITyVar o fst) vs)
             ]
             (** Fetch and eta-normalize the implementing constant's equations
@@ -1361,8 +1347,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       all_cps)
           in pair
             []
-            (Pretty.block_enclose (Pretty.block [header, str " {"], str "}")
-              (map print_method methods @ stub_methods))
+            (rust_block header (map print_method methods @ stub_methods))
           end;
   in print_stmt end;
 
