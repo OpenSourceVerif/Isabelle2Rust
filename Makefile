@@ -12,6 +12,7 @@ HOL_GCD_THEORY ?= Code_Test_Rust
 HOL_STRESS_SESSION ?= Rust-HOL-Codegenerator_Test
 
 CARGO                  ?= cargo
+ISABELLE_CARGO         ?= $(HOME)/.cargo/bin/cargo
 OCAMLC                 ?= ocamlc
 OCAMLFIND              ?= ocamlfind
 ISABELLE_EXPORTED_LOCK := $(CURDIR)/scripts/isabelle-exported.Cargo.lock
@@ -21,6 +22,8 @@ ISABELLE_BUILD_LOCK    := $(CURDIR)/.isabelle-build.lock
 ISABELLE_PROJECT_BUILD := isabelle build -v -e -d . $(PROJECT_SESSION)
 ISABELLE_TEST_VERBOSE  := isabelle build -v -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
 ISABELLE_TEST_SILENT   := isabelle build -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
+
+export ISABELLE_CARGO
 
 WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = 300]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "$(TEST_DIR)"' '  theories [document = false]' '    Rust_Setup' '    Rust_BigInt_Int_Setup' '    Rust_BigInt_Nat_Setup' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
 
@@ -303,16 +306,15 @@ targeted:
 	TD="tests_targeted"; \
 	FILES=$$(find "$$TD" -name '*_Test.thy' -type f | sort); \
 	if [ -z "$$FILES" ]; then echo "No *_Test.thy under $$TD"; exit 0; fi; \
-	SUCCESS=0; FAIL=0; SKIP=0; TOTAL=0; FAILED=""; \
+	SUCCESS=0; FAIL=0; TOTAL=0; SKIPPED=0; FAILED=""; \
 	for f in $$FILES; do \
 	  D=$$(dirname "$$f"); T=$${f##*/}; T=$${T%.thy}; \
-	  TOTAL=$$((TOTAL+1)); \
-	  ITEMS=$$(perl "$(EXPORT_ITEM_COUNTER)" "$$f"); \
-	  if [ "$$ITEMS" -eq 0 ]; then \
-	    SKIP=$$((SKIP+1)); \
-	    echo ">>> [$$TOTAL] $$D/$$T (0 exported definitions) -- skipped"; \
+	  if ! grep -Eq '^[[:space:]]*export_code([[:space:]]|$$)' "$$f"; then \
+	    SKIPPED=$$((SKIPPED+1)); \
+	    echo ">>> [skip: no export_code] $$D/$$T"; \
 	    continue; \
 	  fi; \
+	  TOTAL=$$((TOTAL+1)); \
 	  echo ">>> [$$TOTAL] $$D/$$T"; \
 	  if $(MAKE) -s build_silent TEST_DIR="$$D" TEST_THEORY="$$T" && \
 	     _cargo_run_stage1 "$$D" "$$T"; then \
@@ -323,7 +325,7 @@ targeted:
 	done; \
 	echo "================================"; \
 	echo "Targeted summary:"; \
-	echo "  Passed: $$SUCCESS / Failed: $$FAIL / Skipped: $$SKIP / Total: $$TOTAL"; \
+	echo "  Passed: $$SUCCESS / Failed: $$FAIL / Skipped (no export_code): $$SKIPPED / Total: $$TOTAL"; \
 	if [ -n "$$FAILED" ]; then \
 	  echo "  Failed tests:"; \
 	  for T in $$FAILED; do echo "    - $$T"; done; \
@@ -354,10 +356,24 @@ hol-gcd:
 	fi; \
 	RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) run --locked --manifest-path "$$CARGO_TOML"
 
+# Phase A debug scaffold: export the broad HOL crate to disk, then cargo build it
+# with failures tolerated (build correctness NOT required while iterating).  In
+# Phase C this reverts to a plain `isabelle build ... checking Rust`.
 hol-stress:
-	@echo "HOL-Codegenerator stress test is not wired yet."
-	@echo "Expected entry point once Generate/Candidates are complete:"
-	@echo "  isabelle build -v -e -d . $(HOL_STRESS_SESSION)"
+	@echo ">>> Building HOL stress export ($(HOL_STRESS_SESSION))..."
+	isabelle build -v -e -d . $(HOL_STRESS_SESSION)
+
+	@STRESS_DIR="$(HOL_DIR)/stage1/Generate/export1"; \
+	CARGO_TOML="$$STRESS_DIR/Cargo.toml"; \
+	if [ ! -f "$$CARGO_TOML" ]; then \
+	  echo "ERROR: $$CARGO_TOML not found. Serialization likely aborted (see build log)."; \
+	  exit 1; \
+	fi; \
+	if [ ! -f "$$STRESS_DIR/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
+	  cp "$(ISABELLE_EXPORTED_LOCK)" "$$STRESS_DIR/Cargo.lock"; \
+	fi; \
+	echo ">>> Running cargo build (failures tolerated)..."; \
+	RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --manifest-path "$$CARGO_TOML" || true
 
 
 # sbpf macro validation:
@@ -459,7 +475,7 @@ help:
 	@echo "  hol-gcd"
 	@echo "      Build and run the HOL gcd smoke test. Default: HOL_GCD_THEORY=$(HOL_GCD_THEORY)."
 	@echo "  hol-stress"
-	@echo "      Placeholder for the HOL-Codegenerator pressure test session."
+	@echo "      Run the Rust HOL-Codegenerator pressure test session."
 	@echo "  hol"
 	@echo "      Alias for hol-gcd."
 	@echo "  macro_sbpf [REBUILD=1]"
