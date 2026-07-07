@@ -276,9 +276,14 @@ targeted:
 	TD="tests_targeted"; \
 	FILES=$$(find "$$TD" -name '*_Test.thy' -type f | sort); \
 	if [ -z "$$FILES" ]; then echo "No *_Test.thy under $$TD"; exit 0; fi; \
-	SUCCESS=0; FAIL=0; TOTAL=0; FAILED=""; \
+	SUCCESS=0; FAIL=0; TOTAL=0; SKIPPED=0; FAILED=""; \
 	for f in $$FILES; do \
 	  D=$$(dirname "$$f"); T=$${f##*/}; T=$${T%.thy}; \
+	  if ! grep -Eq '^[[:space:]]*export_code([[:space:]]|$$)' "$$f"; then \
+	    SKIPPED=$$((SKIPPED+1)); \
+	    echo ">>> [skip: no export_code] $$D/$$T"; \
+	    continue; \
+	  fi; \
 	  TOTAL=$$((TOTAL+1)); \
 	  echo ">>> [$$TOTAL] $$D/$$T"; \
 	  if $(MAKE) -s build_silent TEST_DIR="$$D" TEST_THEORY="$$T" && \
@@ -290,7 +295,7 @@ targeted:
 	done; \
 	echo "================================"; \
 	echo "Targeted summary:"; \
-	echo "  Passed: $$SUCCESS / Failed: $$FAIL / Total: $$TOTAL"; \
+	echo "  Passed: $$SUCCESS / Failed: $$FAIL / Skipped (no export_code): $$SKIPPED / Total: $$TOTAL"; \
 	if [ -n "$$FAILED" ]; then \
 	  echo "  Failed tests:"; \
 	  for T in $$FAILED; do echo "    - $$T"; done; \
