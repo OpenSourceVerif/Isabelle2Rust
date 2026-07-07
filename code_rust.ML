@@ -41,7 +41,16 @@ datatype stmt =
   | Funs of (Code_Namespace.export * binding) list * Code_Symbol.T list
   | Datas of (string * (vname list * ((string * vname list) * itype list) list)) list
   | Class of string * (vname * ((class * class) list * (string * itype) list))
-  | Inst of (class * string) * ((vname * sort) list * (string * Code_Symbol.T) list);
+  | Inst of (class * string) * ((vname * sort) list * (string * Code_Symbol.T) list)
+  (* A bundle of reconstructed impls emitted in a SINGLE statement slot.
+     Code_Namespace.hierarchical_program requires modify_stmts to return no more
+     entries than it received (code_namespace.ML:423 pads with a `replicate` that
+     raises Subscript on a negative count). A datatype's missing superclass-closure
+     impls are "extra" statements with no input sym of their own, so a small
+     datatype group (e.g. single-constructor `RBT.rbt` needing two closures) would
+     overflow. Packing every closure impl of a group into one InstGroup keeps the
+     datatype group's output at two statements (Datas + InstGroup). *)
+  | InstGroup of ((class * string) * ((vname * sort) list * (string * Code_Symbol.T) list)) list;
 
 (** Print a product type (tuple), returning NONE for empty lists. **)
 fun print_product _ [] = NONE
@@ -1109,6 +1118,98 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             (print_val_decl print_typscheme (Constant const, vs_ty))
             (print_eqns prolog vs_ty (is_pseudo_fun (Constant const)) eqs)
           end;
+    (** Render one reconstructed `impl Trait for Type { .. }` block.
+        Factored out of the Inst printer so InstGroup can emit several impls in a
+        single statement slot (see the InstGroup datatype comment). **)
+    fun print_inst_impl ((class, tyco), (vs, methods)) =
+          let
+            (** "impl<A : Clone + Bound, ..> Class for Tyco<A, ..>" header. **)
+            val header = Pretty.block [
+              str "impl",
+              if null vs then str "" else Pretty.brk 1,
+              print_impl_generics vs,
+              Pretty.brk_indent 1 2,
+              str (deresolve_class class),
+              str " for",
+              Pretty.brk_indent 1 2,
+              print_tyco_expr (Type_Constructor tyco, map (ITyVar o fst) vs)
+            ]
+            (** Fetch and eta-normalize the implementing constant's equations
+                from the (untouched) program, so its body can be inlined as the
+                trait method. Mirrors binding_of_stmt's eta-expansion. **)
+            fun method_function const_sym =
+              case lookup_constant_fun const_sym
+               of SOME ((tysm as (mvs, mty), raw_eqs), _) =>
+                    let
+                      val eqs = filter (snd o snd) raw_eqs
+                      val eqs' =
+                        if null (filter_out (null o snd) mvs)
+                        then case eqs
+                          of [(([], t), some_thm)] =>
+                              if (not o null o fst o Code_Thingol.unfold_fun) mty
+                              then [(([IVar (SOME "x")], t `$ IVar (SOME "x")), some_thm)]
+                              else eqs
+                           | _ => eqs
+                        else eqs
+                    in SOME (tysm, eqs') end
+                | NONE => NONE
+            fun print_method (classparam, method_sym) =
+              let
+                val const_s = (fn Constant s => s | sym => deresolve sym) method_sym
+                (* A method name inside `impl Trait for T { fn .. }` must be the
+                   bare trait-method name, never crate-qualified. *)
+                val method_name = deresolve_base (Constant classparam)
+              in
+                case method_function method_sym
+                 of SOME fb =>
+                      snd (print_def (K false) false "fn" (SOME method_name) (Function (const_s, fb)))
+                  | NONE => str ("/* unresolved instance method "^method_name^" */")
+              end
+            (** Fill in the class methods this instance does not code-generate as a
+                `Fun`. Two cases:
+                * the method is realised by a nullary data constructor (e.g.
+                  `0::int`): emit `fn m(..) -> Self { Tyco::Variant }`, taking the
+                  constructor from `constr_method_of`;
+                * otherwise Isabelle simply did not emit it (only methods reachable
+                  from the export root are generated, e.g. word uses only a subset
+                  of semiring_bit_operations). Rust still requires every trait
+                  method, so emit `fn m(..) -> Self { panic!(..) }`; being
+                  unreachable, the panic is dead.
+                The signature is taken from the class's classparam type with the
+                class type variable mapped to Self. **)
+            (* An instance method whose implementing constant carries NO code
+               equation (e.g. topology's non-executable `open` for the product
+               space: `open_prod` has eqs=[]) cannot be printed as a `fn` body --
+               print_eqns -> Code_Printer.aux_params does `hd []` and raises Empty.
+               Treat it exactly like a method Isabelle never emitted: drop it from
+               the real methods so the stub path below fills it with a panic stub
+               of the right signature. *)
+            fun method_has_body method_sym =
+              (case method_function method_sym of SOME (_, eqs) => not (null eqs) | NONE => false)
+            val real_methods = filter (method_has_body o snd) methods
+            val provided_cps = map fst real_methods
+            val stub_methods =
+              (case lookup_class_methods class of
+                  NONE => []
+                | SOME (cls_v, all_cps) =>
+                    map_filter (fn (cp, mty) =>
+                      if member (op =) provided_cps cp then NONE
+                      else
+                        let
+                          val nm = deresolve_base (Constant cp)
+                          val tail =
+                            (case constr_method_of cp tyco of
+                                SOME csym =>
+                                  [str (" { " ^ tyco_name_str tyco
+                                        ^ "::" ^ deresolve_base csym ^ " }")]
+                              | NONE =>
+                                  [str (" { panic!(\"unimplemented instance method: "
+                                        ^ nm ^ "\") }")])
+                        in SOME (print_method_sig nm mty cls_v tail) end)
+                      all_cps)
+          in
+            rust_block header (map print_method real_methods @ stub_methods)
+          end;
     (** Top-level statement dispatcher: routes each stmt variant to its printer.
         Exc -> exception stub, Val -> single binding, Funs -> function group,
         Datas -> enum declarations, Class -> trait declaration, Inst -> impl block. **)
@@ -1269,86 +1370,11 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               else [concat [str "type", print_dicttyp (class, ITyVar v)]])
           body_p
           end
-     | print_stmt _ (Inst ((class, tyco), (vs, methods))) =
-          let
-            (** "impl<A : Clone + Bound, ..> Class for Tyco<A, ..>" header. **)
-            val header = Pretty.block [
-              str "impl",
-              if null vs then str "" else Pretty.brk 1,
-              print_impl_generics vs,
-              Pretty.brk_indent 1 2,
-              str (deresolve_class class),
-              str " for",
-              Pretty.brk_indent 1 2,
-              print_tyco_expr (Type_Constructor tyco, map (ITyVar o fst) vs)
-            ]
-            (** Fetch and eta-normalize the implementing constant's equations
-                from the (untouched) program, so its body can be inlined as the
-                trait method. Mirrors binding_of_stmt's eta-expansion. **)
-            fun method_function const_sym =
-              case lookup_constant_fun const_sym
-               of SOME ((tysm as (mvs, mty), raw_eqs), _) =>
-                    let
-                      val eqs = filter (snd o snd) raw_eqs
-                      val eqs' =
-                        if null (filter_out (null o snd) mvs)
-                        then case eqs
-                          of [(([], t), some_thm)] =>
-                              if (not o null o fst o Code_Thingol.unfold_fun) mty
-                              then [(([IVar (SOME "x")], t `$ IVar (SOME "x")), some_thm)]
-                              else eqs
-                           | _ => eqs
-                        else eqs
-                    in SOME (tysm, eqs') end
-                | NONE => NONE
-            fun print_method (classparam, method_sym) =
-              let
-                val const_s = (fn Constant s => s | sym => deresolve sym) method_sym
-                (* A method name inside `impl Trait for T { fn .. }` must be the
-                   bare trait-method name, never crate-qualified. *)
-                val method_name = deresolve_base (Constant classparam)
-              in
-                case method_function method_sym
-                 of SOME fb =>
-                      snd (print_def (K false) false "fn" (SOME method_name) (Function (const_s, fb)))
-                  | NONE => str ("/* unresolved instance method "^method_name^" */")
-              end
-            (** Fill in the class methods this instance does not code-generate as a
-                `Fun`. Two cases:
-                * the method is realised by a nullary data constructor (e.g.
-                  `0::int`): emit `fn m(..) -> Self { Tyco::Variant }`, taking the
-                  constructor from `constr_method_of`;
-                * otherwise Isabelle simply did not emit it (only methods reachable
-                  from the export root are generated, e.g. word uses only a subset
-                  of semiring_bit_operations). Rust still requires every trait
-                  method, so emit `fn m(..) -> Self { panic!(..) }`; being
-                  unreachable, the panic is dead.
-                The signature is taken from the class's classparam type with the
-                class type variable mapped to Self. **)
-            val provided_cps = map fst methods
-            val stub_methods =
-              (case lookup_class_methods class of
-                  NONE => []
-                | SOME (cls_v, all_cps) =>
-                    map_filter (fn (cp, mty) =>
-                      if member (op =) provided_cps cp then NONE
-                      else
-                        let
-                          val nm = deresolve_base (Constant cp)
-                          val tail =
-                            (case constr_method_of cp tyco of
-                                SOME csym =>
-                                  [str (" { " ^ tyco_name_str tyco
-                                        ^ "::" ^ deresolve_base csym ^ " }")]
-                              | NONE =>
-                                  [str (" { panic!(\"unimplemented instance method: "
-                                        ^ nm ^ "\") }")])
-                        in SOME (print_method_sig nm mty cls_v tail) end)
-                      all_cps)
-          in pair
-            []
-            (rust_block header (map print_method methods @ stub_methods))
-          end;
+     | print_stmt _ (Inst inst) = pair [] (print_inst_impl inst)
+       (* Emit every bundled closure impl into this single statement slot
+          (see the InstGroup datatype comment for why they are bundled). *)
+     | print_stmt _ (InstGroup insts) =
+          pair [] (Pretty.chunks2 (map print_inst_impl insts));
   in print_stmt end;
 
 (** print module **)
@@ -1522,15 +1548,24 @@ fun rust_program_of_program ctxt module_name reserved identifiers (inst_method_s
       let
         val datas = map_filter
           (fn (Type_Constructor tyco, (export, Code_Thingol.Datatype stmt)) => SOME (export, (tyco, stmt)) | _ => NONE) stmts
-        (* Emit each datatype's missing superclass-closure impls right beside it.
-           A datatype is declared in exactly one group, so this needs no
-           cross-group de-duplication; closure_inst_data is already distinct. *)
-        val closure_stmts =
-          maps (fn (export, (tyco, _)) =>
+        (* Emit this group's missing superclass-closure impls right beside its
+           datatypes.  A datatype is declared in exactly one group, so this needs
+           no cross-group de-duplication; closure_inst_data is already distinct.
+           They are bundled into ONE InstGroup statement rather than one Inst each:
+           Code_Namespace.hierarchical_program forbids modify_stmts from returning
+           more entries than it received, and a small datatype group (e.g.
+           single-constructor `RBT.rbt` needing two closures) has fewer input syms
+           than it would produce as separate impls.  Bundling caps the group's
+           output at two statements (Datas + InstGroup). *)
+        val closure_insts =
+          maps (fn (_, (tyco, _)) =>
             map_filter (fn (cls, t, vs) =>
-              if t = tyco then SOME (SOME (export, Inst ((cls, t), (vs, [])))) else NONE)
+              if t = tyco then SOME ((cls, t), (vs, [])) else NONE)
               closure_inst_data)
             datas
+        val closure_stmts =
+          if null closure_insts then []
+          else [SOME (Code_Namespace.join_exports (map fst datas), InstGroup closure_insts)]
       in
         if null datas then [] (*for abstract types wrt. code_reflect*)
         else (datas
@@ -1689,8 +1724,11 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         instances; an UNmapped type keys on its own (distinct) name. **)
     fun canon_tyco t =
       (case tyco_syntax t of
-          SOME (n, pr) => "\^E" ^ Pretty.unformatted_string_of
-            (pr (fn _ => fn _ => Pretty.str "_") NOBR (replicate n (ITyVar "_")))
+          SOME (n, pr) =>
+            (("\^E" ^ Pretty.unformatted_string_of
+                (pr (fn _ => fn _ => Pretty.str "_") NOBR (replicate n (ITyVar "_"))))
+              handle Subscript =>
+                error ("DEBUG canon_tyco Subscript: tyco=" ^ t ^ " n=" ^ string_of_int n))
         | NONE => t);
     (** One impl per instance, keyed by a representative method constant; the
         Inst payload carries (class, tyco), the instance vs, and every method. **)
@@ -2176,15 +2214,22 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         val _ = tracing ("[Thingol] "
           ^ Code_Debug_Info.print_debug_info_sym sym ^ ": "
           ^ Code_Debug_Info.print_debug_info_thingol_stmt (get_node program sym))
+        val r = Exn.result (fn () =>
+          (print_rust_stmt
+            tyco_syntax const_syntax (make_vars reserved_syms)
+            (Code_Thingol.is_constr program) (modify_deresolver current_module (deresolver prefix_fragments))
+            box_table phantom_table
+            lookup_constant_typeco is_single_constr lookup_constant_fun
+            lookup_method_class inst_method_info lookup_class_methods constr_method_of)
+            export stmt
+          |> apfst (fn decl => if Code_Namespace.not_private export then SOME decl else NONE)) ()
+        val _ = (case r of
+            Exn.Exn e => warning ("RUST-STMT-CRASH at sym: " ^ Code_Debug_Info.print_debug_info_sym sym
+              ^ "\n  exn: " ^ General.exnMessage e
+              ^ "\n  stmt: " ^ Code_Debug_Info.print_debug_info_thingol_stmt (get_node program sym))
+          | _ => ())
       in
-        (print_rust_stmt
-          tyco_syntax const_syntax (make_vars reserved_syms)
-          (Code_Thingol.is_constr program) (modify_deresolver current_module (deresolver prefix_fragments))
-          box_table phantom_table
-          lookup_constant_typeco is_single_constr lookup_constant_fun
-          lookup_method_class inst_method_info lookup_class_methods constr_method_of)
-          export stmt
-        |> apfst (fn decl => if Code_Namespace.not_private export then SOME decl else NONE)
+        Exn.release r
       end;
 
     (** Print a module: gather declarations, resolve imports, and wrap in module body. **)
@@ -2253,13 +2298,21 @@ fun fn_trait_impl_syntax print_typ fxy [ty1, ty2] =
   end;
 
 (** Register Rust as a code generation target in Isabelle.
-    Sets up the serializer, literal syntax, fun type printing, and reserved words. **)
+    Sets up the serializer, Cargo-based checking, literal syntax, fun type
+    printing, and reserved words. **)
 val _ = Theory.setup
   (Code_Target.add_language
     (target, {serializer = serializer_rust, literals = literals_rust,
-      check = {env_var = "",
+      (* `export_code ... checking Rust` exports the generated hierarchy as a
+         complete Cargo crate directly into Isabelle's temporary check directory
+         (Cargo.toml plus src/*.rs).  The check command therefore only has to
+         run Cargo in that directory.  The Rust backend emits `box_patterns` and
+         large HOL stress exports routinely contain unused support items, so the
+         same environment used by the existing stage1 Cargo tests is applied. *)
+      check = {env_var = "ISABELLE_CARGO",
         make_destination = I,
-        make_command = fn _ => ""},
+        make_command = fn _ =>
+          "RUSTC_BOOTSTRAP=1 RUSTFLAGS=\"-Awarnings\" \"$ISABELLE_CARGO\" build"},
       evaluation_args = []})
   #> Code_Target.set_printings (Type_Constructor ("fun",
     [(target, SOME (2, fn_trait_impl_syntax))]))
