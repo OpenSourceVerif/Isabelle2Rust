@@ -427,6 +427,18 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                     SOME lambda_t => print_lambda is_pseudo_fun some_thm vars lambda_t
                   | NONE =>
                       let
+                        fun print_callee t =
+                          (case t of
+                            _ `|=> _ =>
+                              (* A lambda used immediately as the callee of a
+                                 function-value application is already being
+                                 split by the surrounding call printer.  Print
+                                 only its syntactic binders here; adding
+                                 type-level eta binders would consume arguments
+                                 that this application boundary is meant to
+                                 pass explicitly. *)
+                              print_lambda_gen false is_pseudo_fun some_thm vars t
+                          | _ => print_term_decl is_pseudo_fun some_thm vars NOBR t)
                         fun call callee args =
                           Pretty.block(
                             str "(*"
@@ -439,13 +451,13 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                           SOME n =>
                             let
                               val (params1, params2) = chop n params
-                              val first = call (print_term_decl is_pseudo_fun some_thm vars NOBR t') params1
+                              val first = call (print_callee t') params1
                             in call first params2 end
                         | NONE =>
                             (* The callee is a function value of type Rc<dyn Fn(..)>, which
                                is not directly callable (unlike Box, Rc has no Fn impl).
                                Deref to the `dyn Fn` place, emitting the form  ( * f )(args). *)
-                            call (print_term_decl is_pseudo_fun some_thm vars NOBR t') params
+                            call (print_callee t') params
                       end
                 end)
           in
@@ -886,9 +898,51 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         and rewrite the in-body occurrences to v_cap.
         Closure parameter names (collected via add_varnames on each bind
         pattern) are excluded from the capture set. **)
-    and print_lambda is_pseudo_fun some_thm vars t =
+    and print_lambda_gen eta_tail is_pseudo_fun some_thm vars t =
       let
-        val (binds, t') = Code_Thingol.unfold_pat_abs t;
+        val (binds0, body0) = Code_Thingol.unfold_pat_abs t;
+        fun apply_eta_args body [] = body
+          | apply_eta_args (ICase {term, typ, clauses, ...}) args =
+              (* When the hidden tail of a function value is produced through a
+                 case/if expression, distribute the eta arguments into each
+                 branch.  The control-flow expression then returns the final
+                 result type directly; its branches do not need to agree on a
+                 concrete anonymous closure type before coercion to
+                 `Rc<dyn Fn(..)>`. *)
+              ICase {
+                term = term,
+                typ = typ,
+                clauses = map (fn (pat, body) => (pat, apply_eta_args body args)) clauses,
+                primitive = IVar NONE
+              }
+          | apply_eta_args body args = Library.foldl (op `$) (body, args)
+        val (binds, t') =
+          if not eta_tail then (binds0, body0)
+          else (case term_type vars t of
+            SOME ty =>
+              let
+                val (arg_tys, _) = fun_typs ty
+                val missing_tys = drop (length binds0) arg_tys
+              in
+                if null missing_tys then (binds0, body0)
+                else
+                  let
+                    val names =
+                      Name.invent (rv_names vars |> snd) "eta_arg" (length missing_tys)
+                    val eta_terms = map (IVar o SOME) names
+                    (* Function values are erased to one uncurried `Rc<dyn Fn(..)>`
+                       whose parameter list is derived from the full HOL function
+                       type.  A lambda may expose only the first binder
+                       syntactically and return the rest through control flow, e.g.
+                       `%x. if c then (%y. ...) else (%y. ...)`.  Add the missing
+                       type-level binders to this Rust closure and apply the
+                       original body to them, so the closure arity matches the
+                       already-printed `Fn(A, B) -> C` trait object type. *)
+                    val eta_binds = ListPair.zip (eta_terms, missing_tys)
+                    val body = apply_eta_args body0 eta_terms
+                  in (binds0 @ eta_binds, body) end
+              end
+          | NONE => (binds0, body0));
         val (outer_namemap, outer_namectxt) = rv_names vars;
         val pat_vars = fold (Code_Thingol.add_varnames o fst) binds [];
         val body_free = Code_Thingol.add_varnames t' [];
@@ -937,7 +991,9 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           in
             rust_inline_block (cap_lets @ [closure_pretty])
           end
-      end;          
+      end
+    and print_lambda is_pseudo_fun some_thm vars t =
+      print_lambda_gen true is_pseudo_fun some_thm vars t;
     (** Print a `val name : typescheme` signature line. **)
     fun print_val_decl print_typscheme (sym, typscheme) = concat
       [str "val", str (deresolve sym), str ":", print_typscheme typscheme];
