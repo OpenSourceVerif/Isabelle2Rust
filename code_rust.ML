@@ -564,11 +564,41 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           then (str o deresolve) sym @@ str "()"
         else
           let 
-            val wanted_app = length dom
+            fun arrow_arity ("fun" `%% [_, ty2]) = 1 + arrow_arity ty2
+              | arrow_arity _ = 0
+            val is_trait_method_call =
+              is_some (lookup_method_class sym) orelse is_some (inst_method_info sym)
+            val wanted_app =
+              if is_trait_method_call
+              then
+                (* Trait method signatures are printed with one Rust parameter for
+                   every top-level HOL arrow.  For eta-reduced concrete instance
+                   methods, Code_Thingol may expose only the explicitly bound
+                   parameters in `dom` and leave the remaining method arrows in
+                   `range`; calls that are printed as `A::method(..)` or
+                   `Tyco::method(..)` must count those range arrows as required
+                   Rust arguments. *)
+                length dom + arrow_arity range
+              else length dom
             (** Mirror the eta-expansion in binding_of_stmt: a single equation with
                 empty LHS (e.g., [size_list = gen_length zero_nat]) is eta-expanded
                 to one argument before being emitted as a Rust function. **)
-            val wanted_fn = case lookup_constant_fun sym
+            val wanted_fn =
+              if is_trait_method_call
+              then
+                (* Class parameters and reconstructed concrete instance methods
+                   are emitted through Rust trait methods (`A::method` or
+                   `Tyco::method`) whose signatures consume every top-level HOL
+                   arrow as one uncurried Rust parameter.  A concrete instance
+                   equation may be eta-reduced (for example one pattern returning
+                   a closure for a two-arrow method), but print_inst_impl
+                   eta-expands the impl body to the trait arity.  Calls printed as
+                   trait methods must therefore use the instantiated method arity,
+                   not the raw equation's LHS length, so `m x y` prints as
+                   `T::m(x, y)` rather than as a call of a returned
+                   `Rc<dyn Fn(..)>`. *)
+                wanted_app
+              else case lookup_constant_fun sym
               of SOME (((vs, ty), raw_eqs), _) =>
                    let
                      val eqs = filter (snd o snd) raw_eqs

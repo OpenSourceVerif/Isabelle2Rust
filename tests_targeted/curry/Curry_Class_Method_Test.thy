@@ -20,7 +20,7 @@ begin
        (wanted_fn = 1), emitting the curried `( *D::combine(d) )(d)` -- it calls
        combine with one argument and dereferences the result.
 
-   The generated `run` is thus `(*D::combine(d))(d)`: combine is called with one
+   The generated `run` is thus `( *D::combine(d) )(d)`: combine is called with one
    argument (the underlying E0061 -- combine takes 2) and the returned D is
    dereferenced (the underlying E0614 -- D is not a pointer).  On this input rustc
    does not even report those cleanly -- it hits the internal `Vec` panic (the
