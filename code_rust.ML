@@ -482,13 +482,15 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
            declaration and resolves across modules without a glob import. *)
         fun print_cons (SOME parent) = tyco_name_str parent
           | print_cons NONE = ""
-        (* A constructor used as a first-class value (no args, non-empty domain)
-           is eta-expanded into a closure by print_app_expr, so it must NOT get
-           the `Tyco::` prefix -- that belongs only on an actual constructor
-           reference. *)
+        (* An UNDER-applied constructor -- given fewer arguments than its domain,
+           including the zero-argument case -- is eta-expanded into a closure by
+           print_app_expr (saturated_application), so it must NOT get the `Tyco::`
+           prefix: that belongs only on a fully-applied constructor reference.
+           A partial application such as `Cons x` (1 of 2 args) would otherwise
+           print as the invalid `List::{ ..closure.. }`. *)
         val is_eta_constr =
           (case Code_Thingol.unfold_const_app t
-            of SOME (({ dom, ... }), []) => not (null dom)
+            of SOME (({ dom, ... }), ts) => length ts < length dom
             | _ => false)
         (* When a constructor has registered const_syntax (e.g. Product_Type.Pair
            mapped to native tuple syntax "!( _ , _ )"), the template already encodes
@@ -1136,22 +1138,33 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             ]
             (** Fetch and eta-normalize the implementing constant's equations
                 from the (untouched) program, so its body can be inlined as the
-                trait method. Mirrors binding_of_stmt's eta-expansion. **)
+                trait method.
+                The trait declares this method fully uncurried: print_method_sig
+                turns every top-level arrow of the method type into a parameter.
+                A Rust trait impl must match that arity exactly or rustc rejects
+                it with E0050, but a code equation is often eta-reduced -- e.g.
+                `random_bot i = <closure taking the seed>` has one pattern for a
+                two-argument method, so it would print as a one-parameter `fn`
+                returning `Rc<dyn Fn(..)>`.  Eta-expand every equation up to the
+                method type's arrow count so the inlined `fn` signature agrees
+                with the trait declaration. **)
             fun method_function const_sym =
               case lookup_constant_fun const_sym
-               of SOME ((tysm as (mvs, mty), raw_eqs), _) =>
+               of SOME ((tysm as (_, mty), raw_eqs), _) =>
                     let
                       val eqs = filter (snd o snd) raw_eqs
-                      val eqs' =
-                        if null (filter_out (null o snd) mvs)
-                        then case eqs
-                          of [(([], t), some_thm)] =>
-                              if (not o null o fst o Code_Thingol.unfold_fun) mty
-                              then [(([IVar (SOME "x")], t `$ IVar (SOME "x")), some_thm)]
-                              else eqs
-                           | _ => eqs
-                        else eqs
-                    in SOME (tysm, eqs') end
+                      fun arrow_arity ("fun" `%% [_, ty2]) = 1 + arrow_arity ty2
+                        | arrow_arity _ = 0
+                      val target = arrow_arity mty
+                      fun eta_expand ((ts, t), some_thm) =
+                        let val extra = target - length ts in
+                          if extra <= 0 then ((ts, t), some_thm)
+                          else
+                            let val newvars =
+                              List.tabulate (extra, fn i => IVar (SOME ("eta_arg_" ^ string_of_int i)))
+                            in ((ts @ newvars, fold (fn v => fn u => u `$ v) newvars t), some_thm) end
+                        end
+                    in SOME (tysm, map eta_expand eqs) end
                 | NONE => NONE
             fun print_method (classparam, method_sym) =
               let
