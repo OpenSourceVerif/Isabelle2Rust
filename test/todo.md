@@ -1,5 +1,85 @@
 # Test Migration TODO
 
+## 2026-07-06 - Full `test` stage1 run after stable nested-match lowering
+
+### How it happened
+
+Command shape:
+
+```sh
+# Custom stage1 loop over test/**/*.thy:
+# - excludes test/HOL_Codegenerator/Code_Lazy_Test.thy
+# - runs test/HOL_Codegenerator/Code_Test_Rust.thy explicitly
+# - runs cargo only after `make build_silent` succeeds
+```
+
+This avoids two known bulk-run pitfalls:
+
+- `test/HOL_Codegenerator` is a special directory; `Code_Lazy_Test.thy` is
+  framework code for this run, while `Code_Test_Rust.thy` is the intended smoke
+  test.
+- `make gen DIR=... Name=...` can continue to a stale stage1 Cargo build after
+  an Isabelle build failure, so the loop used `make build_silent` and only then
+  built the generated Cargo manifests.
+
+Observed summary:
+
+```text
+stage1 global summary:
+  Exported definitions: Passed: 587 / Failed: 0 / Total: 587
+  Theories:             Passed: 76 / Failed: 4 / Total: 80
+```
+
+An additional scan found no remaining nightly box-pattern syntax in fresh
+`test/**/stage1` Rust sources:
+
+```sh
+rg -n '#!\[feature\(box_patterns\)\]|\bbox\s+[A-Za-z_(]' test \
+  --glob 'stage1/**/src/**/*.rs' --glob 'stage1/**/src/*.rs'
+```
+
+### Failed stage1 targets
+
+All failures have `0` exported definitions. Isabelle export itself finishes,
+but there is no theory-owned stage1 crate to compile:
+
+```text
+test/fpp/4_ds_algo/bintree/Less_False_Test
+No stage1 dir: test/fpp/4_ds_algo/bintree/stage1/Less_False_Test
+
+test/fpp/4_ds_algo/bintree/Priority_Queue_Specs_Test
+No stage1 dir: test/fpp/4_ds_algo/bintree/stage1/Priority_Queue_Specs_Test
+
+test/fpp/4_ds_algo/bintree/Sorted_Less_Test
+No stage1 dir: test/fpp/4_ds_algo/bintree/stage1/Sorted_Less_Test
+
+test/fpp/5_IMP/Star_Test
+No stage1 dir: test/fpp/5_IMP/stage1/Star_Test
+```
+
+### Current diagnosis
+
+This run does not show a stage1 Rust code-generation failure for exported
+definitions: all `587` exported definitions compiled. The four failed theories
+are support/specification theories with no counted Rust exports and no generated
+stage1 crate at their own theory path.
+
+Some other `0`-export theories do have a generated crate and passed in this run,
+for example:
+
+```text
+test/fpp/4_ds_algo/bintree/Set_Specs_Test
+test/fpp/5_IMP/Big_Step_Test
+test/fpp/5_IMP/Small_Step_Test
+```
+
+Resolution applied after this run: bulk `make gen DIR=...`, `make opt DIR=...`,
+and `make test DIR=...` now skip theories with `0` exported definitions. The
+single-theory form `Name=...` still allows an explicit manual build. The
+`test/HOL_Codegenerator` bulk case is treated specially and runs
+`Code_Test_Rust.thy`, since the other files in that directory are framework
+code for the smoke test.
+
 ## 2026-07-03 - `test/fpp/2_functionalprog/BasicDef_Test`
 
 ### How it happened

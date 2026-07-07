@@ -306,6 +306,13 @@ fn detect_chains(block: &Block) -> Vec<Vec<usize>> {
         {
             continue;
         }
+        // Stable box-pattern lowering introduces bindings such as
+        // `let uv = *p0a` or, after borrow rewriting,
+        // `let uv = p0a.as_ref().clone()`.  These are destructuring artifacts,
+        // not shadow updates of the predecessor name.
+        if let_init_is_box_extraction(stmt) {
+            continue;
+        }
         // Confinement: the predecessor's value must not be read after the
         // successor's binding overwrites it.
         if !is_confined(block, &pred_name, idx) {
@@ -417,10 +424,7 @@ fn collect_owned_block(block: &Block, owned: &mut HashSet<String>) {
                 if is_binding_ident(&let_stmt.name) {
                     let is_owned = match &let_stmt.ty {
                         Some(ty) => !is_reference_type(ty),
-                        None => let_stmt
-                            .init
-                            .as_ref()
-                            .is_some_and(produces_owned_value),
+                        None => let_stmt.init.as_ref().is_some_and(produces_owned_value),
                     };
                     if is_owned {
                         owned.insert(let_stmt.name.clone());
@@ -505,7 +509,10 @@ fn produces_owned_value(expr: &Expr) -> bool {
         Expr::Tuple(_) => true,
         Expr::BinaryOp(_, _, _) => true,
         Expr::Parenthesized(inner) => produces_owned_value(inner),
-        Expr::Block(block) => block.expr.as_ref().is_some_and(|tail| produces_owned_value(tail)),
+        Expr::Block(block) => block
+            .expr
+            .as_ref()
+            .is_some_and(|tail| produces_owned_value(tail)),
         _ => false,
     }
 }
@@ -532,7 +539,8 @@ fn rewrite_lastuse_block(block: &mut Block, live: &mut HashSet<String>, owned: &
                 }
             }
             Statement::Expr(expr) => rewrite_lastuse_expr(expr, live, owned),
-            Statement::Item(_) | Statement::Continue | Statement::Break | Statement::Comment(_) => {}
+            Statement::Item(_) | Statement::Continue | Statement::Break | Statement::Comment(_) => {
+            }
         }
     }
 }
@@ -788,11 +796,17 @@ fn count_reads_in_expr(expr: &Expr, name: &str) -> usize {
         Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) | Expr::BuilderChain(_) => 0,
         Expr::Call(callee, args) => {
             count_reads_in_expr(callee, name)
-                + args.iter().map(|a| count_reads_in_expr(a, name)).sum::<usize>()
+                + args
+                    .iter()
+                    .map(|a| count_reads_in_expr(a, name))
+                    .sum::<usize>()
         }
         Expr::MethodCall(receiver, _, args) => {
             count_reads_in_expr(receiver, name)
-                + args.iter().map(|a| count_reads_in_expr(a, name)).sum::<usize>()
+                + args
+                    .iter()
+                    .map(|a| count_reads_in_expr(a, name))
+                    .sum::<usize>()
         }
         Expr::Tuple(items) => items.iter().map(|i| count_reads_in_expr(i, name)).sum(),
         Expr::BinaryOp(l, _, r) | Expr::Index(l, r) | Expr::Assign(l, r) => {
@@ -833,7 +847,9 @@ fn count_reads_in_expr(expr: &Expr, name: &str) -> usize {
                 + arms
                     .iter()
                     .map(|arm| {
-                        arm.guard.as_ref().map_or(0, |g| count_reads_in_expr(g, name))
+                        arm.guard
+                            .as_ref()
+                            .map_or(0, |g| count_reads_in_expr(g, name))
                             + count_reads_in_block(&arm.body, name)
                     })
                     .sum::<usize>()
@@ -901,7 +917,10 @@ fn count_bindings_in_expr(expr: &Expr, name: &str) -> usize {
                     .iter()
                     .map(|arm| {
                         usize::from(pattern_binds_name(&arm.pattern, name))
-                            + arm.guard.as_ref().map_or(0, |g| count_bindings_in_expr(g, name))
+                            + arm
+                                .guard
+                                .as_ref()
+                                .map_or(0, |g| count_bindings_in_expr(g, name))
                             + count_bindings_in_block(&arm.body, name)
                     })
                     .sum::<usize>()
@@ -912,11 +931,17 @@ fn count_bindings_in_expr(expr: &Expr, name: &str) -> usize {
         }
         Expr::Call(callee, args) => {
             count_bindings_in_expr(callee, name)
-                + args.iter().map(|a| count_bindings_in_expr(a, name)).sum::<usize>()
+                + args
+                    .iter()
+                    .map(|a| count_bindings_in_expr(a, name))
+                    .sum::<usize>()
         }
         Expr::MethodCall(receiver, _, args) => {
             count_bindings_in_expr(receiver, name)
-                + args.iter().map(|a| count_bindings_in_expr(a, name)).sum::<usize>()
+                + args
+                    .iter()
+                    .map(|a| count_bindings_in_expr(a, name))
+                    .sum::<usize>()
         }
         Expr::Tuple(items) => items.iter().map(|i| count_bindings_in_expr(i, name)).sum(),
         Expr::BinaryOp(l, _, r) | Expr::Index(l, r) | Expr::Assign(l, r) => {
@@ -987,7 +1012,9 @@ fn rename_reads_expr(expr: &mut Expr, map: &HashMap<String, String>) {
         | Expr::Await(inner) => rename_reads_expr(inner, map),
         Expr::Closure(params, body, _) => {
             // A closure parameter shadows the outer name inside the body.
-            let shadowed = params.iter().any(|p| map.contains_key(&closure_param_name(p)));
+            let shadowed = params
+                .iter()
+                .any(|p| map.contains_key(&closure_param_name(p)));
             if !shadowed {
                 rename_reads_expr(body, map);
             }
@@ -1040,6 +1067,30 @@ fn let_binding_name(stmt: &Statement) -> Option<&str> {
     match stmt {
         Statement::Let(let_stmt) if is_binding_ident(&let_stmt.name) => Some(&let_stmt.name),
         _ => None,
+    }
+}
+
+fn let_init_is_box_extraction(stmt: &Statement) -> bool {
+    match stmt {
+        Statement::Let(let_stmt) => let_stmt.init.as_ref().is_some_and(is_box_extraction_expr),
+        _ => false,
+    }
+}
+
+fn is_box_extraction_expr(expr: &Expr) -> bool {
+    match expr {
+        Expr::UnaryOp(op, inner) if op == "*" => matches!(inner.as_ref(), Expr::Ident(_)),
+        Expr::MethodCall(receiver, method, args) if method == "clone" && args.is_empty() => {
+            matches!(
+                receiver.as_ref(),
+                Expr::MethodCall(as_ref_receiver, as_ref_method, as_ref_args)
+                    if as_ref_method == "as_ref"
+                        && as_ref_args.is_empty()
+                        && matches!(as_ref_receiver.as_ref(), Expr::Ident(_))
+            )
+        }
+        Expr::Parenthesized(inner) => is_box_extraction_expr(inner),
+        _ => false,
     }
 }
 

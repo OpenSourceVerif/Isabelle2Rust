@@ -523,22 +523,34 @@ impl BorrowContext {
                 // We detect this case and propagate the derived set through the
                 // tuple positions instead of recording a spurious whole-tuple demand.
                 let is_tuple_scrutinee = matches!(scrutinee.as_ref(), Expr::Tuple(_));
+                let deref_box_scrutinee = deref_ident_name(scrutinee.as_ref()).map(str::to_string);
 
                 if !is_tuple_scrutinee {
                     // The scrutinee is inspected (Obs), not consumed.
-                    if let Expr::Ident(name) = scrutinee.as_ref() {
-                        if derived.contains(name) {
-                            demands.insert(Demand::Obs);
+                    match scrutinee.as_ref() {
+                        Expr::Ident(name) => {
+                            if derived.contains(name) {
+                                demands.insert(Demand::Obs);
+                            }
+                        }
+                        _ => {
+                            if let Some(name) = &deref_box_scrutinee {
+                                if derived.contains(name) {
+                                    demands.insert(Demand::Obs);
+                                }
+                            }
                         }
                     }
-                    self.collect_demands_expr(
-                        scrutinee,
-                        derived,
-                        env,
-                        copy_generics,
-                        demands,
-                        false,
-                    );
+                    if deref_box_scrutinee.is_none() {
+                        self.collect_demands_expr(
+                            scrutinee,
+                            derived,
+                            env,
+                            copy_generics,
+                            demands,
+                            false,
+                        );
+                    }
                 } else {
                     // Tuple scrutinee: only analyze non-derived elements.
                     // Derived idents in the tuple are handled via pattern propagation.
@@ -579,12 +591,35 @@ impl BorrowContext {
                                     &mut arm_derived,
                                 );
                             }
+                            if derived.contains(sname) {
+                                collect_deref_box_binding_names_from_body(
+                                    &arm.pattern,
+                                    &arm.body,
+                                    &mut arm_derived,
+                                );
+                            }
+                        } else if let Some(sname) = &deref_box_scrutinee {
+                            if derived.contains(sname) {
+                                collect_deref_box_binding_names_from_body(
+                                    &arm.pattern,
+                                    &arm.body,
+                                    &mut arm_derived,
+                                );
+                            }
                         } else if is_tuple_scrutinee {
                             // Propagate derived set through tuple positions.
                             // collect_derived_from_pattern handles tuple patterns
                             // when ty is Type::Tuple — we always invoke it here
                             // (it is a no-op when the pattern has no ident bindings).
                             self.collect_derived_from_pattern(&arm.pattern, ty, &mut arm_derived);
+                        }
+                    } else if let Some(sname) = &deref_box_scrutinee {
+                        if derived.contains(sname) {
+                            collect_deref_box_binding_names_from_body(
+                                &arm.pattern,
+                                &arm.body,
+                                &mut arm_derived,
+                            );
                         }
                     }
 
@@ -787,6 +822,17 @@ impl BorrowContext {
         demands: &mut HashSet<Demand>,
     ) {
         match arg {
+            Expr::UnaryOp(op, inner) if op == "*" => {
+                if let Expr::Ident(name) = inner.as_ref() {
+                    if derived.contains(name) {
+                        // Stable lowering of `box y`: a borrowed origin
+                        // materializes the inner value with a clone.
+                        demands.insert(Demand::Own(OwnUse::ExplicitClone));
+                        return;
+                    }
+                }
+                self.collect_demands_expr(arg, derived, env, copy_generics, demands, false);
+            }
             Expr::MethodCall(receiver, method, args) if method == "clone" && args.is_empty() => {
                 if let Expr::Ident(name) = receiver.as_ref() {
                     if derived.contains(name) {
@@ -1203,16 +1249,27 @@ impl BorrowContext {
                 // For a borrowed scrutinee keep it as-is: Rust match ergonomics
                 // handles matching on `&T` with plain `T` patterns.  Calling
                 // rewrite_expr_own would wrongly insert a `.clone()`.
+                let deref_borrowed_box_scrutinee =
+                    deref_ident_name(scrutinee.as_ref()).and_then(|name| {
+                        borrow_env
+                            .get(name)
+                            .and_then(borrowed_box_inner_type)
+                            .map(|inner| (name.to_string(), inner.clone()))
+                    });
                 let scrutinee_borrow_type = match scrutinee.as_ref() {
-                    Expr::Ident(name) => borrow_env.get(name).cloned(),
-                    _ => None,
+                    Expr::Ident(name) => borrow_env
+                        .get(name)
+                        .filter(|ty| is_reference_type(ty))
+                        .cloned(),
+                    _ => deref_borrowed_box_scrutinee
+                        .as_ref()
+                        .map(|(_, inner)| make_ref_type(inner)),
                 };
-                let scrutinee_is_borrowed = scrutinee_borrow_type
-                    .as_ref()
-                    .map(is_reference_type)
-                    .unwrap_or(false);
+                let scrutinee_is_borrowed = scrutinee_borrow_type.is_some();
 
-                let new_scrutinee = if scrutinee_is_borrowed {
+                let new_scrutinee = if let Some((name, _)) = &deref_borrowed_box_scrutinee {
+                    borrowed_box_as_ref(name)
+                } else if scrutinee_is_borrowed {
                     scrutinee.as_ref().clone()
                 } else {
                     self.rewrite_expr_own(
@@ -1246,6 +1303,11 @@ impl BorrowContext {
                                 &mut arm_borrow,
                             );
                             self.bind_pattern_env(&arm.pattern, &inner_ty, &mut arm_orig);
+                            mark_deref_box_bindings_from_body(
+                                &arm.pattern,
+                                &arm.body,
+                                &mut arm_borrow,
+                            );
 
                             // Strip `box` from the pattern string.
                             new_pattern = strip_box_from_pattern(&arm.pattern);
@@ -1424,16 +1486,29 @@ impl BorrowContext {
                     orig_fn_name,
                 )),
             ),
-            Expr::UnaryOp(op, inner) => Expr::UnaryOp(
-                op.clone(),
-                Box::new(self.rewrite_expr_own(
-                    inner,
-                    borrow_env,
-                    orig_env,
-                    copy_generics,
-                    orig_fn_name,
-                )),
-            ),
+            Expr::UnaryOp(op, inner) => {
+                if op == "*" {
+                    if let Expr::Ident(name) = inner.as_ref() {
+                        if borrow_env
+                            .get(name)
+                            .and_then(borrowed_box_inner_type)
+                            .is_some()
+                        {
+                            return clone_borrowed_box_inner(name);
+                        }
+                    }
+                }
+                Expr::UnaryOp(
+                    op.clone(),
+                    Box::new(self.rewrite_expr_own(
+                        inner,
+                        borrow_env,
+                        orig_env,
+                        copy_generics,
+                        orig_fn_name,
+                    )),
+                )
+            }
             Expr::MethodCall(receiver, method, args) => Expr::MethodCall(
                 Box::new(self.rewrite_expr_own(
                     receiver,
@@ -1701,6 +1776,15 @@ impl BorrowContext {
                     } else {
                         ty
                     }
+                })
+            }
+            Expr::UnaryOp(op, inner) if op == "*" => {
+                self.infer_type(inner, env).and_then(|ty| match ty {
+                    Type::Generic(name, params) if name == "Box" && params.len() == 1 => {
+                        params.into_iter().next()
+                    }
+                    Type::Reference(inner, true, _) => Some(*inner),
+                    _ => None,
                 })
             }
             Expr::Parenthesized(inner) => self.infer_type(inner, env),
@@ -2392,8 +2476,42 @@ fn ref_inner(ty: &Type) -> Option<&Type> {
     }
 }
 
+fn box_inner_type(ty: &Type) -> Option<&Type> {
+    match ty {
+        Type::Generic(name, params) if name == "Box" && params.len() == 1 => Some(&params[0]),
+        _ => None,
+    }
+}
+
+fn borrowed_box_inner_type(ty: &Type) -> Option<&Type> {
+    ref_inner(ty).and_then(box_inner_type)
+}
+
 fn is_box_type(ty: &Type) -> bool {
-    matches!(ty, Type::Generic(name, params) if name == "Box" && params.len() == 1)
+    box_inner_type(ty).is_some()
+}
+
+fn deref_ident_name(expr: &Expr) -> Option<&str> {
+    match expr {
+        Expr::UnaryOp(op, inner) if op == "*" => match inner.as_ref() {
+            Expr::Ident(name) => Some(name.as_str()),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn borrowed_box_as_ref(name: &str) -> Expr {
+    Expr::MethodCall(
+        Box::new(Expr::Ident(name.to_string())),
+        "as_ref".to_string(),
+        vec![],
+    )
+}
+
+fn clone_borrowed_box_inner(name: &str) -> Expr {
+    let as_ref_call = borrowed_box_as_ref(name);
+    Expr::MethodCall(Box::new(as_ref_call), "clone".to_string(), vec![])
 }
 
 fn local_type_name(ty: &Type) -> Option<&str> {
@@ -2478,6 +2596,178 @@ fn generic_names_with_bound(f: &FunctionDef, bound: &str) -> HashSet<String> {
         .filter(|g| g.bounds.iter().any(|b| b == bound))
         .map(|g| g.name.clone())
         .collect()
+}
+
+fn collect_deref_box_binding_names_from_body(
+    pattern: &str,
+    body: &Block,
+    out: &mut HashSet<String>,
+) {
+    let mut bindings = HashSet::new();
+    collect_pattern_binding_names(pattern, &mut bindings);
+    if bindings.is_empty() {
+        return;
+    }
+
+    let mut derefs = HashSet::new();
+    collect_deref_ident_uses_block(body, &mut derefs);
+    for name in bindings.intersection(&derefs) {
+        out.insert(name.clone());
+    }
+}
+
+fn mark_deref_box_bindings_from_body(pattern: &str, body: &Block, env: &mut BorrowEnv) {
+    let mut boxed_bindings = HashSet::new();
+    collect_deref_box_binding_names_from_body(pattern, body, &mut boxed_bindings);
+    for name in boxed_bindings {
+        env.entry(name.clone())
+            .or_insert_with(synthetic_borrowed_box_type);
+    }
+}
+
+fn synthetic_borrowed_box_type() -> Type {
+    make_ref_type(&Type::Generic("Box".to_string(), vec![Type::Never]))
+}
+
+fn collect_pattern_binding_names(pattern: &str, out: &mut HashSet<String>) {
+    let pattern = pattern.trim();
+    if pattern.is_empty() || pattern == "_" || pattern == ".." {
+        return;
+    }
+
+    if let Some(inner) = strip_prefix_word(pattern, "box") {
+        collect_pattern_binding_names(inner, out);
+        return;
+    }
+
+    let pattern = strip_binding_modifiers(pattern);
+
+    if let Some(inner) = outer_parens_inner(pattern) {
+        let parts = split_top_level_commas(inner);
+        if parts.len() > 1 {
+            for part in parts {
+                collect_pattern_binding_names(&part, out);
+            }
+            return;
+        }
+    }
+
+    if let Some((_, args)) = split_constructor_pattern(pattern) {
+        for arg in args {
+            collect_pattern_binding_names(&arg, out);
+        }
+        return;
+    }
+
+    if pattern.contains("::") || matches!(pattern, "true" | "false") {
+        return;
+    }
+
+    if is_binding_ident(pattern) {
+        out.insert(pattern.to_string());
+    }
+}
+
+fn collect_deref_ident_uses_block(block: &Block, out: &mut HashSet<String>) {
+    for stmt in &block.stmts {
+        match stmt {
+            Statement::Let(let_stmt) => {
+                if let Some(init) = &let_stmt.init {
+                    collect_deref_ident_uses_expr(init, out);
+                }
+            }
+            Statement::Expr(expr) => collect_deref_ident_uses_expr(expr, out),
+            Statement::Item(_) | Statement::Continue | Statement::Break | Statement::Comment(_) => {
+            }
+        }
+    }
+    if let Some(expr) = &block.expr {
+        collect_deref_ident_uses_expr(expr, out);
+    }
+}
+
+fn collect_deref_ident_uses_expr(expr: &Expr, out: &mut HashSet<String>) {
+    match expr {
+        Expr::UnaryOp(op, inner) if op == "*" => {
+            if let Expr::Ident(name) = inner.as_ref() {
+                out.insert(name.clone());
+            } else {
+                collect_deref_ident_uses_expr(inner, out);
+            }
+        }
+        Expr::MethodCall(receiver, _, args) => {
+            collect_deref_ident_uses_expr(receiver, out);
+            for arg in args {
+                collect_deref_ident_uses_expr(arg, out);
+            }
+        }
+        Expr::Call(callee, args) => {
+            collect_deref_ident_uses_expr(callee, out);
+            for arg in args {
+                collect_deref_ident_uses_expr(arg, out);
+            }
+        }
+        Expr::Block(block) => {
+            collect_deref_ident_uses_block(block, out);
+        }
+        Expr::Loop(block) | Expr::Unsafe(block) => {
+            collect_deref_ident_uses_block(block, out);
+        }
+        Expr::Await(inner)
+        | Expr::Parenthesized(inner)
+        | Expr::Reference(inner, _, _)
+        | Expr::UnaryOp(_, inner) => collect_deref_ident_uses_expr(inner, out),
+        Expr::BinaryOp(left, _, right) | Expr::Index(left, right) | Expr::Assign(left, right) => {
+            collect_deref_ident_uses_expr(left, out);
+            collect_deref_ident_uses_expr(right, out);
+        }
+        Expr::Tuple(elems) => {
+            for elem in elems {
+                collect_deref_ident_uses_expr(elem, out);
+            }
+        }
+        Expr::Match { expr, arms } => {
+            collect_deref_ident_uses_expr(expr, out);
+            for arm in arms {
+                if let Some(guard) = &arm.guard {
+                    collect_deref_ident_uses_expr(guard, out);
+                }
+                collect_deref_ident_uses_block(&arm.body, out);
+            }
+        }
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
+            collect_deref_ident_uses_expr(condition, out);
+            collect_deref_ident_uses_block(then_branch, out);
+            if let Some(else_branch) = else_branch {
+                collect_deref_ident_uses_block(else_branch, out);
+            }
+        }
+        Expr::IfLet {
+            value,
+            then_branch,
+            else_branch,
+            ..
+        } => {
+            collect_deref_ident_uses_expr(value, out);
+            collect_deref_ident_uses_block(then_branch, out);
+            if let Some(else_branch) = else_branch {
+                collect_deref_ident_uses_block(else_branch, out);
+            }
+        }
+        Expr::Closure(_, body, _) => collect_deref_ident_uses_expr(body, out),
+        Expr::BuilderChain(methods) => {
+            for method in methods {
+                if let BuilderMethod::Spawn { closure, .. } = method {
+                    collect_deref_ident_uses_expr(closure, out);
+                }
+            }
+        }
+        Expr::Ident(_) | Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) => {}
+    }
 }
 
 // ── String-level pattern utilities (shared with copy_analysis) ────────────────
