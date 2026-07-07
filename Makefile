@@ -96,16 +96,27 @@ gen:
 	  $(MAKE) build_silent TEST_DIR="$(DIR)" TEST_THEORY="$(Name)"; \
 	  _cargo_run_stage1 "$(DIR)" "$(Name)"; \
 	elif [ -n "$(DIR)" ]; then \
-	  FILES=$$(find "$(DIR)" -name '*_Test.thy' -type f | sort); \
+	  HOL_FILE="$(HOL_DIR)/$(HOL_GCD_THEORY).thy"; \
+	  if [ "$(DIR)" = "$(HOL_DIR)" ]; then \
+	    FILES="$$HOL_FILE"; \
+	  else \
+	    FILES=$$(find "$(DIR)" -name '*_Test.thy' -type f | sort); \
+	    case "$$HOL_FILE" in "$(DIR)"/*) FILES=$$(printf '%s\n%s\n' "$$FILES" "$$HOL_FILE" | sed '/^$$/d' | sort -u);; esac; \
+	  fi; \
 	  if [ -z "$$FILES" ]; then \
 	    echo "No *_Test.thy found under $(DIR)"; exit 1; \
 	  fi; \
-	  SUCCESS=0; FAIL=0; TOTAL=0; SUCCESS_ITEMS=0; FAIL_ITEMS=0; TOTAL_ITEMS=0; FAILED=""; \
+	  SUCCESS=0; FAIL=0; SKIP=0; TOTAL=0; SUCCESS_ITEMS=0; FAIL_ITEMS=0; TOTAL_ITEMS=0; FAILED=""; \
 	  for f in $$FILES; do \
 	    D=$$(dirname "$$f"); T=$${f##*/}; T=$${T%.thy}; \
 	    ITEMS=$$(perl "$(EXPORT_ITEM_COUNTER)" "$$f"); \
 	    TOTAL=$$((TOTAL+1)); \
 	    TOTAL_ITEMS=$$((TOTAL_ITEMS+ITEMS)); \
+	    if [ "$$ITEMS" -eq 0 ]; then \
+	      SKIP=$$((SKIP+1)); \
+	      echo ">>> [gen $$TOTAL] $$T (0 exported definitions) -- skipped"; \
+	      continue; \
+	    fi; \
 	    echo ">>> [gen $$TOTAL] $$T ($$ITEMS exported definitions)"; \
 	    if $(MAKE) -s build_silent TEST_DIR="$$D" TEST_THEORY="$$T" && \
 	       _cargo_run_stage1 "$$D" "$$T"; then \
@@ -118,7 +129,7 @@ gen:
 	  echo "================================"; \
 	  echo "gen summary ($(DIR)):"; \
 	  echo "  Exported definitions: Passed: $$SUCCESS_ITEMS / Failed: $$FAIL_ITEMS / Total: $$TOTAL_ITEMS"; \
-	  echo "  Theories:             Passed: $$SUCCESS / Failed: $$FAIL / Total: $$TOTAL"; \
+	  echo "  Theories:             Passed: $$SUCCESS / Failed: $$FAIL / Skipped: $$SKIP / Total: $$TOTAL"; \
 	  if [ -n "$$FAILED" ]; then \
 	    for T in $$FAILED; do echo "    - $$T"; done; \
 	    exit 1; \
@@ -167,12 +178,17 @@ opt:
 	  if [ -z "$$NAMES" ]; then \
 	    echo "No theories found under $$S1BASE"; exit 1; \
 	  fi; \
-	  SUCCESS=0; FAIL=0; TOTAL=0; SUCCESS_ITEMS=0; FAIL_ITEMS=0; TOTAL_ITEMS=0; FAILED=""; \
+	  SUCCESS=0; FAIL=0; SKIP=0; TOTAL=0; SUCCESS_ITEMS=0; FAIL_ITEMS=0; TOTAL_ITEMS=0; FAILED=""; \
 	  for N in $$NAMES; do \
 	    ITEMS=0; \
 	    if [ -f "$(DIR)/$$N.thy" ]; then ITEMS=$$(perl "$(EXPORT_ITEM_COUNTER)" "$(DIR)/$$N.thy"); fi; \
 	    TOTAL=$$((TOTAL+1)); \
 	    TOTAL_ITEMS=$$((TOTAL_ITEMS+ITEMS)); \
+	    if [ "$$ITEMS" -eq 0 ]; then \
+	      SKIP=$$((SKIP+1)); \
+	      echo ">>> [opt $$TOTAL] $$N (0 exported definitions) -- skipped"; \
+	      continue; \
+	    fi; \
 	    if _run_opt "$(DIR)" "$$N"; then \
 	      SUCCESS=$$((SUCCESS+1)); \
 	      SUCCESS_ITEMS=$$((SUCCESS_ITEMS+ITEMS)); \
@@ -183,7 +199,7 @@ opt:
 	  echo "================================"; \
 	  echo "opt summary ($(DIR)):"; \
 	  echo "  Exported definitions: Passed: $$SUCCESS_ITEMS / Failed: $$FAIL_ITEMS / Total: $$TOTAL_ITEMS"; \
-	  echo "  Theories:             Passed: $$SUCCESS / Failed: $$FAIL / Total: $$TOTAL"; \
+	  echo "  Theories:             Passed: $$SUCCESS / Failed: $$FAIL / Skipped: $$SKIP / Total: $$TOTAL"; \
 	  if [ -n "$$FAILED" ]; then \
 	    for N in $$FAILED; do echo "    - $$N"; done; \
 	    exit 1; \
@@ -221,16 +237,27 @@ test:
 	  echo ">>> stage1 done: $(Name)"; \
 	  _run_opt "$(DIR)" "$(Name)"; \
 	elif [ -n "$(DIR)" ]; then \
-	  FILES=$$(find "$(DIR)" -name '*_Test.thy' -type f | sort); \
+	  HOL_FILE="$(HOL_DIR)/$(HOL_GCD_THEORY).thy"; \
+	  if [ "$(DIR)" = "$(HOL_DIR)" ]; then \
+	    FILES="$$HOL_FILE"; \
+	  else \
+	    FILES=$$(find "$(DIR)" -name '*_Test.thy' -type f | sort); \
+	    case "$$HOL_FILE" in "$(DIR)"/*) FILES=$$(printf '%s\n%s\n' "$$FILES" "$$HOL_FILE" | sed '/^$$/d' | sort -u);; esac; \
+	  fi; \
 	  if [ -z "$$FILES" ]; then \
 	    echo "No *_Test.thy found under $(DIR)"; exit 1; \
 	  fi; \
-	  SUCCESS=0; FAIL=0; TOTAL=0; SUCCESS_ITEMS=0; FAIL_ITEMS=0; TOTAL_ITEMS=0; FAILED=""; \
+	  SUCCESS=0; FAIL=0; SKIP=0; TOTAL=0; SUCCESS_ITEMS=0; FAIL_ITEMS=0; TOTAL_ITEMS=0; FAILED=""; \
 	  for f in $$FILES; do \
 	    D=$$(dirname "$$f"); T=$${f##*/}; T=$${T%.thy}; \
 	    ITEMS=$$(perl "$(EXPORT_ITEM_COUNTER)" "$$f"); \
 	    TOTAL=$$((TOTAL+1)); \
 	    TOTAL_ITEMS=$$((TOTAL_ITEMS+ITEMS)); \
+	    if [ "$$ITEMS" -eq 0 ]; then \
+	      SKIP=$$((SKIP+1)); \
+	      echo ">>> [test $$TOTAL] $$T (0 exported definitions) -- skipped"; \
+	      continue; \
+	    fi; \
 	    echo ">>> [test $$TOTAL] $$T ($$ITEMS exported definitions)"; \
 	    if $(MAKE) -s build_silent TEST_DIR="$$D" TEST_THEORY="$$T"; then \
 	      echo ">>> stage1 done: $$T"; \
@@ -247,7 +274,7 @@ test:
 	  echo "================================"; \
 	  echo "test summary ($(DIR)):"; \
 	  echo "  Exported definitions: Passed: $$SUCCESS_ITEMS / Failed: $$FAIL_ITEMS / Total: $$TOTAL_ITEMS"; \
-	  echo "  Theories:             Passed: $$SUCCESS / Failed: $$FAIL / Total: $$TOTAL"; \
+	  echo "  Theories:             Passed: $$SUCCESS / Failed: $$FAIL / Skipped: $$SKIP / Total: $$TOTAL"; \
 	  if [ -n "$$FAILED" ]; then \
 	    for T in $$FAILED; do echo "    - $$T"; done; \
 	    exit 1; \

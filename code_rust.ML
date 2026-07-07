@@ -88,13 +88,25 @@ fun rust_block header body =
   Pretty.chunks [Pretty.block [header, str " {"], rust_indent body, str "}"];
 
 fun rust_bare_block body =
-  Pretty.block (str "{ " :: separate (str " ") body @ [str " }"]);
+  Pretty.chunks [str "{", rust_indent body, str "}"];
 
 fun rust_inline_block body =
   Pretty.block (str "{ " :: separate (str " ") body @ [str " }"]);
 
 fun rust_match scrutinee arms =
   rust_block (Pretty.block [str "match ", scrutinee]) (comma_lines arms);
+
+fun rust_arm pat body =
+  Pretty.chunks [Pretty.block [pat, str " =>"], rust_indent [body]];
+
+fun rust_if cond then_body else_body =
+  Pretty.chunks [
+    Pretty.block [str "if ", cond, str " {"],
+    rust_indent [then_body],
+    str "} else {",
+    rust_indent [else_body],
+    str "}"
+  ];
 
 fun rust_where [] = []
   | rust_where bounds = [str "where", rust_indent (comma_lines bounds)];
@@ -788,27 +800,39 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     and gen_print_app_rvars print_app_expr print_term some_thm vars fxy
         (app as (const as { sym, dom, ... }, ts)) =
       (case sym of
-        Constant name => (case const_syntax name of
-          NONE => brackify fxy (print_app_expr some_thm vars app)
-        | SOME (_, Plain_printer s) =>
-            brackify fxy (str s :: map (print_term some_thm vars BR) ts)
-        | SOME (wanted, Complex_printer print) =>
-            let
-              val ((vs_tys, (ts1, rty)), ts2) =
-                Code_Thingol.satisfied_application wanted app;
-              fun print_term_raw some_thm raw_vars fxy t =
-                print_term some_thm (raw_vars, rv_types vars) fxy t;
-              fun print' fxy =
-                print (print_term_raw some_thm) some_thm (rv_names vars) fxy (ts1 ~~ take wanted dom);
-            in
-              if null vs_tys then
-                if null ts2 then
-                  print' fxy
-                else
-                  brackify fxy (print' APP :: map (print_term some_thm vars BR) ts2)
-              else
-                print_term some_thm vars fxy (vs_tys `|==> (IConst const `$$ ts1, rty))
-            end)
+        Constant name =>
+          let
+            fun print_registered_syntax () =
+              (case const_syntax name of
+                NONE => brackify fxy (print_app_expr some_thm vars app)
+              | SOME (_, Plain_printer s) =>
+                  brackify fxy (str s :: map (print_term some_thm vars BR) ts)
+              | SOME (wanted, Complex_printer print) =>
+                  let
+                    val ((vs_tys, (ts1, rty)), ts2) =
+                      Code_Thingol.satisfied_application wanted app;
+                    fun print_term_raw some_thm raw_vars fxy t =
+                      print_term some_thm (raw_vars, rv_types vars) fxy t;
+                    fun print' fxy =
+                      print (print_term_raw some_thm) some_thm (rv_names vars) fxy (ts1 ~~ take wanted dom);
+                  in
+                    if null vs_tys then
+                      if null ts2 then
+                        print' fxy
+                      else
+                        brackify fxy (print' APP :: map (print_term some_thm vars BR) ts2)
+                    else
+                      print_term some_thm vars fxy (vs_tys `|==> (IConst const `$$ ts1, rty))
+                  end)
+          in
+            (case (name, ts) of
+              ("HOL.If", [cond, then_t, else_t]) =>
+                rust_if
+                  (print_term some_thm vars NOBR cond)
+                  (print_term some_thm vars NOBR then_t)
+                  (print_term some_thm vars NOBR else_t)
+            | _ => print_registered_syntax ())
+          end
       | _ => brackify fxy (print_app_expr some_thm vars app))
     and print_app is_pseudo_fun some_thm vars =
       gen_print_app_rvars (print_app_expr is_pseudo_fun (I, I))
@@ -820,6 +844,145 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     and print_bind_typed is_pseudo_fun some_thm fxy pat ty vars =
       let val vars' = rv_intro_typed_pat pat ty vars
       in (print_term_pattern is_pseudo_fun some_thm vars' fxy pat, vars') end
+    and pat_contains_boxed_field pat =
+      (case Code_Thingol.unfold_const_app pat of
+        SOME ({sym, ...}, ts) =>
+          if is_constr sym then
+            let
+              val boxes = box_table sym;
+              val boxed_here =
+                length boxes = length ts andalso
+                  exists (fn (_, need_box) => need_box) (ListPair.zip (ts, boxes));
+            in boxed_here orelse exists pat_contains_boxed_field ts end
+          else exists pat_contains_boxed_field ts
+      | NONE => false)
+    and stable_match_compile is_pseudo_fun some_thm vars columns rows fallback =
+      let
+        fun emit_row (_, _, _, lets, body) =
+          if null lets then body else rust_bare_block (lets @ [body]);
+        fun first_pat (p :: _) = SOME p
+          | first_pat [] = NONE;
+        fun is_irrefutable_col_pat (IVar _) = true
+          | is_irrefutable_col_pat _ = false;
+        fun binding_let row_vars used_vars scrutinee (IVar (SOME v)) =
+              let
+                val lhs =
+                  if member (op =) used_vars v
+                  then rv_lookup_var row_vars v
+                  else "_";
+              in [Pretty.block [str "let ", str lhs, str " = ", scrutinee, str ";"]] end
+          | binding_let _ _ _ _ = [];
+        fun row_pats (pats, _, _, _, _) = pats;
+        fun constructor_pat pat =
+          (case Code_Thingol.unfold_const_app pat of
+            SOME ({sym, dom, ...}, ts) =>
+              if is_constr sym andalso length dom = length ts
+              then SOME (sym, dom, ts)
+              else NONE
+          | NONE => NONE);
+        fun constructor_name sym =
+          (case lookup_constant_typeco sym of
+            SOME parent => tyco_name_str parent ^ "::" ^ deresolve_base sym
+          | NONE => deresolve_base sym);
+        fun constructor_pattern sym field_names =
+          let
+            val phantom_count =
+              (case lookup_constant_typeco sym of
+                SOME parent => length (phantom_table (Type_Constructor parent))
+              | NONE => 0);
+            val phantom_args = List.tabulate (phantom_count, fn _ => str "PhantomData");
+            val args = map str field_names @ phantom_args;
+          in
+            if null args then str (constructor_name sym)
+            else Pretty.block [str (constructor_name sym), str " ", rust_parens args]
+          end;
+        fun fresh_names row_vars base n =
+          Name.invent (snd (rv_names row_vars)) base n;
+        fun compile [] [] rows _ =
+              (case rows of [] => fallback | row :: _ => emit_row row)
+          | compile columns _ [] _ = fallback
+          | compile ((scrutinee, _) :: rest_columns) all_columns rows depth =
+              let
+                val first_pats = map_filter (first_pat o #1) rows;
+                val all_irrefutable =
+                  not (null first_pats) andalso List.all is_irrefutable_col_pat first_pats;
+                fun drop_irrefutable (pats as p :: ps, row_vars, used_vars, lets, body) =
+                      (ps, row_vars, used_vars,
+                        lets @ binding_let row_vars used_vars scrutinee p, body)
+                  | drop_irrefutable row = row;
+              in
+                if all_irrefutable then
+                  compile rest_columns rest_columns (map drop_irrefutable rows) depth
+                else
+                  let
+                    val constructors =
+                      rows
+                      |> map_filter (fn row =>
+                          (case first_pat (row_pats row) of
+                            SOME p => Option.map #1 (constructor_pat p)
+                          | NONE => NONE))
+                      |> distinct (op =);
+                    val base_vars =
+                      (case rows of
+                        (_, row_vars, _, _, _) :: _ => row_vars
+                      | [] => vars);
+                    fun rows_for_constructor sym =
+                      map_filter (fn (pats as p :: ps, row_vars, used_vars, lets, body) =>
+                          (case constructor_pat p of
+                            SOME (sym', dom, ts) =>
+                              if sym = sym'
+                              then SOME (dom, ts, ps, row_vars, used_vars, lets, body)
+                              else NONE
+                          | NONE => NONE)
+                        | _ => NONE) rows;
+                    fun print_constructor_arm sym =
+                      let
+                        val spec_rows = rows_for_constructor sym;
+                        val (dom, ts0, _, row_vars0, _, _, _) = hd spec_rows;
+                        val boxes0 = box_table sym;
+                        val boxes =
+                          if length boxes0 = length dom then boxes0 else map (K false) dom;
+                        val field_names = fresh_names row_vars0 ("p" ^ Int.toString depth) (length dom);
+                        val field_scrutinees =
+                          map (fn (name, need_box) =>
+                            if need_box
+                            then Pretty.block [str "*", str name]
+                            else str name)
+                            (ListPair.zip (field_names, boxes));
+                        val field_columns = ListPair.zip (field_scrutinees, dom);
+                        val specialized_rows =
+                          map (fn (_, ts, ps, row_vars, used_vars, lets, body) =>
+                            (ts @ ps, row_vars, used_vars, lets, body)) spec_rows;
+                        val arm_body =
+                          compile (field_columns @ rest_columns)
+                            (field_columns @ rest_columns) specialized_rows (depth + 1);
+                      in
+                        rust_arm (constructor_pattern sym field_names) arm_body
+                      end;
+                    val default_rows =
+                      map_filter (fn (pats as p :: ps, row_vars, used_vars, lets, body) =>
+                          if is_irrefutable_col_pat p
+                          then SOME (ps, row_vars, used_vars,
+                            lets @ binding_let row_vars used_vars scrutinee p, body)
+                          else NONE
+                        | _ => NONE) rows;
+                    val default_arm =
+                      if null default_rows then []
+                      else
+                        [rust_arm (str "_")
+                          (compile rest_columns rest_columns default_rows (depth + 1))];
+                    val fallback_arm =
+                      if null default_rows
+                      then [rust_arm (str "_") fallback]
+                      else default_arm;
+                  in
+                    if null constructors then fallback
+                    else rust_match scrutinee (map print_constructor_arm constructors @ fallback_arm)
+                  end
+              end;
+      in
+        compile columns columns rows 0
+      end
     (** Print a case expression. Three cases:
         - Empty clauses: generates panic
         - Single clause: emitted as let-binding block
@@ -845,41 +1008,71 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars NOBR t, str ";"])
             val (ps, vars') = fold_map print_let binds vars;
             val all_irrefutable = List.all (pat_irrefutable o fst o fst) binds;
+            fun print_stable_match t ty clauses =
+              let
+                fun row (pat, body) =
+                  let
+                    val vars' = rv_intro_typed_pat pat ty vars;
+                    val used_vars = build (Code_Thingol.add_varnames body);
+                  in
+                    ([pat], vars', used_vars, [],
+                      print_term_app is_pseudo_fun some_thm vars' NOBR body)
+                  end;
+                val scrutinee = print_term_app is_pseudo_fun some_thm vars NOBR t;
+              in
+                stable_match_compile is_pseudo_fun some_thm vars
+                  [(scrutinee, ty)] (map row clauses)
+                  (str "panic!(\"non-exhaustive match\")")
+              end;
           in
-            if all_irrefutable then
+            if all_irrefutable andalso not (exists (pat_contains_boxed_field o fst) (map fst binds)) then
               rust_bare_block (ps @ [print_term_app is_pseudo_fun some_thm vars' NOBR body])
             else
               (case case_expr of {term = t, typ = ty, clauses = clauses, ...} =>
                 let
+                  val has_boxed_patterns = exists (pat_contains_boxed_field o fst) clauses;
                   fun print_select (pat, body) =
                     let
                       val (p, vars') = print_bind_typed is_pseudo_fun some_thm NOBR pat ty vars;
                     in
-                      Pretty.block (
-                        p
-                        :: str " => "
-                        :: [(print_term_app is_pseudo_fun some_thm vars' NOBR body)]
-                      )
+                      rust_arm p (print_term_app is_pseudo_fun some_thm vars' NOBR body)
                     end
                 in
-                  rust_match
-                    (print_term_app is_pseudo_fun some_thm vars NOBR t)
-                    (map print_select clauses
-                      @ [str "_ => panic!(\"non-exhaustive match\")"])
+                  if has_boxed_patterns
+                  then print_stable_match t ty clauses
+                  else
+                    rust_match
+                      (print_term_app is_pseudo_fun some_thm vars NOBR t)
+                      (map print_select clauses
+                        @ [rust_arm (str "_") (str "panic!(\"non-exhaustive match\")")])
                 end)
-          end     
-        (*match block*)     
+          end
+        (*match block*)
       | print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars _ (icase as { term = t, typ = _, clauses = clauses, ... }) =
           let
+            val has_boxed_patterns = exists (pat_contains_boxed_field o fst) clauses;
+            fun print_stable_match () =
+              let
+                val ty = #typ icase;
+                fun row (pat, body) =
+                  let
+                    val vars' = rv_intro_typed_pat pat ty vars;
+                    val used_vars = build (Code_Thingol.add_varnames body);
+                  in
+                    ([pat], vars', used_vars, [],
+                      print_term_app is_pseudo_fun some_thm vars' NOBR body)
+                  end;
+                val scrutinee = print_term_app is_pseudo_fun some_thm vars NOBR t;
+              in
+                stable_match_compile is_pseudo_fun some_thm vars
+                  [(scrutinee, ty)] (map row clauses)
+                  (str "panic!(\"non-exhaustive match\")")
+              end;
             fun print_select (pat, body) =
               let
                 val (p, vars') = print_bind_typed is_pseudo_fun some_thm NOBR pat (#typ icase) vars;
-              in 
-                Pretty.block (
-                  p 
-                  :: str " => "
-                  :: [(print_term_app is_pseudo_fun some_thm vars' NOBR body)]
-                )
+              in
+                rust_arm p (print_term_app is_pseudo_fun some_thm vars' NOBR body)
               end;
           in
             (* HOL functions may be partial (e.g. `nth [] n` has no equation), so
@@ -887,10 +1080,13 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                matches. Add a catch-all that panics on the undefined inputs. On a
                match that is already exhaustive this arm is unreachable — a warning
                (suppressed), not an error. *)
-            rust_match
-              (print_term_app is_pseudo_fun some_thm vars NOBR t)
-              (map print_select clauses
-                @ [str "_ => panic!(\"non-exhaustive match\")"])
+            if has_boxed_patterns
+            then print_stable_match ()
+            else
+              rust_match
+                (print_term_app is_pseudo_fun some_thm vars NOBR t)
+                (map print_select clauses
+                  @ [rust_arm (str "_") (str "panic!(\"non-exhaustive match\")")])
           end
     (** Print a `move` closure with explicit capture-by-clone.
         For each outer variable v that occurs free in the body 
@@ -1121,81 +1317,108 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   |> rv_intro_typed_pats (ListPair.zip (ts, param_tys));
                 val print_pattern_term = (print_term_pattern is_pseudo_fun some_thm vars NOBR)
                 val print_expr_term = (print_term_app is_pseudo_fun some_thm vars NOBR)
-              in 
+              in
                 if is_degenerated (*only 1 pattern clause in eqs*)
-                then print_expr_term t 
-                else Pretty.block [
-                to_tuple ts (
-                  Pretty.block(commas_append (map print_pattern_term ts))),
-                str " => ",
-                print_expr_term t 
-                ] 
+                then print_expr_term t
+                else rust_arm
+                  (to_tuple ts (Pretty.block (commas_append (map print_pattern_term ts))))
+                  (print_expr_term t)
               end;
             (** Print the function signature and body:
                 generates dummy parameter names, type annotations, return type,
                 and dispatches to direct expr / single match / multi match body. **)
             fun print_eqns prolog (vs_ty as (vs, ty)) is_pseudo eqs =
+              let
+                val vars0 = reserved
+                  |> intro_base_names_for (is_none o const_syntax)
+                      deresolve (map (snd o fst) eqs)
+                val dummy_parms = (map str o aux_params vars0 o map (fst o fst)) eqs;
+                val vars = (vars0, Symtab.empty);
+                val typs = extract_typ print_typ ty
+                val param_typs = List.take (typs, (List.length dummy_parms))
+                val ret_typs = List.drop (typs, (List.length dummy_parms))
+                val ret_typ = (case ret_typs
+                  of [] => str "()"
+                  | [t] => t
+                  | ts => (*Fn Trait*)
+                    let
+                      val ret = List.last ts
+                      val params = List.take (ts, ((List.length ts) - 1))
+                    in
+                      rc_dyn_fn params ret
+                    end)
+                val dummy_parms_with_typs = ListPair.zip (dummy_parms, param_typs)
+                  |> map (fn (prt1, prt2) => Pretty.block ([prt1, str ": ", prt2]))
+                fun is_var_pattern (IVar _) = true
+                  | is_var_pattern _ = false
+                fun is_const_expr ts t =
                   let
-                    val vars0 = reserved
-                          |> intro_base_names_for (is_none o const_syntax)
-                              deresolve (map (snd o fst) eqs)
-                    val dummy_parms = (map str o aux_params vars0 o map (fst o fst)) eqs;
-                    val vars = (vars0, Symtab.empty);
-                    val typs = extract_typ print_typ ty
-                    val param_typs = List.take (typs, (List.length dummy_parms))
-                    val ret_typs = List.drop (typs, (List.length dummy_parms))
-                    val ret_typ = (case ret_typs
-                      of [] => str "()"
-                      | [t] => t 
-                      | ts => (*Fn Trait*)
-                        let
-                          val ret = List.last ts
-                          val params = List.take (ts, ((List.length ts) - 1))
-                        in
-                          rc_dyn_fn params ret
-                        end)
-                    val dummy_parms_with_typs = ListPair.zip (dummy_parms, param_typs)
-                      |> map (fn (prt1, prt2) => Pretty.block ([prt1, str ": ", prt2]))
-                    fun is_var_pattern (IVar _) = true
-                      | is_var_pattern _ = false
-                    fun is_const_expr ts t = 
-                      let
-                        fun unfold_term t = (case t
-                          of (_`$_) => (snd o Code_Thingol.unfold_app) t 
-                          | (_`|=>(t', _)) => unfold_term t'
-                          | (IVar _) => [t]
-                          | _ => []) 
-                        val pattern_terms = List.concat (map unfold_term ts)
-                        val expr_terms = unfold_term t
-                      in
-                        not (fold (fn t => fn acc => (List.exists (fn t' => t' = t) pattern_terms) orelse acc) expr_terms false)
-                      end
-                    val sig_head =
-                      Pretty.block [
-                        prolog,
-                        Pretty.brk_indent 1 2,
-                        enum "," "(" ")" dummy_parms_with_typs,
-                        str " -> ",
-                        ret_typ
-                      ]
-                    val scrutinee = to_tuple dummy_parms ((Pretty.block o commas) dummy_parms)
-                    val body =
-                      (case eqs
-                        of [eq as ((ts, t), _)] =>
-                            if List.all is_var_pattern ts andalso is_const_expr ts t
-                            then print_eqn true eq
-                            else rust_match scrutinee
-                              [print_eqn false eq,
-                               str "_ => panic!(\"non-exhaustive match\")"]
-                         | _ =>
-                            (* catch-all: HOL functions may be partial, but Rust matches
-                               must be total (e.g. `nth [] n` has no clause). *)
-                            rust_match scrutinee
-                              (map (print_eqn false) eqs
-                                @ [str "_ => panic!(\"non-exhaustive match\")"]))
+                    fun unfold_term t = (case t
+                      of (_`$_) => (snd o Code_Thingol.unfold_app) t
+                      | (_`|=>(t', _)) => unfold_term t'
+                      | (IVar _) => [t]
+                      | _ => [])
+                    val pattern_terms = List.concat (map unfold_term ts)
+                    val expr_terms = unfold_term t
                   in
-                    rust_fn sig_head trait_bounds [body]
+                    not (fold (fn t => fn acc => (List.exists (fn t' => t' = t) pattern_terms) orelse acc) expr_terms false)
+                  end
+                fun eq_has_boxed_patterns ((ts, _), _) =
+                  exists pat_contains_boxed_field ts;
+                fun print_stable_eqns eqs =
+                  let
+                    val raw_typs = extract_typ (fn _ => fn ty => ty) ty;
+                    val param_raw_typs = List.take (raw_typs, List.length dummy_parms);
+                    val columns = ListPair.zip (dummy_parms, param_raw_typs);
+                    fun row ((ts, t), (some_thm, _)) =
+                      let
+                        val param_tys = take (length ts) raw_typs;
+                        val vars =
+                          (reserved, Symtab.empty)
+                          |> rv_intro_base_names_for (is_none o const_syntax)
+                              deresolve (t :: ts)
+                          |> rv_intro_typed_pats (ListPair.zip (ts, param_tys));
+                        val used_vars = build (Code_Thingol.add_varnames t);
+                      in
+                        (ts, vars, used_vars, [],
+                          print_term_app is_pseudo_fun some_thm vars NOBR t)
+                      end;
+                  in
+                    stable_match_compile is_pseudo_fun NONE vars
+                      columns (map row eqs)
+                      (str "panic!(\"non-exhaustive match\")")
                   end;
+                val sig_head =
+                  Pretty.block [
+                    prolog,
+                    Pretty.brk_indent 1 2,
+                    enum "," "(" ")" dummy_parms_with_typs,
+                    str " -> ",
+                    ret_typ
+                  ]
+                val scrutinee = to_tuple dummy_parms ((Pretty.block o commas) dummy_parms)
+                val body =
+                  (case eqs
+                    of [eq as ((ts, t), _)] =>
+                        if List.all is_var_pattern ts andalso is_const_expr ts t
+                        then print_eqn true eq
+                        else if eq_has_boxed_patterns eq
+                        then print_stable_eqns [eq]
+                        else rust_match scrutinee
+                          [print_eqn false eq,
+                           rust_arm (str "_") (str "panic!(\"non-exhaustive match\")")]
+                     | _ =>
+                        (* catch-all: HOL functions may be partial, but Rust matches
+                           must be total (e.g. `nth [] n` has no clause). *)
+                        if exists eq_has_boxed_patterns eqs
+                        then print_stable_eqns eqs
+                        else
+                          rust_match scrutinee
+                            (map (print_eqn false) eqs
+                              @ [rust_arm (str "_") (str "panic!(\"non-exhaustive match\")")]))
+              in
+                rust_fn sig_head trait_bounds [body]
+              end;
             val prolog =
               case impl_method
                of NONE =>
@@ -2112,22 +2335,23 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           | _ => I)) stmt_list Code_Symbol.Table.empty
       in fn sym => the_default [] (Code_Symbol.Table.lookup tab sym) end;
     (** Look up whether a constant is a data constructor; returns SOME parent_tyco or NONE. **)
-    fun lookup_constant_typeco_gen program sym = 
+    fun lookup_constant_typeco_gen program sym =
       let
         val stmt = get_node program sym
       in
-        (case stmt 
+        (case stmt
         of Code_Thingol.Datatypecons c => SOME c
           | _ => NONE)
-      end; 
+      end handle Code_Symbol.Graph.UNDEF _ => NONE;
     val lookup_constant_typeco = lookup_constant_typeco_gen program;
     fun is_single_constr sym =
-      (case lookup_constant_typeco sym of
+      ((case lookup_constant_typeco sym of
         SOME parent =>
           (case get_node program (Type_Constructor parent) of
             Code_Thingol.Datatype (_, cos) => length cos = 1
           | _ => false)
-      | NONE => false);
+      | NONE => false)
+      handle Code_Symbol.Graph.UNDEF _ => false);
     (** Look up whether a constant is a function; returns SOME function signiture or NONE. **)    
     fun lookup_constant_fun_gen program sym = 
       let
@@ -2178,15 +2402,17 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
 
     val module_local_bases =
       fold (fn ((sym, _), _) =>
-        let
-          val qual = deresolver [] sym
-          val module = before_first_dot qual
-          val base = after_last_dot qual
-        in
-          if is_generated_module module
-          then AList.map_default (op =) (module, []) (insert (op =) base)
-          else I
-        end) stmt_list []
+        (case try (deresolver []) sym of
+          SOME qual =>
+            let
+              val module = before_first_dot qual
+              val base = after_last_dot qual
+            in
+              if is_generated_module module
+              then AList.map_default (op =) (module, []) (insert (op =) base)
+              else I
+            end
+        | NONE => I)) stmt_list []
 
     fun import_syms_for_dep sym =
       (case inst_method_info sym of
@@ -2248,14 +2474,17 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
             SOME cand => add_candidate source_module cand imports
           | NONE => imports)
         fun add_imports_for_sym (sym, children) imports =
-          let
-            val source_module = before_first_dot (deresolver [] sym)
-            val deps = maps import_syms_for_dep children
-          in
-            if is_generated_module source_module
-            then fold (add_sym_import source_module) deps imports
-            else imports
-          end
+          (case try (deresolver []) sym of
+            SOME qual =>
+              let
+                val source_module = before_first_dot qual
+                val deps = maps import_syms_for_dep children
+              in
+                if is_generated_module source_module
+                then fold (add_sym_import source_module) deps imports
+                else imports
+              end
+          | NONE => imports)
       in
         fold add_imports_for_sym sym_dpdnc_list []
       end
@@ -2310,13 +2539,16 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
     fun print_stmt prefix_fragments (sym, (export, stmt)) =
       let
         val current_module = before_first_dot (deresolver [] sym)
+        fun is_constr_safe sym =
+          (Code_Thingol.is_constr program sym
+            handle Code_Symbol.Graph.UNDEF _ => false)
         val _ = tracing ("[Thingol] "
           ^ Code_Debug_Info.print_debug_info_sym sym ^ ": "
           ^ Code_Debug_Info.print_debug_info_thingol_stmt (get_node program sym))
         val r = Exn.result (fn () =>
           (print_rust_stmt
             tyco_syntax const_syntax (make_vars reserved_syms)
-            (Code_Thingol.is_constr program) (modify_deresolver current_module (deresolver prefix_fragments))
+            is_constr_safe (modify_deresolver current_module (deresolver prefix_fragments))
             box_table phantom_table
             lookup_constant_typeco is_single_constr lookup_constant_fun
             lookup_method_class inst_method_info lookup_class_methods constr_method_of)
@@ -2367,12 +2599,11 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           Pretty.chunks ([str "[dependencies]", str rust_dependencies]),
           Pretty.chunks ([str "[lints.rust]", str rust_lints])
       ]))
-    val lib = pair
-      (["src", "lib.rs"])
-      (Pretty.chunks([
-        str "#![feature(box_patterns)]",
-        str (fold (fn s => (fn acc => ("pub mod "^s^";\n")^acc)) modules "" )
-      ]))
+	    val lib = pair
+	      (["src", "lib.rs"])
+	      (Pretty.chunks([
+	        str (fold (fn s => (fn acc => ("pub mod "^s^";\n")^acc)) modules "" )
+	      ]))
   in
     (Code_Target.Hierarchy (toml :: lib :: srcs @ empty_mods),
     try (deresolver []))

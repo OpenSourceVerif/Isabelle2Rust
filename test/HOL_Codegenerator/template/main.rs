@@ -1,4 +1,3 @@
-#![feature(box_patterns)]
 mod Arith;
 mod GCD;
 mod Product_Type;
