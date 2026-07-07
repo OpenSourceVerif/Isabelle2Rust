@@ -364,6 +364,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     fun fun_typs ("fun"`%%[ty1, ty2]) =
           let val (tys, ret) = fun_typs ty2 in (ty1 :: tys, ret) end
       | fun_typs ty = ([], ty);
+    fun arrow_arity ("fun"`%%[_, ty2]) = 1 + arrow_arity ty2
+      | arrow_arity _ = 0;
     fun mk_fun_ty ([], ret) = ret
       | mk_fun_ty (ty :: tys, ret) = "fun"`%%[ty, mk_fun_ty (tys, ret)];
     fun term_type vars (IConst {dom, range, ...}) = SOME (mk_fun_ty (dom, range))
@@ -376,6 +378,23 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
       | term_type vars ((_, ty) `|=> (_, rty)) = SOME ("fun"`%%[ty, rty])
       | term_type vars (ICase {clauses = (_, body) :: _, ...}) = term_type vars body
       | term_type _ (ICase {clauses = [], ...}) = NONE;
+    fun classparam_decl cp =
+      (case lookup_method_class (Constant cp) of
+        SOME class =>
+          (case lookup_class_methods class of
+            SOME (self_var, cps) =>
+              Option.map (fn mty => (class, self_var, mty)) (AList.lookup (op =) cps cp)
+          | NONE => NONE)
+      | NONE => NONE);
+    fun classparam_arrow_arity cp =
+      Option.map (fn (_, _, mty) => arrow_arity mty) (classparam_decl cp);
+    fun trait_method_arity sym =
+      (case inst_method_info sym of
+        SOME (_, cp) => classparam_arrow_arity cp
+      | NONE =>
+          (case sym of
+            Constant cp => classparam_arrow_arity cp
+          | _ => NONE));
     (** Main term printer. Handles all iterm constructors:
         IConst (constants/constructors), IVar (variables), `$ (application),
         `|=> (lambda/pattern abstraction), ICase (case/let/match).
@@ -475,8 +494,14 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           in
             print_term_with_cons_and_box (need_box, box_prcs) print_app_term fxy t
           end
-      | print_term_gen is_pseudo_fun _ some_thm vars _ (t as _ `|=> _) =
-          print_lambda is_pseudo_fun some_thm vars t
+      | print_term_gen is_pseudo_fun (need_box, box_prcs, _) some_thm vars fxy (t as _ `|=> _) =
+          (* A lambda is the term-level representation of a HOL function value.
+             When such a value inhabits a recursive datatype field, the same
+             constructor-field Box decision used for constants and applications
+             must also wrap the Rc<dyn Fn(..)> closure. *)
+          let
+            fun print_abs _ = print_lambda is_pseudo_fun some_thm vars t
+          in print_term_with_cons_and_box (need_box, box_prcs) print_abs fxy t end
       | print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy (t as (ICase case_expr)) =
           case Code_Thingol.unfold_const_app (#primitive case_expr)
             of SOME (app as ({ sym = Constant const, ... }, _)) =>
@@ -588,21 +613,19 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           then (str o deresolve) sym @@ str "()"
         else
           let 
-            fun arrow_arity ("fun" `%% [_, ty2]) = 1 + arrow_arity ty2
-              | arrow_arity _ = 0
-            val is_trait_method_call =
-              is_some (lookup_method_class sym) orelse is_some (inst_method_info sym)
+            val method_arity = trait_method_arity sym
+            val is_trait_method_call = is_some method_arity
             val wanted_app =
               if is_trait_method_call
               then
-                (* Trait method signatures are printed with one Rust parameter for
-                   every top-level HOL arrow.  For eta-reduced concrete instance
-                   methods, Code_Thingol may expose only the explicitly bound
-                   parameters in `dom` and leave the remaining method arrows in
-                   `range`; calls that are printed as `A::method(..)` or
-                   `Tyco::method(..)` must count those range arrows as required
-                   Rust arguments. *)
-                length dom + arrow_arity range
+                (* Trait method signatures are governed by the class parameter's
+                   declared arity. This is deliberately independent of the
+                   implementing constant's instantiated Rust type: for an instance
+                   at HOL `fun`, the method result/arguments may themselves be
+                   function values and must remain a single `Self` parameter or
+                   result in Rust, not leak extra closure arguments into the method
+                   call. *)
+                the method_arity
               else length dom
             (** Mirror the eta-expansion in binding_of_stmt: a single equation with
                 empty LHS (e.g., [size_list = gen_length zero_nat]) is eta-expanded
@@ -639,7 +662,16 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               | NONE => wanted_app
             fun print_generic_prefix_typ ty =
               (print_typ NOBR (case ty of (tyco`%%_) => tyco`%%[] | ty => ty))
-            val prefix_target_ty = if List.null dom then range else List.hd dom
+            val prefix_target_ty =
+              (* For a reconstructed nullary instance method, the Rust receiver is
+                 the whole instance Self type. At a HOL `fun` instance that Self type
+                 is represented in Thingol as the implementing constant's own
+                 function type (`dom ---> range`), so taking the first domain type
+                 would incorrectly dispatch on the function argument instead of on
+                 `Rc<dyn Fn(..)>`. *)
+              if is_some (inst_method_info sym) andalso wanted_app = 0
+              then mk_fun_ty (dom, range)
+              else if List.null dom then range else List.hd dom
             (* A type-variable receiver is generic dispatch (`A::method`). *)
             val is_tyvar_receiver =
               (case prefix_target_ty of (ITyVar _) => true | _ => false)
@@ -758,7 +790,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                               else ([], (str o deresolve) sym))
                     else ([], (str o deresolve) sym))
           in
-            if length ts = wanted_app
+            if (if is_trait_method_call then length ts >= wanted_app else length ts = wanted_app)
             then
               let
                 val (ts1, ts2) = chop wanted_fn ts
@@ -864,13 +896,33 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           | first_pat [] = NONE;
         fun is_irrefutable_col_pat (IVar _) = true
           | is_irrefutable_col_pat _ = false;
+        fun source_var_of_scrutinee row_vars scrutinee =
+          let
+            val scrutinee_s = Pretty.unformatted_string_of scrutinee;
+            val (namemap, _) = rv_names row_vars;
+          in
+            get_first (fn (v, printed) =>
+              if printed = scrutinee_s then SOME v else NONE) (Symtab.dest namemap)
+          end;
         fun binding_let row_vars used_vars scrutinee (IVar (SOME v)) =
               let
                 val lhs =
                   if member (op =) used_vars v
                   then rv_lookup_var row_vars v
                   else "_";
-              in [Pretty.block [str "let ", str lhs, str " = ", scrutinee, str ";"]] end
+                val rhs =
+                  (* An irrefutable variable pattern can introduce an alias of an
+                     already-bound owned value. If the source variable is also used
+                     later in the selected row, the alias must be initialized from a
+                     clone; otherwise the alias binding would move the source before
+                     the later use. *)
+                  (case source_var_of_scrutinee row_vars scrutinee of
+                    SOME src_v =>
+                      if lhs <> "_" andalso src_v <> v andalso member (op =) used_vars src_v
+                      then clone scrutinee
+                      else scrutinee
+                  | NONE => scrutinee);
+              in [Pretty.block [str "let ", str lhs, str " = ", rhs, str ";"]] end
           | binding_let _ _ _ _ = [];
         fun row_pats (pats, _, _, _, _) = pats;
         fun constructor_pat pat =
@@ -1445,25 +1497,47 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               Pretty.brk_indent 1 2,
               print_tyco_expr (Type_Constructor tyco, map (ITyVar o fst) vs)
             ]
+            fun subst_self_type self_var self_ty (ITyVar v) =
+                  if v = self_var then self_ty else ITyVar v
+              | subst_self_type self_var self_ty (tyco `%% tys) =
+                  tyco `%% map (subst_self_type self_var self_ty) tys;
+            fun method_type classparam =
+              (case lookup_class_methods class of
+                SOME (self_var, cps) =>
+                  Option.map (fn mty =>
+                    let
+                      val self_ty = tyco `%% map (ITyVar o fst) vs;
+                    in (subst_self_type self_var self_ty mty, arrow_arity mty) end)
+                    (AList.lookup (op =) cps classparam)
+              | NONE => NONE);
             (** Fetch and eta-normalize the implementing constant's equations
                 from the (untouched) program, so its body can be inlined as the
                 trait method.
-                The trait declares this method fully uncurried: print_method_sig
-                turns every top-level arrow of the method type into a parameter.
-                A Rust trait impl must match that arity exactly or rustc rejects
-                it with E0050, but a code equation is often eta-reduced -- e.g.
-                `random_bot i = <closure taking the seed>` has one pattern for a
-                two-argument method, so it would print as a one-parameter `fn`
-                returning `Rc<dyn Fn(..)>`.  Eta-expand every equation up to the
-                method type's arrow count so the inlined `fn` signature agrees
-                with the trait declaration. **)
-            fun method_function const_sym =
-              case lookup_constant_fun const_sym
-               of SOME ((tysm as (_, mty), raw_eqs), _) =>
+                The trait declares this method from the class parameter type, with
+                the class variable substituted by the instance Self type.  That
+                distinction matters for instances at HOL `fun`: a class value
+                method such as `unit_pt :: 'a` returns `Self`, and if `Self` is a
+                function value it must print as one Rust return type
+                `Rc<dyn Fn(..)>`, not as extra method parameters.  Eta-expansion is
+                therefore bounded by the class parameter's declared arity, while
+                the instantiated class-parameter type supplies the Rust signature. **)
+            fun method_function classparam const_sym =
+              case (lookup_constant_fun const_sym, method_type classparam)
+               of (SOME ((_, raw_eqs), _), SOME (mty, target)) =>
                     let
                       val eqs = filter (snd o snd) raw_eqs
-                      fun arrow_arity ("fun" `%% [_, ty2]) = 1 + arrow_arity ty2
-                        | arrow_arity _ = 0
+                      fun eta_expand ((ts, t), some_thm) =
+                        let val extra = target - length ts in
+                          if extra <= 0 then ((ts, t), some_thm)
+                          else
+                            let val newvars =
+                              List.tabulate (extra, fn i => IVar (SOME ("eta_arg_" ^ string_of_int i)))
+                            in ((ts @ newvars, fold (fn v => fn u => u `$ v) newvars t), some_thm) end
+                        end
+                    in SOME ((vs, mty), map eta_expand eqs) end
+                | (SOME ((tysm as (_, mty), raw_eqs), _), NONE) =>
+                    let
+                      val eqs = filter (snd o snd) raw_eqs
                       val target = arrow_arity mty
                       fun eta_expand ((ts, t), some_thm) =
                         let val extra = target - length ts in
@@ -1474,7 +1548,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                             in ((ts @ newvars, fold (fn v => fn u => u `$ v) newvars t), some_thm) end
                         end
                     in SOME (tysm, map eta_expand eqs) end
-                | NONE => NONE
+                | _ => NONE
             fun print_method (classparam, method_sym) =
               let
                 val const_s = (fn Constant s => s | sym => deresolve sym) method_sym
@@ -1482,7 +1556,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                    bare trait-method name, never crate-qualified. *)
                 val method_name = deresolve_base (Constant classparam)
               in
-                case method_function method_sym
+                case method_function classparam method_sym
                  of SOME fb =>
                       snd (print_def (K false) false "fn" (SOME method_name) (Function (const_s, fb)))
                   | NONE => str ("/* unresolved instance method "^method_name^" */")
@@ -1506,9 +1580,9 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                Treat it exactly like a method Isabelle never emitted: drop it from
                the real methods so the stub path below fills it with a panic stub
                of the right signature. *)
-            fun method_has_body method_sym =
-              (case method_function method_sym of SOME (_, eqs) => not (null eqs) | NONE => false)
-            val real_methods = filter (method_has_body o snd) methods
+            fun method_has_body (classparam, method_sym) =
+              (case method_function classparam method_sym of SOME (_, eqs) => not (null eqs) | NONE => false)
+            val real_methods = filter method_has_body methods
             val provided_cps = map fst real_methods
             val stub_methods =
               (case lookup_class_methods class of
