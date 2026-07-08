@@ -4,7 +4,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use isabelle2rust_optimize::{optimize_borrow, optimize_copy, optimize_mut, parse_rust_source};
+use isabelle2rust_optimize::{
+    optimize_borrow, optimize_closure, optimize_copy, optimize_match, optimize_mut,
+    parse_rust_source,
+};
 use rustlightast::RustCodeGenerator;
 
 const OPT_DIR_NAME: &str = "opt";
@@ -44,6 +47,7 @@ fn run() -> Result<Summary, String> {
     let config = parse_args()?;
     let package_root = find_package_root(&config.target)?;
     let source_root = package_root.join("src");
+    let primary_module = primary_module_name(&package_root);
 
     if !source_root.is_dir() {
         return Err(format!(
@@ -69,7 +73,7 @@ fn run() -> Result<Summary, String> {
         optimized: 0,
         needs_nightly: false,
     };
-    write_optimized_sources(&source_root, &mut summary)?;
+    write_optimized_sources(&source_root, &primary_module, &mut summary)?;
     write_opt_manifest(&package_root, &summary)?;
 
     if summary.needs_nightly {
@@ -155,7 +159,11 @@ fn find_package_root(start: &Path) -> Result<PathBuf, String> {
     }
 }
 
-fn write_optimized_sources(source_root: &Path, summary: &mut Summary) -> Result<(), String> {
+fn write_optimized_sources(
+    source_root: &Path,
+    primary_module: &str,
+    summary: &mut Summary,
+) -> Result<(), String> {
     let mut sources = rust_sources_under(source_root)?;
     sources.sort();
 
@@ -163,7 +171,7 @@ fn write_optimized_sources(source_root: &Path, summary: &mut Summary) -> Result<
         let relative_path = relative_to(&source_path, source_root);
         let output_path = summary.output_root.join("src").join(&relative_path);
 
-        if optimize_source_file(&source_path, &output_path)? {
+        if optimize_source_file(&source_path, &output_path, primary_module)? {
             summary.needs_nightly = true;
         }
         println!("optimized src/{}", relative_path.display());
@@ -201,10 +209,15 @@ fn rust_sources_under(root: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(sources)
 }
 
-fn optimize_source_file(source_path: &Path, output_path: &Path) -> Result<bool, String> {
+fn optimize_source_file(
+    source_path: &Path,
+    output_path: &Path,
+    primary_module: &str,
+) -> Result<bool, String> {
     let source = fs::read_to_string(source_path)
         .map_err(|err| format!("failed to read {}: {err}", source_path.display()))?;
     let module_name = module_name_from_path(source_path);
+    let optimize_borrow_signatures = module_name == primary_module;
     let needs_nightly = source.contains("#![feature(");
 
     // Current opt pipeline: Rust source -> RustLightAST -> optimization passes
@@ -218,9 +231,16 @@ fn optimize_source_file(source_path: &Path, output_path: &Path) -> Result<bool, 
     // model, which is always sound.
     let printed = match parse_rust_source(&source, module_name) {
         Ok(mut module) => {
+            // Pre-clean generated match artifacts before demand analyses.
+            optimize_match(&mut module);
             let copy_analysis = optimize_copy(&mut module);
-            optimize_borrow(&mut module, &copy_analysis.copy_types);
+            if optimize_borrow_signatures {
+                optimize_borrow(&mut module, &copy_analysis.copy_types);
+            }
             optimize_mut(&mut module);
+            optimize_closure(&mut module);
+            // Post-clean any discard/fallback artifacts introduced by later passes.
+            optimize_match(&mut module);
 
             let mut generator = RustCodeGenerator::new();
             generator.generate_module_code(&module)
@@ -291,6 +311,15 @@ fn module_name_from_path(source_path: &Path) -> String {
         .and_then(OsStr::to_str)
         .unwrap_or("module");
     sanitize_module_name(stem)
+}
+
+fn primary_module_name(package_root: &Path) -> String {
+    package_root
+        .parent()
+        .and_then(Path::file_name)
+        .and_then(OsStr::to_str)
+        .map(sanitize_module_name)
+        .unwrap_or_else(|| "module".to_string())
 }
 
 fn sanitize_module_name(stem: &str) -> String {

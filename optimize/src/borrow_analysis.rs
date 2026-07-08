@@ -229,12 +229,23 @@ impl BorrowContext {
 }
 
 fn candidate_borrow_positions(f: &FunctionDef) -> Vec<usize> {
+    let generic_names: HashSet<String> = f.generics.iter().map(|g| g.name.clone()).collect();
     f.params
         .iter()
         .enumerate()
-        .filter(|(_, param)| !matches!(param.ty, Type::Reference(_, _, _)))
+        .filter(|(_, param)| is_borrow_candidate_type(&param.ty, &generic_names))
         .map(|(i, _)| i)
         .collect()
+}
+
+fn is_borrow_candidate_type(ty: &Type, generic_names: &HashSet<String>) -> bool {
+    match ty {
+        Type::Named(name) => generic_names.contains(name),
+        Type::Tuple(types) => types
+            .iter()
+            .all(|ty| is_borrow_candidate_type(ty, generic_names)),
+        _ => false,
+    }
 }
 
 // ── Phase 1: demand analysis ──────────────────────────────────────────────────
@@ -288,6 +299,7 @@ impl BorrowContext {
 
     /// Returns the sorted list of parameter indices that are borrowable for `f`.
     fn borrowable_positions(&self, f: &FunctionDef) -> Vec<usize> {
+        let generic_names: HashSet<String> = f.generics.iter().map(|g| g.name.clone()).collect();
         let copy_generics = generic_names_with_bound(f, "Copy");
         let base_env = function_type_env(f);
 
@@ -296,7 +308,7 @@ impl BorrowContext {
             .enumerate()
             .filter(|(_, param)| {
                 // Only consider owned (non-reference) parameters.
-                !matches!(param.ty, Type::Reference(_, _, _))
+                is_borrow_candidate_type(&param.ty, &generic_names)
                     && self.is_param_borrowable(f, param, &base_env, &copy_generics)
             })
             .map(|(i, _)| i)
@@ -1035,8 +1047,21 @@ impl BorrowContext {
                     } else {
                         None
                     };
+                    let borrowed_box_alias = if bclosure.is_none()
+                        && let_stmt.ty.is_none()
+                        && is_binding_ident(&let_stmt.name)
+                    {
+                        let_stmt
+                            .init
+                            .as_ref()
+                            .and_then(|init| borrowed_box_deref_alias(init, borrow_env))
+                    } else {
+                        None
+                    };
                     let new_init = if let Some(closure_expr) = bclosure {
                         Some(closure_expr)
+                    } else if let Some((alias_expr, _)) = &borrowed_box_alias {
+                        Some(alias_expr.clone())
                     } else {
                         let_stmt.init.as_ref().map(|init| {
                             self.rewrite_expr_own(
@@ -1057,7 +1082,11 @@ impl BorrowContext {
                     }) {
                         if is_binding_ident(&let_stmt.name) {
                             local_orig.insert(let_stmt.name.clone(), ty.clone());
-                            borrow_env.insert(let_stmt.name.clone(), ty);
+                            if let Some((_, borrow_ty)) = &borrowed_box_alias {
+                                borrow_env.insert(let_stmt.name.clone(), borrow_ty.clone());
+                            } else {
+                                borrow_env.insert(let_stmt.name.clone(), ty);
+                            }
                         } else {
                             self.bind_pattern_env(&let_stmt.name, &ty, &mut local_orig);
                             self.bind_pattern_env_for_borrow(&let_stmt.name, &ty, borrow_env);
@@ -1525,13 +1554,30 @@ impl BorrowContext {
                     .collect(),
             ),
 
+            Expr::Closure(params, body, is_move) => {
+                let mut inner_borrow = borrow_env.clone();
+                for param in params {
+                    inner_borrow.remove(&closure_param_name(param));
+                }
+                Expr::Closure(
+                    params.clone(),
+                    Box::new(self.rewrite_expr_own(
+                        body,
+                        &mut inner_borrow,
+                        orig_env,
+                        copy_generics,
+                        orig_fn_name,
+                    )),
+                    *is_move,
+                )
+            }
+
             // Leaves and unsupported constructs: return unchanged.
             Expr::Macro(_)
             | Expr::Path(_, _)
             | Expr::Literal(_)
             | Expr::Loop(_)
             | Expr::Await(_)
-            | Expr::Closure(_, _, _)
             | Expr::BuilderChain(_)
             | Expr::Unsafe(_)
             | Expr::Index(_, _)
@@ -2514,6 +2560,12 @@ fn clone_borrowed_box_inner(name: &str) -> Expr {
     Expr::MethodCall(Box::new(as_ref_call), "clone".to_string(), vec![])
 }
 
+fn borrowed_box_deref_alias(expr: &Expr, env: &BorrowEnv) -> Option<(Expr, Type)> {
+    let name = deref_ident_name(expr)?;
+    let inner_ty = env.get(name).and_then(borrowed_box_inner_type)?;
+    Some((borrowed_box_as_ref(name), make_ref_type(inner_ty)))
+}
+
 fn local_type_name(ty: &Type) -> Option<&str> {
     match ty {
         Type::Named(name) => Some(name.as_str()),
@@ -2930,6 +2982,14 @@ mod tests {
         Expr::Literal(Literal::Int(value))
     }
 
+    fn clone_call(name: &str) -> Expr {
+        Expr::MethodCall(
+            Box::new(Expr::Ident(name.to_string())),
+            "clone".to_string(),
+            vec![],
+        )
+    }
+
     fn block_tail(expr: Expr) -> Block {
         Block {
             stmts: vec![],
@@ -3036,6 +3096,30 @@ mod tests {
     }
 
     #[test]
+    fn borrowed_box_deref_alias_keeps_let_binding_borrowed() {
+        let env = HashMap::from([(
+            "p0".to_string(),
+            make_ref_type(&Type::Generic("Box".to_string(), vec![named("Option")])),
+        )]);
+        let expr = Expr::UnaryOp("*".to_string(), Box::new(Expr::Ident("p0".to_string())));
+
+        let (alias, alias_ty) = borrowed_box_deref_alias(&expr, &env).expect("borrowed box alias");
+
+        assert!(matches!(
+            alias,
+            Expr::MethodCall(receiver, method, args)
+                if matches!(receiver.as_ref(), Expr::Ident(name) if name == "p0")
+                    && method == "as_ref"
+                    && args.is_empty()
+        ));
+        assert!(matches!(
+            alias_ty,
+            Type::Reference(inner, true, false)
+                if matches!(inner.as_ref(), Type::Named(name) if name == "Option")
+        ));
+    }
+
+    #[test]
     fn unk_blocks_borrowing_for_unsupported_index_use() {
         let body = block_tail(Expr::Index(
             Box::new(Expr::Ident("x".to_string())),
@@ -3103,5 +3187,40 @@ mod tests {
         let rewritten = rewrite_test_block(&block);
 
         assert!(is_move_owncap_block(first_let_init(&rewritten)));
+    }
+
+    #[test]
+    fn bcall_rewrites_top_level_calls_inside_closure_body() {
+        let mut ctx = empty_ctx();
+        ctx.borrow_positions
+            .insert("make_triple".to_string(), vec![0, 1, 2]);
+
+        let mut borrow_env = HashMap::from([
+            ("x_cap".to_string(), named("bool")),
+            ("a".to_string(), make_ref_type(&named("bool"))),
+        ]);
+        let orig_env = borrow_env.clone();
+        let expr = Expr::Closure(
+            vec!["a: bool".to_string(), "b: bool".to_string()],
+            Box::new(Expr::Call(
+                Box::new(Expr::Ident("make_triple".to_string())),
+                vec![clone_call("x_cap"), clone_call("a"), clone_call("b")],
+            )),
+            true,
+        );
+
+        let rewritten =
+            ctx.rewrite_expr_own(&expr, &mut borrow_env, &orig_env, &HashSet::new(), "test");
+
+        let Expr::Closure(_, body, true) = rewritten else {
+            panic!("expected rewritten move closure");
+        };
+        let Expr::Call(_, args) = body.as_ref() else {
+            panic!("expected call in closure body");
+        };
+        assert_eq!(args.len(), 3);
+        assert!(args
+            .iter()
+            .all(|arg| matches!(arg, Expr::Reference(_, true, false))));
     }
 }

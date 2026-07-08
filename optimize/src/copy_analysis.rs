@@ -265,9 +265,11 @@ impl CopyContext {
         for item in items {
             match item {
                 Item::Struct(def) if self.copy_types.contains(&def.name) => {
+                    ensure_item_comment(&mut def.docs, "// copy-optimized by inferred Copy derive");
                     ensure_clone_copy_derives(&mut def.derives);
                 }
                 Item::Enum(def) if self.copy_types.contains(&def.name) => {
+                    ensure_item_comment(&mut def.docs, "// copy-optimized by inferred Copy derive");
                     ensure_clone_copy_derives(&mut def.derives);
                 }
                 _ => {}
@@ -358,6 +360,10 @@ impl CopyContext {
 
         let mut specialized = function.clone();
         specialized.name = fresh_copy_specialization_name(&function.name, existing_names);
+        ensure_function_comment(
+            &mut specialized,
+            "// copy-optimized by Copy-specialized bounds",
+        );
 
         for generic in &mut specialized.generics {
             if copy_bound_candidates.contains(&generic.name) {
@@ -515,6 +521,21 @@ impl CopyContext {
                     self.rewrite_block(&mut arm.body, &mut arm_env, copy_generics);
                 }
             }
+            Expr::Closure(params, body, _) => {
+                let mut closure_env = env.clone();
+                for param in params {
+                    let name = closure_param_name(param);
+                    if !is_binding_ident(&name) {
+                        continue;
+                    }
+                    if let Some(ty) = closure_param_type(param) {
+                        closure_env.insert(name, ty);
+                    } else {
+                        closure_env.remove(&name);
+                    }
+                }
+                self.rewrite_expr(body, &mut closure_env, copy_generics);
+            }
             Expr::Parenthesized(inner) => self.rewrite_expr(inner, env, copy_generics),
             Expr::BinaryOp(left, _, right) => {
                 self.rewrite_expr(left, env, copy_generics);
@@ -527,7 +548,6 @@ impl CopyContext {
             | Expr::Literal(_)
             | Expr::Loop(_)
             | Expr::Await(_)
-            | Expr::Closure(_, _, _)
             | Expr::BuilderChain(_)
             | Expr::Unsafe(_)
             | Expr::Reference(_, _, _)
@@ -1159,6 +1179,18 @@ fn ensure_clone_copy_derives(derives: &mut Vec<String>) {
     derives.insert(insert_at, "Copy".to_string());
 }
 
+fn ensure_item_comment(docs: &mut Vec<String>, comment: &str) {
+    if !docs.iter().any(|doc| doc.trim() == comment) {
+        docs.push(comment.to_string());
+    }
+}
+
+fn ensure_function_comment(function: &mut FunctionDef, comment: &str) {
+    if !function.docs.iter().any(|doc| doc.trim() == comment) {
+        function.docs.push(comment.to_string());
+    }
+}
+
 fn has_bound(generic: &GenericParam, bound: &str) -> bool {
     generic.bounds.iter().any(|candidate| candidate == bound)
 }
@@ -1186,6 +1218,42 @@ fn fresh_copy_specialization_name(base: &str, existing_names: &mut HashSet<Strin
         }
         suffix += 1;
     }
+}
+
+fn closure_param_name(param: &str) -> String {
+    param
+        .trim_start_matches("mut ")
+        .split(':')
+        .next()
+        .unwrap_or(param)
+        .trim()
+        .to_string()
+}
+
+fn closure_param_type(param: &str) -> Option<Type> {
+    let ty = param.split_once(':')?.1.trim();
+    parse_simple_type(ty)
+}
+
+fn parse_simple_type(ty: &str) -> Option<Type> {
+    let ty = ty.trim();
+    if let Some(inner) = ty.strip_prefix('&') {
+        let inner = inner.trim_start_matches("mut ").trim();
+        return parse_simple_type(inner).map(|ty| Type::Reference(Box::new(ty), true, false));
+    }
+
+    if ty
+        .chars()
+        .all(|ch| ch == '_' || ch == ':' || ch.is_ascii_alphanumeric())
+    {
+        return Some(if ty.contains("::") {
+            Type::Path(ty.split("::").map(str::to_string).collect())
+        } else {
+            Type::Named(ty.to_string())
+        });
+    }
+
+    None
 }
 
 fn local_type_name(ty: &Type) -> Option<&str> {

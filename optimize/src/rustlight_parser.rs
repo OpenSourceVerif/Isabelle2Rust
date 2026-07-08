@@ -158,6 +158,7 @@ fn convert_item(item: &SynItem) -> syn::Result<Item> {
                 vis: convert_visibility(&item_mod.vis),
             })))
         }
+        SynItem::Trait(item_trait) => Ok(Item::Raw(normalize_tokens(item_trait.to_token_stream()))),
         other => Err(syn::Error::new_spanned(
             other,
             "unsupported item kind in RustLightAST parser",
@@ -285,8 +286,8 @@ fn convert_use_tree(tree: &syn::UseTree) -> UseStatement {
             ),
         },
         syn::UseTree::Rename(rename) => UseStatement {
-            path: vec![rename.ident.to_string()],
-            kind: UseKind::Nested(vec![format!("{} as {}", rename.ident, rename.rename)]),
+            path: vec![format!("{} as {}", rename.ident, rename.rename)],
+            kind: UseKind::Simple,
         },
     }
 }
@@ -520,7 +521,7 @@ fn convert_local(local: &syn::Local) -> syn::Result<LetStmt> {
 
 fn convert_expr(expr: &syn::Expr) -> syn::Result<Expr> {
     match expr {
-        syn::Expr::Path(ExprPath { path, .. }) => convert_expr_path(path),
+        syn::Expr::Path(expr_path) => convert_expr_path(expr_path),
         syn::Expr::Call(ExprCall { func, args, .. }) => Ok(Expr::Call(
             Box::new(convert_expr(func)?),
             args.iter()
@@ -670,11 +671,18 @@ fn convert_match_arm(arm: &syn::Arm) -> syn::Result<MatchArm> {
     })
 }
 
-fn convert_expr_path(path: &syn::Path) -> syn::Result<Expr> {
-    let segments = path
+fn convert_expr_path(expr_path: &ExprPath) -> syn::Result<Expr> {
+    if expr_path.qself.is_some() {
+        return Ok(Expr::Macro(normalize_path_tokens(
+            expr_path.to_token_stream(),
+        )));
+    }
+
+    let segments = expr_path
+        .path
         .segments
         .iter()
-        .map(|segment| segment.ident.to_string())
+        .map(path_segment_source)
         .collect::<Vec<_>>();
 
     if segments.len() == 1 {
@@ -686,11 +694,9 @@ fn convert_expr_path(path: &syn::Path) -> syn::Result<Expr> {
 
 fn flatten_member_path(expr: &syn::Expr) -> syn::Result<Vec<String>> {
     match expr {
-        syn::Expr::Path(ExprPath { path, .. }) => Ok(path
-            .segments
-            .iter()
-            .map(|segment| segment.ident.to_string())
-            .collect()),
+        syn::Expr::Path(ExprPath { path, .. }) => {
+            Ok(path.segments.iter().map(path_segment_source).collect())
+        }
         syn::Expr::Field(ExprField { base, member, .. }) => {
             let mut segments = flatten_member_path(base)?;
             segments.push(member.to_token_stream().to_string());
@@ -700,6 +706,13 @@ fn flatten_member_path(expr: &syn::Expr) -> syn::Result<Vec<String>> {
             expr,
             "unsupported member expression base",
         )),
+    }
+}
+
+fn path_segment_source(segment: &syn::PathSegment) -> String {
+    match &segment.arguments {
+        PathArguments::None => segment.ident.to_string(),
+        _ => normalize_path_tokens(segment.to_token_stream()),
     }
 }
 
@@ -900,6 +913,12 @@ fn normalize_tokens(tokens: TokenStream) -> String {
         .replace(" ,", ",")
 }
 
+fn normalize_path_tokens(tokens: TokenStream) -> String {
+    normalize_tokens(tokens)
+        .replace("< ", "<")
+        .replace(" >", ">")
+}
+
 trait ToTokenStreamExt {
     fn to_token_stream(&self) -> TokenStream;
 }
@@ -1032,6 +1051,39 @@ pub fn unwrap_or_panic(x0: Option<bool>) -> bool {
         let mut generator = RustCodeGenerator::new();
         let printed = generator.generate_module_code(&module);
         assert!(printed.contains(r#"panic!("non-exhaustive match")"#));
+    }
+
+    #[test]
+    fn preserves_qualified_self_paths() {
+        let source = r#"
+pub fn one_bigint() -> BigInt {
+    <BigInt as One>::one()
+}
+"#;
+        let module = parse_rust_source(source, "QSelf_Test").expect("qself path parses");
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("<BigInt as One>::one()"));
+    }
+
+    #[test]
+    fn preserves_trait_items_and_renamed_uses_as_raw_rust() {
+        let source = r#"
+use num_traits::sign::Signed as _;
+
+pub trait Zero {
+    fn zero() -> Self where Self: Sized;
+}
+"#;
+        let module = parse_rust_source(source, "Trait_Test").expect("trait item parses");
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("use num_traits::sign::Signed as _;"));
+        assert!(printed.contains("pub trait Zero"));
+        assert!(printed.contains("fn zero"));
+        assert!(printed.contains("Self : Sized"));
     }
 
     #[test]

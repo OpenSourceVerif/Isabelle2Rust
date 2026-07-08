@@ -67,11 +67,15 @@ fn transform_function(function: &mut FunctionDef) -> bool {
     // blocks).  This leaves the clones in place; they are removed next.
     let collapsed = transform_block(&mut function.body);
 
-    // M-LastUse: a global backward-liveness pass that turns `v.clone()` into `v`
-    // when `v` is owned and not read afterwards.  Running it unconditionally is
-    // sound, but it only changes anything where clones are genuinely dead — most
-    // importantly the clones the mut rewrite just exposed.
-    let owned = compute_owned(function);
+    // M-LastUse: a scoped backward-liveness pass that turns `v.clone()` into
+    // `v` when `v` is owned and not read afterwards. Running it unconditionally
+    // is sound, but it only changes anything where clones are genuinely dead.
+    let owned = function
+        .params
+        .iter()
+        .filter(|param| !param.name.is_empty() && !is_reference_type(&param.ty))
+        .map(|param| param.name.clone())
+        .collect();
     let mut live: HashSet<String> = HashSet::new();
     rewrite_lastuse_block(&mut function.body, &mut live, &owned);
 
@@ -398,147 +402,80 @@ fn is_confined(block: &Block, name: &str, limit: usize) -> bool {
 
 // ── M-LastUse: backward-liveness clone elimination ───────────────────────────
 
-/// Collect the set of variables that definitely hold *owned* (non-reference)
-/// values, so that `v.clone()` can be safely rewritten to a move of `v`.
-///
-/// We only add a name when its origin is unambiguously owned; anything uncertain
-/// (notably match-bound variables, which the borrow pass may have given a `&F`
-/// type) is left out, and clones on those receivers are never stripped.
-fn compute_owned(function: &FunctionDef) -> HashSet<String> {
-    let mut owned = HashSet::new();
-
-    for param in &function.params {
-        if !param.name.is_empty() && !is_reference_type(&param.ty) {
-            owned.insert(param.name.clone());
-        }
-    }
-
-    collect_owned_block(&function.body, &mut owned);
-    owned
-}
-
-fn collect_owned_block(block: &Block, owned: &mut HashSet<String>) {
-    for stmt in &block.stmts {
-        match stmt {
-            Statement::Let(let_stmt) => {
-                if is_binding_ident(&let_stmt.name) {
-                    let is_owned = match &let_stmt.ty {
-                        Some(ty) => !is_reference_type(ty),
-                        None => let_stmt.init.as_ref().is_some_and(produces_owned_value),
-                    };
-                    if is_owned {
-                        owned.insert(let_stmt.name.clone());
-                    }
-                }
-                if let Some(init) = &let_stmt.init {
-                    collect_owned_expr(init, owned);
-                }
-            }
-            Statement::Expr(expr) => collect_owned_expr(expr, owned),
-            Statement::Item(item) => {
-                if let Item::Function(function) = item.as_ref() {
-                    collect_owned_block(&function.body, owned);
-                }
-            }
-            _ => {}
-        }
-    }
-    if let Some(tail) = &block.expr {
-        collect_owned_expr(tail, owned);
-    }
-}
-
-fn collect_owned_expr(expr: &Expr, owned: &mut HashSet<String>) {
-    match expr {
-        Expr::Block(block) => collect_owned_block(block, owned),
-        Expr::Loop(block) | Expr::Unsafe(block) => collect_owned_block(block, owned),
-        Expr::If {
-            then_branch,
-            else_branch,
-            ..
-        }
-        | Expr::IfLet {
-            then_branch,
-            else_branch,
-            ..
-        } => {
-            collect_owned_block(then_branch, owned);
-            if let Some(else_branch) = else_branch {
-                collect_owned_block(else_branch, owned);
-            }
-        }
-        Expr::Match { arms, .. } => {
-            for arm in arms {
-                collect_owned_block(&arm.body, owned);
-            }
-        }
-        Expr::Call(callee, args) => {
-            collect_owned_expr(callee, owned);
-            args.iter().for_each(|a| collect_owned_expr(a, owned));
-        }
-        Expr::MethodCall(receiver, _, args) => {
-            collect_owned_expr(receiver, owned);
-            args.iter().for_each(|a| collect_owned_expr(a, owned));
-        }
-        Expr::Tuple(items) => items.iter().for_each(|i| collect_owned_expr(i, owned)),
-        Expr::BinaryOp(l, _, r) | Expr::Index(l, r) | Expr::Assign(l, r) => {
-            collect_owned_expr(l, owned);
-            collect_owned_expr(r, owned);
-        }
-        Expr::UnaryOp(_, inner)
-        | Expr::Parenthesized(inner)
-        | Expr::Reference(inner, _, _)
-        | Expr::Await(inner) => collect_owned_expr(inner, owned),
-        Expr::Closure(_, body, _) => collect_owned_expr(body, owned),
-        Expr::Ident(_)
-        | Expr::Macro(_)
-        | Expr::Path(_, _)
-        | Expr::Literal(_)
-        | Expr::BuilderChain(_) => {}
-    }
-}
-
 /// Whether evaluating `expr` yields an owned (non-reference) value.  Used only
 /// as a conservative heuristic for the `owned` set, so unknown shapes return
 /// `false`.
-fn produces_owned_value(expr: &Expr) -> bool {
+fn produces_owned_value(expr: &Expr, owned: &HashSet<String>) -> bool {
     match expr {
+        Expr::Ident(name) => owned.contains(name),
         Expr::MethodCall(_, method, args) if method == "clone" && args.is_empty() => true,
         Expr::Call(_, _) => true,
         Expr::Literal(_) => true,
         Expr::Tuple(_) => true,
         Expr::BinaryOp(_, _, _) => true,
-        Expr::Parenthesized(inner) => produces_owned_value(inner),
-        Expr::Block(block) => block
-            .expr
-            .as_ref()
-            .is_some_and(|tail| produces_owned_value(tail)),
+        Expr::UnaryOp(op, inner) if op == "*" => produces_owned_value(inner, owned),
+        Expr::Parenthesized(inner) => produces_owned_value(inner, owned),
+        Expr::Block(block) => {
+            let block_owned = owned_flow_for_block(block, owned)
+                .into_iter()
+                .last()
+                .unwrap_or_else(|| owned.clone());
+            block
+                .expr
+                .as_ref()
+                .is_some_and(|tail| produces_owned_value(tail, &block_owned))
+        }
         _ => false,
     }
+}
+
+fn owned_flow_for_block(block: &Block, inherited: &HashSet<String>) -> Vec<HashSet<String>> {
+    let mut current = inherited.clone();
+    let mut snapshots = Vec::with_capacity(block.stmts.len() + 1);
+
+    for stmt in &block.stmts {
+        snapshots.push(current.clone());
+        if let Statement::Let(let_stmt) = stmt {
+            let binding_is_owned = match &let_stmt.ty {
+                Some(ty) => !is_reference_type(ty),
+                None => let_stmt
+                    .init
+                    .as_ref()
+                    .is_some_and(|init| produces_owned_value(init, &current)),
+            };
+            if binding_is_owned {
+                collect_owned_binding_names_from_pattern(&let_stmt.name, &mut current);
+            }
+        }
+    }
+
+    snapshots.push(current);
+    snapshots
 }
 
 /// Backward-liveness walk of a block: `live` holds the set of variables read in
 /// the continuation (everything that executes after this block).  On return,
 /// `live` is updated to the variables live on entry to the block.
 fn rewrite_lastuse_block(block: &mut Block, live: &mut HashSet<String>, owned: &HashSet<String>) {
+    let owned_at = owned_flow_for_block(block, owned);
+
     // The tail expression executes last.
     if let Some(tail) = &mut block.expr {
-        rewrite_lastuse_expr(tail, live, owned);
+        rewrite_lastuse_expr(tail, live, owned_at.last().unwrap_or(owned));
     }
 
     // Statements execute in source order, so liveness flows backward.
-    for stmt in block.stmts.iter_mut().rev() {
+    for (idx, stmt) in block.stmts.iter_mut().enumerate().rev() {
+        let stmt_owned = owned_at.get(idx).unwrap_or(owned);
         match stmt {
             Statement::Let(let_stmt) => {
                 // The binding kills the name for everything before it.
-                if is_binding_ident(&let_stmt.name) {
-                    live.remove(&let_stmt.name);
-                }
+                remove_pattern_bindings_from_live(&let_stmt.name, live);
                 if let Some(init) = &mut let_stmt.init {
-                    rewrite_lastuse_expr(init, live, owned);
+                    rewrite_lastuse_expr(init, live, stmt_owned);
                 }
             }
-            Statement::Expr(expr) => rewrite_lastuse_expr(expr, live, owned),
+            Statement::Expr(expr) => rewrite_lastuse_expr(expr, live, stmt_owned),
             Statement::Item(_) | Statement::Continue | Statement::Break | Statement::Comment(_) => {
             }
         }
@@ -627,13 +564,19 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
             rewrite_lastuse_expr(condition, live, owned);
         }
         Expr::IfLet {
+            pattern,
             value,
             then_branch,
             else_branch,
-            ..
         } => {
             let mut then_live = live.clone();
-            rewrite_lastuse_block(then_branch, &mut then_live, owned);
+            let mut then_owned = owned.clone();
+            if produces_owned_value(value, owned) {
+                collect_owned_binding_names_from_pattern(pattern, &mut then_owned);
+            }
+            rewrite_lastuse_block(then_branch, &mut then_live, &then_owned);
+            remove_pattern_bindings_from_live(pattern, &mut then_live);
+
             let mut else_live = live.clone();
             if let Some(else_branch) = else_branch {
                 rewrite_lastuse_block(else_branch, &mut else_live, owned);
@@ -643,12 +586,18 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
         }
         Expr::Match { expr, arms } => {
             let mut merged = HashSet::new();
+            let scrutinee_is_owned = produces_owned_value(expr, owned);
             for arm in arms.iter_mut() {
                 let mut arm_live = live.clone();
-                rewrite_lastuse_block(&mut arm.body, &mut arm_live, owned);
-                if let Some(guard) = &mut arm.guard {
-                    rewrite_lastuse_expr(guard, &mut arm_live, owned);
+                let mut arm_owned = owned.clone();
+                if scrutinee_is_owned {
+                    collect_owned_binding_names_from_pattern(&arm.pattern, &mut arm_owned);
                 }
+                rewrite_lastuse_block(&mut arm.body, &mut arm_live, &arm_owned);
+                if let Some(guard) = &mut arm.guard {
+                    rewrite_lastuse_expr(guard, &mut arm_live, &arm_owned);
+                }
+                remove_pattern_bindings_from_live(&arm.pattern, &mut arm_live);
                 merged.extend(arm_live);
             }
             *live = merged;
@@ -660,7 +609,17 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
         // every variable they mention as live and strip nothing inside them.
         Expr::Loop(block) | Expr::Unsafe(block) => collect_live_block(block, live),
         Expr::Await(inner) => collect_live_expr(inner, live),
-        Expr::Closure(_, body, _) => collect_live_expr(body, live),
+        Expr::Closure(params, body, true) => {
+            let closure_owned = params
+                .iter()
+                .filter(|param| closure_param_is_owned(param))
+                .map(|param| closure_param_name(param))
+                .collect::<HashSet<_>>();
+            let mut closure_live = HashSet::new();
+            rewrite_lastuse_expr(body, &mut closure_live, &closure_owned);
+            collect_live_closure_body(params, body, live);
+        }
+        Expr::Closure(params, body, false) => collect_live_closure_body(params, body, live),
         Expr::BuilderChain(methods) => {
             for method in methods {
                 if let BuilderMethod::Spawn { closure, .. } = method {
@@ -766,6 +725,15 @@ fn collect_live_block(block: &Block, live: &mut HashSet<String>) {
     if let Some(tail) = &block.expr {
         collect_live_expr(tail, live);
     }
+}
+
+fn collect_live_closure_body(params: &[String], body: &Expr, live: &mut HashSet<String>) {
+    let mut body_live = HashSet::new();
+    collect_live_expr(body, &mut body_live);
+    for param in params {
+        body_live.remove(&closure_param_name(param));
+    }
+    live.extend(body_live);
 }
 
 // ── Read counting and renaming ───────────────────────────────────────────────
@@ -1114,6 +1082,18 @@ fn closure_param_name(param: &str) -> String {
         .to_string()
 }
 
+fn closure_param_is_owned(param: &str) -> bool {
+    let name = closure_param_name(param);
+    if !is_binding_ident(&name) {
+        return false;
+    }
+
+    param
+        .split_once(':')
+        .map(|(_, ty)| !ty.trim().starts_with('&'))
+        .unwrap_or(true)
+}
+
 fn is_binding_ident(input: &str) -> bool {
     let mut chars = input.chars();
     let Some(first) = chars.next() else {
@@ -1146,4 +1126,327 @@ fn pattern_binds_name(pattern: &str, name: &str) -> bool {
         }
     }
     token == name
+}
+
+fn remove_pattern_bindings_from_live(pattern: &str, live: &mut HashSet<String>) {
+    let mut bindings = HashSet::new();
+    collect_binding_names_from_pattern(pattern, &mut bindings);
+    for binding in bindings {
+        live.remove(&binding);
+    }
+}
+
+fn collect_binding_names_from_pattern(pattern: &str, out: &mut HashSet<String>) {
+    collect_pattern_binding_names(pattern, out, true);
+}
+
+fn collect_owned_binding_names_from_pattern(pattern: &str, out: &mut HashSet<String>) {
+    collect_pattern_binding_names(pattern, out, false);
+}
+
+fn collect_pattern_binding_names(pattern: &str, out: &mut HashSet<String>, include_ref: bool) {
+    let pattern = pattern.trim();
+    if pattern.is_empty() || pattern == "_" || pattern == ".." {
+        return;
+    }
+
+    if let Some(inner) = strip_prefix_word(pattern, "ref") {
+        if include_ref {
+            collect_pattern_binding_names(inner, out, include_ref);
+        }
+        return;
+    }
+    if let Some(inner) = strip_prefix_word(pattern, "mut") {
+        collect_pattern_binding_names(inner, out, include_ref);
+        return;
+    }
+    if let Some(inner) = strip_prefix_word(pattern, "box") {
+        collect_pattern_binding_names(inner, out, include_ref);
+        return;
+    }
+
+    if let Some(inner) = outer_parens_inner(pattern) {
+        for part in split_top_level_commas(inner) {
+            collect_pattern_binding_names(&part, out, include_ref);
+        }
+        return;
+    }
+
+    if let Some((_, args)) = split_constructor_pattern(pattern) {
+        for arg in args {
+            collect_pattern_binding_names(&arg, out, include_ref);
+        }
+        return;
+    }
+
+    if pattern.contains("::") || matches!(pattern, "true" | "false") {
+        return;
+    }
+
+    if is_binding_ident(pattern) {
+        out.insert(pattern.to_string());
+    }
+}
+
+fn strip_prefix_word<'a>(input: &'a str, word: &str) -> Option<&'a str> {
+    let rest = input.strip_prefix(word)?;
+    if rest.starts_with(char::is_whitespace) {
+        Some(rest.trim_start())
+    } else {
+        None
+    }
+}
+
+fn outer_parens_inner(input: &str) -> Option<&str> {
+    if !input.starts_with('(') || !input.ends_with(')') {
+        return None;
+    }
+    let mut depth = 0usize;
+    for (idx, ch) in input.char_indices() {
+        match ch {
+            '(' => depth += 1,
+            ')' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 && idx != input.len() - 1 {
+                    return None;
+                }
+            }
+            _ => {}
+        }
+    }
+    if depth == 0 {
+        input.strip_prefix('(')?.strip_suffix(')')
+    } else {
+        None
+    }
+}
+
+fn split_constructor_pattern(input: &str) -> Option<(&str, Vec<String>)> {
+    let mut depth = 0usize;
+    let mut start = None;
+
+    for (idx, ch) in input.char_indices() {
+        match ch {
+            '(' => {
+                if depth == 0 {
+                    start = Some(idx);
+                }
+                depth += 1;
+            }
+            ')' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 && idx != input.len() - 1 {
+                    return None;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if depth != 0 {
+        return None;
+    }
+
+    let start = start?;
+    let constructor = input[..start].trim();
+    if constructor.is_empty() {
+        return None;
+    }
+
+    let inner = input[start + 1..input.len() - 1].trim();
+    Some((constructor, split_top_level_commas(inner)))
+}
+
+fn split_top_level_commas(input: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut start = 0usize;
+    let mut paren = 0usize;
+    let mut bracket = 0usize;
+    let mut brace = 0usize;
+
+    for (idx, ch) in input.char_indices() {
+        match ch {
+            '(' => paren += 1,
+            ')' => paren = paren.saturating_sub(1),
+            '[' => bracket += 1,
+            ']' => bracket = bracket.saturating_sub(1),
+            '{' => brace += 1,
+            '}' => brace = brace.saturating_sub(1),
+            ',' if paren == 0 && bracket == 0 && brace == 0 => {
+                parts.push(input[start..idx].trim().to_string());
+                start = idx + ch.len_utf8();
+            }
+            _ => {}
+        }
+    }
+
+    let last = input[start..].trim();
+    if !last.is_empty() {
+        parts.push(last.to_string());
+    }
+    parts
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn named(name: &str) -> Type {
+        Type::Named(name.to_string())
+    }
+
+    fn ref_to(ty: Type) -> Type {
+        Type::Reference(Box::new(ty), true, false)
+    }
+
+    fn ident(name: &str) -> Expr {
+        Expr::Ident(name.to_string())
+    }
+
+    fn clone_call(name: &str) -> Expr {
+        Expr::MethodCall(Box::new(ident(name)), "clone".to_string(), vec![])
+    }
+
+    fn block_tail(expr: Expr) -> Block {
+        Block {
+            stmts: vec![],
+            expr: Some(Box::new(expr)),
+        }
+    }
+
+    fn let_stmt(name: &str, init: Expr) -> Statement {
+        Statement::Let(LetStmt {
+            ifmut: false,
+            name: name.to_string(),
+            ty: None,
+            init: Some(init),
+        })
+    }
+
+    fn function(param_ty: Type, body: Block) -> FunctionDef {
+        FunctionDef {
+            name: "get".to_string(),
+            params: vec![Param {
+                name: "x0".to_string(),
+                ty: param_ty,
+            }],
+            return_type: named("Int"),
+            generics: vec![],
+            body,
+            asyncness: false,
+            vis: Visibility::Public,
+            docs: vec![],
+            attrs: vec![],
+        }
+    }
+
+    fn module_with(function: FunctionDef) -> RustModule {
+        RustModule {
+            name: "Test".to_string(),
+            docs: vec![],
+            items: vec![Item::Function(function)],
+            attrs: vec![],
+            vis: Visibility::Public,
+        }
+    }
+
+    fn optimized_function(module: &RustModule) -> &FunctionDef {
+        let Item::Function(function) = &module.items[0] else {
+            panic!("expected function")
+        };
+        function
+    }
+
+    #[test]
+    fn lastuse_removes_clone_from_owned_match_let_binding() {
+        let arm_body = Block {
+            stmts: vec![let_stmt("x", ident("p0"))],
+            expr: Some(Box::new(clone_call("x"))),
+        };
+        let body = block_tail(Expr::Match {
+            expr: Box::new(ident("x0")),
+            arms: vec![MatchArm {
+                pattern: "Aoption::Somea(p0)".to_string(),
+                guard: None,
+                body: arm_body,
+            }],
+        });
+        let mut module = module_with(function(named("Aoption"), body));
+
+        optimize_mut(&mut module);
+
+        let function = optimized_function(&module);
+        let Some(Expr::Match { arms, .. }) = function.body.expr.as_deref() else {
+            panic!("expected match")
+        };
+        let Some(tail) = arms[0].body.expr.as_deref() else {
+            panic!("expected arm tail")
+        };
+        assert!(matches!(tail, Expr::Ident(name) if name == "x"));
+    }
+
+    #[test]
+    fn lastuse_removes_clone_after_owned_box_extraction() {
+        let arm_body = Block {
+            stmts: vec![let_stmt(
+                "bop",
+                Expr::UnaryOp("*".to_string(), Box::new(ident("p0"))),
+            )],
+            expr: Some(Box::new(Expr::Call(
+                Box::new(ident("mugetb")),
+                vec![clone_call("bop")],
+            ))),
+        };
+        let body = block_tail(Expr::Match {
+            expr: Box::new(ident("x0")),
+            arms: vec![MatchArm {
+                pattern: "Aoption::MutualReca(p0)".to_string(),
+                guard: None,
+                body: arm_body,
+            }],
+        });
+        let mut module = module_with(function(named("Aoption"), body));
+
+        optimize_mut(&mut module);
+
+        let function = optimized_function(&module);
+        let Some(Expr::Match { arms, .. }) = function.body.expr.as_deref() else {
+            panic!("expected match")
+        };
+        let Some(Expr::Call(_, args)) = arms[0].body.expr.as_deref() else {
+            panic!("expected call")
+        };
+        assert!(matches!(&args[0], Expr::Ident(name) if name == "bop"));
+    }
+
+    #[test]
+    fn lastuse_keeps_clone_from_borrowed_match_binding() {
+        let arm_body = block_tail(clone_call("p0"));
+        let body = block_tail(Expr::Match {
+            expr: Box::new(ident("x0")),
+            arms: vec![MatchArm {
+                pattern: "Aoption::Somea(p0)".to_string(),
+                guard: None,
+                body: arm_body,
+            }],
+        });
+        let mut module = module_with(function(ref_to(named("Aoption")), body));
+
+        optimize_mut(&mut module);
+
+        let function = optimized_function(&module);
+        let Some(Expr::Match { arms, .. }) = function.body.expr.as_deref() else {
+            panic!("expected match")
+        };
+        let Some(tail) = arms[0].body.expr.as_deref() else {
+            panic!("expected arm tail")
+        };
+        assert!(matches!(
+            tail,
+            Expr::MethodCall(receiver, method, args)
+                if matches!(receiver.as_ref(), Expr::Ident(name) if name == "p0")
+                    && method == "clone"
+                    && args.is_empty()
+        ));
+    }
 }
