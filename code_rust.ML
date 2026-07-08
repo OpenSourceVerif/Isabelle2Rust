@@ -903,6 +903,32 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             in boxed_here orelse exists pat_contains_boxed_field ts end
           else exists pat_contains_boxed_field ts
       | NONE => false)
+    and pat_irrefutable pat =
+      (case pat of
+        IVar _ => true
+      | _ =>
+          (case Code_Thingol.unfold_const_app pat of
+            SOME ({sym, ...}, ts) =>
+              is_single_constr sym andalso List.all pat_irrefutable ts
+          | NONE => false))
+    and print_irrefutable_case_parts is_pseudo_fun (need_box, box_prcs, clone_prcs)
+        some_thm vars (case_expr as {clauses = [_], ...}) =
+          let
+            val (binds, body) = Code_Thingol.unfold_let (ICase case_expr);
+            fun print_let ((pat, ty), t) vars =
+              vars
+              |> print_bind_typed is_pseudo_fun some_thm NOBR pat ty
+              |>> (fn p => Pretty.block
+                  [str "let ", p, str " = ",
+                  print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars NOBR t, str ";"])
+            val (ps, vars') = fold_map print_let binds vars;
+            val all_irrefutable = List.all (pat_irrefutable o fst o fst) binds;
+          in
+            if all_irrefutable andalso not (exists (pat_contains_boxed_field o fst) (map fst binds))
+            then SOME (ps, print_term_app is_pseudo_fun some_thm vars' NOBR body)
+            else NONE
+          end
+      | print_irrefutable_case_parts _ _ _ _ _ = NONE
     and stable_match_compile is_pseudo_fun some_thm vars columns rows fallback =
       let
         fun emit_row (_, _, _, lets, body) =
@@ -1052,29 +1078,12 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
       end
     (** Print a case expression. Three cases:
         - Empty clauses: generates panic
-        - Single clause: emitted as let-binding block
+        - Single irrefutable clause: emitted as a let-binding expression block
         - Multiple clauses: emitted as match block **)
     and print_case _ _ _ _ _ { clauses = [], ... } =
           (concat o map str) ["panic!(\"empty case\")", "\"empty case\""]
       | print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy (case_expr as { clauses = [_], ... }) =
           let
-            val (binds, body) = Code_Thingol.unfold_let (ICase case_expr);
-            fun pat_irrefutable pat =
-              (case pat of
-                IVar _ => true
-              | _ =>
-                  (case Code_Thingol.unfold_const_app pat of
-                    SOME ({sym, ...}, ts) =>
-                      is_single_constr sym andalso List.all pat_irrefutable ts
-                  | NONE => false))
-            fun print_let ((pat, ty), t) vars =
-              vars
-              |> print_bind_typed is_pseudo_fun some_thm NOBR pat ty
-              |>> (fn p => Pretty.block
-                  [str "let ", p, str " = ", 
-                  print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars NOBR t, str ";"])
-            val (ps, vars') = fold_map print_let binds vars;
-            val all_irrefutable = List.all (pat_irrefutable o fst o fst) binds;
             fun print_stable_match t ty clauses =
               let
                 fun row (pat, body) =
@@ -1092,9 +1101,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   (str "panic!(\"non-exhaustive match\")")
               end;
           in
-            if all_irrefutable andalso not (exists (pat_contains_boxed_field o fst) (map fst binds)) then
-              rust_bare_block (ps @ [print_term_app is_pseudo_fun some_thm vars' NOBR body])
-            else
+            (case print_irrefutable_case_parts is_pseudo_fun
+                (need_box, box_prcs, clone_prcs) some_thm vars case_expr of
+              SOME (ps, body) => rust_bare_block (ps @ [body])
+            | NONE =>
               (case case_expr of {term = t, typ = ty, clauses = clauses, ...} =>
                 let
                   val has_boxed_patterns = exists (pat_contains_boxed_field o fst) clauses;
@@ -1115,7 +1125,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       (print_term_app is_pseudo_fun some_thm vars NOBR t)
                       (map print_select clauses
                         @ [rust_arm (str "_") (str "panic!(\"non-exhaustive match\")")])
-                end)
+                end))
           end
         (*match block*)
       | print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars _ (icase as { term = t, typ = _, clauses = clauses, ... }) =
@@ -1422,6 +1432,20 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       val (cap_lets, closure_pretty) =
                         print_lambda_parts is_pseudo_fun some_thm vars t
                     in cap_lets @ [closure_pretty] end
+                | ICase case_expr =>
+                    let
+                      fun default () = [print_term_app is_pseudo_fun some_thm vars NOBR t];
+                      fun print_case_body () =
+                        (case print_irrefutable_case_parts is_pseudo_fun
+                            (false, box_new, clone) some_thm vars case_expr of
+                          SOME (ps, body) => ps @ [body]
+                        | NONE => default ())
+                    in
+                      (case Code_Thingol.unfold_const_app (#primitive case_expr) of
+                        SOME ({sym = Constant const, ...}, _) =>
+                          if is_none (const_syntax const) then print_case_body () else default ()
+                      | _ => print_case_body ())
+                    end
                 | _ => [print_term_app is_pseudo_fun some_thm vars NOBR t])
               end;
             (** Print the function signature and body:
