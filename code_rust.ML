@@ -1167,7 +1167,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         and rewrite the in-body occurrences to v_cap.
         Closure parameter names (collected via add_varnames on each bind
         pattern) are excluded from the capture set. **)
-    and print_lambda_gen eta_tail is_pseudo_fun some_thm vars t =
+    and print_lambda_parts_gen eta_tail is_pseudo_fun some_thm vars t =
       let
         val (binds0, body0) = Code_Thingol.unfold_pat_abs t;
         fun apply_eta_args body [] = body
@@ -1249,18 +1249,25 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             @ [str "| { ", closure_body, str " })"]
           )
       in
-        if null captured_vars then closure_pretty
-        else
-          let
-            val cap_lets =
-              map2
-                (fn v => fn vcap =>
-                  str ("let " ^ vcap ^ " = " ^ (rv_lookup_var vars v) ^ ".clone();"))
-                captured_vars cap_names
-          in
-            rust_inline_block (cap_lets @ [closure_pretty])
-          end
+        (
+          map2
+            (fn v => fn vcap =>
+              str ("let " ^ vcap ^ " = " ^ (rv_lookup_var vars v) ^ ".clone();"))
+            captured_vars cap_names,
+          closure_pretty
+        )
       end
+    and print_lambda_gen eta_tail is_pseudo_fun some_thm vars t =
+      let
+        val (cap_lets, closure_pretty) =
+          print_lambda_parts_gen eta_tail is_pseudo_fun some_thm vars t
+      in
+        if null cap_lets
+        then closure_pretty
+        else rust_inline_block (cap_lets @ [closure_pretty])
+      end
+    and print_lambda_parts is_pseudo_fun some_thm vars t =
+      print_lambda_parts_gen true is_pseudo_fun some_thm vars t
     and print_lambda is_pseudo_fun some_thm vars t =
       print_lambda_gen true is_pseudo_fun some_thm vars t;
     (** Print a `val name : typescheme` signature line. **)
@@ -1399,6 +1406,24 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   (to_tuple ts' (Pretty.block (commas_append (map print_pattern_term ts'))))
                   (print_expr_term t)
               end;
+            fun print_eqn_body ((ts, t), (some_thm, _)) =
+              let
+                val typs = extract_typ (fn _ => fn ty => ty) ty
+                val param_tys = take (length ts) typs
+                val vars =
+                  (reserved, Symtab.empty)
+                  |> rv_intro_base_names_for (is_none o const_syntax)
+                      deresolve (t :: ts)
+                  |> rv_intro_typed_pats (ListPair.zip (ts, param_tys));
+              in
+                (case t of
+                  (_ `|=> _) =>
+                    let
+                      val (cap_lets, closure_pretty) =
+                        print_lambda_parts is_pseudo_fun some_thm vars t
+                    in cap_lets @ [closure_pretty] end
+                | _ => [print_term_app is_pseudo_fun some_thm vars NOBR t])
+              end;
             (** Print the function signature and body:
                 generates dummy parameter names, type annotations, return type,
                 and dispatches to direct expr / single match / multi match body. **)
@@ -1429,18 +1454,6 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   |> map (fn (prt1, prt2) => Pretty.block ([prt1, str ": ", prt2]))
                 fun is_var_pattern (IVar _) = true
                   | is_var_pattern _ = false
-                fun is_const_expr ts t =
-                  let
-                    fun unfold_term t = (case t
-                      of (_`$_) => (snd o Code_Thingol.unfold_app) t
-                      | (_`|=>(t', _)) => unfold_term t'
-                      | (IVar _) => [t]
-                      | _ => [])
-                    val pattern_terms = List.concat (map unfold_term ts)
-                    val expr_terms = unfold_term t
-                  in
-                    not (fold (fn t => fn acc => (List.exists (fn t' => t' = t) pattern_terms) orelse acc) expr_terms false)
-                  end
                 fun eq_has_boxed_patterns ((ts, _), _) =
                   exists pat_contains_boxed_field ts;
                 fun print_stable_eqns eqs =
@@ -1478,8 +1491,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 val body =
                   (case eqs
                     of [eq as ((ts, t), _)] =>
-                        if List.all is_var_pattern ts andalso is_const_expr ts t
-                        then print_eqn true eq
+                        if List.all is_var_pattern ts
+                        then Pretty.chunks (print_eqn_body eq)
                         else if eq_has_boxed_patterns eq
                         then print_stable_eqns [eq]
                         else rust_match scrutinee
