@@ -946,24 +946,31 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               if printed = scrutinee_s then SOME v else NONE) (Symtab.dest namemap)
           end;
         fun binding_let row_vars used_vars scrutinee (IVar (SOME v)) =
-              let
-                val lhs =
-                  if member (op =) used_vars v
-                  then rv_lookup_var row_vars v
-                  else "_";
-                val rhs =
-                  (* An irrefutable variable pattern can introduce an alias of an
-                     already-bound owned value. If the source variable is also used
-                     later in the selected row, the alias must be initialized from a
-                     clone; otherwise the alias binding would move the source before
-                     the later use. *)
-                  (case source_var_of_scrutinee row_vars scrutinee of
-                    SOME src_v =>
-                      if lhs <> "_" andalso src_v <> v andalso member (op =) used_vars src_v
-                      then clone scrutinee
-                      else scrutinee
-                  | NONE => scrutinee);
-              in [Pretty.block [str "let ", str lhs, str " = ", rhs, str ";"]] end
+              if member (op =) used_vars v
+              then
+                let
+                  val lhs = rv_lookup_var row_vars v
+                  val scrutinee_s = Pretty.unformatted_string_of scrutinee
+                  val rhs =
+                    (* An irrefutable variable pattern can introduce an alias of an
+                       already-bound owned value. If the source variable is also used
+                       later in the selected row, the alias must be initialized from a
+                       clone; otherwise the alias binding would move the source before
+                       the later use. *)
+                    (case source_var_of_scrutinee row_vars scrutinee of
+                      SOME src_v =>
+                        if lhs <> scrutinee_s
+                          andalso src_v <> v
+                          andalso member (op =) used_vars src_v
+                        then clone scrutinee
+                        else scrutinee
+                    | NONE => scrutinee);
+                in
+                  if lhs = Pretty.unformatted_string_of scrutinee
+                  then []
+                  else [Pretty.block [str "let ", str lhs, str " = ", rhs, str ";"]]
+                end
+              else []
           | binding_let _ _ _ _ = [];
         fun row_pats (pats, _, _, _, _) = pats;
         fun constructor_pat pat =
@@ -1035,17 +1042,68 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                         val boxes0 = box_table sym;
                         val boxes =
                           if length boxes0 = length dom then boxes0 else map (K false) dom;
-                        val field_names = fresh_names row_vars0 ("p" ^ Int.toString depth) (length dom);
-                        val field_scrutinees =
-                          map (fn (name, need_box) =>
-                            if need_box
-                            then Pretty.block [str "*", str name]
-                            else str name)
-                            (ListPair.zip (field_names, boxes));
-                        val field_columns = ListPair.zip (field_scrutinees, dom);
+                        val temp_names = fresh_names row_vars0 ("p" ^ Int.toString depth) (length dom);
+                        fun field_entries i =
+                          map (fn (_, ts, _, row_vars, used_vars, _, _) =>
+                            (nth ts i, row_vars, used_vars)) spec_rows;
+                        fun used_name (IVar (SOME v), row_vars, used_vars) =
+                              if member (op =) used_vars v
+                              then SOME (rv_lookup_var row_vars v)
+                              else NONE
+                          | used_name _ = NONE;
+                        fun bound_name (IVar (SOME v), row_vars, _) =
+                              SOME (rv_lookup_var row_vars v)
+                          | bound_name _ = NONE;
+                        fun direct_field_name used_direct i need_box =
+                          let
+                            val entries = field_entries i;
+                            val used_names = distinct (op =) (map_filter used_name entries);
+                            val bound_names = map_filter bound_name entries;
+                            val all_vars =
+                              List.all (fn (pat, _, _) => is_irrefutable_col_pat pat) entries;
+                          in
+                            if not all_vars then NONE
+                            else
+                              (case used_names of
+                                [] => SOME "_"
+                              | [name] =>
+                                  if need_box
+                                    orelse member (op =) used_direct name
+                                    orelse not (List.all (fn name' => name' = name) bound_names)
+                                  then NONE
+                                  else SOME name
+                              | _ => NONE)
+                          end;
+                        fun field_decision (i, (ty, need_box, temp)) (decisions, used_direct) =
+                          (case direct_field_name used_direct i need_box of
+                            SOME name =>
+                              ((name, NONE) :: decisions,
+                                if name = "_" then used_direct else name :: used_direct)
+                          | NONE =>
+                              let
+                                val scrutinee =
+                                  if need_box
+                                  then Pretty.block [str "*", str temp]
+                                  else str temp;
+                              in
+                                ((temp, SOME (scrutinee, ty)) :: decisions, used_direct)
+                              end);
+                        val (field_decisions, _) =
+                          fold field_decision
+                            (map_index (fn (i, (ty, (need_box, temp))) =>
+                              (i, (ty, need_box, temp)))
+                              (ListPair.zip (dom, ListPair.zip (boxes, temp_names))))
+                            ([], []);
+                        val field_decisions = rev field_decisions;
+                        val field_names = map #1 field_decisions;
+                        val field_columns = map_filter #2 field_decisions;
+                        fun kept_field_pats ts =
+                          map_filter (fn (pat, (_, col)) =>
+                            (case col of SOME _ => SOME pat | NONE => NONE))
+                            (ListPair.zip (ts, field_decisions));
                         val specialized_rows =
                           map (fn (_, ts, ps, row_vars, used_vars, lets, body) =>
-                            (ts @ ps, row_vars, used_vars, lets, body)) spec_rows;
+                            (kept_field_pats ts @ ps, row_vars, used_vars, lets, body)) spec_rows;
                         val arm_body =
                           compile (field_columns @ rest_columns)
                             (field_columns @ rest_columns) specialized_rows (depth + 1);

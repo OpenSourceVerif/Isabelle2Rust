@@ -7,10 +7,6 @@ use rustlightast::*;
 pub struct MatchOptAnalysis {
     /// Removed trailing `_ => panic!("non-exhaustive match")` arms.
     pub removed_panic_arms: usize,
-    /// Removed wildcard discard statements such as `let _ = expr;`.
-    pub removed_wildcard_lets: usize,
-    /// Removed identity shadowing statements such as `let x = x;`.
-    pub removed_identity_lets: usize,
 }
 
 type TypeEnv = HashMap<String, Type>;
@@ -110,16 +106,6 @@ fn optimize_block(
             Statement::Let(mut let_stmt) => {
                 if let Some(init) = &mut let_stmt.init {
                     optimize_expr(init, env, enum_defs, analysis);
-                }
-
-                if let_stmt.name.trim() == "_" {
-                    analysis.removed_wildcard_lets += 1;
-                    continue;
-                }
-
-                if is_identity_let(&let_stmt) {
-                    analysis.removed_identity_lets += 1;
-                    continue;
                 }
 
                 if let Some(ty) = let_stmt.ty.clone().or_else(|| {
@@ -528,23 +514,6 @@ fn is_nonexhaustive_panic_arm(arm: &MatchArm) -> bool {
         )
 }
 
-fn is_identity_let(let_stmt: &LetStmt) -> bool {
-    !let_stmt.ifmut
-        && let_stmt.ty.is_none()
-        && is_binding_ident(&let_stmt.name)
-        && matches!(
-            let_stmt.init.as_ref().map(strip_parens_expr),
-            Some(Expr::Ident(name)) if name == &let_stmt.name
-        )
-}
-
-fn strip_parens_expr(expr: &Expr) -> &Expr {
-    match expr {
-        Expr::Parenthesized(inner) => strip_parens_expr(inner),
-        _ => expr,
-    }
-}
-
 fn collect_enum_defs(items: &[Item]) -> HashMap<String, EnumInfo> {
     let mut enum_defs = HashMap::new();
     for item in items {
@@ -881,7 +850,7 @@ mod tests {
     }
 
     #[test]
-    fn removes_exhaustive_enum_fallback_and_wildcard_lets() {
+    fn removes_exhaustive_enum_fallback() {
         let source = r#"
 #[derive(Clone)]
 pub enum Cotree {
@@ -893,8 +862,6 @@ pub fn is_leaf(x0: &Cotree) -> bool {
     match x0 {
         Cotree::CoLeaf => { true },
         Cotree::CoNode(p0, p0a) => {
-            let _ = p0.as_ref().clone();
-            let _ = p0a.as_ref().clone();
             false
         },
         _ => { panic!("non-exhaustive match") },
@@ -903,26 +870,8 @@ pub fn is_leaf(x0: &Cotree) -> bool {
 "#;
 
         let (analysis, printed) = optimize_and_print(source);
-        assert_eq!(analysis.removed_wildcard_lets, 2);
         assert_eq!(analysis.removed_panic_arms, 1);
-        assert!(!printed.contains("let _ ="));
         assert!(!printed.contains(r#"panic!("non-exhaustive match")"#));
-    }
-
-    #[test]
-    fn removes_identity_lets() {
-        let source = r#"
-pub fn keep_value(x: i32) -> i32 {
-    let x = x;
-    let y = x;
-    y
-}
-"#;
-
-        let (analysis, printed) = optimize_and_print(source);
-        assert_eq!(analysis.removed_identity_lets, 1);
-        assert!(!printed.contains("let x = x;"));
-        assert!(printed.contains("let y = x;"));
     }
 
     #[test]
