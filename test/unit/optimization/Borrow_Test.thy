@@ -2,9 +2,6 @@ theory Borrow_Test
   imports Main "Rust.Rust_Setup"
 begin
 
-subsection "From Borrow_CopyField_Own_Test"
-
-
 (* ── Unit test: extracting Copy-typed fields does not block borrow inference ──
    When a non-Copy parameter is matched and a Copy-typed field is used in an
    owned position (e.g., returned or put in a constructor), the borrow pass
@@ -46,9 +43,6 @@ fun ce_is_single_leaf :: "ce_tree \<Rightarrow> bool" where
   "ce_is_single_leaf (CELeaf _) = True"
 | "ce_is_single_leaf (CENode (CELeaf _) (CELeaf _)) = True"
 | "ce_is_single_leaf _ = False"
-
-subsection "From Borrow_Move_Demand_Test"
-
 
 (* ── Unit test: functions with Move demand must NOT get borrow variants ───────
    The borrow pass emits a  f_borrow  variant only when the demand set on every
@@ -101,9 +95,7 @@ fun mtree_leaf_val :: "move_tree \<Rightarrow> bool" where
   "mtree_leaf_val (MLeaf b) = b"
 | "mtree_leaf_val (MNode _ _) = False"
 
-subsection "From Borrow_Paper_Example_Test"
-
-
+(* Paper-style recursive query and rebuild examples. *)
 datatype tree =
     Leaf bool
   | Branch tree tree
@@ -118,9 +110,6 @@ definition any_label_twice :: "tree \<Rightarrow> bool" where
 fun rebuild :: "tree \<Rightarrow> tree" where
   "rebuild (Leaf b) = Leaf b"
 | "rebuild (Branch l r) = Branch (rebuild l) (rebuild r)"
-
-subsection "From Borrow_Per_Param_Test"
-
 
 (* ── Unit test: per-parameter borrowability in multi-argument functions ───────
    The borrow pass analyses each parameter independently.  A function with
@@ -165,9 +154,6 @@ fun mp_build_and_check :: "mp_tree \<Rightarrow> mp_tree \<Rightarrow> bool" whe
 fun mp_flag_and_observe :: "bool \<Rightarrow> mp_tree \<Rightarrow> bool" where
   "mp_flag_and_observe flag (MPLeaf b) = (flag \<and> b)"
 | "mp_flag_and_observe flag (MPNode _ _) = flag"
-
-subsection "From Borrow_Tree_Generic_Test"
-
 
 (* ── Recursive non-Copy tree type ───────────────────────────────────────────
    BorrowTree stays non-Copy after the copy pass because it is recursive

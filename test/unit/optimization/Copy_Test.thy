@@ -2,9 +2,6 @@ theory Copy_Test
   imports Main "Rust.Rust_Setup"
 begin
 
-subsection "From Copy_Bool_Fields_Test"
-
-
 datatype flag_pair =
   FlagPair bool bool
 
@@ -17,9 +14,6 @@ fun get_right :: "flag_pair \<Rightarrow> bool" where
 fun swap_flag_pair :: "flag_pair \<Rightarrow> flag_pair" where
   "swap_flag_pair (FlagPair x y) = FlagPair y x"
 
-subsection "From Copy_Generic_Bound_Test"
-
-
 datatype 'a copy_wrap =
   CopyWrap 'a
 
@@ -28,9 +22,6 @@ fun duplicate :: "'a \<Rightarrow> 'a \<times> 'a" where
 
 fun duplicate_wrap :: "'a copy_wrap \<Rightarrow> 'a copy_wrap \<times> 'a copy_wrap" where
   "duplicate_wrap x = (x, x)"
-
-subsection "From Copy_Nat_NonCopy_Test"
-
 
 (* ── Unit test: nat fields block Copy inference ──────────────────────────────
    Isabelle's nat translates to a recursive enum  Nat = ZeroNat | Suc(Box<Nat>)
@@ -85,9 +76,6 @@ fun bool_triple_dup :: "bool_triple \<Rightarrow> bool_triple \<times> bool_trip
 fun bool_triple_rotate :: "bool_triple \<Rightarrow> bool_triple" where
   "bool_triple_rotate (BoolTriple x y z) = BoolTriple y z x"
 
-subsection "From Copy_Nested_Types_Test"
-
-
 datatype color =
     Red
   | Green
@@ -110,9 +98,6 @@ fun rotate_pixel :: "pixel \<Rightarrow> pixel" where
 
 fun replace_first_color :: "pixel \<Rightarrow> color \<Rightarrow> pixel" where
   "replace_first_color (Pixel r g b) c = Pixel c g b"
-
-subsection "From Copy_Recursive_NonCopy_Test"
-
 
 (* ── Unit test: non-Copy fields stop Copy propagation upward ─────────────────
    copy_tree is recursive (BNode stores Box<CopyTree>) → non-Copy.

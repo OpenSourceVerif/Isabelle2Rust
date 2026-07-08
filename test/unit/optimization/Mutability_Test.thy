@@ -2,24 +2,7 @@ theory Mutability_Test
   imports Main "Rust.Rust_Setup"
 begin
 
-subsection "From Mut_Chain_Test"
-
-
-text \<open>
-  Self-contained mut-chain example for the mutability-inference pass.
-
-  The shadowed let-bindings of \<open>x\<close> form a handoff chain that Thingol prints as
-  the distinct variables \<open>x\<close>, \<open>xa\<close>, \<open>xb\<close>, \<open>xc\<close> joined by \<open>.clone()\<close> hand-offs.
-  The right-hand sides mix a constructor (\<open>S x\<close>) and a helper call (\<open>bump x\<close>),
-  showing that the pass is agnostic to what each step computes.  The mut pass
-  collapses the chain into a single \<open>let mut x\<close> updated by assignment and drops
-  the now-redundant handoff clones.
-
-  Using a custom recursive datatype (rather than \<open>nat\<close>) keeps the export to a
-  single module, so it compiles end-to-end without the \<open>nat_of_integer\<close>/
-  \<open>Orderings.Ord\<close> machinery that blocks Mut_Nat_Test.thy at stage1.
-\<close>
-
+(* Shadowed lets create handoff chains that can become local mutable updates. *)
 datatype peano = Z | S peano
 
 fun bump :: "peano \<Rightarrow> peano" where
@@ -32,9 +15,6 @@ definition grow :: "peano \<Rightarrow> peano" where
      let x = bump x in
      let x = S x in
      x)"
-
-subsection "From Mut_Chain_Unit_Test"
-
 
 (* Unit tests for mut-chain recognition.
 
@@ -97,9 +77,6 @@ definition color_saved_value_blocks_chain ::
    let saved = x in
    let x = color_next x in
    (saved, x))"
-
-subsection "From Mut_Generic_Wrapper_Test"
-
 
 (* Generic wrapper tests for mut-chain and last-use behavior.
 
@@ -164,9 +141,6 @@ definition wrap_saved_value_blocks_chain ::
    let x = wrap_rebuild x in
    (saved, x))"
 
-subsection "From Mut_Last_Use_Test"
-
-
 (* Unit tests for M-LastUse.
 
    These cases exercise last-use clone elimination independently of a mut
@@ -205,19 +179,12 @@ definition lu_chain_then_pair :: "lu_tree \<Rightarrow> lu_tree \<times> lu_tree
    let x = lu_flip x in
    lu_pair x)"
 
-subsection "From Mut_Nat_Test"
-
-
-
 definition let_mut_nat :: "nat \<Rightarrow> nat" where
 "let_mut_nat n =
   (let x = n in
    let x = x + 1 in
    let x = x * 2 in
    x)"
-
-subsection "From Mut_Tree_Complex_Test"
-
 
 (* Complex mut-chain tests inspired by the recursive tree cases in the
    borrow/copy suites.

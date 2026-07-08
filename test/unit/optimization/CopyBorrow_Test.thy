@@ -2,9 +2,6 @@ theory CopyBorrow_Test
   imports Main "Rust.Rust_Setup"
 begin
 
-subsection "From Count_True_Test"
-
-
 (* Overview running example: bool-labelled binary tree, count the true leaves.
    Exercises copy (bool leaf) + borrow (subtrees); stage-2 should be clone-free. *)
 
@@ -15,9 +12,6 @@ datatype tree =
 fun count :: "tree \<Rightarrow> nat" where
   "count (Leaf b) = of_bool b"
 | "count (Branch l r) = count l + count r"
-
-subsection "From List_Ops_Test"
-
 
 (* ── Complex test: custom list type exercising both copy and borrow passes ────
    MyList is a recursive type → stays non-Copy after the copy pass.
@@ -83,9 +77,6 @@ fun list_append :: "'a my_list \<Rightarrow> 'a my_list \<Rightarrow> 'a my_list
 
 fun list_dup :: "'a my_list \<Rightarrow> 'a my_list \<times> 'a my_list" where
   "list_dup xs = (xs, xs)"
-
-subsection "From Tree_Query_Test"
-
 
 (* ── Complex test: binary tree with Copy labels, both passes exercised ────────
    LabelTree is recursive → stays Clone-only after the copy pass.

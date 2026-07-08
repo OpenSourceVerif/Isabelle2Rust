@@ -2,29 +2,24 @@ theory Lists_Test
   imports Main "Rust.Rust_Setup"
 begin
 
-subsection "From List_Cons_Test"
+(* List syntax, literals, and simple user datatypes should coexist. *)
 
+definition literal_length :: nat where
+  "literal_length \<equiv> length [1::nat, 2, 3]"
 
-definition n :: nat where "n \<equiv> length [1::nat,2,3]"
+datatype 'a simple_list =
+    SNil
+  | SCons 'a "'a simple_list"
 
-subsection "From List_Test"
+fun simple_length :: "'a simple_list \<Rightarrow> nat" where
+  "simple_length SNil = 0"
+| "simple_length (SCons _ xs) = Suc (simple_length xs)"
 
-
-(* A polymorphic list type and its length function*)
-
-datatype 'a list =
-  Nil 
-  | Cons (head : 'a) (tail : "'a list")
-
-fun length :: "'a list \<Rightarrow> nat" where
-  "length Nil = 0"
-| "length (Cons _ xs) = Suc (length xs)"
-
-
-declare [[code_preproc_trace only: length]]
+fun simple_cons_twice :: "'a \<Rightarrow> 'a simple_list \<Rightarrow> 'a simple_list" where
+  "simple_cons_twice x xs = SCons x (SCons x xs)"
 
 export_code
-  n length
+  literal_length simple_length simple_cons_twice
   in Rust
 
 end

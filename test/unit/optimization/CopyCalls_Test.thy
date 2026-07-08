@@ -2,9 +2,7 @@ theory CopyCalls_Test
   imports Main "Rust.Rust_Setup"
 begin
 
-subsection "From Copy_Generic_RCall_Test"
-
-
+(* Copy-specialized callees should be selected at concrete and generic call sites. *)
 datatype flag_pair =
   FlagPair bool bool
 

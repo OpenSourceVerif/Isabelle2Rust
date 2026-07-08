@@ -1,4 +1,4 @@
-theory Recursive_Test
+theory RecursiveType_Test
   imports Main "Rust.Rust_Setup"
 begin
 
