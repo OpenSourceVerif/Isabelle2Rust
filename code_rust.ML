@@ -395,6 +395,21 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           (case sym of
             Constant cp => classparam_arrow_arity cp
           | _ => NONE));
+    fun wildcard_unused_pattern used_vars =
+      let
+        fun wildcard (IVar (SOME v)) =
+              if member (op =) used_vars v then IVar (SOME v) else IVar NONE
+          | wildcard (t1 `$ t2) = wildcard t1 `$ wildcard t2
+          | wildcard ((v, ty) `|=> (t, rty)) = (v, ty) `|=> (wildcard t, rty)
+          | wildcard (ICase {term, typ, clauses, primitive}) =
+              ICase {
+                term = wildcard term,
+                typ = typ,
+                clauses = map (fn (pat, body) => (wildcard pat, body)) clauses,
+                primitive = primitive
+              }
+          | wildcard t = t
+      in wildcard end;
     (** Main term printer. Handles all iterm constructors:
         IConst (constants/constructors), IVar (variables), `$ (application),
         `|=> (lambda/pattern abstraction), ICase (case/let/match).
@@ -1085,7 +1100,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   val has_boxed_patterns = exists (pat_contains_boxed_field o fst) clauses;
                   fun print_select (pat, body) =
                     let
-                      val (p, vars') = print_bind_typed is_pseudo_fun some_thm NOBR pat ty vars;
+                      val used_vars = build (Code_Thingol.add_varnames body);
+                      val pat' = wildcard_unused_pattern used_vars pat;
+                      val vars' = rv_intro_typed_pat pat ty vars;
+                      val p = print_term_pattern is_pseudo_fun some_thm vars' NOBR pat';
                     in
                       rust_arm p (print_term_app is_pseudo_fun some_thm vars' NOBR body)
                     end
@@ -1122,7 +1140,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               end;
             fun print_select (pat, body) =
               let
-                val (p, vars') = print_bind_typed is_pseudo_fun some_thm NOBR pat (#typ icase) vars;
+                val used_vars = build (Code_Thingol.add_varnames body);
+                val pat' = wildcard_unused_pattern used_vars pat;
+                val vars' = rv_intro_typed_pat pat (#typ icase) vars;
+                val p = print_term_pattern is_pseudo_fun some_thm vars' NOBR pat';
               in
                 rust_arm p (print_term_app is_pseudo_fun some_thm vars' NOBR body)
               end;
@@ -1362,6 +1383,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               let
                 val typs = extract_typ (fn _ => fn ty => ty) ty
                 val param_tys = take (length ts) typs
+                val used_vars = build (Code_Thingol.add_varnames t)
+                val ts' = map (wildcard_unused_pattern used_vars) ts
                 val vars =
                   (reserved, Symtab.empty)
                   |> rv_intro_base_names_for (is_none o const_syntax)
@@ -1373,7 +1396,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 if is_degenerated (*only 1 pattern clause in eqs*)
                 then print_expr_term t
                 else rust_arm
-                  (to_tuple ts (Pretty.block (commas_append (map print_pattern_term ts))))
+                  (to_tuple ts' (Pretty.block (commas_append (map print_pattern_term ts'))))
                   (print_expr_term t)
               end;
             (** Print the function signature and body:
@@ -1384,7 +1407,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 val vars0 = reserved
                   |> intro_base_names_for (is_none o const_syntax)
                       deresolve (map (snd o fst) eqs)
-                val dummy_parms = (map str o aux_params vars0 o map (fst o fst)) eqs;
+                fun eq_patterns_for_param_names ((ts, t), _) =
+                  let val used_vars = build (Code_Thingol.add_varnames t)
+                  in map (wildcard_unused_pattern used_vars) ts end
+                val dummy_parms = (map str o aux_params vars0 o map eq_patterns_for_param_names) eqs;
                 val vars = (vars0, Symtab.empty);
                 val typs = extract_typ print_typ ty
                 val param_typs = List.take (typs, (List.length dummy_parms))
