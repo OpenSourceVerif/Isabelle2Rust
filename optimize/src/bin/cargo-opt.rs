@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
@@ -5,8 +6,8 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use isabelle2rust_optimize::{
-    optimize_borrow, optimize_closure, optimize_copy_with_options, optimize_match_with_context,
-    optimize_mut, parse_rust_source, CopyOptions, MatchTypeContext,
+    optimize_borrow_modules, optimize_closure, optimize_copy_with_options,
+    optimize_match_with_context, optimize_mut, parse_rust_source, CopyOptions, MatchTypeContext,
 };
 use rustlightast::{RustCodeGenerator, RustModule};
 
@@ -57,7 +58,6 @@ fn run() -> Result<Summary, String> {
     let config = parse_args()?;
     let package_root = find_package_root(&config.target)?;
     let source_root = package_root.join("src");
-    let primary_module = primary_module_name(&package_root);
 
     if !source_root.is_dir() {
         return Err(format!(
@@ -83,12 +83,7 @@ fn run() -> Result<Summary, String> {
         optimized: 0,
         needs_nightly: false,
     };
-    write_optimized_sources(
-        &source_root,
-        &primary_module,
-        config.keep_unused_copy,
-        &mut summary,
-    )?;
+    write_optimized_sources(&source_root, config.keep_unused_copy, &mut summary)?;
     write_opt_manifest(&package_root, &summary)?;
 
     if summary.needs_nightly {
@@ -181,7 +176,6 @@ fn find_package_root(start: &Path) -> Result<PathBuf, String> {
 
 fn write_optimized_sources(
     source_root: &Path,
-    primary_module: &str,
     keep_unused_copy: bool,
     summary: &mut Summary,
 ) -> Result<(), String> {
@@ -226,19 +220,40 @@ fn write_optimized_sources(
         }
     }
 
-    for unit in units {
+    let mut package_copy_types = HashSet::new();
+    for unit in &mut units {
         if unit.needs_nightly {
             summary.needs_nightly = true;
         }
 
+        if let Some(module) = unit.parsed.as_mut() {
+            optimize_match_with_context(module, &match_context, &unit.module_path);
+            let copy_analysis =
+                optimize_copy_with_options(module, CopyOptions { keep_unused_copy });
+            package_copy_types.extend(copy_analysis.copy_types);
+        }
+    }
+
+    {
+        let mut modules: Vec<&mut RustModule> = units
+            .iter_mut()
+            .filter_map(|unit| unit.parsed.as_mut())
+            .collect();
+        optimize_borrow_modules(&mut modules, &package_copy_types);
+    }
+
+    let mut post_match_context = MatchTypeContext::default();
+    for unit in &units {
+        if let Some(module) = &unit.parsed {
+            post_match_context.insert_module(unit.module_path.clone(), module);
+        }
+    }
+
+    for unit in units {
         let printed = match unit.parsed {
-            Some(mut module) => optimize_source_module(
-                &mut module,
-                &unit.module_path,
-                primary_module,
-                keep_unused_copy,
-                &match_context,
-            ),
+            Some(mut module) => {
+                finish_source_module(&mut module, &unit.module_path, &post_match_context)
+            }
             None => unit.source,
         };
 
@@ -278,15 +293,11 @@ fn rust_sources_under(root: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(sources)
 }
 
-fn optimize_source_module(
+fn finish_source_module(
     module: &mut RustModule,
     module_path: &[String],
-    primary_module: &str,
-    keep_unused_copy: bool,
     match_context: &MatchTypeContext,
 ) -> String {
-    let optimize_borrow_signatures = module.name.as_str() == primary_module;
-
     // Current opt pipeline: Rust source -> RustLightAST -> optimization passes
     // -> rustlight_print::RustCodeGenerator.
     //
@@ -294,11 +305,6 @@ fn optimize_source_module(
     // Isabelle code generator can emit (e.g. `trait` items pulled in as dead
     // code by the `nat`/`int` setup). Parse failures are handled before this
     // function, so every module here can share package-level match type context.
-    optimize_match_with_context(module, match_context, module_path);
-    let copy_analysis = optimize_copy_with_options(module, CopyOptions { keep_unused_copy });
-    if optimize_borrow_signatures {
-        optimize_borrow(module, &copy_analysis.copy_types);
-    }
     optimize_mut(module);
     optimize_closure(module);
     // Post-clean any discard/fallback artifacts introduced by later passes.
@@ -387,15 +393,6 @@ fn module_path_from_relative(relative_path: &Path) -> Vec<String> {
     }
 
     module_path
-}
-
-fn primary_module_name(package_root: &Path) -> String {
-    package_root
-        .parent()
-        .and_then(Path::file_name)
-        .and_then(OsStr::to_str)
-        .map(sanitize_module_name)
-        .unwrap_or_else(|| "module".to_string())
 }
 
 fn sanitize_module_name(stem: &str) -> String {

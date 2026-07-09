@@ -115,54 +115,70 @@ struct BorrowContext {
 /// `copy_types` must be the set produced by `optimize_copy` so that the pass
 /// can treat Copy fields as non-consuming uses.
 pub fn optimize_borrow(module: &mut RustModule, copy_types: &HashSet<String>) -> BorrowAnalysis {
-    let mut analysis = BorrowAnalysis::default();
-    optimize_module(module, copy_types, &mut analysis);
-    analysis
+    let mut modules = [module];
+    optimize_borrow_modules(&mut modules, copy_types)
 }
 
-fn optimize_module(
-    module: &mut RustModule,
+/// Infer borrowed parameter interfaces for every parsed module in a package.
+///
+/// B-Call consults `Borrow(g)` at call sites, so callee summaries must be
+/// computed across module boundaries before any body rewrite starts.
+pub fn optimize_borrow_modules(
+    modules: &mut [&mut RustModule],
     copy_types: &HashSet<String>,
-    analysis: &mut BorrowAnalysis,
-) {
-    let mut ctx = BorrowContext::from_items(&module.items, copy_types);
+) -> BorrowAnalysis {
+    let (mut ctx, functions) = BorrowContext::from_modules(modules, copy_types);
 
     // Three-pass design:
     //  1. Analyse every post-copy function, including _copy specialisations.
     //  2. Rewrite selected parameter types in place.
     //  3. Rewrite bodies and direct calls against the final Borrow(g) summaries.
-    ctx.analyse_all_functions(&module.items);
-    ctx.rewrite_all_signatures_in_place(&mut module.items);
-    ctx.rewrite_all_bodies_and_calls_in_place(&mut module.items);
+    ctx.analyse_all_functions(&functions);
+    for module in modules.iter_mut() {
+        ctx.rewrite_all_signatures_in_place(&mut module.items);
+    }
+    for module in modules.iter_mut() {
+        ctx.rewrite_all_bodies_and_calls_in_place(&mut module.items);
+    }
 
-    analysis.borrow_fns.extend(ctx.borrow_fns.iter().cloned());
-
-    for item in &mut module.items {
-        if let Item::Mod(m) = item {
-            optimize_module(m, copy_types, analysis);
-        }
+    BorrowAnalysis {
+        borrow_fns: ctx.borrow_fns,
     }
 }
 
 // ── BorrowContext construction ────────────────────────────────────────────────
 
 impl BorrowContext {
-    fn from_items(items: &[Item], copy_types: &HashSet<String>) -> Self {
-        let mut ctx = Self {
+    fn from_modules(
+        modules: &[&mut RustModule],
+        copy_types: &HashSet<String>,
+    ) -> (Self, Vec<FunctionDef>) {
+        let mut ctx = Self::empty(copy_types);
+        let mut functions = Vec::new();
+        for module in modules {
+            ctx.collect_items(&module.items, &mut functions);
+        }
+        (ctx, functions)
+    }
+
+    fn empty(copy_types: &HashSet<String>) -> Self {
+        Self {
             copy_types: copy_types.clone(),
             type_defs: HashMap::new(),
             variant_owners: HashMap::new(),
             fn_sigs: HashMap::new(),
             borrow_positions: HashMap::new(),
             borrow_fns: HashSet::new(),
-        };
-        for item in items {
-            ctx.collect_item(item);
         }
-        ctx
     }
 
-    fn collect_item(&mut self, item: &Item) {
+    fn collect_items(&mut self, items: &[Item], functions: &mut Vec<FunctionDef>) {
+        for item in items {
+            self.collect_item(item, functions);
+        }
+    }
+
+    fn collect_item(&mut self, item: &Item, functions: &mut Vec<FunctionDef>) {
         match item {
             Item::Struct(def) => {
                 self.type_defs.insert(
@@ -211,6 +227,10 @@ impl BorrowContext {
                         f.return_type.clone(),
                     ),
                 );
+                functions.push(f.clone());
+            }
+            Item::Mod(m) => {
+                self.collect_items(&m.items, functions);
             }
             _ => {}
         }
@@ -228,51 +248,23 @@ impl BorrowContext {
     }
 }
 
-fn candidate_borrow_positions(f: &FunctionDef) -> Vec<usize> {
-    let generic_names: HashSet<String> = f.generics.iter().map(|g| g.name.clone()).collect();
-    f.params
-        .iter()
-        .enumerate()
-        .filter(|(_, param)| is_borrow_candidate_type(&param.ty, &generic_names))
-        .map(|(i, _)| i)
-        .collect()
-}
-
-fn is_borrow_candidate_type(ty: &Type, generic_names: &HashSet<String>) -> bool {
-    match ty {
-        Type::Named(name) => generic_names.contains(name),
-        Type::Tuple(types) => types
-            .iter()
-            .all(|ty| is_borrow_candidate_type(ty, generic_names)),
-        _ => false,
-    }
-}
-
 // ── Phase 1: demand analysis ──────────────────────────────────────────────────
 
 impl BorrowContext {
     /// For every top-level function, determine which parameter positions can be
     /// replaced by shared borrows and record them in `self.borrow_positions`.
-    fn analyse_all_functions(&mut self, items: &[Item]) {
-        let functions: Vec<&FunctionDef> = items
-            .iter()
-            .filter_map(|item| match item {
-                Item::Function(f) => Some(f),
-                _ => None,
-            })
-            .collect();
-
+    fn analyse_all_functions(&mut self, functions: &[FunctionDef]) {
         self.borrow_positions.clear();
-        for f in &functions {
+        for f in functions {
             self.borrow_positions
-                .insert(f.name.clone(), candidate_borrow_positions(f));
+                .insert(f.name.clone(), self.candidate_borrow_positions(f));
         }
 
         loop {
             let mut changed = false;
             let mut next_positions = HashMap::new();
 
-            for f in &functions {
+            for f in functions {
                 let previous = self
                     .borrow_positions
                     .get(&f.name)
@@ -297,9 +289,18 @@ impl BorrowContext {
             .retain(|_, positions| !positions.is_empty());
     }
 
+    fn candidate_borrow_positions(&self, f: &FunctionDef) -> Vec<usize> {
+        let copy_generics = generic_names_with_bound(f, "Copy");
+        f.params
+            .iter()
+            .enumerate()
+            .filter(|(_, param)| self.is_borrow_candidate_type(&param.ty, &copy_generics))
+            .map(|(i, _)| i)
+            .collect()
+    }
+
     /// Returns the sorted list of parameter indices that are borrowable for `f`.
     fn borrowable_positions(&self, f: &FunctionDef) -> Vec<usize> {
-        let generic_names: HashSet<String> = f.generics.iter().map(|g| g.name.clone()).collect();
         let copy_generics = generic_names_with_bound(f, "Copy");
         let base_env = function_type_env(f);
 
@@ -308,11 +309,28 @@ impl BorrowContext {
             .enumerate()
             .filter(|(_, param)| {
                 // Only consider owned (non-reference) parameters.
-                is_borrow_candidate_type(&param.ty, &generic_names)
+                self.is_borrow_candidate_type(&param.ty, &copy_generics)
                     && self.is_param_borrowable(f, param, &base_env, &copy_generics)
             })
             .map(|(i, _)| i)
             .collect()
+    }
+
+    fn is_borrow_candidate_type(&self, ty: &Type, copy_generics: &HashSet<String>) -> bool {
+        if is_reference_type(ty) || contains_callable_trait(ty) || self.is_copy(ty, copy_generics) {
+            return false;
+        }
+
+        match ty {
+            Type::Named(_) | Type::Path(_) | Type::Generic(_, _) => true,
+            Type::Tuple(types) => types
+                .iter()
+                .any(|ty| self.is_borrow_candidate_type(ty, copy_generics)),
+            Type::Slice(inner) | Type::Array(inner, _) => {
+                self.is_borrow_candidate_type(inner, copy_generics)
+            }
+            Type::CallableTrait(_) | Type::Reference(_, _, _) | Type::Unit | Type::Never => false,
+        }
     }
 
     /// Checks `Borrowable_Γ(f, x)` from the paper:
@@ -507,7 +525,7 @@ impl BorrowContext {
                     // Determine whether position j takes an owned or borrowed arg.
                     let callee_name = callee_fn_name(callee);
                     let borrow_pos = callee_name
-                        .and_then(|n| self.borrow_positions.get(n))
+                        .and_then(|n| self.borrow_positions.get(&n))
                         .map(|positions| positions.contains(&j))
                         .unwrap_or(false);
 
@@ -965,8 +983,10 @@ impl BorrowContext {
 impl BorrowContext {
     fn rewrite_all_signatures_in_place(&mut self, items: &mut [Item]) {
         for item in items {
-            if let Item::Function(f) = item {
-                self.rewrite_signature_in_place(f);
+            match item {
+                Item::Function(f) => self.rewrite_signature_in_place(f),
+                Item::Mod(m) => self.rewrite_all_signatures_in_place(&mut m.items),
+                _ => {}
             }
         }
     }
@@ -991,8 +1011,17 @@ impl BorrowContext {
 
     fn rewrite_all_bodies_and_calls_in_place(&self, items: &mut [Item]) {
         for item in items {
-            if let Item::Function(f) = item {
-                self.rewrite_function_body_in_place(f);
+            match item {
+                Item::Function(f) => self.rewrite_function_body_in_place(f),
+                Item::Impl(impl_block) => {
+                    for impl_item in &mut impl_block.items {
+                        if let ImplItem::Method(method) = impl_item {
+                            self.rewrite_function_body_in_place(method);
+                        }
+                    }
+                }
+                Item::Mod(m) => self.rewrite_all_bodies_and_calls_in_place(&mut m.items),
+                _ => {}
             }
         }
     }
@@ -1215,7 +1244,7 @@ impl BorrowContext {
 
                 if let Some(borrow_positions) = fn_name.and_then(|name| {
                     self.borrow_positions
-                        .get(name)
+                        .get(&name)
                         .filter(|positions| !positions.is_empty())
                 }) {
                     let new_callee = callee.as_ref().clone();
@@ -1285,19 +1314,29 @@ impl BorrowContext {
                             .and_then(borrowed_box_inner_type)
                             .map(|inner| (name.to_string(), inner.clone()))
                     });
-                let scrutinee_borrow_type = match scrutinee.as_ref() {
+                let borrowed_tuple_scrutinee =
+                    borrowed_tuple_scrutinee(scrutinee.as_ref(), borrow_env);
+                let borrow_match_inner_type = match scrutinee.as_ref() {
                     Expr::Ident(name) => borrow_env
                         .get(name)
                         .filter(|ty| is_reference_type(ty))
+                        .and_then(ref_inner)
                         .cloned(),
                     _ => deref_borrowed_box_scrutinee
                         .as_ref()
-                        .map(|(_, inner)| make_ref_type(inner)),
+                        .map(|(_, inner)| inner.clone())
+                        .or_else(|| {
+                            borrowed_tuple_scrutinee
+                                .as_ref()
+                                .map(|(_, inner_ty)| inner_ty.clone())
+                        }),
                 };
-                let scrutinee_is_borrowed = scrutinee_borrow_type.is_some();
+                let scrutinee_is_borrowed = borrow_match_inner_type.is_some();
 
                 let new_scrutinee = if let Some((name, _)) = &deref_borrowed_box_scrutinee {
                     borrowed_box_as_ref(name)
+                } else if let Some((tuple_expr, _)) = &borrowed_tuple_scrutinee {
+                    tuple_expr.clone()
                 } else if scrutinee_is_borrowed {
                     scrutinee.as_ref().clone()
                 } else {
@@ -1320,18 +1359,16 @@ impl BorrowContext {
                         if scrutinee_is_borrowed {
                             // B-Match: strip `box` from patterns; field variables
                             // get type `&F_j` (reference to the original field type).
-                            let inner_ty = ref_inner(scrutinee_borrow_type.as_ref().unwrap())
-                                .cloned()
-                                .unwrap_or_else(|| scrutinee_borrow_type.clone().unwrap());
+                            let inner_ty = borrow_match_inner_type.as_ref().unwrap();
 
                             // Compute field types for this constructor from the
                             // inner (non-reference) scrutinee type.
                             self.bind_pattern_env_for_borrow_match(
                                 &arm.pattern,
-                                &inner_ty,
+                                inner_ty,
                                 &mut arm_borrow,
                             );
-                            self.bind_pattern_env(&arm.pattern, &inner_ty, &mut arm_orig);
+                            self.bind_pattern_env(&arm.pattern, inner_ty, &mut arm_orig);
                             mark_deref_box_bindings_from_body(
                                 &arm.pattern,
                                 &arm.body,
@@ -1621,6 +1658,12 @@ impl BorrowContext {
                                 Expr::Ident(name.clone())
                             };
                         }
+                    }
+                    if borrow_env.contains_key(name) || orig_env.contains_key(name) {
+                        // v: T in a borrowed call position:
+                        // the original explicit clone existed only to satisfy
+                        // owned calling convention, so B-Call can pass &v.
+                        return Expr::Reference(Box::new(Expr::Ident(name.clone())), true, false);
                     }
                 }
                 // Recurse and wrap in &.
@@ -2566,12 +2609,44 @@ fn borrowed_box_deref_alias(expr: &Expr, env: &BorrowEnv) -> Option<(Expr, Type)
     Some((borrowed_box_as_ref(name), make_ref_type(inner_ty)))
 }
 
+fn borrowed_tuple_scrutinee(expr: &Expr, env: &BorrowEnv) -> Option<(Expr, Type)> {
+    let Expr::Tuple(elems) = expr else {
+        return None;
+    };
+
+    let mut rewritten = Vec::with_capacity(elems.len());
+    let mut inner_types = Vec::with_capacity(elems.len());
+    for elem in elems {
+        let Expr::Ident(name) = elem else {
+            return None;
+        };
+        let inner_ty = env.get(name).filter(|ty| is_reference_type(ty))?;
+        inner_types.push(ref_inner(inner_ty)?.clone());
+        rewritten.push(Expr::Ident(name.clone()));
+    }
+
+    Some((Expr::Tuple(rewritten), Type::Tuple(inner_types)))
+}
+
 fn local_type_name(ty: &Type) -> Option<&str> {
     match ty {
         Type::Named(name) => Some(name.as_str()),
         Type::Path(path) => path.last().map(String::as_str),
         Type::Generic(name, _) => Some(name.as_str()),
         _ => None,
+    }
+}
+
+fn contains_callable_trait(ty: &Type) -> bool {
+    match ty {
+        Type::CallableTrait(_) => true,
+        Type::Generic(_, params) | Type::Tuple(params) => {
+            params.iter().any(contains_callable_trait)
+        }
+        Type::Slice(inner) | Type::Array(inner, _) | Type::Reference(inner, _, _) => {
+            contains_callable_trait(inner)
+        }
+        Type::Path(_) | Type::Named(_) | Type::Unit | Type::Never => false,
     }
 }
 
@@ -2619,13 +2694,24 @@ fn apply_type_subst(ty: &Type, subst: &HashMap<String, Type>) -> Type {
     }
 }
 
-fn callee_fn_name<'a>(callee: &'a Expr) -> Option<&'a str> {
+fn callee_fn_name(callee: &Expr) -> Option<String> {
     match callee {
-        Expr::Ident(name) => Some(name.as_str()),
-        Expr::Path(path, PathType::Namespace) => path.last().map(String::as_str),
+        Expr::Ident(name) => Some(strip_path_segment_generics(name).to_string()),
+        Expr::Path(path, PathType::Namespace) => path
+            .last()
+            .map(|name| strip_path_segment_generics(name).to_string()),
         Expr::Parenthesized(inner) => callee_fn_name(inner),
         _ => None,
     }
+}
+
+fn strip_path_segment_generics(segment: &str) -> &str {
+    let before_args = segment.split_once('<').map_or(segment, |(head, _)| head);
+    before_args
+        .trim()
+        .strip_suffix("::")
+        .unwrap_or(before_args.trim())
+        .trim()
 }
 
 fn function_type_env(f: &FunctionDef) -> TypeEnv {
@@ -3024,6 +3110,67 @@ mod tests {
         }
     }
 
+    fn tree_enum() -> Item {
+        Item::Enum(EnumDef {
+            name: "Tree".to_string(),
+            variants: vec![
+                Variant {
+                    name: "Leaf".to_string(),
+                    data: None,
+                    docs: vec![],
+                },
+                Variant {
+                    name: "Branch".to_string(),
+                    data: None,
+                    docs: vec![],
+                },
+            ],
+            generics: vec![],
+            derives: vec![],
+            docs: vec![],
+            vis: Visibility::Public,
+        })
+    }
+
+    fn leaf_match_body(param: &str) -> Block {
+        block_tail(Expr::Match {
+            expr: Box::new(Expr::Ident(param.to_string())),
+            arms: vec![
+                MatchArm {
+                    pattern: "Tree::Leaf".to_string(),
+                    guard: None,
+                    body: block_tail(Expr::Literal(Literal::Bool(true))),
+                },
+                MatchArm {
+                    pattern: "Tree::Branch".to_string(),
+                    guard: None,
+                    body: block_tail(Expr::Literal(Literal::Bool(false))),
+                },
+            ],
+        })
+    }
+
+    fn tuple_leaf_match_body(left: &str, right: &str) -> Block {
+        block_tail(Expr::Match {
+            expr: Box::new(Expr::Tuple(vec![
+                Expr::Ident(left.to_string()),
+                Expr::Ident(right.to_string()),
+            ])),
+            arms: vec![
+                MatchArm {
+                    pattern: "(Tree::Leaf, Tree::Leaf)".to_string(),
+                    guard: None,
+                    body: block_tail(Expr::Literal(Literal::Bool(true))),
+                },
+                MatchArm {
+                    pattern: "(_, _)".to_string(),
+                    guard: None,
+                    body: block_tail(Expr::Literal(Literal::Bool(false))),
+                },
+            ],
+        })
+    }
+
     fn empty_ctx() -> BorrowContext {
         BorrowContext {
             copy_types: HashSet::new(),
@@ -3134,6 +3281,234 @@ mod tests {
             panic!("expected function");
         };
         assert!(!is_reference_type(&function.params[0].ty));
+    }
+
+    #[test]
+    fn concrete_datatype_param_is_considered_for_borrowing() {
+        let body = leaf_match_body("x");
+        let mut module = RustModule {
+            name: "Test".to_string(),
+            docs: vec![],
+            items: vec![
+                tree_enum(),
+                Item::Function(function("is_leaf", "x", named("Tree"), body)),
+            ],
+            attrs: vec![],
+            vis: Visibility::Public,
+        };
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("is_leaf"));
+        let Item::Function(function) = &module.items[1] else {
+            panic!("expected function");
+        };
+        assert!(is_reference_type(&function.params[0].ty));
+    }
+
+    #[test]
+    fn callable_trait_container_is_not_borrow_candidate() {
+        let callable = Type::Generic(
+            "Rc".to_string(),
+            vec![Type::CallableTrait(CallableTraitType {
+                qualifier: CallableTraitQualifier::Dyn,
+                trait_name: "Fn".to_string(),
+                args: vec![named("Tree")],
+                return_type: Box::new(named("Tree")),
+            })],
+        );
+        let mut module = module_with(function(
+            "unused_callable",
+            "f",
+            callable,
+            block_tail(Expr::Literal(Literal::Bool(true))),
+        ));
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.is_empty());
+        let Item::Function(function) = &module.items[0] else {
+            panic!("expected function");
+        };
+        assert!(!is_reference_type(&function.params[0].ty));
+    }
+
+    #[test]
+    fn borrowed_tuple_match_scrutinee_does_not_clone_params() {
+        let mut function = function(
+            "both_leaf",
+            "x",
+            named("Tree"),
+            tuple_leaf_match_body("x", "y"),
+        );
+        function.params.push(Param {
+            name: "y".to_string(),
+            ty: named("Tree"),
+        });
+        let mut module = RustModule {
+            name: "Test".to_string(),
+            docs: vec![],
+            items: vec![tree_enum(), Item::Function(function)],
+            attrs: vec![],
+            vis: Visibility::Public,
+        };
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("both_leaf"));
+        let Item::Function(function) = &module.items[1] else {
+            panic!("expected function");
+        };
+        let Some(Expr::Match { expr, .. }) = function.body.expr.as_deref() else {
+            panic!("expected match tail");
+        };
+        assert!(matches!(
+            expr.as_ref(),
+            Expr::Tuple(elems)
+                if matches!(&elems[0], Expr::Ident(name) if name == "x")
+                    && matches!(&elems[1], Expr::Ident(name) if name == "y")
+        ));
+    }
+
+    #[test]
+    fn package_borrow_summaries_rewrite_calls_across_modules() {
+        let callee = function("is_leaf", "x", named("Tree"), leaf_match_body("x"));
+        let mut callee_module = RustModule {
+            name: "TreeMod".to_string(),
+            docs: vec![],
+            items: vec![tree_enum(), Item::Function(callee)],
+            attrs: vec![],
+            vis: Visibility::Public,
+        };
+
+        let caller = FunctionDef {
+            name: "caller".to_string(),
+            params: vec![Param {
+                name: "x".to_string(),
+                ty: named("Tree"),
+            }],
+            return_type: named("bool"),
+            generics: vec![],
+            body: block_tail(Expr::Call(
+                Box::new(Expr::Ident("is_leaf".to_string())),
+                vec![clone_call("x")],
+            )),
+            asyncness: false,
+            vis: Visibility::Public,
+            docs: vec![],
+            attrs: vec![],
+        };
+        let mut caller_module = module_with(caller);
+        let mut modules = vec![&mut callee_module, &mut caller_module];
+
+        let analysis = optimize_borrow_modules(&mut modules, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("is_leaf"));
+        let Item::Function(function) = &caller_module.items[0] else {
+            panic!("expected function");
+        };
+        let Some(Expr::Call(_, args)) = function.body.expr.as_deref() else {
+            panic!("expected call tail");
+        };
+        assert!(matches!(&args[0], Expr::Ident(name) if name == "x"));
+    }
+
+    #[test]
+    fn turbofish_callee_uses_borrow_summary() {
+        let callee = function("conv", "x", named("Tree"), leaf_match_body("x"));
+        let mut callee_module = RustModule {
+            name: "TreeMod".to_string(),
+            docs: vec![],
+            items: vec![tree_enum(), Item::Function(callee)],
+            attrs: vec![],
+            vis: Visibility::Public,
+        };
+
+        let caller = FunctionDef {
+            name: "caller".to_string(),
+            params: vec![Param {
+                name: "x".to_string(),
+                ty: named("Tree"),
+            }],
+            return_type: named("bool"),
+            generics: vec![],
+            body: block_tail(Expr::Call(
+                Box::new(Expr::Ident("conv::<A>".to_string())),
+                vec![clone_call("x")],
+            )),
+            asyncness: false,
+            vis: Visibility::Public,
+            docs: vec![],
+            attrs: vec![],
+        };
+        let mut caller_module = module_with(caller);
+        let mut modules = vec![&mut callee_module, &mut caller_module];
+
+        optimize_borrow_modules(&mut modules, &HashSet::new());
+
+        let Item::Function(function) = &caller_module.items[0] else {
+            panic!("expected function");
+        };
+        let Some(Expr::Call(_, args)) = function.body.expr.as_deref() else {
+            panic!("expected call tail");
+        };
+        assert!(matches!(&args[0], Expr::Ident(name) if name == "x"));
+    }
+
+    #[test]
+    fn impl_method_body_uses_borrow_summary_without_signature_rewrite() {
+        let callee = function("is_leaf", "x", named("Tree"), leaf_match_body("x"));
+        let method = FunctionDef {
+            name: "equal".to_string(),
+            params: vec![Param {
+                name: "x".to_string(),
+                ty: named("Tree"),
+            }],
+            return_type: named("bool"),
+            generics: vec![],
+            body: block_tail(Expr::Call(
+                Box::new(Expr::Ident("is_leaf".to_string())),
+                vec![clone_call("x")],
+            )),
+            asyncness: false,
+            vis: Visibility::Private,
+            docs: vec![],
+            attrs: vec![],
+        };
+        let mut module = RustModule {
+            name: "Test".to_string(),
+            docs: vec![],
+            items: vec![
+                tree_enum(),
+                Item::Function(callee),
+                Item::Impl(ImplBlock {
+                    target: named("Tree"),
+                    generics: vec![],
+                    items: vec![ImplItem::Method(method)],
+                    trait_impl: None,
+                }),
+            ],
+            attrs: vec![],
+            vis: Visibility::Public,
+        };
+
+        optimize_borrow(&mut module, &HashSet::new());
+
+        let Item::Impl(impl_block) = &module.items[2] else {
+            panic!("expected impl");
+        };
+        let ImplItem::Method(method) = &impl_block.items[0] else {
+            panic!("expected method");
+        };
+        assert!(!is_reference_type(&method.params[0].ty));
+        let Some(Expr::Call(_, args)) = method.body.expr.as_deref() else {
+            panic!("expected call tail");
+        };
+        assert!(matches!(
+            &args[0],
+            Expr::Reference(inner, true, false)
+                if matches!(inner.as_ref(), Expr::Ident(name) if name == "x")
+        ));
     }
 
     #[test]
