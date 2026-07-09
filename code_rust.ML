@@ -557,7 +557,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             of SOME (({ dom, ... }), ts) => length ts < length dom
             | _ => false)
         (* When a constructor has registered const_syntax (e.g. Product_Type.Pair
-           mapped to native tuple syntax "!( _ , _ )"), the template already encodes
+           mapped to native tuple syntax "!(_, _)"), the template already encodes
            the full printed form.  Prepending Tyco:: would produce malformed output
            like "Prod::(a, b)".  Suppress the prefix whenever custom syntax is in use. *)
         val has_const_syntax =

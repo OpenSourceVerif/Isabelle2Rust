@@ -47,8 +47,8 @@ code_reserved
 (* Tuples *)
 code_printing
   type_constructor "Product_Type.prod" \<rightharpoonup>
-    (Rust) "!( _ , _ )"
+    (Rust) "!(_, _)"
 | constant "Product_Type.Pair" \<rightharpoonup>
-    (Rust) "!( _ , _ )"
+    (Rust) "!(_, _)"
 
 end
