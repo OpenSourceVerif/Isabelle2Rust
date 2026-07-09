@@ -35,6 +35,8 @@ cd /YOUR-PATH/Isabelle2Rust/optimize
 
 # optimize the input Rust project and generate tests/Rust_Test/opt/
 cargo run --bin cargo-opt -- tests/Rust_Test
+# keep all generated _copy specializations for debugging/comparison
+cargo run --bin cargo-opt -- tests/Rust_Test --keep-unused-copy
 # run the optimized project
 cargo run --manifest-path tests/Rust_Test/opt/Cargo.toml
 ```

@@ -5,10 +5,10 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use isabelle2rust_optimize::{
-    optimize_borrow, optimize_closure, optimize_copy, optimize_match, optimize_mut,
-    parse_rust_source,
+    optimize_borrow, optimize_closure, optimize_copy_with_options, optimize_match_with_context,
+    optimize_mut, parse_rust_source, CopyOptions, MatchTypeContext,
 };
-use rustlightast::RustCodeGenerator;
+use rustlightast::{RustCodeGenerator, RustModule};
 
 const OPT_DIR_NAME: &str = "opt";
 
@@ -34,12 +34,22 @@ fn main() -> ExitCode {
 struct Config {
     target: PathBuf,
     output_root: Option<PathBuf>,
+    keep_unused_copy: bool,
 }
 
 struct Summary {
     output_root: PathBuf,
     opt_manifest: PathBuf,
     optimized: usize,
+    needs_nightly: bool,
+}
+
+struct SourceUnit {
+    relative_path: PathBuf,
+    output_path: PathBuf,
+    module_path: Vec<String>,
+    source: String,
+    parsed: Option<RustModule>,
     needs_nightly: bool,
 }
 
@@ -73,7 +83,12 @@ fn run() -> Result<Summary, String> {
         optimized: 0,
         needs_nightly: false,
     };
-    write_optimized_sources(&source_root, &primary_module, &mut summary)?;
+    write_optimized_sources(
+        &source_root,
+        &primary_module,
+        config.keep_unused_copy,
+        &mut summary,
+    )?;
     write_opt_manifest(&package_root, &summary)?;
 
     if summary.needs_nightly {
@@ -98,6 +113,7 @@ fn parse_args() -> Result<Config, String> {
     // flexible.
     let mut target = None;
     let mut output_root = None;
+    let mut keep_unused_copy = false;
     let mut args = env::args_os().skip(1).filter(|arg| arg != "opt").peekable();
 
     while let Some(arg) = args.next() {
@@ -108,13 +124,15 @@ fn parse_args() -> Result<Config, String> {
             output_root = Some(PathBuf::from(value));
         } else if let Some(value) = arg.to_str().and_then(|arg| arg.strip_prefix("--out-dir=")) {
             output_root = Some(PathBuf::from(value));
+        } else if arg == "--keep-unused-copy" {
+            keep_unused_copy = true;
         } else if arg == "-h" || arg == "--help" {
             return Err(help_text());
         } else if target.is_none() {
             target = Some(PathBuf::from(arg));
         } else {
             return Err(format!(
-                "unexpected argument {}; use: cargo opt [package-path] [--out-dir path]",
+                "unexpected argument {}; use: cargo opt [package-path] [--out-dir path] [--keep-unused-copy]",
                 PathBuf::from(arg).display()
             ));
         }
@@ -123,13 +141,15 @@ fn parse_args() -> Result<Config, String> {
     Ok(Config {
         target: target.unwrap_or(env::current_dir().map_err(|err| err.to_string())?),
         output_root,
+        keep_unused_copy,
     })
 }
 
 fn help_text() -> String {
-    "usage: cargo opt [package-path] [--out-dir path]\n\
+    "usage: cargo opt [package-path] [--out-dir path] [--keep-unused-copy]\n\
      writes optimized Rust files to <package-path>/opt/src by default\n\
-     and generates <package-path>/opt/Cargo.toml for cargo run-opt"
+     and generates <package-path>/opt/Cargo.toml for cargo run-opt\n\
+     --keep-unused-copy keeps generated _copy functions even when no call site uses them"
         .to_string()
 }
 
@@ -162,19 +182,68 @@ fn find_package_root(start: &Path) -> Result<PathBuf, String> {
 fn write_optimized_sources(
     source_root: &Path,
     primary_module: &str,
+    keep_unused_copy: bool,
     summary: &mut Summary,
 ) -> Result<(), String> {
     let mut sources = rust_sources_under(source_root)?;
     sources.sort();
+    let mut units = Vec::with_capacity(sources.len());
 
     for source_path in sources {
         let relative_path = relative_to(&source_path, source_root);
         let output_path = summary.output_root.join("src").join(&relative_path);
+        let source = fs::read_to_string(&source_path)
+            .map_err(|err| format!("failed to read {}: {err}", source_path.display()))?;
+        let module_name = module_name_from_path(&source_path);
+        let module_path = module_path_from_relative(&relative_path);
+        let needs_nightly = source.contains("#![feature(");
 
-        if optimize_source_file(&source_path, &output_path, primary_module)? {
+        let parsed = match parse_rust_source(&source, module_name.clone()) {
+            Ok(module) => Some(module),
+            Err(err) => {
+                eprintln!(
+                    "warning: passing {} through unoptimized ({err})",
+                    source_path.display()
+                );
+                None
+            }
+        };
+
+        units.push(SourceUnit {
+            relative_path,
+            output_path,
+            module_path,
+            source,
+            parsed,
+            needs_nightly,
+        });
+    }
+
+    let mut match_context = MatchTypeContext::default();
+    for unit in &units {
+        if let Some(module) = &unit.parsed {
+            match_context.insert_module(unit.module_path.clone(), module);
+        }
+    }
+
+    for unit in units {
+        if unit.needs_nightly {
             summary.needs_nightly = true;
         }
-        println!("optimized src/{}", relative_path.display());
+
+        let printed = match unit.parsed {
+            Some(mut module) => optimize_source_module(
+                &mut module,
+                &unit.module_path,
+                primary_module,
+                keep_unused_copy,
+                &match_context,
+            ),
+            None => unit.source,
+        };
+
+        write_file(&unit.output_path, printed.as_bytes())?;
+        println!("optimized src/{}", unit.relative_path.display());
         summary.optimized += 1;
     }
 
@@ -209,53 +278,34 @@ fn rust_sources_under(root: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(sources)
 }
 
-fn optimize_source_file(
-    source_path: &Path,
-    output_path: &Path,
+fn optimize_source_module(
+    module: &mut RustModule,
+    module_path: &[String],
     primary_module: &str,
-) -> Result<bool, String> {
-    let source = fs::read_to_string(source_path)
-        .map_err(|err| format!("failed to read {}: {err}", source_path.display()))?;
-    let module_name = module_name_from_path(source_path);
-    let optimize_borrow_signatures = module_name == primary_module;
-    let needs_nightly = source.contains("#![feature(");
+    keep_unused_copy: bool,
+    match_context: &MatchTypeContext,
+) -> String {
+    let optimize_borrow_signatures = module.name.as_str() == primary_module;
 
     // Current opt pipeline: Rust source -> RustLightAST -> optimization passes
     // -> rustlight_print::RustCodeGenerator.
     //
     // The RustLightAST parser does not yet cover every Rust construct the
     // Isabelle code generator can emit (e.g. `trait` items pulled in as dead
-    // code by the `nat`/`int` setup).  A parse failure for one auxiliary module
-    // must not abort the whole package, so fall back to copying the source
-    // through verbatim — the optimizer simply leaves untouched what it cannot
-    // model, which is always sound.
-    let printed = match parse_rust_source(&source, module_name) {
-        Ok(mut module) => {
-            // Pre-clean generated match artifacts before demand analyses.
-            optimize_match(&mut module);
-            let copy_analysis = optimize_copy(&mut module);
-            if optimize_borrow_signatures {
-                optimize_borrow(&mut module, &copy_analysis.copy_types);
-            }
-            optimize_mut(&mut module);
-            optimize_closure(&mut module);
-            // Post-clean any discard/fallback artifacts introduced by later passes.
-            optimize_match(&mut module);
+    // code by the `nat`/`int` setup). Parse failures are handled before this
+    // function, so every module here can share package-level match type context.
+    optimize_match_with_context(module, match_context, module_path);
+    let copy_analysis = optimize_copy_with_options(module, CopyOptions { keep_unused_copy });
+    if optimize_borrow_signatures {
+        optimize_borrow(module, &copy_analysis.copy_types);
+    }
+    optimize_mut(module);
+    optimize_closure(module);
+    // Post-clean any discard/fallback artifacts introduced by later passes.
+    optimize_match_with_context(module, match_context, module_path);
 
-            let mut generator = RustCodeGenerator::new();
-            generator.generate_module_code(&module)
-        }
-        Err(err) => {
-            eprintln!(
-                "warning: passing {} through unoptimized ({err})",
-                source_path.display()
-            );
-            source
-        }
-    };
-
-    write_file(output_path, printed.as_bytes())?;
-    Ok(needs_nightly)
+    let mut generator = RustCodeGenerator::new();
+    generator.generate_module_code(module)
 }
 
 fn write_opt_manifest(package_root: &Path, summary: &Summary) -> Result<(), String> {
@@ -311,6 +361,32 @@ fn module_name_from_path(source_path: &Path) -> String {
         .and_then(OsStr::to_str)
         .unwrap_or("module");
     sanitize_module_name(stem)
+}
+
+fn module_path_from_relative(relative_path: &Path) -> Vec<String> {
+    let mut module_path = vec!["crate".to_string()];
+    let mut components = relative_path
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .collect::<Vec<_>>();
+
+    let Some(file_name) = components.pop() else {
+        return module_path;
+    };
+
+    for component in components {
+        module_path.push(sanitize_module_name(component));
+    }
+
+    let stem = Path::new(file_name)
+        .file_stem()
+        .and_then(OsStr::to_str)
+        .unwrap_or(file_name);
+    if !matches!(stem, "lib" | "main" | "mod") {
+        module_path.push(sanitize_module_name(stem));
+    }
+
+    module_path
 }
 
 fn primary_module_name(package_root: &Path) -> String {

@@ -8,6 +8,12 @@ pub struct CopyAnalysis {
     pub copy_types: HashSet<String>,
 }
 
+/// Configuration for the copy-analysis pass.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CopyOptions {
+    pub keep_unused_copy: bool,
+}
+
 type TypeEnv = HashMap<String, Type>;
 
 #[derive(Debug, Clone)]
@@ -42,6 +48,8 @@ struct CopyContext {
     functions: HashMap<String, Type>,
     // Full signatures for R-Call: generic params + parameter types
     fn_sigs: HashMap<String, (Vec<GenericParam>, Vec<Type>)>,
+    copy_specializations: HashMap<String, String>,
+    generated_copy_specializations: HashSet<String>,
 }
 
 /// Infer Copy data types for the Rust fragment generated from Isabelle/HOL,
@@ -52,12 +60,16 @@ struct CopyContext {
 /// pipeline: it does not optimize borrow/reference expressions or method/impl
 /// bodies, which belong to later optimization stages.
 pub fn optimize_copy(module: &mut RustModule) -> CopyAnalysis {
+    optimize_copy_with_options(module, CopyOptions::default())
+}
+
+pub fn optimize_copy_with_options(module: &mut RustModule, options: CopyOptions) -> CopyAnalysis {
     let mut analysis = CopyAnalysis::default();
-    optimize_module(module, &mut analysis);
+    optimize_module(module, &mut analysis, options);
     analysis
 }
 
-fn optimize_module(module: &mut RustModule, analysis: &mut CopyAnalysis) {
+fn optimize_module(module: &mut RustModule, analysis: &mut CopyAnalysis, options: CopyOptions) {
     let mut ctx = CopyContext::from_items(&module.items);
 
     // The pass is deliberately staged: infer all local Copy candidates first,
@@ -66,12 +78,15 @@ fn optimize_module(module: &mut RustModule, analysis: &mut CopyAnalysis) {
     ctx.apply_copy_derives(&mut module.items);
     ctx.add_copy_specializations(&mut module.items);
     ctx.rewrite_items(&mut module.items);
+    if !options.keep_unused_copy {
+        ctx.prune_unused_copy_specializations(&mut module.items);
+    }
 
     analysis.copy_types.extend(ctx.copy_types.iter().cloned());
 
     for item in &mut module.items {
         if let Item::Mod(module) = item {
-            optimize_module(module, analysis);
+            optimize_module(module, analysis, options);
         }
     }
 }
@@ -103,6 +118,8 @@ impl CopyContext {
             variant_owners: HashMap::new(),
             functions: HashMap::new(),
             fn_sigs: HashMap::new(),
+            copy_specializations: HashMap::new(),
+            generated_copy_specializations: HashSet::new(),
         };
 
         for item in items {
@@ -298,11 +315,16 @@ impl CopyContext {
         for mut item in original_items {
             match &mut item {
                 Item::Function(function) => {
+                    let original_name = function.name.clone();
                     let specialization = self
                         .copy_specialization_for_function(function, &mut existing_function_names);
                     items.push(item);
                     if let Some(specialization) = specialization {
                         // Register the _copy variant's signature so R-Call can redirect to it.
+                        self.copy_specializations
+                            .insert(original_name, specialization.name.clone());
+                        self.generated_copy_specializations
+                            .insert(specialization.name.clone());
                         self.functions.insert(
                             specialization.name.clone(),
                             specialization.return_type.clone(),
@@ -319,6 +341,90 @@ impl CopyContext {
                 }
                 _ => items.push(item),
             }
+        }
+    }
+
+    fn prune_unused_copy_specializations(&self, items: &mut Vec<Item>) {
+        if self.generated_copy_specializations.is_empty() {
+            return;
+        }
+
+        let mut reachable = HashSet::new();
+        let mut pending = Vec::new();
+
+        for item in items.iter() {
+            self.collect_root_copy_calls(item, &mut pending);
+        }
+
+        while let Some(name) = pending.pop() {
+            if !reachable.insert(name.clone()) {
+                continue;
+            }
+
+            if let Some(function) = find_function(items, &name) {
+                collect_copy_calls_block(
+                    &function.body,
+                    &self.generated_copy_specializations,
+                    &mut pending,
+                );
+            }
+        }
+
+        items.retain(|item| {
+            !matches!(
+                item,
+                Item::Function(function)
+                    if self.generated_copy_specializations.contains(&function.name)
+                        && !reachable.contains(&function.name)
+            )
+        });
+    }
+
+    fn collect_root_copy_calls(&self, item: &Item, out: &mut Vec<String>) {
+        match item {
+            Item::Function(function)
+                if self.generated_copy_specializations.contains(&function.name) => {}
+            Item::Function(function) => {
+                collect_copy_calls_block(&function.body, &self.generated_copy_specializations, out)
+            }
+            Item::Impl(impl_block) => {
+                for impl_item in &impl_block.items {
+                    match impl_item {
+                        ImplItem::Method(method) => collect_copy_calls_block(
+                            &method.body,
+                            &self.generated_copy_specializations,
+                            out,
+                        ),
+                        ImplItem::AssocConst(_, _, expr) => {
+                            collect_copy_calls_expr(expr, &self.generated_copy_specializations, out)
+                        }
+                        ImplItem::AssocType(_, _) => {}
+                    }
+                }
+            }
+            Item::Const(const_def) => {
+                collect_copy_calls_expr(
+                    &const_def.value,
+                    &self.generated_copy_specializations,
+                    out,
+                );
+            }
+            Item::LazyStatic(lazy_static) => collect_copy_calls_block(
+                &lazy_static.init,
+                &self.generated_copy_specializations,
+                out,
+            ),
+            Item::Mod(module) => {
+                for item in &module.items {
+                    self.collect_root_copy_calls(item, out);
+                }
+            }
+            Item::Raw(_)
+            | Item::Struct(_)
+            | Item::Enum(_)
+            | Item::Union(_)
+            | Item::TypeAlias(_)
+            | Item::Use(_) => {}
         }
     }
 
@@ -541,6 +647,7 @@ impl CopyContext {
                 self.rewrite_expr(left, env, copy_generics);
                 self.rewrite_expr(right, env, copy_generics);
             }
+            Expr::UnaryOp(_, inner) => self.rewrite_expr(inner, env, copy_generics),
             // Constructs outside the generated fragment are left unchanged here.
             Expr::Ident(_)
             | Expr::Macro(_)
@@ -551,7 +658,6 @@ impl CopyContext {
             | Expr::BuilderChain(_)
             | Expr::Unsafe(_)
             | Expr::Reference(_, _, _)
-            | Expr::UnaryOp(_, _)
             | Expr::Index(_, _)
             | Expr::Assign(_, _) => {}
         }
@@ -828,6 +934,13 @@ impl CopyContext {
                     out,
                 );
             }
+            Expr::UnaryOp(_, inner) => self.collect_clone_demands_expr(
+                inner,
+                env,
+                tracked_generics,
+                required_copy_env,
+                out,
+            ),
             // Clone calls under unsupported Rust constructs do not participate
             // in copy-specialization inference.
             Expr::Ident(_)
@@ -840,7 +953,6 @@ impl CopyContext {
             | Expr::BuilderChain(_)
             | Expr::Unsafe(_)
             | Expr::Reference(_, _, _)
-            | Expr::UnaryOp(_, _)
             | Expr::Index(_, _)
             | Expr::Assign(_, _) => {}
         }
@@ -865,10 +977,7 @@ impl CopyContext {
             return None;
         }
 
-        let copy_name = format!("{fn_name}_copy");
-        if !self.functions.contains_key(&copy_name) {
-            return None;
-        }
+        let copy_name = self.copy_specializations.get(fn_name)?;
 
         let (generics, param_types) = self.fn_sigs.get(fn_name)?;
 
@@ -894,7 +1003,7 @@ impl CopyContext {
         // recursive calls like `list_head(List::Nil)` inside `list_head_copy`
         // where the argument type is opaque (no type-arg info to unify on).
         if clone_only.iter().all(|g| copy_generics.contains(*g)) {
-            return Some(copy_name);
+            return Some(copy_name.clone());
         }
 
         let arg_types: Vec<Type> = args
@@ -916,7 +1025,7 @@ impl CopyContext {
             }
         }
 
-        Some(copy_name)
+        Some(copy_name.clone())
     }
 
     fn infer_expr_type(&self, expr: &Expr, env: &TypeEnv) -> Option<Type> {
@@ -1161,6 +1270,150 @@ fn function_type_env(function: &FunctionDef) -> TypeEnv {
         .filter(|param| !param.name.is_empty())
         .map(|param| (param.name.clone(), param.ty.clone()))
         .collect()
+}
+
+fn find_function<'a>(items: &'a [Item], name: &str) -> Option<&'a FunctionDef> {
+    items.iter().find_map(|item| match item {
+        Item::Function(function) if function.name == name => Some(function),
+        Item::Mod(module) => find_function(&module.items, name),
+        _ => None,
+    })
+}
+
+fn collect_copy_calls_item(item: &Item, generated: &HashSet<String>, out: &mut Vec<String>) {
+    match item {
+        Item::Function(function) => collect_copy_calls_block(&function.body, generated, out),
+        Item::Impl(impl_block) => {
+            for impl_item in &impl_block.items {
+                match impl_item {
+                    ImplItem::Method(method) => {
+                        collect_copy_calls_block(&method.body, generated, out);
+                    }
+                    ImplItem::AssocConst(_, _, expr) => {
+                        collect_copy_calls_expr(expr, generated, out);
+                    }
+                    ImplItem::AssocType(_, _) => {}
+                }
+            }
+        }
+        Item::Const(const_def) => collect_copy_calls_expr(&const_def.value, generated, out),
+        Item::LazyStatic(lazy_static) => {
+            collect_copy_calls_block(&lazy_static.init, generated, out);
+        }
+        Item::Mod(module) => {
+            for item in &module.items {
+                collect_copy_calls_item(item, generated, out);
+            }
+        }
+        Item::Raw(_)
+        | Item::Struct(_)
+        | Item::Enum(_)
+        | Item::Union(_)
+        | Item::TypeAlias(_)
+        | Item::Use(_) => {}
+    }
+}
+
+fn collect_copy_calls_block(block: &Block, generated: &HashSet<String>, out: &mut Vec<String>) {
+    for stmt in &block.stmts {
+        match stmt {
+            Statement::Let(let_stmt) => {
+                if let Some(init) = &let_stmt.init {
+                    collect_copy_calls_expr(init, generated, out);
+                }
+            }
+            Statement::Expr(expr) => collect_copy_calls_expr(expr, generated, out),
+            Statement::Item(item) => collect_copy_calls_item(item, generated, out),
+            Statement::Continue | Statement::Break | Statement::Comment(_) => {}
+        }
+    }
+
+    if let Some(expr) = &block.expr {
+        collect_copy_calls_expr(expr, generated, out);
+    }
+}
+
+fn collect_copy_calls_expr(expr: &Expr, generated: &HashSet<String>, out: &mut Vec<String>) {
+    match expr {
+        Expr::Call(callee, args) => {
+            if let Expr::Ident(name) = callee.as_ref() {
+                if generated.contains(name) {
+                    out.push(name.clone());
+                }
+            }
+            collect_copy_calls_expr(callee, generated, out);
+            for arg in args {
+                collect_copy_calls_expr(arg, generated, out);
+            }
+        }
+        Expr::MethodCall(receiver, _, args) => {
+            collect_copy_calls_expr(receiver, generated, out);
+            for arg in args {
+                collect_copy_calls_expr(arg, generated, out);
+            }
+        }
+        Expr::Tuple(items) => {
+            for item in items {
+                collect_copy_calls_expr(item, generated, out);
+            }
+        }
+        Expr::Block(block) => {
+            collect_copy_calls_block(block, generated, out);
+        }
+        Expr::Loop(block) | Expr::Unsafe(block) => {
+            collect_copy_calls_block(block, generated, out);
+        }
+        Expr::Closure(_, body, _) | Expr::Await(body) | Expr::Parenthesized(body) => {
+            collect_copy_calls_expr(body, generated, out);
+        }
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
+            collect_copy_calls_expr(condition, generated, out);
+            collect_copy_calls_block(then_branch, generated, out);
+            if let Some(else_branch) = else_branch {
+                collect_copy_calls_block(else_branch, generated, out);
+            }
+        }
+        Expr::IfLet {
+            value,
+            then_branch,
+            else_branch,
+            ..
+        } => {
+            collect_copy_calls_expr(value, generated, out);
+            collect_copy_calls_block(then_branch, generated, out);
+            if let Some(else_branch) = else_branch {
+                collect_copy_calls_block(else_branch, generated, out);
+            }
+        }
+        Expr::Match { expr, arms } => {
+            collect_copy_calls_expr(expr, generated, out);
+            for arm in arms {
+                if let Some(guard) = &arm.guard {
+                    collect_copy_calls_expr(guard, generated, out);
+                }
+                collect_copy_calls_block(&arm.body, generated, out);
+            }
+        }
+        Expr::Reference(inner, _, _) | Expr::UnaryOp(_, inner) => {
+            collect_copy_calls_expr(inner, generated, out);
+        }
+        Expr::BinaryOp(left, _, right) | Expr::Index(left, right) | Expr::Assign(left, right) => {
+            collect_copy_calls_expr(left, generated, out);
+            collect_copy_calls_expr(right, generated, out);
+        }
+        Expr::BuilderChain(methods) => {
+            for method in methods {
+                if let BuilderMethod::Spawn { closure, .. } = method {
+                    collect_copy_calls_expr(closure, generated, out);
+                }
+            }
+        }
+        Expr::Ident(_) | Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) => {}
+    }
 }
 
 fn ensure_clone_copy_derives(derives: &mut Vec<String>) {
@@ -1544,5 +1797,100 @@ fn types_equal(a: &Type, b: &Type) -> bool {
         (Type::Array(t1, n1), Type::Array(t2, n2)) => n1 == n2 && types_equal(t1, t2),
         (Type::Unit, Type::Unit) | (Type::Never, Type::Never) => true,
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parse_rust_source;
+
+    fn optimize_and_print(source: &str) -> String {
+        optimize_and_print_with_options(source, CopyOptions::default())
+    }
+
+    fn optimize_and_print_with_options(source: &str, options: CopyOptions) -> String {
+        let mut module = parse_rust_source(source, "Test").expect("parse source");
+        optimize_copy_with_options(&mut module, options);
+        let mut generator = RustCodeGenerator::new();
+        generator.generate_module_code(&module)
+    }
+
+    #[test]
+    fn prunes_unused_copy_specializations_by_default() {
+        let source = r#"
+pub fn dup<A>(x: A) -> (A, A)
+where
+    A: Clone + 'static
+{
+    (x.clone(), x.clone())
+}
+"#;
+
+        let printed = optimize_and_print(source);
+        assert!(!printed.contains("pub fn dup_copy"));
+        assert!(!printed.contains("Copy-specialized bounds"));
+    }
+
+    #[test]
+    fn keep_unused_copy_option_preserves_copy_specializations() {
+        let source = r#"
+pub fn dup<A>(x: A) -> (A, A)
+where
+    A: Clone + 'static
+{
+    (x.clone(), x.clone())
+}
+"#;
+
+        let printed = optimize_and_print_with_options(
+            source,
+            CopyOptions {
+                keep_unused_copy: true,
+            },
+        );
+        assert!(printed.contains("pub fn dup_copy"));
+        assert!(printed.contains("Copy-specialized bounds"));
+    }
+
+    #[test]
+    fn keeps_copy_specializations_reachable_from_rcall() {
+        let source = r#"
+pub fn dup<A>(x: A) -> (A, A)
+where
+    A: Clone + 'static
+{
+    (x.clone(), x.clone())
+}
+
+pub fn use_dup(x: bool) -> (bool, bool) {
+    dup(x)
+}
+"#;
+
+        let printed = optimize_and_print(source);
+        assert!(printed.contains("pub fn dup_copy"));
+        assert!(printed.contains("dup_copy(x)"));
+    }
+
+    #[test]
+    fn removes_copy_clone_inside_deref_callee() {
+        let source = r#"
+use std::rc::Rc;
+
+pub fn partial_triple(x: bool) -> Rc<dyn Fn(bool, bool) -> (bool, (bool, bool))> {
+    Rc::new(move |a : bool, b : bool| {
+        (x, (a, b))
+    })
+}
+
+pub fn call_partial_triple(x: bool, y: bool) -> (bool, (bool, bool)) {
+    (*partial_triple(x.clone()))(y, x)
+}
+"#;
+
+        let printed = optimize_and_print(source);
+        assert!(printed.contains("(*partial_triple(x))(y, x)"));
+        assert!(!printed.contains("partial_triple(x.clone())"));
     }
 }
