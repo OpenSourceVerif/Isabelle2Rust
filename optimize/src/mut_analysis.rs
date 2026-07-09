@@ -411,7 +411,7 @@ fn produces_owned_value(expr: &Expr, owned: &HashSet<String>) -> bool {
         Expr::MethodCall(_, method, args) if method == "clone" && args.is_empty() => true,
         Expr::Call(_, _) => true,
         Expr::Literal(_) => true,
-        Expr::Tuple(_) => true,
+        Expr::Tuple(items) => items.iter().all(|item| produces_owned_value(item, owned)),
         Expr::BinaryOp(_, _, _) => true,
         Expr::UnaryOp(op, inner) if op == "*" => produces_owned_value(inner, owned),
         Expr::Parenthesized(inner) => produces_owned_value(inner, owned),
@@ -1431,6 +1431,42 @@ mod tests {
             }],
         });
         let mut module = module_with(function(ref_to(named("Aoption")), body));
+
+        optimize_mut(&mut module);
+
+        let function = optimized_function(&module);
+        let Some(Expr::Match { arms, .. }) = function.body.expr.as_deref() else {
+            panic!("expected match")
+        };
+        let Some(tail) = arms[0].body.expr.as_deref() else {
+            panic!("expected arm tail")
+        };
+        assert!(matches!(
+            tail,
+            Expr::MethodCall(receiver, method, args)
+                if matches!(receiver.as_ref(), Expr::Ident(name) if name == "p0")
+                    && method == "clone"
+                    && args.is_empty()
+        ));
+    }
+
+    #[test]
+    fn lastuse_keeps_clone_from_borrowed_tuple_match_binding() {
+        let arm_body = block_tail(clone_call("p0"));
+        let body = block_tail(Expr::Match {
+            expr: Box::new(Expr::Tuple(vec![ident("x0"), ident("y0")])),
+            arms: vec![MatchArm {
+                pattern: "(Aoption::Somea(p0), _)".to_string(),
+                guard: None,
+                body: arm_body,
+            }],
+        });
+        let mut function = function(ref_to(named("Aoption")), body);
+        function.params.push(Param {
+            name: "y0".to_string(),
+            ty: ref_to(named("Aoption")),
+        });
+        let mut module = module_with(function);
 
         optimize_mut(&mut module);
 
