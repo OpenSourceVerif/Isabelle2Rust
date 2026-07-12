@@ -675,21 +675,48 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                        | _ => length (hd (map (fst o fst) eqs))
                    end
               | NONE => wanted_app
-            fun print_generic_prefix_typ ty =
-              (print_typ NOBR (case ty of (tyco`%%_) => tyco`%%[] | ty => ty))
             val prefix_target_ty =
-              (* For a reconstructed nullary instance method, the Rust receiver is
-                 the whole instance Self type. At a HOL `fun` instance that Self type
-                 is represented in Thingol as the implementing constant's own
-                 function type (`dom ---> range`), so taking the first domain type
-                 would incorrectly dispatch on the function argument instead of on
-                 `Rc<dyn Fn(..)>`. *)
-              if is_some (inst_method_info sym) andalso wanted_app = 0
-              then mk_fun_ty (dom, range)
-              else if List.null dom then range else List.hd dom
-            (* A type-variable receiver is generic dispatch (`A::method`). *)
-            val is_tyvar_receiver =
-              (case prefix_target_ty of (ITyVar _) => true | _ => false)
+              let
+                val instantiated_ty = mk_fun_ty (dom, range);
+                val classparam =
+                  (case inst_method_info sym of
+                    SOME (_, cp) => SOME cp
+                  | NONE => (case sym of Constant cp => SOME cp | _ => NONE));
+                (* A trait receiver is the class's Self type, which need not be
+                   the first method argument: complete `Sup` takes `Set<Self>`,
+                   `len_of` takes `Itself<Self>`, and a nullary method has no
+                   argument at all.  Match the declared class-parameter type
+                   against this IConst's instantiated type and recover the type
+                   occupying the class variable wherever it is nested. *)
+                fun match_self self_var (ITyVar v) inst =
+                      if v = self_var then SOME inst else NONE
+                  | match_self self_var (decl_tyco `%% decl_tys)
+                      (inst_tyco `%% inst_tys) =
+                      if decl_tyco = inst_tyco
+                          andalso length decl_tys = length inst_tys
+                      then get_first (fn (decl, inst) =>
+                        match_self self_var decl inst)
+                        (ListPair.zip (decl_tys, inst_tys))
+                      else NONE
+                  | match_self _ _ _ = NONE;
+                val inferred_self =
+                  (case classparam of
+                    SOME cp =>
+                      (case classparam_decl cp of
+                        SOME (_, self_var, method_ty) =>
+                          match_self self_var method_ty instantiated_ty
+                      | NONE => NONE)
+                  | NONE => NONE);
+              in
+                (case inferred_self of
+                  SOME self_ty => self_ty
+                | NONE =>
+                    (* Retain the legacy fallback for ordinary functions or an
+                       incomplete class declaration in a partial export. *)
+                    if is_some (inst_method_info sym) andalso wanted_app = 0
+                    then instantiated_ty
+                    else if List.null dom then range else List.hd dom)
+              end
             (* For a class-method (classparam) call, the type to dispatch on is the
                class's own type variable, carried by the dictionary — NOT
                necessarily the first argument's type. For `equal :: 'a => ..` they
@@ -767,43 +794,41 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                                SOME ity => print_typ NOBR ity
                              | NONE => str "_") gens))
                       end)
-            (* Decide the printed callee and any `Receiver::` prefix. *)
+            (* Rust permits several traits in scope to expose the same associated
+               function name (notably binary lattice `sup` and complete-lattice
+               `sup`).  A bare `Receiver::method` is then ambiguous, and for a
+               concrete receiver its trait may not be imported at all.  Whenever
+               the class parameter identifies its declaring class, render the
+               call as `<Receiver as Trait>::method`; this also handles mapped and
+               mixfix receiver types without requiring a nominal path. *)
+            fun qualified_trait_prefix recv_ty class =
+              Pretty.block
+                [str "<", print_typ NOBR recv_ty, str " as ",
+                 str (deresolve_class class), str ">::"];
+            (* Decide the printed callee and any fully-qualified trait prefix. *)
             val (generic_prefixs, funcname) =
               (case inst_method_info sym of
                   SOME (tyco_s, cp_s) =>
-                    (* A mixfix-typed receiver (e.g. a tuple `(A, B)`) has no
-                       nominal path, so `Tyco::method` is not expressible — and
-                       applying the binary tuple template as a path prefix would
-                       crash the mixfix printer. Dispatch through Rust's fully
-                       qualified form `<(A, B) as Trait>::method(..)` instead. *)
-                    (case tyco_syntax tyco_s of
-                        SOME _ =>
-                          let
-                            val recv_ty = print_typ NOBR prefix_target_ty
-                            val trait_p =
-                              (case lookup_method_class (Constant cp_s) of
-                                  SOME c => str (deresolve_class c)
-                                | NONE => str (tyco_name_str tyco_s))
-                          in
-                            ([Pretty.block
-                                [str "<", recv_ty, str " as ", trait_p, str ">::"]],
-                             str (deresolve_base (Constant cp_s)))
-                          end
+                    (case lookup_method_class (Constant cp_s) of
+                        SOME class =>
+                          ([qualified_trait_prefix prefix_target_ty class],
+                           str (deresolve_base (Constant cp_s)))
                       | NONE =>
                           ([Pretty.block [str (tyco_name_str tyco_s), str "::"]],
                            str (deresolve_base (Constant cp_s))))
                 | NONE =>
-                    if is_some (lookup_method_class sym)
-                    then (case classparam_dispatch_var of
-                            SOME v =>
-                              ([Pretty.block [str (to_upper v), str "::"]],
-                               (str o deresolve_base) sym)
-                          | NONE =>
-                              if is_tyvar_receiver
-                              then ([Pretty.block [print_generic_prefix_typ prefix_target_ty, str "::"]],
-                                    (str o deresolve_base) sym)
-                              else ([], (str o deresolve) sym))
-                    else ([], (str o deresolve) sym))
+                    (case lookup_method_class sym of
+                      SOME class =>
+                        let
+                          val recv_ty =
+                            (case classparam_dispatch_var of
+                              SOME v => ITyVar v
+                            | NONE => prefix_target_ty)
+                        in
+                          ([qualified_trait_prefix recv_ty class],
+                           (str o deresolve_base) sym)
+                        end
+                    | NONE => ([], (str o deresolve) sym)))
           in
             if (if is_trait_method_call then length ts >= wanted_app else length ts = wanted_app)
             then
