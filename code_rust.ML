@@ -2286,7 +2286,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         representative, and union the methods by classparam so the surviving impl
         is as complete as any contributor. Distinct unmapped types are unaffected
         (their canon keys differ). **)
-    val inst_table =
+    val inst_table_base =
       let
         fun key (_, ((cls, tyc), _)) = (cls, canon_tyco tyc)
         val keys = distinct (op =) (map key inst_table_all)
@@ -2301,6 +2301,53 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           in (repr_sym, ((cls, tyc), (vs, methods))) end)
           keys
       end;
+
+    (** A Rust `impl Derived for T` must satisfy every supertrait implemented by
+        the same `T`, including bounds that arise only from executable equations.
+        Isabelle sorts do not record such operational bounds: for example an
+        equality in a base-class method adds `A: Equal` to `impl Base for T<A>`,
+        while the derived method's typescheme may still carry an empty sort.
+
+        Collect every explicit transitive superclass impl for the same canonical
+        Rust type and merge its per-parameter sorts into the derived impl header.
+        Matching parameters by position follows the shared type-constructor
+        application used by all of these instances; unrelated class impls are not
+        considered, so their implementation-only bounds do not leak across the
+        instance graph. **)
+    val inst_table =
+      let
+        fun direct_supers cls =
+          (case Code_Symbol.Graph.get_node program (Type_Class cls) of
+            Code_Thingol.Class (_, (classrels, _)) => map snd classrels
+          | _ => [])
+          handle Code_Symbol.Graph.UNDEF _ => [];
+        fun superclasses cls =
+          let
+            fun collect seen [] = seen
+              | collect seen (c :: cs) =
+                  if member (op =) seen c
+                  then collect seen cs
+                  else collect (c :: seen) (direct_supers c @ cs)
+          in collect [] (direct_supers cls) end;
+        fun merge_vs inherited vs =
+          if length vs <> length inherited then vs
+          else map2 (fn (v, sort) => fn (_, inherited_sort) =>
+            (v, union (op =) inherited_sort sort)) vs inherited;
+        fun add_super_bounds (repr_sym, ((cls, tyc), (vs, methods))) =
+          let
+            val supers = superclasses cls;
+            val inherited =
+              map_filter (fn (_, ((super, super_tyc), (super_vs, _))) =>
+                if member (op =) supers super
+                    andalso canon_tyco super_tyc = canon_tyco tyc
+                then SOME super_vs
+                else NONE)
+                inst_table_base;
+            val vs' = fold merge_vs inherited vs;
+          in
+            (repr_sym, ((cls, tyc), (vs', methods)))
+          end;
+      in map add_super_bounds inst_table_base end;
 
     (** Map each reconstructed instance-method constant to (tyco, classparam):
         the concrete type it is implemented for and the trait method it realizes.
