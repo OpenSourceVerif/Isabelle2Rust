@@ -1690,33 +1690,56 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 `Rc<dyn Fn(..)>`, not as extra method parameters.  Eta-expansion is
                 therefore bounded by the class parameter's declared arity, while
                 the instantiated class-parameter type supplies the Rust signature. **)
+            fun normalize_method_eq mty target ((ts, t), some_thm) =
+              let
+                val delta = target - length ts;
+              in
+                if delta > 0 then
+                  let
+                    val newvars =
+                      List.tabulate (delta, fn i =>
+                        IVar (SOME ("eta_arg_" ^ string_of_int i)))
+                  in
+                    ((ts @ newvars,
+                      fold (fn v => fn body => body `$ v) newvars t), some_thm)
+                  end
+                else if delta < 0 then
+                  let
+                    val extra = ~delta;
+                    val (method_ts, value_ts) = chop target ts;
+                    val (arg_tys, ret_ty) = fun_typs mty;
+                    val value_tys = take extra (drop target arg_tys);
+                    fun varname (IVar v) = SOME v
+                      | varname _ = NONE;
+                    val value_vars = map_filter varname value_ts;
+                    (* Pointwise equations for a function-type instance expose
+                       the function domain as trailing LHS variables, although
+                       the class method returns that entire function as Self.
+                       Fold those variables back into a lambda so only the class
+                       parameter's own arguments remain Rust method parameters.
+                       Non-variable trailing patterns retain their original form;
+                       contracting those would require a pattern match inside the
+                       returned closure and is not a pointwise instance equation. *)
+                  in
+                    if length value_vars = extra
+                    then ((method_ts,
+                      (ListPair.zip (value_vars, value_tys)) `|==> (t, ret_ty)),
+                      some_thm)
+                    else ((ts, t), some_thm)
+                  end
+                else ((ts, t), some_thm)
+              end;
             fun method_function classparam const_sym =
               case (lookup_constant_fun const_sym, method_type classparam)
                of (SOME ((_, raw_eqs), _), SOME (mty, target)) =>
                     let
                       val eqs = filter (snd o snd) raw_eqs
-                      fun eta_expand ((ts, t), some_thm) =
-                        let val extra = target - length ts in
-                          if extra <= 0 then ((ts, t), some_thm)
-                          else
-                            let val newvars =
-                              List.tabulate (extra, fn i => IVar (SOME ("eta_arg_" ^ string_of_int i)))
-                            in ((ts @ newvars, fold (fn v => fn u => u `$ v) newvars t), some_thm) end
-                        end
-                    in SOME ((vs, mty), map eta_expand eqs) end
+                    in SOME ((vs, mty), map (normalize_method_eq mty target) eqs) end
                 | (SOME ((tysm as (_, mty), raw_eqs), _), NONE) =>
                     let
                       val eqs = filter (snd o snd) raw_eqs
                       val target = arrow_arity mty
-                      fun eta_expand ((ts, t), some_thm) =
-                        let val extra = target - length ts in
-                          if extra <= 0 then ((ts, t), some_thm)
-                          else
-                            let val newvars =
-                              List.tabulate (extra, fn i => IVar (SOME ("eta_arg_" ^ string_of_int i)))
-                            in ((ts @ newvars, fold (fn v => fn u => u `$ v) newvars t), some_thm) end
-                        end
-                    in SOME (tysm, map eta_expand eqs) end
+                    in SOME (tysm, map (normalize_method_eq mty target) eqs) end
                 | _ => NONE
             fun print_method (classparam, method_sym) =
               let
