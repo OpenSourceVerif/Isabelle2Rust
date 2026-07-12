@@ -1329,10 +1329,33 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
       let
         val (cap_lets, closure_pretty) =
           print_lambda_parts_gen eta_tail is_pseudo_fun some_thm vars t
+        val closure_expr =
+          if null cap_lets
+          then closure_pretty
+          else rust_inline_block (cap_lets @ [closure_pretty])
+        (* A HOL abstraction emitted as a function VALUE uses the erased
+           `Rc<dyn Fn(..)>` representation, including inside a tuple or one branch
+           of a conditional.  Those expression positions do not always provide an
+           enclosing expected type: without an explicit unsizing coercion Rust
+           fixes `Rc::new(move |..| ..)` to `Rc<{anonymous closure}>`, so another
+           branch containing an existing `Rc<dyn Fn(..)>` cannot unify with it.
+           Cast the completed capture block to the abstraction's full HOL function
+           type, keeping all branches on the same trait-object representation.
+
+           An abstraction emitted as the IMMEDIATE callee of an application uses
+           `eta_tail = false`: only its syntactic binders belong to that call, and
+           the application printer supplies any remaining arguments separately.
+           It must therefore retain the concrete closure type here rather than be
+           coerced to the full type-level arrow chain. *)
+        val coerced_closure =
+          if not eta_tail then closure_expr
+          else
+            (case term_type vars t of
+              SOME ty => Pretty.block
+                [str "((", closure_expr, str ") as ", print_typ NOBR ty, str ")"]
+            | NONE => closure_expr)
       in
-        if null cap_lets
-        then closure_pretty
-        else rust_inline_block (cap_lets @ [closure_pretty])
+        coerced_closure
       end
     and print_lambda_parts is_pseudo_fun some_thm vars t =
       print_lambda_parts_gen true is_pseudo_fun some_thm vars t
