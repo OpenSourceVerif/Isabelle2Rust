@@ -40,15 +40,21 @@ struct TypeDef {
     kind: TypeDefKind,
 }
 
+#[derive(Debug, Clone)]
+struct CopySpecialization {
+    name: String,
+    upgraded_generics: HashSet<String>,
+}
+
 struct CopyContext {
     copy_types: HashSet<String>,
     type_defs: HashMap<String, TypeDef>,
     type_aliases: HashMap<String, Type>,
     variant_owners: HashMap<String, Option<String>>,
     functions: HashMap<String, Type>,
-    // Full signatures for R-Call: generic params + parameter types
+    // Full signatures for C-Call: generic params + parameter types
     fn_sigs: HashMap<String, (Vec<GenericParam>, Vec<Type>)>,
-    copy_specializations: HashMap<String, String>,
+    copy_specializations: HashMap<String, CopySpecialization>,
     generated_copy_specializations: HashSet<String>,
 }
 
@@ -319,10 +325,15 @@ impl CopyContext {
                     let specialization = self
                         .copy_specialization_for_function(function, &mut existing_function_names);
                     items.push(item);
-                    if let Some(specialization) = specialization {
-                        // Register the _copy variant's signature so R-Call can redirect to it.
-                        self.copy_specializations
-                            .insert(original_name, specialization.name.clone());
+                    if let Some((specialization, upgraded_generics)) = specialization {
+                        // Register the _copy variant's signature so C-Call can redirect to it.
+                        self.copy_specializations.insert(
+                            original_name,
+                            CopySpecialization {
+                                name: specialization.name.clone(),
+                                upgraded_generics,
+                            },
+                        );
                         self.generated_copy_specializations
                             .insert(specialization.name.clone());
                         self.functions.insert(
@@ -432,7 +443,7 @@ impl CopyContext {
         &self,
         function: &FunctionDef,
         existing_names: &mut HashSet<String>,
-    ) -> Option<FunctionDef> {
+    ) -> Option<(FunctionDef, HashSet<String>)> {
         if function.name.ends_with("_copy") {
             return None;
         }
@@ -485,7 +496,7 @@ impl CopyContext {
 
         self.rewrite_block(&mut specialized.body, &mut specialized_env, &copy_generics);
 
-        Some(specialized)
+        Some((specialized, copy_bound_candidates))
     }
 
     fn rewrite_item(&self, item: &mut Item) {
@@ -551,8 +562,8 @@ impl CopyContext {
                 for arg in &mut *args {
                     self.rewrite_expr(arg, env, copy_generics);
                 }
-                // R-Call: redirect g(ē) → g_copy(ē) when all Clone-only bounds are Copy
-                if let Some(new_name) = self.try_rcall(callee, args, env, copy_generics) {
+                // C-Call: redirect g(ē) → g_copy(ē) when its upgraded bounds are Copy.
+                if let Some(new_name) = self.try_copy_call(callee, args, env, copy_generics) {
                     **callee = Expr::Ident(new_name);
                 }
             }
@@ -958,9 +969,9 @@ impl CopyContext {
         }
     }
 
-    // R-Call: if callee g has a _copy variant and all Clone-only bounded generics
-    // resolve to Copy types at this call site, return the _copy variant name.
-    fn try_rcall(
+    // C-Call: if callee g has a _copy variant and every generic strengthened in
+    // that variant resolves to a Copy type, return the _copy variant name.
+    fn try_copy_call(
         &self,
         callee: &Expr,
         args: &[Expr],
@@ -977,7 +988,9 @@ impl CopyContext {
             return None;
         }
 
-        let copy_name = self.copy_specializations.get(fn_name)?;
+        let specialization = self.copy_specializations.get(fn_name)?;
+        let copy_name = &specialization.name;
+        let upgraded_generics = &specialization.upgraded_generics;
 
         let (generics, param_types) = self.fn_sigs.get(fn_name)?;
 
@@ -988,21 +1001,14 @@ impl CopyContext {
         let callee_generic_names: HashSet<String> =
             generics.iter().map(|g| g.name.clone()).collect();
 
-        let clone_only: Vec<&str> = generics
-            .iter()
-            .filter(|g| has_bound(g, "Clone") && !has_bound(g, "Copy"))
-            .map(|g| g.name.as_str())
-            .collect();
-
-        if clone_only.is_empty() {
-            return None;
-        }
-
         // Fast path: we're already inside a copy-specialized context that
-        // covers every Clone-only generic the callee needs.  This handles
+        // covers every generic strengthened by the callee.  This handles
         // recursive calls like `list_head(List::Nil)` inside `list_head_copy`
         // where the argument type is opaque (no type-arg info to unify on).
-        if clone_only.iter().all(|g| copy_generics.contains(*g)) {
+        if upgraded_generics
+            .iter()
+            .all(|generic| copy_generics.contains(generic))
+        {
             return Some(copy_name.clone());
         }
 
@@ -1018,8 +1024,8 @@ impl CopyContext {
             }
         }
 
-        for alpha in &clone_only {
-            let concrete = subst.get(*alpha)?;
+        for alpha in upgraded_generics {
+            let concrete = subst.get(alpha)?;
             if !self.type_is_copy_in_env(concrete, copy_generics) {
                 return None;
             }
@@ -1854,7 +1860,7 @@ where
     }
 
     #[test]
-    fn keeps_copy_specializations_reachable_from_rcall() {
+    fn keeps_copy_specializations_reachable_from_copy_call() {
         let source = r#"
 pub fn dup<A>(x: A) -> (A, A)
 where
@@ -1871,6 +1877,27 @@ pub fn use_dup(x: bool) -> (bool, bool) {
         let printed = optimize_and_print(source);
         assert!(printed.contains("pub fn dup_copy"));
         assert!(printed.contains("dup_copy(x)"));
+    }
+
+    #[test]
+    fn copy_call_checks_only_generics_upgraded_by_the_specialization() {
+        let source = r#"
+pub fn duplicate_first<A, B>(x: A, other: B) -> ((A, A), B)
+where
+    A: Clone + 'static,
+    B: Clone + 'static
+{
+    ((x.clone(), x.clone()), other)
+}
+
+pub fn use_duplicate_first(x: bool, other: String) -> ((bool, bool), String) {
+    duplicate_first(x, other)
+}
+"#;
+
+        let printed = optimize_and_print(source);
+        assert!(printed.contains("pub fn duplicate_first_copy"));
+        assert!(printed.contains("duplicate_first_copy(x, other)"));
     }
 
     #[test]
