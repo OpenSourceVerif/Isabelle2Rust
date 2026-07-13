@@ -93,7 +93,7 @@ gen:
 	if [ -n "$(DIR)" ] && [ -n "$(Name)" ]; then \
 	  ITEMS=$$(perl "$(EXPORT_ITEM_COUNTER)" "$(DIR)/$(Name).thy"); \
 	  echo ">>> [gen] $(Name) ($$ITEMS exported definitions)"; \
-	  $(MAKE) build_silent TEST_DIR="$(DIR)" TEST_THEORY="$(Name)"; \
+	  $(MAKE) build_silent TEST_DIR="$(DIR)" TEST_THEORY="$(Name)" || exit 1; \
 	  _cargo_run_stage1 "$(DIR)" "$(Name)"; \
 	elif [ -n "$(DIR)" ]; then \
 	  HOL_FILE="$(HOL_DIR)/$(HOL_GCD_THEORY).thy"; \
@@ -233,7 +233,7 @@ test:
 	if [ -n "$(DIR)" ] && [ -n "$(Name)" ]; then \
 	  ITEMS=$$(perl "$(EXPORT_ITEM_COUNTER)" "$(DIR)/$(Name).thy"); \
 	  echo ">>> [test] $(Name) ($$ITEMS exported definitions)"; \
-	  $(MAKE) -s build_silent TEST_DIR="$(DIR)" TEST_THEORY="$(Name)"; \
+	  $(MAKE) -s build_silent TEST_DIR="$(DIR)" TEST_THEORY="$(Name)" || exit 1; \
 	  echo ">>> stage1 done: $(Name)"; \
 	  _run_opt "$(DIR)" "$(Name)"; \
 	elif [ -n "$(DIR)" ]; then \
