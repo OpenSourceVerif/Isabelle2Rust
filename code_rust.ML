@@ -2955,19 +2955,29 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
     (** Compute module-level import dependencies.
         Module and item paths must come from the namespace deresolver so
         code_identifier remappings such as Nat/Power -> Arith are respected. **)
-    val generated_modules =
+    val generated_top_modules =
       Code_Namespace.print_hierarchical {
         print_module = fn _ => fn base => fn _ => fn _ => base,
         print_stmt = fn _ => fn _ => "",
         lift_markup = K I } rust_program
       |> filter (fn s => s <> "")
       |> distinct (op =)
-    val raw_modules = generated_modules
+    val raw_modules = generated_top_modules
 
     fun fields s = String.fields (fn c => c = #".") s
-    fun before_first_dot s = (case fields s of x :: _ => x | [] => s)
     fun after_last_dot s = (case List.rev (fields s) of x :: _ => x | [] => s)
+    fun module_of_qualified_name s =
+      (case List.rev (fields s) of
+        _ :: rev_module => String.concatWith "." (List.rev rev_module)
+      | [] => "")
     fun crate_path qual = "crate::" ^ String.concatWith "::" (fields qual)
+    val generated_modules =
+      fold (fn ((sym, _), _) => fn modules =>
+        (case try (deresolver []) sym of
+          SOME qual =>
+            let val module = module_of_qualified_name qual
+            in if module = "" then modules else insert (op =) module modules end
+        | NONE => modules)) stmt_list []
     fun is_generated_module module =
       List.exists (fn module' => module' = module) generated_modules
 
@@ -2976,7 +2986,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         (case try (deresolver []) sym of
           SOME qual =>
             let
-              val module = before_first_dot qual
+              val module = module_of_qualified_name qual
               val base = after_last_dot qual
             in
               if is_generated_module module
@@ -3025,7 +3035,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
             [_] => NONE
           | _ =>
               let
-                val dep_module = before_first_dot qual
+                val dep_module = module_of_qualified_name qual
                 val base = after_last_dot qual
               in
                 if dep_module <> source_module andalso is_generated_module dep_module
@@ -3048,7 +3058,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           (case try (deresolver []) sym of
             SOME qual =>
               let
-                val source_module = before_first_dot qual
+                val source_module = module_of_qualified_name qual
                 val deps = maps import_syms_for_dep children
               in
                 if is_generated_module source_module
@@ -3098,18 +3108,18 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         a dot-separated name relative to the current module. Local names stay
         bare. Cross-module names use an imported short name only when that base
         name is unique in this module; otherwise they stay fully crate-qualified. **)
-    fun modify_deresolver module deresolver sym =
-      (case fields (deresolver sym) of
+    fun modify_deresolver module local_deresolver sym =
+      (case fields (local_deresolver sym) of
         [base] => base
-      | segs =>
+      | _ =>
           if sym_uses_short_path module sym
-          then List.last segs
-          else "crate::" ^ String.concatWith "::" segs)
+          then after_last_dot (deresolver [] sym)
+          else crate_path (deresolver [] sym))
 
     (** Print a single statement within its module context. **)
     fun print_stmt prefix_fragments (sym, (export, stmt)) =
       let
-        val current_module = before_first_dot (deresolver [] sym)
+        val current_module = String.concatWith "." prefix_fragments
         fun is_constr_safe sym =
           (Code_Thingol.is_constr program sym
             handle Code_Symbol.Graph.UNDEF _ => false)
@@ -3135,15 +3145,20 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       end;
 
     (** Print a module: gather declarations, resolve imports, and wrap in module body. **)
-    fun print_module _ base _ xs =
+    fun print_module prefix_fragments base _ xs =
       let
         val (raw_decls, body) = split_list xs;
         val decls = maps these raw_decls
+        val current_module = String.concatWith "." prefix_fragments
         val crate_uses =
-          (case AList.lookup (op =) module_symbol_imports base of
+          (case AList.lookup (op =) module_symbol_imports current_module of
             SOME (paths, _) => paths
-          | NONE => [])
-      in (SOME [str base], print_rust_module base decls crate_uses rust_includes body) end;
+            | NONE => [])
+        val module_body = print_rust_module base decls crate_uses rust_includes body
+        val rendered =
+          if length prefix_fragments = 1 then module_body
+          else rust_block (str ("pub mod " ^ base)) [module_body]
+      in (SOME [str base], rendered) end;
 
     (** Assemble final output: Cargo.toml + lib.rs + per-module .rs files.
         Unused modules get empty placeholder files to pass compilation. **)
