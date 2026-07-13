@@ -2057,29 +2057,23 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
       | print_stmt _ (Funs ((export, binding) :: exports_bindings, pseudo_funs)) =
           let
             val print_def' = (fn definer => print_def (member (op =) pseudo_funs) false definer NONE);
-            (* FIXME (P3): a self-referential nullary value is emitted as a thunk
-               `fn x()` plus this module-level `let x = x();`, which is not valid
-               Rust at item scope. A correct encoding needs a global is_pseudo_fun
-               so every use site (across SCCs) calls `x()` consistently; deferred.
-               Pseudo-funs only arise from non-conservative definitions
-               (partial_function / codatatypes), which the test suite does not use,
-               so this path is currently unexercised. The `();` here is at least
-               single- rather than double-semicolon. *)
-            fun print_pseudo_fun sym = concat [
-                str "let",
-                (str o deresolve) sym,
-                str "=",
-                (str o deresolve) sym,
-                str "();"
-              ];
+            (* A self-referential nullary value cannot be represented by the eager
+               owned Rust model.  Emitting it as `fn x() { ... x() ... }` would
+               diverge while constructing productive codatatypes, while the former
+               item-level `let x = x();` was not valid Rust at all.  Reject this
+               unsupported semantic boundary instead of producing a crate that is
+               either ill-formed or observably wrong. *)
+            val _ =
+              if null pseudo_funs then ()
+              else error ("Rust target does not support self-referential nullary values: " ^
+                String.concatWith ", " (map deresolve pseudo_funs));
             val head = "fn";
             val (sig_ps, (ps, p)) = (apsnd split_last o split_list)
               (print_def' head binding :: map (print_def' head o snd) exports_bindings);
-            val pseudo_ps = map print_pseudo_fun pseudo_funs;
           in pair
             (map_filter (fn (export, p) => if Code_Namespace.not_private export then SOME p else NONE)
               ((export :: map fst exports_bindings) ~~ sig_ps))
-            (Pretty.chunks2 (ps @ p :: pseudo_ps))
+            (Pretty.chunks2 (ps @ [p]))
           end
      | print_stmt export (Datas [(tyco, (vs, []))]) =
           (* A datatype with no code-generated constructors (an abstract type such
