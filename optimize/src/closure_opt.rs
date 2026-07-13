@@ -129,6 +129,7 @@ fn optimize_expr(expr: &mut Expr, analysis: &mut ClosureOptAnalysis) {
         | Expr::Assign(inner, _)
         | Expr::Await(inner)
         | Expr::Parenthesized(inner)
+        | Expr::Cast(inner, _)
         | Expr::Closure(_, inner, _) => {
             optimize_expr(inner, analysis);
             match expr {
@@ -271,6 +272,9 @@ fn subst_idents_in_expr(expr: &Expr, subst: &HashMap<String, Expr>) -> Expr {
         Expr::Parenthesized(inner) => {
             Expr::Parenthesized(Box::new(subst_idents_in_expr(inner, subst)))
         }
+        Expr::Cast(inner, ty) => {
+            Expr::Cast(Box::new(subst_idents_in_expr(inner, subst)), ty.clone())
+        }
         Expr::If {
             condition,
             then_branch,
@@ -403,6 +407,7 @@ fn count_reads_in_expr(expr: &Expr, name: &str) -> usize {
         Expr::UnaryOp(_, inner)
         | Expr::Reference(inner, _, _)
         | Expr::Parenthesized(inner)
+        | Expr::Cast(inner, _)
         | Expr::Await(inner) => count_reads_in_expr(inner, name),
         Expr::If {
             condition,
@@ -581,6 +586,24 @@ pub fn inc_abs(x: Int) -> Int {
         assert_eq!(analysis.beta_reductions, 1);
         assert!(printed.contains("plus_int(x, one_int())"));
         assert!(!printed.contains("Rc::new"));
+    }
+
+    #[test]
+    fn keeps_explicit_function_object_cast() {
+        let source = r"
+use std::rc::Rc;
+
+pub fn inc_abs(x: Int) -> Int {
+    (*((Rc::new(move |xa : Int| {
+        plus_int(xa, one_int())
+    })) as Rc<dyn Fn(Int) -> Int>))(x)
+}
+";
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.beta_reductions, 0);
+        assert!(printed.contains("as Rc<dyn Fn(Int) -> Int>"));
+        assert!(printed.contains("Rc::new"));
     }
 
     #[test]

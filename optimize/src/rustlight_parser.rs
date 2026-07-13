@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use syn::{
     parse_file, AngleBracketedGenericArguments, ExprArray, ExprAssign, ExprBinary, ExprBlock,
-    ExprCall, ExprClosure, ExprField, ExprGroup, ExprIf, ExprIndex, ExprLit, ExprMatch,
+    ExprCall, ExprCast, ExprClosure, ExprField, ExprGroup, ExprIf, ExprIndex, ExprLit, ExprMatch,
     ExprMethodCall, ExprParen, ExprPath, ExprReference, ExprTuple, ExprUnary, File,
     GenericArgument, ImplItem as SynImplItem, Item as SynItem, Lit, LocalInit, Meta,
     ParenthesizedGenericArguments, Pat, PatIdent, PathArguments, ReturnType, Stmt, TraitBound,
@@ -555,6 +555,9 @@ fn convert_expr(expr: &syn::Expr) -> syn::Result<Expr> {
             true,
             mutability.is_some(),
         )),
+        syn::Expr::Cast(ExprCast { expr, ty, .. }) => {
+            Ok(Expr::Cast(Box::new(convert_expr(expr)?), convert_type(ty)?))
+        }
         syn::Expr::Paren(ExprParen { expr, .. }) | syn::Expr::Group(ExprGroup { expr, .. }) => {
             Ok(Expr::Parenthesized(Box::new(convert_expr(expr)?)))
         }
@@ -934,7 +937,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::parse_rust_source;
+    use super::{parse_and_print_rust_source, parse_rust_source};
     use rustlightast::{Expr, Item, RustCodeGenerator, Type};
 
     #[test]
@@ -1119,5 +1122,44 @@ pub fn call_impl<A, B>(f: impl Fn(A) -> B, x: A) -> B {
         let printed = generator.generate_module_code(&module);
         assert!(printed.contains("Rc<dyn Fn(A) -> B>"));
         assert!(printed.contains("impl Fn(A) -> B"));
+    }
+
+    #[test]
+    fn parses_and_prints_captured_closure_cast() {
+        let source = r"
+use std::rc::Rc;
+
+pub fn make_pair(y: Int) -> (Rc<dyn Fn(Int) -> Int>, Int) {
+    ((({
+        let y_cap = y.clone();
+        Rc::new(move |x: Int| {
+            plus_int(x.clone(), y_cap.clone())
+        })
+    }) as Rc<dyn Fn(Int) -> Int>), y.clone())
+}
+";
+        let (module, printed) =
+            parse_and_print_rust_source(source, "Closure_Cast_Test").expect("cast parses");
+
+        let Item::Function(function) = &module.items[1] else {
+            panic!("expected make_pair function");
+        };
+        let Expr::Tuple(items) = function.body.expr.as_deref().expect("function tail") else {
+            panic!("expected tuple tail");
+        };
+        let Expr::Parenthesized(cast) = &items[0] else {
+            panic!("expected parenthesized cast");
+        };
+        let Expr::Cast(_, Type::Generic(name, params)) = cast.as_ref() else {
+            panic!("expected structured cast");
+        };
+        assert_eq!(name, "Rc");
+        assert!(matches!(&params[0], Type::CallableTrait(callable)
+            if callable.trait_name == "Fn"
+                && callable.args.len() == 1
+                && matches!(callable.return_type.as_ref(), Type::Named(name) if name == "Int")));
+
+        assert!(printed.contains("as Rc<dyn Fn(Int) -> Int>"));
+        syn::parse_file(&printed).expect("printed cast remains valid Rust");
     }
 }

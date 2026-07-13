@@ -312,7 +312,10 @@ fn optimize_expr(
             let mut block_env = env.clone();
             optimize_block(block, &mut block_env, scope, analysis);
         }
-        Expr::Closure(_, body, _) | Expr::Await(body) | Expr::Parenthesized(body) => {
+        Expr::Closure(_, body, _)
+        | Expr::Await(body)
+        | Expr::Parenthesized(body)
+        | Expr::Cast(body, _) => {
             optimize_expr(body, env, scope, analysis);
         }
         Expr::If {
@@ -725,6 +728,7 @@ fn count_nonexhaustive_panics_in_expr(expr: &Expr) -> usize {
         Expr::Closure(_, body, _)
         | Expr::Await(body)
         | Expr::Parenthesized(body)
+        | Expr::Cast(body, _)
         | Expr::Reference(body, _, _)
         | Expr::UnaryOp(_, body) => count_nonexhaustive_panics_in_expr(body),
         Expr::If {
@@ -880,6 +884,7 @@ fn infer_type(expr: &Expr, env: &TypeEnv, scope: &MatchScope) -> Option<Type> {
             infer_type(inner, env, scope).map(|ty| Type::Reference(Box::new(ty), true, *is_mut))
         }
         Expr::Parenthesized(inner) => infer_type(inner, env, scope),
+        Expr::Cast(_, ty) => Some(ty.clone()),
         Expr::Call(callee, _) => scope.return_type_for_callee(callee, env),
         Expr::Tuple(items) => items
             .iter()
