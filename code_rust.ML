@@ -66,7 +66,8 @@ fun tuplify _ _ [] = NONE
     Reprocesses Pretty.commas output to replace soft breaks with hard spaces. **)
 fun commas_append prts = 
   let 
-    fun combine (x1::x2::_::l) = Pretty.block [x1, x2, str" "] :: combine l   
+    fun combine (x1::x2::_::l) =
+          Pretty.markup_open Markup.empty [x1, x2, str " "] :: combine l
       | combine [x] = [x]
       | combine [] = []
   in
@@ -81,17 +82,26 @@ fun comma_lines [] = []
 
 fun rust_indent prts = indent 4 (Pretty.chunks prts);
 
+(* Concatenate layout fragments without making the current output column a new
+   indentation baseline.  This matters for multiline expressions nested after
+   tokens such as a dereference prefix, `((`, or `Constructor (`: their hard breaks
+   should remain relative to the surrounding Rust block, not drift right by
+   the width of every syntactic wrapper. *)
+fun rust_open prts = Pretty.markup_open Markup.empty prts;
+
+fun rust_open_chunks prts = rust_open (Pretty.fbreaks prts);
+
 fun rust_parens prts =
-  Pretty.block [str "(", Pretty.block (commas_append prts), str ")"];
+  rust_open (str "(" :: commas_append prts @ [str ")"]);
 
 fun rust_block header body =
   Pretty.chunks [Pretty.block [header, str " {"], rust_indent body, str "}"];
 
 fun rust_bare_block body =
-  Pretty.chunks [str "{", rust_indent body, str "}"];
+  rust_open_chunks [str "{", rust_indent body, str "}"];
 
 fun rust_closure params body =
-  Pretty.chunks [
+  rust_open_chunks [
     Pretty.block (str "Rc::new(move |" :: params @ [str "| {"]),
     rust_indent [body],
     str "})"
@@ -587,7 +597,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                               print_lambda_gen false is_pseudo_fun some_thm vars t
                           | _ => print_term_decl is_pseudo_fun some_thm vars NOBR t)
                         fun call callee args =
-                          Pretty.block(
+                          rust_open(
                             str "(*"
                             :: callee
                             :: str ")("
@@ -679,7 +689,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         val term = print_term (if typeco_s = "" then fxy else NOBR)
         val term_with_cons =
           if typeco_s = "" then term
-          else Pretty.block [str (typeco_s ^ "::"), term]
+          else rust_open [str (typeco_s ^ "::"), term]
         val term_with_box =
           if need_box
           then (box_prcs term_with_cons)
@@ -713,7 +723,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               else [Pretty.block [(str o deresolve_base) sym, str " ", rust_parens phantom_args]]
             else if length ts = wanted
             then
-              [Pretty.block [
+              [rust_open [
                 (str o deresolve_base) sym,
                 str " ",
                 rust_parens
@@ -729,7 +739,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               in
                 [print_term_expected expected is_pseudo_fun
                   (false, box_prcs, clone_prcs) some_thm vars NOBR saturated_t]
-              end 
+              end
           end
         else if is_pseudo_fun sym
           then (str o deresolve) sym @@ str "()"
@@ -999,7 +1009,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               in
                 [print_term_expected expected is_pseudo_fun
                   (false, box_prcs, clone_prcs) some_thm vars NOBR saturated_t]
-              end 
+              end
           end
     (** Print an application, applying registered const_syntax if any and
         otherwise falling back to print_app_expr. print_app prints arguments
@@ -1044,7 +1054,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                   end)
           in
             (case (name, ts) of
-              ("HOL.If", [cond, then_t, else_t]) =>
+              ("Product_Type.Pair", [left, right]) =>
+                rust_parens
+                  (print_args NOBR expected_args [left, right])
+            | ("HOL.If", [cond, then_t, else_t]) =>
                 rust_if
                   (print_term NONE some_thm vars NOBR cond)
                   (print_term expected some_thm vars NOBR then_t)
@@ -1092,7 +1105,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             fun print_let ((pat, ty), t) vars =
               vars
               |> print_bind_typed is_pseudo_fun some_thm NOBR pat ty
-              |>> (fn p => Pretty.block
+              |>> (fn p => rust_open
                   [str "let ", p, str " = ",
                   print_term_gen is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars NOBR t, str ";"])
             val (ps, vars') = fold_map print_let binds vars;
@@ -1142,7 +1155,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 in
                   if lhs = Pretty.unformatted_string_of scrutinee
                   then []
-                  else [Pretty.block [str "let ", str lhs, str " = ", rhs, str ";"]]
+                  else [rust_open [str "let ", str lhs, str " = ", rhs, str ";"]]
                 end
               else []
           | binding_let _ _ _ _ = [];
@@ -1430,7 +1443,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             is_pseudo_fun some_thm vars outer_lambda;
         val expected_ty =
           rc_dyn_fn (map (print_typ NOBR) outer_tys) (print_typ NOBR inner_ty);
-      in Pretty.block [str "((", closure, str ") as ", expected_ty, str ")"] end
+      in rust_open [str "((", closure, str ") as ", expected_ty, str ")"] end
     (** Print a `move` closure with explicit capture-by-clone.
         For each outer variable v that occurs free in the body 
         we emit `let v_cap = v.clone();` before the closure
@@ -1566,7 +1579,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           if not eta_tail then closure_expr
           else
             (case term_type vars t of
-              SOME ty => Pretty.block
+              SOME ty => rust_open
                 [str "((", closure_expr, str ") as ", print_typ NOBR ty, str ")"]
             | NONE => closure_expr)
       in
