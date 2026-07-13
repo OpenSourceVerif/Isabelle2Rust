@@ -67,9 +67,27 @@ fn transform_function(function: &mut FunctionDef) -> bool {
     // blocks).  This leaves the clones in place; they are removed next.
     let collapsed = transform_block(&mut function.body);
 
+    rewrite_last_use_clones_in_function(function);
+
+    if collapsed {
+        ensure_function_comment(function, "// mut-optimized by in-place updates");
+    }
+    collapsed
+}
+
+/// Apply only M-LastUse to `function`.
+///
+/// Borrow inference also applies this rewrite to an analysis-only clone of the
+/// function.  A clone removed there denotes an available ownership move and must
+/// not be used as evidence for changing its origin to a shared parameter.  The
+/// emitted function is left untouched until this helper runs in the mutability
+/// pass.
+pub(crate) fn rewrite_last_use_clones_in_function(function: &mut FunctionDef) {
     // M-LastUse: a scoped backward-liveness pass that turns `v.clone()` into
-    // `v` when `v` is owned and not read afterwards. Running it unconditionally
-    // is sound, but it only changes anything where clones are genuinely dead.
+    // `v` when `v` is owned and not read afterwards. Isabelle2Rust treats its
+    // generated clone calls as ownership adaptations that preserve the
+    // represented Isabelle value, so an available last-use move can replace
+    // the clone. The rewrite only changes variables whose old binding is dead.
     let owned = function
         .params
         .iter()
@@ -78,11 +96,6 @@ fn transform_function(function: &mut FunctionDef) -> bool {
         .collect();
     let mut live: HashSet<String> = HashSet::new();
     rewrite_lastuse_block(&mut function.body, &mut live, &owned);
-
-    if collapsed {
-        ensure_function_comment(function, "// mut-optimized by in-place updates");
-    }
-    collapsed
 }
 
 // ── M-Shadow + M-Mut: mut-chain detection and rewrite ────────────────────────
@@ -509,6 +522,13 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
             }
         }
         Expr::MethodCall(receiver, _, args) => {
+            // A method receiver may be borrowed for the duration of the call.
+            // Keep it, together with explicit borrows in the arguments, live
+            // while considering clone-to-move rewrites in sibling arguments.
+            collect_live_expr(receiver, live);
+            for arg in args.iter() {
+                collect_call_borrow_sources(arg, live);
+            }
             // Evaluation order is receiver then args, so walk backward.
             for arg in args.iter_mut().rev() {
                 rewrite_lastuse_expr(arg, live, owned);
@@ -516,6 +536,13 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
             rewrite_lastuse_expr(receiver, live, owned);
         }
         Expr::Call(callee, args) => {
+            // The callee and any argument borrows stay usable until the call
+            // completes. In particular, `f(&v, v.clone())` cannot move `v` in
+            // the second argument even though that clone is its final read.
+            collect_live_expr(callee, live);
+            for arg in args.iter() {
+                collect_call_borrow_sources(arg, live);
+            }
             for arg in args.iter_mut().rev() {
                 rewrite_lastuse_expr(arg, live, owned);
             }
@@ -628,6 +655,112 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
                 }
             }
         }
+    }
+}
+
+/// Add variables borrowed by an expression passed as a call argument.
+///
+/// These borrows may remain live until the surrounding call returns, so a
+/// sibling argument must not move their origins. The traversal is conservative
+/// for nested expressions: retaining a clone is preferable to emitting a move
+/// that overlaps a borrow.
+fn collect_call_borrow_sources(expr: &Expr, live: &mut HashSet<String>) {
+    match expr {
+        Expr::Reference(inner, _, _) => collect_live_expr(inner, live),
+        Expr::MethodCall(receiver, method, args) => {
+            if method == "as_ref" && args.is_empty() {
+                collect_live_expr(receiver, live);
+            } else {
+                collect_call_borrow_sources(receiver, live);
+                for arg in args {
+                    collect_call_borrow_sources(arg, live);
+                }
+            }
+        }
+        Expr::Call(callee, args) => {
+            collect_call_borrow_sources(callee, live);
+            for arg in args {
+                collect_call_borrow_sources(arg, live);
+            }
+        }
+        Expr::Tuple(items) => {
+            for item in items {
+                collect_call_borrow_sources(item, live);
+            }
+        }
+        Expr::BinaryOp(left, _, right) | Expr::Index(left, right) | Expr::Assign(left, right) => {
+            collect_call_borrow_sources(left, live);
+            collect_call_borrow_sources(right, live);
+        }
+        Expr::UnaryOp(_, inner)
+        | Expr::Parenthesized(inner)
+        | Expr::Cast(inner, _)
+        | Expr::Await(inner) => collect_call_borrow_sources(inner, live),
+        Expr::Block(block) => {
+            collect_call_borrow_sources_block(block, live);
+        }
+        Expr::Loop(block) | Expr::Unsafe(block) => {
+            collect_call_borrow_sources_block(block, live);
+        }
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
+            collect_call_borrow_sources(condition, live);
+            collect_call_borrow_sources_block(then_branch, live);
+            if let Some(else_branch) = else_branch {
+                collect_call_borrow_sources_block(else_branch, live);
+            }
+        }
+        Expr::IfLet {
+            value,
+            then_branch,
+            else_branch,
+            ..
+        } => {
+            collect_call_borrow_sources(value, live);
+            collect_call_borrow_sources_block(then_branch, live);
+            if let Some(else_branch) = else_branch {
+                collect_call_borrow_sources_block(else_branch, live);
+            }
+        }
+        Expr::Match { expr, arms } => {
+            collect_call_borrow_sources(expr, live);
+            for arm in arms {
+                if let Some(guard) = &arm.guard {
+                    collect_call_borrow_sources(guard, live);
+                }
+                collect_call_borrow_sources_block(&arm.body, live);
+            }
+        }
+        Expr::Closure(_, body, _) => collect_call_borrow_sources(body, live),
+        Expr::BuilderChain(methods) => {
+            for method in methods {
+                if let BuilderMethod::Spawn { closure, .. } = method {
+                    collect_call_borrow_sources(closure, live);
+                }
+            }
+        }
+        Expr::Ident(_) | Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) => {}
+    }
+}
+
+fn collect_call_borrow_sources_block(block: &Block, live: &mut HashSet<String>) {
+    for stmt in &block.stmts {
+        match stmt {
+            Statement::Let(let_stmt) => {
+                if let Some(init) = &let_stmt.init {
+                    collect_call_borrow_sources(init, live);
+                }
+            }
+            Statement::Expr(expr) => collect_call_borrow_sources(expr, live),
+            Statement::Item(_) | Statement::Continue | Statement::Break | Statement::Comment(_) => {
+            }
+        }
+    }
+    if let Some(expr) = &block.expr {
+        collect_call_borrow_sources(expr, live);
     }
 }
 
@@ -1489,5 +1622,49 @@ mod tests {
                     && method == "clone"
                     && args.is_empty()
         ));
+    }
+
+    #[test]
+    fn lastuse_keeps_clone_while_shared_borrow_is_live_in_call() {
+        let body = block_tail(Expr::Call(
+            Box::new(ident("plus_nat")),
+            vec![
+                Expr::Reference(Box::new(ident("x0")), true, false),
+                clone_call("x0"),
+            ],
+        ));
+        let mut module = module_with(function(named("Nat"), body));
+
+        optimize_mut(&mut module);
+
+        let function = optimized_function(&module);
+        let Some(Expr::Call(_, args)) = function.body.expr.as_deref() else {
+            panic!("expected call")
+        };
+        assert!(matches!(
+            &args[1],
+            Expr::MethodCall(receiver, method, method_args)
+                if matches!(receiver.as_ref(), Expr::Ident(name) if name == "x0")
+                    && method == "clone"
+                    && method_args.is_empty()
+        ));
+    }
+
+    #[test]
+    fn lastuse_moves_final_clone_across_owned_call_arguments() {
+        let body = block_tail(Expr::Call(
+            Box::new(ident("pair")),
+            vec![clone_call("x0"), clone_call("x0")],
+        ));
+        let mut module = module_with(function(named("Nat"), body));
+
+        optimize_mut(&mut module);
+
+        let function = optimized_function(&module);
+        let Some(Expr::Call(_, args)) = function.body.expr.as_deref() else {
+            panic!("expected call")
+        };
+        assert!(matches!(&args[1], Expr::Ident(name) if name == "x0"));
+        assert!(matches!(&args[0], Expr::MethodCall(_, method, _) if method == "clone"));
     }
 }

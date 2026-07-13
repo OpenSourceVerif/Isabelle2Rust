@@ -2,6 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use rustlightast::*;
 
+use crate::mut_analysis::rewrite_last_use_clones_in_function;
+
 /// Result of the borrow-analysis pass.
 #[derive(Debug, Clone, Default)]
 pub struct BorrowAnalysis {
@@ -20,6 +22,92 @@ type TypeEnv = HashMap<String, Type>;
 /// that had a `box y_j` pattern (stripped during rewriting) the stored type is
 /// still `&Box<F_inner>` – i.e., a reference to the original field type.
 type BorrowEnv = HashMap<String, Type>;
+
+/// Canonical package-local function identity: `crate`, zero or more module
+/// segments, then the function name.
+type FunctionId = Vec<String>;
+
+#[derive(Debug, Clone)]
+struct ModuleScope {
+    module_path: Vec<String>,
+    imports: HashMap<String, Vec<String>>,
+}
+
+#[derive(Debug, Clone)]
+struct LocatedFunction {
+    id: FunctionId,
+    scope: ModuleScope,
+    function: FunctionDef,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct DemandSite<'a> {
+    in_return_ctx: bool,
+    scope: &'a ModuleScope,
+}
+
+impl<'a> DemandSite<'a> {
+    fn new(in_return_ctx: bool, scope: &'a ModuleScope) -> Self {
+        Self {
+            in_return_ctx,
+            scope,
+        }
+    }
+}
+
+impl ModuleScope {
+    fn resolve_name_path(&self, name: &str) -> Vec<String> {
+        if let Some(path) = self.imports.get(name) {
+            return path.clone();
+        }
+
+        let mut path = self.module_path.clone();
+        path.push(name.to_string());
+        path
+    }
+
+    fn resolve_segments(&self, segments: &[String]) -> Vec<String> {
+        let normalized = segments
+            .iter()
+            .map(|segment| strip_path_segment_generics(segment).to_string())
+            .collect::<Vec<_>>();
+        let Some((first, rest)) = normalized.split_first() else {
+            return Vec::new();
+        };
+
+        match first.as_str() {
+            "crate" => normalized,
+            "self" => {
+                let mut path = self.module_path.clone();
+                path.extend(rest.iter().cloned());
+                path
+            }
+            "super" => {
+                let mut path = self.module_path.clone();
+                let mut remaining = normalized.as_slice();
+                while matches!(remaining.first().map(String::as_str), Some("super")) {
+                    path.pop();
+                    remaining = &remaining[1..];
+                }
+                path.extend(remaining.iter().cloned());
+                path
+            }
+            _ => {
+                if let Some(imported) = self.imports.get(first) {
+                    let mut path = imported.clone();
+                    path.extend(rest.iter().cloned());
+                    path
+                } else if normalized.len() == 1 {
+                    self.resolve_name_path(first)
+                } else {
+                    let mut path = vec!["crate".to_string()];
+                    path.extend(normalized);
+                    path
+                }
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 struct FieldInfo {
@@ -101,13 +189,13 @@ struct BorrowContext {
     copy_types: HashSet<String>,
     type_defs: HashMap<String, TypeDef>,
     variant_owners: HashMap<String, Option<String>>,
-    /// `fn_name → (generics, param_types, return_type)`
-    fn_sigs: HashMap<String, (Vec<GenericParam>, Vec<Type>, Type)>,
-    /// `fn_name → sorted list of 0-indexed parameter positions that are
+    /// `fully_qualified_fn_id → (generics, param_types, return_type)`
+    fn_sigs: HashMap<FunctionId, (Vec<GenericParam>, Vec<Type>, Type)>,
+    /// `fully_qualified_fn_id → sorted list of 0-indexed parameter positions that are
     /// borrowable`.  Populated during phase 1.
-    borrow_positions: HashMap<String, Vec<usize>>,
-    /// Names of functions whose signatures were rewritten in place.
-    borrow_fns: HashSet<String>,
+    borrow_positions: HashMap<FunctionId, Vec<usize>>,
+    /// Fully qualified identities of functions whose signatures were rewritten.
+    borrow_fns: HashSet<FunctionId>,
 }
 
 /// Infer borrowed parameter interfaces for functions in `module`.
@@ -127,6 +215,24 @@ pub fn optimize_borrow_modules(
     modules: &mut [&mut RustModule],
     copy_types: &HashSet<String>,
 ) -> BorrowAnalysis {
+    let mut located_modules = modules
+        .iter_mut()
+        .map(|module| {
+            (
+                vec!["crate".to_string(), module.name.clone()],
+                &mut **module,
+            )
+        })
+        .collect::<Vec<_>>();
+    optimize_borrow_modules_with_paths(&mut located_modules, copy_types)
+}
+
+/// Package-level borrow inference with canonical module paths supplied by the
+/// source-file discovery layer.  This is the entry point used by `cargo-opt`.
+pub fn optimize_borrow_modules_with_paths(
+    modules: &mut [(Vec<String>, &mut RustModule)],
+    copy_types: &HashSet<String>,
+) -> BorrowAnalysis {
     let (mut ctx, functions) = BorrowContext::from_modules(modules, copy_types);
 
     // Three-pass design:
@@ -134,29 +240,51 @@ pub fn optimize_borrow_modules(
     //  2. Rewrite selected parameter types in place.
     //  3. Rewrite bodies and direct calls against the final Borrow(g) summaries.
     ctx.analyse_all_functions(&functions);
-    for module in modules.iter_mut() {
-        ctx.rewrite_all_signatures_in_place(&mut module.items);
+    for (module_path, module) in modules.iter_mut() {
+        ctx.rewrite_all_signatures_in_place(&mut module.items, module_path);
     }
-    for module in modules.iter_mut() {
-        ctx.rewrite_all_bodies_and_calls_in_place(&mut module.items);
+    for (module_path, module) in modules.iter_mut() {
+        ctx.rewrite_all_bodies_and_calls_in_place(&mut module.items, module_path);
     }
 
     BorrowAnalysis {
-        borrow_fns: ctx.borrow_fns,
+        borrow_fns: ctx.borrow_fns.into_iter().map(|id| id.join("::")).collect(),
     }
 }
 
 // ── BorrowContext construction ────────────────────────────────────────────────
 
 impl BorrowContext {
+    fn resolve_callee_id(
+        &self,
+        callee: &Expr,
+        scope: &ModuleScope,
+        env: &TypeEnv,
+    ) -> Option<FunctionId> {
+        let id = match callee {
+            Expr::Ident(raw_name) => {
+                let name = strip_path_segment_generics(raw_name);
+                if env.contains_key(name) {
+                    return None;
+                }
+                scope.resolve_name_path(name)
+            }
+            Expr::Path(segments, PathType::Namespace) => scope.resolve_segments(segments),
+            Expr::Parenthesized(inner) => return self.resolve_callee_id(inner, scope, env),
+            _ => return None,
+        };
+
+        self.fn_sigs.contains_key(&id).then_some(id)
+    }
+
     fn from_modules(
-        modules: &[&mut RustModule],
+        modules: &[(Vec<String>, &mut RustModule)],
         copy_types: &HashSet<String>,
-    ) -> (Self, Vec<FunctionDef>) {
+    ) -> (Self, Vec<LocatedFunction>) {
         let mut ctx = Self::empty(copy_types);
         let mut functions = Vec::new();
-        for module in modules {
-            ctx.collect_items(&module.items, &mut functions);
+        for (module_path, module) in modules {
+            ctx.collect_items(&module.items, module_path, &mut functions);
         }
         (ctx, functions)
     }
@@ -172,13 +300,27 @@ impl BorrowContext {
         }
     }
 
-    fn collect_items(&mut self, items: &[Item], functions: &mut Vec<FunctionDef>) {
+    fn collect_items(
+        &mut self,
+        items: &[Item],
+        module_path: &[String],
+        functions: &mut Vec<LocatedFunction>,
+    ) {
+        let scope = ModuleScope {
+            module_path: module_path.to_vec(),
+            imports: collect_imports(items),
+        };
         for item in items {
-            self.collect_item(item, functions);
+            self.collect_item(item, &scope, functions);
         }
     }
 
-    fn collect_item(&mut self, item: &Item, functions: &mut Vec<FunctionDef>) {
+    fn collect_item(
+        &mut self,
+        item: &Item,
+        scope: &ModuleScope,
+        functions: &mut Vec<LocatedFunction>,
+    ) {
         match item {
             Item::Struct(def) => {
                 self.type_defs.insert(
@@ -219,18 +361,26 @@ impl BorrowContext {
             }
             Item::TypeAlias(_) => {}
             Item::Function(f) => {
+                let mut id = scope.module_path.clone();
+                id.push(f.name.clone());
                 self.fn_sigs.insert(
-                    f.name.clone(),
+                    id.clone(),
                     (
                         f.generics.clone(),
                         f.params.iter().map(|p| p.ty.clone()).collect(),
                         f.return_type.clone(),
                     ),
                 );
-                functions.push(f.clone());
+                functions.push(LocatedFunction {
+                    id,
+                    scope: scope.clone(),
+                    function: f.clone(),
+                });
             }
             Item::Mod(m) => {
-                self.collect_items(&m.items, functions);
+                let mut nested_path = scope.module_path.clone();
+                nested_path.push(m.name.clone());
+                self.collect_items(&m.items, &nested_path, functions);
             }
             _ => {}
         }
@@ -253,30 +403,32 @@ impl BorrowContext {
 impl BorrowContext {
     /// For every top-level function, determine which parameter positions can be
     /// replaced by shared borrows and record them in `self.borrow_positions`.
-    fn analyse_all_functions(&mut self, functions: &[FunctionDef]) {
+    fn analyse_all_functions(&mut self, functions: &[LocatedFunction]) {
         self.borrow_positions.clear();
-        for f in functions {
-            self.borrow_positions
-                .insert(f.name.clone(), self.candidate_borrow_positions(f));
+        for located in functions {
+            self.borrow_positions.insert(
+                located.id.clone(),
+                self.candidate_borrow_positions(&located.function),
+            );
         }
 
         loop {
             let mut changed = false;
             let mut next_positions = HashMap::new();
 
-            for f in functions {
+            for located in functions {
                 let previous = self
                     .borrow_positions
-                    .get(&f.name)
+                    .get(&located.id)
                     .cloned()
                     .unwrap_or_default();
-                let mut positions = self.borrowable_positions(f);
+                let mut positions = self.borrowable_positions(&located.function, &located.scope);
                 positions.retain(|position| previous.contains(position));
 
                 if positions != previous {
                     changed = true;
                 }
-                next_positions.insert(f.name.clone(), positions);
+                next_positions.insert(located.id.clone(), positions);
             }
 
             self.borrow_positions = next_positions;
@@ -300,17 +452,32 @@ impl BorrowContext {
     }
 
     /// Returns the sorted list of parameter indices that are borrowable for `f`.
-    fn borrowable_positions(&self, f: &FunctionDef) -> Vec<usize> {
-        let copy_generics = generic_names_with_bound(f, "Copy");
-        let base_env = function_type_env(f);
+    fn borrowable_positions(&self, f: &FunctionDef, scope: &ModuleScope) -> Vec<usize> {
+        // Analyze an ownership-normalized clone rather than rewriting the source
+        // function here. If M-LastUse can replace a clone by a move under the
+        // original owned interface, demand analysis must see that move and retain
+        // the parameter as owned. The actual rewrite still runs later in the
+        // mutability pass.
+        let mut demand_function = f.clone();
+        rewrite_last_use_clones_in_function(&mut demand_function);
 
-        f.params
+        let copy_generics = generic_names_with_bound(&demand_function, "Copy");
+        let base_env = function_type_env(&demand_function);
+
+        demand_function
+            .params
             .iter()
             .enumerate()
             .filter(|(_, param)| {
                 // Only consider owned (non-reference) parameters.
                 self.is_borrow_candidate_type(&param.ty, &copy_generics)
-                    && self.is_param_borrowable(f, param, &base_env, &copy_generics)
+                    && self.is_param_borrowable(
+                        &demand_function,
+                        param,
+                        &base_env,
+                        &copy_generics,
+                        scope,
+                    )
             })
             .map(|(i, _)| i)
             .collect()
@@ -337,14 +504,15 @@ impl BorrowContext {
     ///   Dem_Γ(f, x) ⊆ {Obs, Bor, Own}  ∧  OwnOK_Γ(f, x)
     ///
     /// OwnOK requires every `Own` demand to come from a source that can produce
-    /// an owned value from a shared borrow: either an explicit `.clone()` in the
-    /// generated source or a direct Copy use.
+    /// an owned value from a shared borrow: either an explicit `.clone()` that is
+    /// not an available last-use move, or a direct Copy use.
     fn is_param_borrowable(
         &self,
         f: &FunctionDef,
         param: &Param,
         base_env: &TypeEnv,
         copy_generics: &HashSet<String>,
+        scope: &ModuleScope,
     ) -> bool {
         let mut derived: HashSet<String> = HashSet::new();
         derived.insert(param.name.clone());
@@ -358,7 +526,7 @@ impl BorrowContext {
             &mut env,
             copy_generics,
             &mut demands,
-            true, // tail of the function body is the return value
+            DemandSite::new(true, scope), // function-body tail is the return value
         );
 
         // The parameter is borrowable iff no escaping borrow was found and
@@ -374,38 +542,66 @@ impl BorrowContext {
         env: &mut TypeEnv,
         copy_generics: &HashSet<String>,
         demands: &mut HashSet<Demand>,
-        in_return_ctx: bool,
+        site: DemandSite<'_>,
     ) {
+        let DemandSite {
+            in_return_ctx,
+            scope,
+        } = site;
+        let mut local_derived = derived.clone();
+
         for stmt in &block.stmts {
             match stmt {
                 Statement::Let(let_stmt) => {
+                    let derived_alias = let_stmt
+                        .init
+                        .as_ref()
+                        .is_some_and(|init| is_derived_borrow_alias(init, &local_derived));
                     if let Some(init) = &let_stmt.init {
                         // The init expression is in own context (assigned to a binding).
                         self.collect_demands_for_own_arg(
                             init,
-                            derived,
+                            &local_derived,
                             env,
                             copy_generics,
                             demands,
+                            scope,
                         );
                     }
                     // Update env for subsequent statements.
-                    let inferred_ty = let_stmt
-                        .ty
-                        .clone()
-                        .or_else(|| let_stmt.init.as_ref().and_then(|e| self.infer_type(e, env)));
+                    let inferred_ty = let_stmt.ty.clone().or_else(|| {
+                        let_stmt
+                            .init
+                            .as_ref()
+                            .and_then(|e| self.infer_type(e, env, scope))
+                    });
                     if let Some(ty) = inferred_ty {
                         if is_binding_ident(&let_stmt.name) {
                             // A direct `let y = x` is an owned use.  The demand was already
-                            // recorded above, so we do not propagate derivedness through `y`.
+                            // recorded above. Borrow-preserving aliases such as
+                            // `let y = *boxed_field` still propagate the origin so
+                            // later owned uses of `y` are attributed to the parameter.
                             env.insert(let_stmt.name.clone(), ty);
                         } else {
                             self.bind_pattern_env(&let_stmt.name, &ty, env);
                         }
                     }
+                    if is_binding_ident(&let_stmt.name) {
+                        local_derived.remove(&let_stmt.name);
+                        if derived_alias {
+                            local_derived.insert(let_stmt.name.clone());
+                        }
+                    }
                 }
                 Statement::Expr(expr) => {
-                    self.collect_demands_expr(expr, derived, env, copy_generics, demands, false);
+                    self.collect_demands_expr(
+                        expr,
+                        &local_derived,
+                        env,
+                        copy_generics,
+                        demands,
+                        DemandSite::new(false, scope),
+                    );
                 }
                 Statement::Item(_)
                 | Statement::Continue
@@ -415,7 +611,14 @@ impl BorrowContext {
         }
 
         if let Some(tail) = &block.expr {
-            self.collect_demands_expr(tail, derived, env, copy_generics, demands, in_return_ctx);
+            self.collect_demands_expr(
+                tail,
+                &local_derived,
+                env,
+                copy_generics,
+                demands,
+                DemandSite::new(in_return_ctx, scope),
+            );
         }
     }
 
@@ -427,8 +630,12 @@ impl BorrowContext {
         env: &mut TypeEnv,
         copy_generics: &HashSet<String>,
         demands: &mut HashSet<Demand>,
-        in_return_ctx: bool,
+        site: DemandSite<'_>,
     ) {
+        let DemandSite {
+            in_return_ctx,
+            scope,
+        } = site;
         match expr {
             // ── Ident: a direct use of a variable ────────────────────────────
             Expr::Ident(name) => {
@@ -468,7 +675,7 @@ impl BorrowContext {
                             env,
                             copy_generics,
                             demands,
-                            false,
+                            DemandSite::new(false, scope),
                         );
                     }
                     "as_ref" if args.is_empty() => {
@@ -484,7 +691,7 @@ impl BorrowContext {
                             env,
                             copy_generics,
                             demands,
-                            false,
+                            DemandSite::new(false, scope),
                         );
                     }
                     _ => {
@@ -496,7 +703,7 @@ impl BorrowContext {
                             env,
                             copy_generics,
                             demands,
-                            false,
+                            DemandSite::new(false, scope),
                         );
                         for arg in args {
                             self.collect_demands_expr(
@@ -505,7 +712,7 @@ impl BorrowContext {
                                 env,
                                 copy_generics,
                                 demands,
-                                false,
+                                DemandSite::new(false, scope),
                             );
                         }
                         // Unknown method calls have receiver/argument ownership
@@ -519,23 +726,46 @@ impl BorrowContext {
 
             // ── Call: f(e1, …, en) ───────────────────────────────────────────
             Expr::Call(callee, args) => {
-                self.collect_demands_expr(callee, derived, env, copy_generics, demands, false);
+                self.collect_demands_expr(
+                    callee,
+                    derived,
+                    env,
+                    copy_generics,
+                    demands,
+                    DemandSite::new(false, scope),
+                );
+
+                let callee_id = self.resolve_callee_id(callee, scope, env);
 
                 for (j, arg) in args.iter().enumerate() {
                     // Determine whether position j takes an owned or borrowed arg.
-                    let callee_name = callee_fn_name(callee);
-                    let borrow_pos = callee_name
-                        .and_then(|n| self.borrow_positions.get(&n))
+                    let borrow_pos = callee_id
+                        .as_ref()
+                        .and_then(|id| self.borrow_positions.get(id))
                         .map(|positions| positions.contains(&j))
                         .unwrap_or(false);
 
                     if borrow_pos {
                         // The callee accepts a shared borrow at this position.
                         // Any use of the derived var here is a Bor demand.
-                        self.collect_demands_for_bor_arg(arg, derived, env, copy_generics, demands);
+                        self.collect_demands_for_bor_arg(
+                            arg,
+                            derived,
+                            env,
+                            copy_generics,
+                            demands,
+                            scope,
+                        );
                     } else {
                         // Owned argument: derived variables must be moved or cloned.
-                        self.collect_demands_for_own_arg(arg, derived, env, copy_generics, demands);
+                        self.collect_demands_for_own_arg(
+                            arg,
+                            derived,
+                            env,
+                            copy_generics,
+                            demands,
+                            scope,
+                        );
                     }
                 }
             }
@@ -578,7 +808,7 @@ impl BorrowContext {
                             env,
                             copy_generics,
                             demands,
-                            false,
+                            DemandSite::new(false, scope),
                         );
                     }
                 } else {
@@ -597,13 +827,13 @@ impl BorrowContext {
                                 env,
                                 copy_generics,
                                 demands,
-                                false,
+                                DemandSite::new(false, scope),
                             );
                         }
                     }
                 }
 
-                let scrutinee_ty = self.infer_type(scrutinee, env);
+                let scrutinee_ty = self.infer_type(scrutinee, env, scope);
 
                 for arm in arms {
                     let mut arm_env = env.clone();
@@ -660,7 +890,7 @@ impl BorrowContext {
                             &mut arm_env,
                             copy_generics,
                             demands,
-                            false,
+                            DemandSite::new(false, scope),
                         );
                     }
                     self.collect_demands_block(
@@ -669,7 +899,7 @@ impl BorrowContext {
                         &mut arm_env,
                         copy_generics,
                         demands,
-                        in_return_ctx,
+                        DemandSite::new(in_return_ctx, scope),
                     );
                 }
             }
@@ -683,7 +913,14 @@ impl BorrowContext {
                         return;
                     }
                 }
-                self.collect_demands_expr(inner, derived, env, copy_generics, demands, false);
+                self.collect_demands_expr(
+                    inner,
+                    derived,
+                    env,
+                    copy_generics,
+                    demands,
+                    DemandSite::new(false, scope),
+                );
             }
 
             // ── &mut: outside the current Isabelle2Rust borrow model ───────────
@@ -697,7 +934,14 @@ impl BorrowContext {
             Expr::Tuple(elems) => {
                 for e in elems {
                     // Tuple fields are own positions (ownership is bundled).
-                    self.collect_demands_for_own_arg(e, derived, env, copy_generics, demands);
+                    self.collect_demands_for_own_arg(
+                        e,
+                        derived,
+                        env,
+                        copy_generics,
+                        demands,
+                        scope,
+                    );
                 }
             }
 
@@ -710,7 +954,7 @@ impl BorrowContext {
                     &mut block_env,
                     copy_generics,
                     demands,
-                    in_return_ctx,
+                    DemandSite::new(in_return_ctx, scope),
                 );
             }
 
@@ -720,7 +964,14 @@ impl BorrowContext {
                 then_branch,
                 else_branch,
             } => {
-                self.collect_demands_expr(condition, derived, env, copy_generics, demands, false);
+                self.collect_demands_expr(
+                    condition,
+                    derived,
+                    env,
+                    copy_generics,
+                    demands,
+                    DemandSite::new(false, scope),
+                );
                 let mut then_env = env.clone();
                 self.collect_demands_block(
                     then_branch,
@@ -728,7 +979,7 @@ impl BorrowContext {
                     &mut then_env,
                     copy_generics,
                     demands,
-                    in_return_ctx,
+                    DemandSite::new(in_return_ctx, scope),
                 );
                 if let Some(eb) = else_branch {
                     let mut else_env = env.clone();
@@ -738,7 +989,7 @@ impl BorrowContext {
                         &mut else_env,
                         copy_generics,
                         demands,
-                        in_return_ctx,
+                        DemandSite::new(in_return_ctx, scope),
                     );
                 }
             }
@@ -748,9 +999,16 @@ impl BorrowContext {
                 then_branch,
                 else_branch,
             } => {
-                self.collect_demands_expr(value, derived, env, copy_generics, demands, false);
+                self.collect_demands_expr(
+                    value,
+                    derived,
+                    env,
+                    copy_generics,
+                    demands,
+                    DemandSite::new(false, scope),
+                );
                 let mut then_env = env.clone();
-                if let Some(ty) = self.infer_type(value, env) {
+                if let Some(ty) = self.infer_type(value, env, scope) {
                     self.bind_pattern_env(pattern, &ty, &mut then_env);
                 }
                 self.collect_demands_block(
@@ -759,7 +1017,7 @@ impl BorrowContext {
                     &mut then_env,
                     copy_generics,
                     demands,
-                    in_return_ctx,
+                    DemandSite::new(in_return_ctx, scope),
                 );
                 if let Some(eb) = else_branch {
                     let mut else_env = env.clone();
@@ -769,7 +1027,7 @@ impl BorrowContext {
                         &mut else_env,
                         copy_generics,
                         demands,
-                        in_return_ctx,
+                        DemandSite::new(in_return_ctx, scope),
                     );
                 }
             }
@@ -781,15 +1039,36 @@ impl BorrowContext {
                     env,
                     copy_generics,
                     demands,
-                    in_return_ctx,
+                    DemandSite::new(in_return_ctx, scope),
                 );
             }
             Expr::BinaryOp(l, _, r) => {
-                self.collect_demands_expr(l, derived, env, copy_generics, demands, false);
-                self.collect_demands_expr(r, derived, env, copy_generics, demands, false);
+                self.collect_demands_expr(
+                    l,
+                    derived,
+                    env,
+                    copy_generics,
+                    demands,
+                    DemandSite::new(false, scope),
+                );
+                self.collect_demands_expr(
+                    r,
+                    derived,
+                    env,
+                    copy_generics,
+                    demands,
+                    DemandSite::new(false, scope),
+                );
             }
             Expr::UnaryOp(_, inner) => {
-                self.collect_demands_expr(inner, derived, env, copy_generics, demands, false);
+                self.collect_demands_expr(
+                    inner,
+                    derived,
+                    env,
+                    copy_generics,
+                    demands,
+                    DemandSite::new(false, scope),
+                );
             }
 
             // Closure: only generate a demand if a derived variable appears
@@ -850,6 +1129,7 @@ impl BorrowContext {
         env: &mut TypeEnv,
         copy_generics: &HashSet<String>,
         demands: &mut HashSet<Demand>,
+        scope: &ModuleScope,
     ) {
         match arg {
             Expr::UnaryOp(op, inner) if op == "*" => {
@@ -861,7 +1141,14 @@ impl BorrowContext {
                         return;
                     }
                 }
-                self.collect_demands_expr(arg, derived, env, copy_generics, demands, false);
+                self.collect_demands_expr(
+                    arg,
+                    derived,
+                    env,
+                    copy_generics,
+                    demands,
+                    DemandSite::new(false, scope),
+                );
             }
             Expr::MethodCall(receiver, method, args) if method == "clone" && args.is_empty() => {
                 if let Expr::Ident(name) = receiver.as_ref() {
@@ -871,7 +1158,14 @@ impl BorrowContext {
                         return;
                     }
                 }
-                self.collect_demands_expr(arg, derived, env, copy_generics, demands, false);
+                self.collect_demands_expr(
+                    arg,
+                    derived,
+                    env,
+                    copy_generics,
+                    demands,
+                    DemandSite::new(false, scope),
+                );
             }
             Expr::Ident(name) => {
                 if derived.contains(name) {
@@ -885,11 +1179,25 @@ impl BorrowContext {
                         demands.insert(Demand::Own(OwnUse::DirectOwned));
                     }
                 } else {
-                    self.collect_demands_expr(arg, derived, env, copy_generics, demands, false);
+                    self.collect_demands_expr(
+                        arg,
+                        derived,
+                        env,
+                        copy_generics,
+                        demands,
+                        DemandSite::new(false, scope),
+                    );
                 }
             }
             _ => {
-                self.collect_demands_expr(arg, derived, env, copy_generics, demands, false);
+                self.collect_demands_expr(
+                    arg,
+                    derived,
+                    env,
+                    copy_generics,
+                    demands,
+                    DemandSite::new(false, scope),
+                );
             }
         }
     }
@@ -903,6 +1211,7 @@ impl BorrowContext {
         env: &mut TypeEnv,
         copy_generics: &HashSet<String>,
         demands: &mut HashSet<Demand>,
+        scope: &ModuleScope,
     ) {
         // In a bor position a `.clone()` of a derived var becomes `.as_ref()` or
         // the variable itself, so it is a Bor demand.
@@ -914,13 +1223,27 @@ impl BorrowContext {
                         return;
                     }
                 }
-                self.collect_demands_expr(arg, derived, env, copy_generics, demands, false);
+                self.collect_demands_expr(
+                    arg,
+                    derived,
+                    env,
+                    copy_generics,
+                    demands,
+                    DemandSite::new(false, scope),
+                );
             }
             Expr::Ident(name) if derived.contains(name) => {
                 demands.insert(Demand::Bor);
             }
             _ => {
-                self.collect_demands_expr(arg, derived, env, copy_generics, demands, false);
+                self.collect_demands_expr(
+                    arg,
+                    derived,
+                    env,
+                    copy_generics,
+                    demands,
+                    DemandSite::new(false, scope),
+                );
             }
         }
     }
@@ -981,18 +1304,26 @@ impl BorrowContext {
 // ── Phase 2/3: rewrite signatures and bodies in place ────────────────────────
 
 impl BorrowContext {
-    fn rewrite_all_signatures_in_place(&mut self, items: &mut [Item]) {
+    fn rewrite_all_signatures_in_place(&mut self, items: &mut [Item], module_path: &[String]) {
         for item in items {
             match item {
-                Item::Function(f) => self.rewrite_signature_in_place(f),
-                Item::Mod(m) => self.rewrite_all_signatures_in_place(&mut m.items),
+                Item::Function(f) => {
+                    let mut id = module_path.to_vec();
+                    id.push(f.name.clone());
+                    self.rewrite_signature_in_place(f, &id);
+                }
+                Item::Mod(m) => {
+                    let mut nested_path = module_path.to_vec();
+                    nested_path.push(m.name.clone());
+                    self.rewrite_all_signatures_in_place(&mut m.items, &nested_path);
+                }
                 _ => {}
             }
         }
     }
 
-    fn rewrite_signature_in_place(&mut self, f: &mut FunctionDef) {
-        let Some(positions) = self.borrow_positions.get(&f.name).cloned() else {
+    fn rewrite_signature_in_place(&mut self, f: &mut FunctionDef, id: &FunctionId) {
+        let Some(positions) = self.borrow_positions.get(id).cloned() else {
             return;
         };
         if positions.is_empty() {
@@ -1006,36 +1337,66 @@ impl BorrowContext {
         }
 
         ensure_function_comment(f, "// borrow-optimized by shared parameters");
-        self.borrow_fns.insert(f.name.clone());
+        self.borrow_fns.insert(id.clone());
     }
 
-    fn rewrite_all_bodies_and_calls_in_place(&self, items: &mut [Item]) {
+    fn rewrite_all_bodies_and_calls_in_place(&self, items: &mut [Item], module_path: &[String]) {
+        let scope = ModuleScope {
+            module_path: module_path.to_vec(),
+            imports: collect_imports(items),
+        };
         for item in items {
             match item {
-                Item::Function(f) => self.rewrite_function_body_in_place(f),
+                Item::Function(f) => {
+                    let mut id = module_path.to_vec();
+                    id.push(f.name.clone());
+                    self.rewrite_function_body_in_place(f, &id, &scope);
+                }
                 Item::Impl(impl_block) => {
                     for impl_item in &mut impl_block.items {
                         if let ImplItem::Method(method) = impl_item {
-                            self.rewrite_function_body_in_place(method);
+                            self.rewrite_impl_method_body_in_place(method, &scope);
                         }
                     }
                 }
-                Item::Mod(m) => self.rewrite_all_bodies_and_calls_in_place(&mut m.items),
+                Item::Mod(m) => {
+                    let mut nested_path = module_path.to_vec();
+                    nested_path.push(m.name.clone());
+                    self.rewrite_all_bodies_and_calls_in_place(&mut m.items, &nested_path);
+                }
                 _ => {}
             }
         }
     }
 
-    fn rewrite_function_body_in_place(&self, f: &mut FunctionDef) {
+    fn rewrite_function_body_in_place(
+        &self,
+        f: &mut FunctionDef,
+        id: &FunctionId,
+        scope: &ModuleScope,
+    ) {
         let mut borrow_env = function_type_env(f);
-        let orig_env = self.original_function_type_env(f);
+        let orig_env = self.original_function_type_env(f, id);
         let copy_generics = generic_names_with_bound(f, "Copy");
         f.body =
-            self.rewrite_block_borrow(&f.body, &mut borrow_env, &orig_env, &copy_generics, &f.name);
+            self.rewrite_block_borrow(&f.body, &mut borrow_env, &orig_env, &copy_generics, scope);
     }
 
-    fn original_function_type_env(&self, f: &FunctionDef) -> TypeEnv {
-        let Some((_, param_types, _)) = self.fn_sigs.get(&f.name) else {
+    fn rewrite_impl_method_body_in_place(&self, method: &mut FunctionDef, scope: &ModuleScope) {
+        let mut borrow_env = function_type_env(method);
+        let orig_env = borrow_env.clone();
+        let copy_generics = generic_names_with_bound(method, "Copy");
+        method.body = self.rewrite_block_borrow(
+            &method.body,
+            &mut borrow_env,
+            &orig_env,
+            &copy_generics,
+            scope,
+        );
+    }
+
+    fn original_function_type_env(&self, f: &FunctionDef, id: &FunctionId) -> TypeEnv {
+        let Some((_, param_types, _)) = self.fn_sigs.get(id) else {
             return function_type_env(f);
         };
 
@@ -1055,7 +1416,7 @@ impl BorrowContext {
         borrow_env: &mut BorrowEnv,
         orig_env: &TypeEnv,
         copy_generics: &HashSet<String>,
-        orig_fn_name: &str,
+        scope: &ModuleScope,
     ) -> Block {
         let mut stmts = Vec::new();
         let mut local_orig = orig_env.clone();
@@ -1071,7 +1432,7 @@ impl BorrowContext {
                         && closure_binding_is_nonescaping_use(block, stmt_idx, &let_stmt.name)
                     {
                         let_stmt.init.as_ref().and_then(|init| {
-                            self.try_bclosure_rewrite(init, &local_orig, copy_generics)
+                            self.try_bclosure_rewrite(init, &local_orig, copy_generics, scope)
                         })
                     } else {
                         None
@@ -1098,7 +1459,7 @@ impl BorrowContext {
                                 borrow_env,
                                 &local_orig,
                                 copy_generics,
-                                orig_fn_name,
+                                scope,
                             )
                         })
                     };
@@ -1107,7 +1468,7 @@ impl BorrowContext {
                         let_stmt
                             .init
                             .as_ref()
-                            .and_then(|e| self.infer_type(e, &local_orig))
+                            .and_then(|e| self.infer_type(e, &local_orig, scope))
                     }) {
                         if is_binding_ident(&let_stmt.name) {
                             local_orig.insert(let_stmt.name.clone(), ty.clone());
@@ -1134,7 +1495,7 @@ impl BorrowContext {
                         borrow_env,
                         &local_orig,
                         copy_generics,
-                        orig_fn_name,
+                        scope,
                     )));
                 }
                 Statement::Item(item) => stmts.push(Statement::Item(item.clone())),
@@ -1145,7 +1506,7 @@ impl BorrowContext {
         }
 
         let tail = block.expr.as_ref().map(|e| {
-            Box::new(self.rewrite_expr_own(e, borrow_env, &local_orig, copy_generics, orig_fn_name))
+            Box::new(self.rewrite_expr_own(e, borrow_env, &local_orig, copy_generics, scope))
         });
 
         Block { stmts, expr: tail }
@@ -1158,7 +1519,7 @@ impl BorrowContext {
         borrow_env: &BorrowEnv,
         orig_env: &TypeEnv,
         copy_generics: &HashSet<String>,
-        orig_fn_name: &str,
+        scope: &ModuleScope,
     ) -> Expr {
         match expr {
             // ── Direct use of a borrowed variable in own context ──────────────
@@ -1221,18 +1582,12 @@ impl BorrowContext {
                         borrow_env,
                         orig_env,
                         copy_generics,
-                        orig_fn_name,
+                        scope,
                     )),
                     method.clone(),
                     args.iter()
                         .map(|a| {
-                            self.rewrite_expr_own(
-                                a,
-                                borrow_env,
-                                orig_env,
-                                copy_generics,
-                                orig_fn_name,
-                            )
+                            self.rewrite_expr_own(a, borrow_env, orig_env, copy_generics, scope)
                         })
                         .collect(),
                 )
@@ -1240,11 +1595,11 @@ impl BorrowContext {
 
             // ── Call: adapt arguments to the callee's final parameter mode ────
             Expr::Call(callee, args) => {
-                let fn_name = callee_fn_name(callee);
+                let callee_id = self.resolve_callee_id(callee, scope, orig_env);
 
-                if let Some(borrow_positions) = fn_name.and_then(|name| {
+                if let Some(borrow_positions) = callee_id.as_ref().and_then(|id| {
                     self.borrow_positions
-                        .get(&name)
+                        .get(id)
                         .filter(|positions| !positions.is_empty())
                 }) {
                     let new_callee = callee.as_ref().clone();
@@ -1254,13 +1609,7 @@ impl BorrowContext {
                         .map(|(j, arg)| {
                             if borrow_positions.contains(&j) {
                                 // B-Call bor position: prepare a shared argument.
-                                self.bor_transform(
-                                    arg,
-                                    borrow_env,
-                                    orig_env,
-                                    copy_generics,
-                                    orig_fn_name,
-                                )
+                                self.bor_transform(arg, borrow_env, orig_env, copy_generics, scope)
                             } else {
                                 // Own position: preserve owned semantics.
                                 self.rewrite_expr_own(
@@ -1268,7 +1617,7 @@ impl BorrowContext {
                                     borrow_env,
                                     orig_env,
                                     copy_generics,
-                                    orig_fn_name,
+                                    scope,
                                 )
                             }
                         })
@@ -1280,21 +1629,13 @@ impl BorrowContext {
                 // A direct call of an owncap closure is call-local, so B-Closure
                 // can safely remove the owned capture wrapper here.
                 let new_callee = self
-                    .try_bclosure_rewrite(callee, orig_env, copy_generics)
+                    .try_bclosure_rewrite(callee, orig_env, copy_generics, scope)
                     .unwrap_or_else(|| {
-                        self.rewrite_expr_own(
-                            callee,
-                            borrow_env,
-                            orig_env,
-                            copy_generics,
-                            orig_fn_name,
-                        )
+                        self.rewrite_expr_own(callee, borrow_env, orig_env, copy_generics, scope)
                     });
                 let new_args = args
                     .iter()
-                    .map(|a| {
-                        self.rewrite_expr_own(a, borrow_env, orig_env, copy_generics, orig_fn_name)
-                    })
+                    .map(|a| self.rewrite_expr_own(a, borrow_env, orig_env, copy_generics, scope))
                     .collect();
                 Expr::Call(Box::new(new_callee), new_args)
             }
@@ -1340,13 +1681,7 @@ impl BorrowContext {
                 } else if scrutinee_is_borrowed {
                     scrutinee.as_ref().clone()
                 } else {
-                    self.rewrite_expr_own(
-                        scrutinee,
-                        borrow_env,
-                        orig_env,
-                        copy_generics,
-                        orig_fn_name,
-                    )
+                    self.rewrite_expr_own(scrutinee, borrow_env, orig_env, copy_generics, scope)
                 };
 
                 let new_arms: Vec<MatchArm> = arms
@@ -1379,7 +1714,7 @@ impl BorrowContext {
                             new_pattern = strip_box_from_pattern(&arm.pattern);
                         } else {
                             // Non-borrowed scrutinee: pattern unchanged.
-                            if let Some(ty) = self.infer_type(scrutinee, orig_env) {
+                            if let Some(ty) = self.infer_type(scrutinee, orig_env, scope) {
                                 self.bind_pattern_env(&arm.pattern, &ty, &mut arm_orig);
                                 self.bind_pattern_env_for_borrow(
                                     &arm.pattern,
@@ -1391,20 +1726,14 @@ impl BorrowContext {
                         }
 
                         let new_guard = arm.guard.as_ref().map(|g| {
-                            self.rewrite_expr_own(
-                                g,
-                                &arm_borrow,
-                                &arm_orig,
-                                copy_generics,
-                                orig_fn_name,
-                            )
+                            self.rewrite_expr_own(g, &arm_borrow, &arm_orig, copy_generics, scope)
                         });
                         let new_body = self.rewrite_block_borrow(
                             &arm.body,
                             &mut arm_borrow,
                             &arm_orig,
                             copy_generics,
-                            orig_fn_name,
+                            scope,
                         );
 
                         MatchArm {
@@ -1429,7 +1758,7 @@ impl BorrowContext {
                     &mut inner_borrow,
                     orig_env,
                     copy_generics,
-                    orig_fn_name,
+                    scope,
                 ))
             }
 
@@ -1437,21 +1766,13 @@ impl BorrowContext {
             Expr::Tuple(elems) => Expr::Tuple(
                 elems
                     .iter()
-                    .map(|e| {
-                        self.rewrite_expr_own(e, borrow_env, orig_env, copy_generics, orig_fn_name)
-                    })
+                    .map(|e| self.rewrite_expr_own(e, borrow_env, orig_env, copy_generics, scope))
                     .collect(),
             ),
 
             // ── Reference ────────────────────────────────────────────────────
             Expr::Reference(inner, is_ref, is_mut) => Expr::Reference(
-                Box::new(self.rewrite_expr_own(
-                    inner,
-                    borrow_env,
-                    orig_env,
-                    copy_generics,
-                    orig_fn_name,
-                )),
+                Box::new(self.rewrite_expr_own(inner, borrow_env, orig_env, copy_generics, scope)),
                 *is_ref,
                 *is_mut,
             ),
@@ -1462,30 +1783,19 @@ impl BorrowContext {
                 then_branch,
                 else_branch,
             } => {
-                let new_cond = self.rewrite_expr_own(
-                    condition,
-                    borrow_env,
-                    orig_env,
-                    copy_generics,
-                    orig_fn_name,
-                );
+                let new_cond =
+                    self.rewrite_expr_own(condition, borrow_env, orig_env, copy_generics, scope);
                 let mut then_borrow = borrow_env.clone();
                 let new_then = self.rewrite_block_borrow(
                     then_branch,
                     &mut then_borrow,
                     orig_env,
                     copy_generics,
-                    orig_fn_name,
+                    scope,
                 );
                 let new_else = else_branch.as_ref().map(|eb| {
                     let mut else_borrow = borrow_env.clone();
-                    self.rewrite_block_borrow(
-                        eb,
-                        &mut else_borrow,
-                        orig_env,
-                        copy_generics,
-                        orig_fn_name,
-                    )
+                    self.rewrite_block_borrow(eb, &mut else_borrow, orig_env, copy_generics, scope)
                 });
                 Expr::If {
                     condition: Box::new(new_cond),
@@ -1501,24 +1811,18 @@ impl BorrowContext {
                 else_branch,
             } => {
                 let new_value =
-                    self.rewrite_expr_own(value, borrow_env, orig_env, copy_generics, orig_fn_name);
+                    self.rewrite_expr_own(value, borrow_env, orig_env, copy_generics, scope);
                 let mut then_borrow = borrow_env.clone();
                 let new_then = self.rewrite_block_borrow(
                     then_branch,
                     &mut then_borrow,
                     orig_env,
                     copy_generics,
-                    orig_fn_name,
+                    scope,
                 );
                 let new_else = else_branch.as_ref().map(|eb| {
                     let mut else_borrow = borrow_env.clone();
-                    self.rewrite_block_borrow(
-                        eb,
-                        &mut else_borrow,
-                        orig_env,
-                        copy_generics,
-                        orig_fn_name,
-                    )
+                    self.rewrite_block_borrow(eb, &mut else_borrow, orig_env, copy_generics, scope)
                 });
                 Expr::IfLet {
                     pattern: pattern.clone(),
@@ -1533,34 +1837,16 @@ impl BorrowContext {
                 borrow_env,
                 orig_env,
                 copy_generics,
-                orig_fn_name,
+                scope,
             ))),
             Expr::Cast(inner, ty) => Expr::Cast(
-                Box::new(self.rewrite_expr_own(
-                    inner,
-                    borrow_env,
-                    orig_env,
-                    copy_generics,
-                    orig_fn_name,
-                )),
+                Box::new(self.rewrite_expr_own(inner, borrow_env, orig_env, copy_generics, scope)),
                 ty.clone(),
             ),
             Expr::BinaryOp(l, op, r) => Expr::BinaryOp(
-                Box::new(self.rewrite_expr_own(
-                    l,
-                    borrow_env,
-                    orig_env,
-                    copy_generics,
-                    orig_fn_name,
-                )),
+                Box::new(self.rewrite_expr_own(l, borrow_env, orig_env, copy_generics, scope)),
                 op.clone(),
-                Box::new(self.rewrite_expr_own(
-                    r,
-                    borrow_env,
-                    orig_env,
-                    copy_generics,
-                    orig_fn_name,
-                )),
+                Box::new(self.rewrite_expr_own(r, borrow_env, orig_env, copy_generics, scope)),
             ),
             Expr::UnaryOp(op, inner) => {
                 if op == "*" {
@@ -1581,7 +1867,7 @@ impl BorrowContext {
                         borrow_env,
                         orig_env,
                         copy_generics,
-                        orig_fn_name,
+                        scope,
                     )),
                 )
             }
@@ -1591,13 +1877,11 @@ impl BorrowContext {
                     borrow_env,
                     orig_env,
                     copy_generics,
-                    orig_fn_name,
+                    scope,
                 )),
                 method.clone(),
                 args.iter()
-                    .map(|a| {
-                        self.rewrite_expr_own(a, borrow_env, orig_env, copy_generics, orig_fn_name)
-                    })
+                    .map(|a| self.rewrite_expr_own(a, borrow_env, orig_env, copy_generics, scope))
                     .collect(),
             ),
 
@@ -1613,7 +1897,7 @@ impl BorrowContext {
                         &mut inner_borrow,
                         orig_env,
                         copy_generics,
-                        orig_fn_name,
+                        scope,
                     )),
                     *is_move,
                 )
@@ -1648,7 +1932,7 @@ impl BorrowContext {
         borrow_env: &BorrowEnv,
         orig_env: &TypeEnv,
         copy_generics: &HashSet<String>,
-        orig_fn_name: &str,
+        scope: &ModuleScope,
     ) -> Expr {
         match arg {
             Expr::MethodCall(receiver, method, args) if method == "clone" && args.is_empty() => {
@@ -1677,8 +1961,7 @@ impl BorrowContext {
                     }
                 }
                 // Recurse and wrap in &.
-                let inner =
-                    self.rewrite_expr_own(arg, borrow_env, orig_env, copy_generics, orig_fn_name);
+                let inner = self.rewrite_expr_own(arg, borrow_env, orig_env, copy_generics, scope);
                 Expr::Reference(Box::new(inner), true, false)
             }
             Expr::Ident(name) => {
@@ -1697,8 +1980,7 @@ impl BorrowContext {
                 Expr::Reference(Box::new(Expr::Ident(name.clone())), true, false)
             }
             _ => {
-                let inner =
-                    self.rewrite_expr_own(arg, borrow_env, orig_env, copy_generics, orig_fn_name);
+                let inner = self.rewrite_expr_own(arg, borrow_env, orig_env, copy_generics, scope);
                 Expr::Reference(Box::new(inner), true, false)
             }
         }
@@ -1841,12 +2123,15 @@ impl BorrowContext {
 
     // ── Type helpers ──────────────────────────────────────────────────────────
 
-    fn infer_type(&self, expr: &Expr, env: &TypeEnv) -> Option<Type> {
+    fn infer_type(&self, expr: &Expr, env: &TypeEnv, scope: &ModuleScope) -> Option<Type> {
         match expr {
             Expr::Ident(name) => env.get(name).cloned(),
             Expr::Literal(Literal::Bool(_)) => Some(Type::Named("bool".to_string())),
             Expr::Tuple(elems) => {
-                let types: Option<Vec<_>> = elems.iter().map(|e| self.infer_type(e, env)).collect();
+                let types: Option<Vec<_>> = elems
+                    .iter()
+                    .map(|e| self.infer_type(e, env, scope))
+                    .collect();
                 types.map(|ts| {
                     if ts.is_empty() {
                         Type::Unit
@@ -1855,21 +2140,15 @@ impl BorrowContext {
                     }
                 })
             }
-            Expr::Call(callee, _) => match callee.as_ref() {
-                Expr::Ident(name) => self
-                    .owner_for_variant_name(name)
-                    .map(Type::Named)
-                    .or_else(|| self.fn_sigs.get(name).map(|(_, _, ret)| ret.clone())),
-                Expr::Path(path, PathType::Namespace) => path.last().and_then(|name| {
-                    self.owner_for_variant_name(name)
-                        .map(Type::Named)
-                        .or_else(|| self.fn_sigs.get(name).map(|(_, _, ret)| ret.clone()))
+            Expr::Call(callee, _) => callee_leaf_name(callee)
+                .and_then(|name| self.owner_for_variant_name(&name).map(Type::Named))
+                .or_else(|| {
+                    self.resolve_callee_id(callee, scope, env)
+                        .and_then(|id| self.fn_sigs.get(&id).map(|(_, _, ret)| ret.clone()))
                 }),
-                _ => None,
-            },
             Expr::MethodCall(receiver, method, args) if method == "clone" && args.is_empty() => {
                 // `v.clone()` where v: &T gives T (auto-deref clone).
-                self.infer_type(receiver, env).map(|ty| {
+                self.infer_type(receiver, env, scope).map(|ty| {
                     if let Type::Reference(inner, true, false) = ty {
                         *inner
                     } else {
@@ -1878,7 +2157,7 @@ impl BorrowContext {
                 })
             }
             Expr::UnaryOp(op, inner) if op == "*" => {
-                self.infer_type(inner, env).and_then(|ty| match ty {
+                self.infer_type(inner, env, scope).and_then(|ty| match ty {
                     Type::Generic(name, params) if name == "Box" && params.len() == 1 => {
                         params.into_iter().next()
                     }
@@ -1886,9 +2165,12 @@ impl BorrowContext {
                     _ => None,
                 })
             }
-            Expr::Parenthesized(inner) => self.infer_type(inner, env),
+            Expr::Parenthesized(inner) => self.infer_type(inner, env, scope),
             Expr::Cast(_, ty) => Some(ty.clone()),
-            Expr::Block(block) => block.expr.as_ref().and_then(|e| self.infer_type(e, env)),
+            Expr::Block(block) => block
+                .expr
+                .as_ref()
+                .and_then(|e| self.infer_type(e, env, scope)),
             _ => None,
         }
     }
@@ -2023,6 +2305,7 @@ impl BorrowContext {
         init: &Expr,
         orig_env: &TypeEnv,
         copy_generics: &HashSet<String>,
+        scope: &ModuleScope,
     ) -> Option<Expr> {
         // The owncap block may be wrapped in parentheses.
         let block = match strip_parens(init) {
@@ -2084,7 +2367,7 @@ impl BorrowContext {
                 &mut env_copy,
                 copy_generics,
                 &mut demands,
-                true, // closure body tail = return context
+                DemandSite::new(true, scope), // closure-body tail is return context
             );
             if demands.iter().any(|d| is_blocking(*d)) || !own_ok(&demands) {
                 return None;
@@ -2710,13 +2993,56 @@ fn apply_type_subst(ty: &Type, subst: &HashMap<String, Type>) -> Type {
     }
 }
 
-fn callee_fn_name(callee: &Expr) -> Option<String> {
+fn collect_imports(items: &[Item]) -> HashMap<String, Vec<String>> {
+    let mut imports = HashMap::new();
+    for item in items {
+        if let Item::Use(use_stmt) = item {
+            collect_import(&mut imports, use_stmt);
+        }
+    }
+    imports
+}
+
+fn collect_import(imports: &mut HashMap<String, Vec<String>>, use_stmt: &UseStatement) {
+    match &use_stmt.kind {
+        UseKind::Simple => {
+            if let Some((source, local)) = imported_leaf(use_stmt.path.last()) {
+                let mut path = use_stmt.path.clone();
+                if let Some(last) = path.last_mut() {
+                    *last = source;
+                }
+                imports.insert(local, path);
+            }
+        }
+        UseKind::Nested(items) => {
+            for item in items {
+                if let Some((source, local)) = imported_leaf(Some(item)) {
+                    let mut path = use_stmt.path.clone();
+                    path.push(source);
+                    imports.insert(local, path);
+                }
+            }
+        }
+        UseKind::Glob => {}
+    }
+}
+
+fn imported_leaf(leaf: Option<&String>) -> Option<(String, String)> {
+    let leaf = leaf?.trim();
+    if let Some((source, local)) = leaf.split_once(" as ") {
+        Some((source.trim().to_string(), local.trim().to_string()))
+    } else {
+        Some((leaf.to_string(), leaf.to_string()))
+    }
+}
+
+fn callee_leaf_name(callee: &Expr) -> Option<String> {
     match callee {
         Expr::Ident(name) => Some(strip_path_segment_generics(name).to_string()),
         Expr::Path(path, PathType::Namespace) => path
             .last()
             .map(|name| strip_path_segment_generics(name).to_string()),
-        Expr::Parenthesized(inner) => callee_fn_name(inner),
+        Expr::Parenthesized(inner) => callee_leaf_name(inner),
         _ => None,
     }
 }
@@ -2750,6 +3076,27 @@ fn generic_names_with_bound(f: &FunctionDef, bound: &str) -> HashSet<String> {
         .filter(|g| g.bounds.iter().any(|b| b == bound))
         .map(|g| g.name.clone())
         .collect()
+}
+
+/// Whether `expr` preserves a borrow-derived origin in a local binding.
+///
+/// These are precisely the alias shapes that remain references when B-Match
+/// rewrites an owned datatype traversal to a shared one. Owned materializations
+/// such as `.clone()` deliberately do not propagate derivedness.
+fn is_derived_borrow_alias(expr: &Expr, derived: &HashSet<String>) -> bool {
+    match strip_parens(expr) {
+        Expr::Ident(name) => derived.contains(name),
+        Expr::UnaryOp(op, inner) if op == "*" => {
+            matches!(strip_parens(inner), Expr::Ident(name) if derived.contains(name))
+        }
+        Expr::MethodCall(receiver, method, args) if method == "as_ref" && args.is_empty() => {
+            matches!(strip_parens(receiver), Expr::Ident(name) if derived.contains(name))
+        }
+        Expr::Reference(inner, true, false) => {
+            matches!(strip_parens(inner), Expr::Ident(name) if derived.contains(name))
+        }
+        _ => false,
+    }
 }
 
 fn collect_deref_box_binding_names_from_body(
@@ -3076,6 +3423,8 @@ fn split_top_level_commas(input: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{optimize_mut, parse_rust_source};
+    use rustlightast::RustCodeGenerator;
 
     fn named(name: &str) -> Type {
         Type::Named(name.to_string())
@@ -3124,6 +3473,13 @@ mod tests {
             items: vec![Item::Function(function)],
             attrs: vec![],
             vis: Visibility::Public,
+        }
+    }
+
+    fn test_scope() -> ModuleScope {
+        ModuleScope {
+            module_path: vec!["crate".to_string(), "Test".to_string()],
+            imports: HashMap::new(),
         }
     }
 
@@ -3239,7 +3595,13 @@ mod tests {
         let ctx = empty_ctx();
         let orig_env = HashMap::from([("y".to_string(), named("String"))]);
         let mut borrow_env = orig_env.clone();
-        ctx.rewrite_block_borrow(block, &mut borrow_env, &orig_env, &HashSet::new(), "test")
+        ctx.rewrite_block_borrow(
+            block,
+            &mut borrow_env,
+            &orig_env,
+            &HashSet::new(),
+            &test_scope(),
+        )
     }
 
     fn first_let_init(block: &Block) -> &Expr {
@@ -3316,7 +3678,82 @@ mod tests {
 
         let analysis = optimize_borrow(&mut module, &HashSet::new());
 
-        assert!(analysis.borrow_fns.contains("is_leaf"));
+        assert!(analysis.borrow_fns.contains("crate::Test::is_leaf"));
+        let Item::Function(function) = &module.items[1] else {
+            panic!("expected function");
+        };
+        assert!(is_reference_type(&function.params[0].ty));
+    }
+
+    #[test]
+    fn last_use_clone_keeps_recursive_structure_parameter_owned() {
+        let source = r#"
+#[derive(Clone)]
+pub enum List<A> {
+    Nil,
+    Cons(A, Box<List<A>>),
+}
+
+pub fn bubble_min<A>(x0: List<A>) -> List<A>
+where
+    A: Clone + 'static,
+{
+    match x0 {
+        List::Nil => List::Nil,
+        List::Cons(v, p1a) => {
+            let va = *p1a;
+            bubble_min(List::Cons(v.clone(), Box::new(va.clone())))
+        }
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Bubblesort_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(!analysis.borrow_fns.contains("bubble_min"));
+        let Item::Function(function) = &module.items[1] else {
+            panic!("expected bubble_min function");
+        };
+        assert!(!is_reference_type(&function.params[0].ty));
+
+        // Borrow analysis only consults the move opportunity. M-LastUse performs
+        // the actual rewrite later, once the parameter has remained owned.
+        optimize_mut(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(!printed.contains("v.clone()"));
+        assert!(!printed.contains("va.clone()"));
+        assert!(printed.contains("List::Cons(v, Box::new(va))"));
+    }
+
+    #[test]
+    fn non_last_use_clone_still_allows_borrowing() {
+        let body = Block {
+            stmts: vec![Statement::Let(LetStmt {
+                ifmut: false,
+                name: "saved".to_string(),
+                ty: None,
+                init: Some(clone_call("x")),
+            })],
+            expr: leaf_match_body("x").expr,
+        };
+        let mut module = RustModule {
+            name: "Test".to_string(),
+            docs: vec![],
+            items: vec![
+                tree_enum(),
+                Item::Function(function("clone_then_inspect", "x", named("Tree"), body)),
+            ],
+            attrs: vec![],
+            vis: Visibility::Public,
+        };
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis
+            .borrow_fns
+            .contains("crate::Test::clone_then_inspect"));
         let Item::Function(function) = &module.items[1] else {
             panic!("expected function");
         };
@@ -3372,7 +3809,7 @@ mod tests {
 
         let analysis = optimize_borrow(&mut module, &HashSet::new());
 
-        assert!(analysis.borrow_fns.contains("both_leaf"));
+        assert!(analysis.borrow_fns.contains("crate::Test::both_leaf"));
         let Item::Function(function) = &module.items[1] else {
             panic!("expected function");
         };
@@ -3415,19 +3852,139 @@ mod tests {
             docs: vec![],
             attrs: vec![],
         };
-        let mut caller_module = module_with(caller);
+        let mut caller_module = RustModule {
+            name: "Test".to_string(),
+            docs: vec![],
+            items: vec![
+                Item::Use(UseStatement {
+                    path: vec![
+                        "crate".to_string(),
+                        "TreeMod".to_string(),
+                        "is_leaf".to_string(),
+                    ],
+                    kind: UseKind::Simple,
+                }),
+                Item::Function(caller),
+            ],
+            attrs: vec![],
+            vis: Visibility::Public,
+        };
         let mut modules = vec![&mut callee_module, &mut caller_module];
 
         let analysis = optimize_borrow_modules(&mut modules, &HashSet::new());
 
-        assert!(analysis.borrow_fns.contains("is_leaf"));
-        let Item::Function(function) = &caller_module.items[0] else {
+        assert!(analysis.borrow_fns.contains("crate::TreeMod::is_leaf"));
+        let Item::Function(function) = &caller_module.items[1] else {
             panic!("expected function");
         };
         let Some(Expr::Call(_, args)) = function.body.expr.as_deref() else {
             panic!("expected call tail");
         };
         assert!(matches!(&args[0], Expr::Ident(name) if name == "x"));
+    }
+
+    #[test]
+    fn package_borrow_summaries_keep_same_named_functions_distinct() {
+        let borrow_probe = function("probe", "x", named("Tree"), leaf_match_body("x"));
+        let mut borrow_module = RustModule {
+            name: "BorrowMod".to_string(),
+            docs: vec![],
+            items: vec![tree_enum(), Item::Function(borrow_probe)],
+            attrs: vec![],
+            vis: Visibility::Public,
+        };
+
+        let own_probe = FunctionDef {
+            name: "probe".to_string(),
+            params: vec![Param {
+                name: "x".to_string(),
+                ty: named("Tree"),
+            }],
+            return_type: named("Tree"),
+            generics: vec![],
+            body: block_tail(Expr::Ident("x".to_string())),
+            asyncness: false,
+            vis: Visibility::Public,
+            docs: vec![],
+            attrs: vec![],
+        };
+        let mut own_module = RustModule {
+            name: "OwnMod".to_string(),
+            docs: vec![],
+            items: vec![Item::Function(own_probe)],
+            attrs: vec![],
+            vis: Visibility::Public,
+        };
+
+        let qualified_call = |module: &str, arg: Expr| {
+            Expr::Call(
+                Box::new(Expr::Path(
+                    vec!["crate".to_string(), module.to_string(), "probe".to_string()],
+                    PathType::Namespace,
+                )),
+                vec![arg],
+            )
+        };
+        let caller = FunctionDef {
+            name: "caller".to_string(),
+            params: vec![
+                Param {
+                    name: "x".to_string(),
+                    ty: named("Tree"),
+                },
+                Param {
+                    name: "y".to_string(),
+                    ty: named("Tree"),
+                },
+            ],
+            return_type: Type::Tuple(vec![named("bool"), named("Tree")]),
+            generics: vec![],
+            body: block_tail(Expr::Tuple(vec![
+                qualified_call("BorrowMod", clone_call("x")),
+                qualified_call("OwnMod", clone_call("y")),
+            ])),
+            asyncness: false,
+            vis: Visibility::Public,
+            docs: vec![],
+            attrs: vec![],
+        };
+        let mut caller_module = module_with(caller);
+        let mut modules = vec![&mut borrow_module, &mut own_module, &mut caller_module];
+
+        let analysis = optimize_borrow_modules(&mut modules, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("crate::BorrowMod::probe"));
+        assert!(!analysis.borrow_fns.contains("crate::OwnMod::probe"));
+
+        let Item::Function(borrow_probe) = &borrow_module.items[1] else {
+            panic!("expected borrow probe");
+        };
+        assert!(is_reference_type(&borrow_probe.params[0].ty));
+        let Item::Function(own_probe) = &own_module.items[0] else {
+            panic!("expected owned probe");
+        };
+        assert!(!is_reference_type(&own_probe.params[0].ty));
+
+        let Item::Function(caller) = &caller_module.items[0] else {
+            panic!("expected caller");
+        };
+        let Some(Expr::Tuple(calls)) = caller.body.expr.as_deref() else {
+            panic!("expected tuple of calls");
+        };
+        let Expr::Call(_, borrow_args) = &calls[0] else {
+            panic!("expected borrowed call");
+        };
+        let Expr::Call(_, own_args) = &calls[1] else {
+            panic!("expected owned call");
+        };
+        assert!(matches!(&borrow_args[0], Expr::Ident(name) if name == "x"));
+        assert!(matches!(
+            &own_args[0],
+            Expr::MethodCall(receiver, method, args)
+                if matches!(receiver.as_ref(), Expr::Ident(name) if name == "y")
+                    && method == "clone"
+                    && args.is_empty()
+        ));
     }
 
     #[test]
@@ -3450,7 +4007,14 @@ mod tests {
             return_type: named("bool"),
             generics: vec![],
             body: block_tail(Expr::Call(
-                Box::new(Expr::Ident("conv::<A>".to_string())),
+                Box::new(Expr::Path(
+                    vec![
+                        "crate".to_string(),
+                        "TreeMod".to_string(),
+                        "conv::<A>".to_string(),
+                    ],
+                    PathType::Namespace,
+                )),
                 vec![clone_call("x")],
             )),
             asyncness: false,
@@ -3584,8 +4148,21 @@ mod tests {
     #[test]
     fn bcall_rewrites_top_level_calls_inside_closure_body() {
         let mut ctx = empty_ctx();
+        let make_triple_id = vec![
+            "crate".to_string(),
+            "Test".to_string(),
+            "make_triple".to_string(),
+        ];
         ctx.borrow_positions
-            .insert("make_triple".to_string(), vec![0, 1, 2]);
+            .insert(make_triple_id.clone(), vec![0, 1, 2]);
+        ctx.fn_sigs.insert(
+            make_triple_id,
+            (
+                vec![],
+                vec![named("bool"), named("bool"), named("bool")],
+                named("bool"),
+            ),
+        );
 
         let mut borrow_env = HashMap::from([
             ("x_cap".to_string(), named("bool")),
@@ -3601,8 +4178,13 @@ mod tests {
             true,
         );
 
-        let rewritten =
-            ctx.rewrite_expr_own(&expr, &mut borrow_env, &orig_env, &HashSet::new(), "test");
+        let rewritten = ctx.rewrite_expr_own(
+            &expr,
+            &mut borrow_env,
+            &orig_env,
+            &HashSet::new(),
+            &test_scope(),
+        );
 
         let Expr::Closure(_, body, true) = rewritten else {
             panic!("expected rewritten move closure");

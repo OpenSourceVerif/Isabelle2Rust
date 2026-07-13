@@ -5,7 +5,9 @@ pub mod match_opt;
 pub mod mut_analysis;
 pub mod rustlight_parser;
 
-pub use borrow_analysis::{optimize_borrow, optimize_borrow_modules, BorrowAnalysis};
+pub use borrow_analysis::{
+    optimize_borrow, optimize_borrow_modules, optimize_borrow_modules_with_paths, BorrowAnalysis,
+};
 pub use closure_opt::{optimize_closure, ClosureOptAnalysis};
 pub use copy_analysis::{optimize_copy, optimize_copy_with_options, CopyAnalysis, CopyOptions};
 pub use match_opt::{

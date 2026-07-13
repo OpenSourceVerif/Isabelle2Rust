@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use isabelle2rust_optimize::{
-    optimize_borrow_modules, optimize_closure, optimize_copy_with_options,
+    optimize_borrow_modules_with_paths, optimize_closure, optimize_copy_with_options,
     optimize_match_with_context, optimize_mut, parse_rust_source, CopyOptions, MatchTypeContext,
 };
 use rustlightast::{RustCodeGenerator, RustModule};
@@ -235,11 +235,15 @@ fn write_optimized_sources(
     }
 
     {
-        let mut modules: Vec<&mut RustModule> = units
+        let mut modules: Vec<(Vec<String>, &mut RustModule)> = units
             .iter_mut()
-            .filter_map(|unit| unit.parsed.as_mut())
+            .filter_map(|unit| {
+                unit.parsed
+                    .as_mut()
+                    .map(|module| (unit.module_path.clone(), module))
+            })
             .collect();
-        optimize_borrow_modules(&mut modules, &package_copy_types);
+        optimize_borrow_modules_with_paths(&mut modules, &package_copy_types);
     }
 
     let mut post_match_context = MatchTypeContext::default();
