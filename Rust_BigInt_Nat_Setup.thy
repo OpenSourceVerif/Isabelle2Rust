@@ -19,11 +19,11 @@ code_printing
 | constant "0 :: nat" \<rightharpoonup>
     (Rust) "BigInt::ZERO"
 | constant "plus :: nat \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
-    (Rust) infixl 6 "+"
+    (Rust) infixl 9 "+"
 | constant "minus :: nat \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
     (Rust) "!(match (_.clone(), _.clone()) { (m, n) => if m <= n { BigInt::ZERO } else { m - n } })"
 | constant "times :: nat \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
-    (Rust) infixl 7 "*"
+    (Rust) infixl 10 "*"
 | constant "HOL.equal :: nat \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
     (Rust) infix 4 "=="
 | constant "less_eq :: nat \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>

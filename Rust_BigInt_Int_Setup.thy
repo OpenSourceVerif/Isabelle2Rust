@@ -28,19 +28,23 @@ Numeral.add_code \<^const_name>\<open>Code_Numeral.Pos\<close> I Code_Printer.li
 #> Numeral.add_code \<^const_name>\<open>Code_Numeral.Neg\<close> (~) Code_Printer.literal_numeral "Rust"
 \<close>
 
+(** Keep these precedence levels aligned with Rust, not Isabelle surface syntax:
+    multiplicative 10, additive 9, shifts 8, &, ^, | at 7, 6, 5, followed by
+    comparisons 4 and boolean &&, || at 3, 2.  The serializer uses the levels
+    to preserve the HOL expression tree with parentheses. **)
 code_printing
   constant "plus :: integer \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
-    (Rust) infixl 6 "+"
+    (Rust) infixl 9 "+"
 | constant "uminus :: integer \<Rightarrow> _" \<rightharpoonup>
     (Rust) "!(- _)"
 | constant "minus :: integer \<Rightarrow> _" \<rightharpoonup>
-    (Rust) infixl 6 "-"
+    (Rust) infixl 9 "-"
 | constant Code_Numeral.dup \<rightharpoonup>
     (Rust) "!(_ << 1usize)"
 | constant Code_Numeral.sub \<rightharpoonup>
     (Rust) "panic'!(\"sub\")"
 | constant "times :: integer \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
-    (Rust) infixl 7 "*"
+    (Rust) infixl 10 "*"
 | constant Code_Numeral.divmod_abs \<rightharpoonup>
     (Rust) "!(match (_.clone(), _.clone()) { (k, l) => { let k = k.abs(); let l = l.abs(); if l == BigInt::ZERO { (BigInt::ZERO, k) } else { let q = k.clone() '/ l.clone(); let r = k % l; (q, r) } } })"
 | constant "HOL.equal :: integer \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>

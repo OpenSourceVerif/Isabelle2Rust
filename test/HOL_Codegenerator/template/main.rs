@@ -5,5 +5,5 @@ mod Code_Test_Rust;
 use crate::Code_Test_Rust::gcd_test;
 
 fn main(){
-    println!("hol_test = {}", gcd_test())
+    assert!(gcd_test(), "generated Rust disagrees with the HOL smoke tests");
 }

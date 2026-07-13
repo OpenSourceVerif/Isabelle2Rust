@@ -18,12 +18,11 @@ it does not require Stage 1 output to be Clippy-clean.
   RUSTC_BOOTSTRAP=1 cargo clippy --quiet --locked --message-format=short
   ```
 
-The audit reports 10 warnings in four crates.  No generated Stage 2 unit-test
+The audit reports 9 warnings in four crates.  No generated Stage 2 unit-test
 crate currently reports `clippy::double_parens`.
 
 | Crate | Lint | Count | Snapshot locations |
 | --- | --- | ---: | --- |
-| `ArithmeticInt_Test` | `clippy::precedence` | 1 | `src/ArithmeticInt_Test.rs:52` |
 | `ArithmeticInt_Test` | `clippy::useless_vec` | 4 | `src/ArithmeticInt_Test.rs:13,66` |
 | `ArithmeticNat_Test` | `clippy::useless_vec` | 1 | `src/Arith.rs:13` |
 | `Applications_Test` | `clippy::type_complexity` | 3 | `src/Applications_Test.rs:12,48,80` |
@@ -47,25 +46,6 @@ The durable fix is structural:
 This is syntax preservation, not a new optimization rule.  Replacing
 `&vec!(...)` textually after printing would hide the incorrect AST
 representation and should be avoided.
-
-## `clippy::precedence`
-
-The Isabelle definition of `integer_bits` groups each bitwise operation before
-adding the three results:
-
-```text
-(x AND y) + (x OR y) + (x XOR y)
-```
-
-The generated Stage 1 and Stage 2 Rust currently omit the parentheses around
-the first operation, producing an expression whose precedence is unclear and
-whose Rust parse tree does not reflect that grouping.
-
-The fix belongs at the Stage 1 binary-expression printer: it should
-parenthesize a child expression whenever the child's operator precedence is
-lower than the surrounding operator requires.  Stage 2 must then preserve the
-resulting `Parenthesized` nodes.  A regression should compare mixed arithmetic
-and bitwise operators and build the regenerated `ArithmeticInt_Test` crate.
 
 ## `clippy::type_complexity`
 
