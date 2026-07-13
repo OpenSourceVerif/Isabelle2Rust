@@ -618,11 +618,24 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
       | print_term_raw expected is_pseudo_fun (need_box, box_prcs, clone_prcs)
           some_thm vars fxy (ICase case_expr) =
           case Code_Thingol.unfold_const_app (#primitive case_expr)
-            of SOME (app as ({ sym = Constant const, ... }, _)) =>
+              of SOME (app as ({ sym = Constant const, ... }, _)) =>
                   if is_none (const_syntax const)
                   then print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy case_expr
-                  else print_app_with_clone expected is_pseudo_fun
-                    (box_prcs, clone_prcs) some_thm vars fxy app
+                  else
+                    let
+                      fun print_syntax f =
+                        print_app_with_clone expected is_pseudo_fun
+                          (box_prcs, clone_prcs) some_thm vars f app
+                    in
+                      (* A case expression whose primitive has registered syntax
+                         (in particular HOL.If) can itself occupy a recursively
+                         boxed constructor field.  The syntax printer handles the
+                         branches, but the field's Box belongs around the complete
+                         conditional expression, just as it does around an ordinary
+                         application or lambda in the same constructor position. *)
+                      print_term_with_cons_and_box
+                        (need_box, box_prcs) print_syntax fxy (ICase case_expr)
+                    end
               | NONE => print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy case_expr
     (** Print a term without Box or clone wrapping (for declarations/signatures). **)
     and print_term_decl is_pseudo_fun some_thm vars fxy t =
@@ -1756,8 +1769,17 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 fun eq_patterns_for_param_names ((ts, t), _) =
                   let val used_vars = build (Code_Thingol.add_varnames t)
                   in map (wildcard_unused_pattern used_vars) ts end
-                val dummy_parms = (map str o aux_params vars0 o map eq_patterns_for_param_names) eqs;
-                val vars = (vars0, Symtab.empty);
+                val dummy_param_names =
+                  (aux_params vars0 o map eq_patterns_for_param_names) eqs;
+                val dummy_parms = map str dummy_param_names;
+                (* Stable matching lowers one source pattern tuple into nested
+                   Rust matches.  Reserve the signature parameter names in every
+                   row context before introducing constructor-field binders;
+                   otherwise a field such as `x1` may shadow the still-pending
+                   parameter `x1`, and the next nested match observes the field's
+                   type instead of the original argument's datatype. *)
+                val vars0_with_params = intro_vars dummy_param_names vars0;
+                val vars = (vars0_with_params, Symtab.empty);
                 val typs = extract_typ print_typ ty
                 val param_typs = List.take (typs, (List.length dummy_parms))
                 val ret_typs = List.drop (typs, (List.length dummy_parms))
@@ -1786,7 +1808,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       let
                         val param_tys = take (length ts) raw_typs;
                         val vars =
-                          (reserved, Symtab.empty)
+                          (vars0_with_params, Symtab.empty)
                           |> rv_intro_base_names_for (is_none o const_syntax)
                               deresolve (t :: ts)
                           |> rv_intro_typed_pats (ListPair.zip (ts, param_tys));
