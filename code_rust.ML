@@ -90,8 +90,12 @@ fun rust_block header body =
 fun rust_bare_block body =
   Pretty.chunks [str "{", rust_indent body, str "}"];
 
-fun rust_inline_block body =
-  Pretty.block (str "{ " :: separate (str " ") body @ [str " }"]);
+fun rust_closure params body =
+  Pretty.chunks [
+    Pretty.block (str "Rc::new(move |" :: params @ [str "| {"]),
+    rust_indent [body],
+    str "})"
+  ];
 
 fun rust_match scrutinee arms =
   rust_block (Pretty.block [str "match ", scrutinee]) (comma_lines arms);
@@ -1524,12 +1528,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
            type Rc<dyn Fn(..)>. The unsizing coercion Rc<{anon}> -> Rc<dyn Fn>
            happens at the enclosing coercion site (function return, constructor
            argument, typed let), so no `as`/annotation is emitted here. *)
-        val closure_pretty =
-          Pretty.block (
-            str "Rc::new(move |"
-            :: params
-            @ [str "| { ", closure_body, str " })"]
-          )
+        val closure_pretty = rust_closure params closure_body
       in
         (
           map2
@@ -1548,7 +1547,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         val closure_expr =
           if null cap_lets
           then closure_pretty
-          else rust_inline_block (cap_lets @ [closure_pretty])
+          else rust_bare_block (cap_lets @ [closure_pretty])
         (* A HOL abstraction emitted as a function VALUE uses the erased
            `Rc<dyn Fn(..)>` representation, including inside a tuple or one branch
            of a conditional.  Those expression positions do not always provide an
