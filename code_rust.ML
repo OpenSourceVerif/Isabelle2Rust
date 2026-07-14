@@ -783,7 +783,15 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                      val eqs = filter (snd o snd) raw_eqs
                    in
                      case eqs
-                      of [] => wanted_app
+                      of [] =>
+                           (* A constant without executable equations is emitted
+                              as a nullary panic stub returning its complete HOL
+                              value.  If that value is itself a function, its HOL
+                              arguments belong to the returned Rc<dyn Fn>, not to
+                              the stub; keep the declaration call at arity zero so
+                              application printing performs the two calls in the
+                              correct order. *)
+                           0
                        | [(([], _), _)] =>
                            if null (filter_out (null o snd) vs)
                               andalso (not o null o fst o Code_Thingol.unfold_fun) ty
