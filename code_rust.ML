@@ -724,13 +724,33 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             val need_box_list = box_table sym
             val expected_args = argument_expecteds expected sym dom range
             (* One PhantomData marker per phantom param of the parent datatype,
-               appended after the real args. Valid as both an expression (unit
-               struct) and an irrefutable pattern, so no expr/pattern split here. *)
-            val phantom_count =
+               appended after the real args.  Recover each marker's concrete
+               type from this constructor occurrence's instantiated result.  A
+               phantom constructor has no ordinary field from which Rust can
+               infer that type: when it is passed to another generic function,
+               a bare `PhantomData` otherwise introduces an unrelated inference
+               variable and triggers E0283 even though HOL fixed the type.  The
+               explicit `PhantomData::<T>` path remains valid as both an
+               expression and an irrefutable pattern. *)
+            val phantom_vs =
               (case lookup_constant_typeco sym of
-                SOME parent => length (phantom_table (Type_Constructor parent))
-              | NONE => 0)
-            val phantom_args = List.tabulate (phantom_count, fn _ => str "PhantomData")
+                SOME parent => phantom_table (Type_Constructor parent)
+              | NONE => [])
+            val phantom_types =
+              (case (lookup_constructor_fields sym, range) of
+                (SOME (parent, vs, _), range_parent `%% range_args) =>
+                  if parent = range_parent andalso length vs = length range_args
+                  then
+                    let
+                      val subst = ListPair.zip (vs, range_args)
+                    in map (fn v => AList.lookup (op =) subst v) phantom_vs end
+                  else replicate (length phantom_vs) NONE
+              | _ => replicate (length phantom_vs) NONE)
+            fun print_phantom_arg (SOME ty) =
+                  Pretty.block [str "PhantomData::<", print_typ NOBR ty, str ">"]
+              | print_phantom_arg NONE = str "PhantomData"
+            val phantom_args = map print_phantom_arg phantom_types
+            val phantom_count = length phantom_args
           in
             if wanted = 0
             then
@@ -2530,6 +2550,47 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
             case (s, st) of
               (Type_Class c, Code_Thingol.Class _) => SOME c
             | _ => NONE) stmt_list);
+        (* Executable code equations can require dictionaries that do not occur
+           in the logical class method's type.  Function strict order is the
+           canonical example: the instance signature says `B: Order`, while its
+           executable inequality test calls HOL.equal and carries a Thingol
+           `Dict_Var` for `B: Equal`.  Rust type-checks every emitted method body,
+           so retain those operational dictionaries in the reconstructed impl
+           header instead of relying only on the method typescheme's sorts. *)
+        fun add_dict (Code_Thingol.Dict (_, plain)) bounds =
+              add_plain_dict plain bounds
+        and add_plain_dict (Code_Thingol.Dict_Const (_, dss)) bounds =
+              fold (fn (_, ds) => fold add_dict ds) dss bounds
+          | add_plain_dict (Code_Thingol.Dict_Var {var, class, ...}) bounds =
+              insert (op =) (var, class) bounds;
+        fun add_term_dicts (IConst {dicts, ...}) bounds =
+              fold (fold add_dict) dicts bounds
+          | add_term_dicts (IVar _) bounds = bounds
+          | add_term_dicts (t1 `$ t2) bounds =
+              bounds |> add_term_dicts t1 |> add_term_dicts t2
+          | add_term_dicts (_ `|=> (body, _)) bounds =
+              add_term_dicts body bounds
+          | add_term_dicts (ICase {term, clauses, primitive, ...}) bounds =
+              bounds
+              |> add_term_dicts term
+              |> add_term_dicts primitive
+              |> fold (fn (pat, body) =>
+                   add_term_dicts pat #> add_term_dicts body) clauses;
+        fun method_body_bounds sym =
+          (case Code_Symbol.Graph.get_node program sym of
+            Code_Thingol.Fun ((_, raw_eqs), _) =>
+              fold (fn ((ts, body), (_, active)) =>
+                if active
+                then fold add_term_dicts ts #> add_term_dicts body
+                else I) raw_eqs []
+          | _ => [])
+          handle Code_Symbol.Graph.UNDEF _ => [];
+        fun add_method_body_bounds sym vs =
+          fold (fn (v, class) =>
+            map (fn (v', sort) =>
+              if v = v' then (v', insert (op =) class sort)
+              else (v', sort)))
+            (method_body_bounds sym) vs;
       in
         map_filter (fn ((sym, stmt), _) =>
           case (sym, stmt) of
@@ -2553,6 +2614,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                     | SOME (cls, tyc) =>
                         let
                           val cps = class_classparams cls
+                          val vs' = add_method_body_bounds sym vs
                           (* Require const = `<classparam>_<tyco>` even for a
                              single-method class, so an auxiliary function that
                              merely shares the `<class>_<tyco>_inst` segment is
@@ -2560,7 +2622,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                           val cp_opt =
                             Option.map fst (find_first (fn (cp, _) =>
                               after_last_dot const = after_last_dot cp ^ "_" ^ after_last_dot tyc) cps)
-                        in Option.map (fn cp => (inst_s, (cls, tyc, vs, cp, sym))) cp_opt end
+                        in Option.map (fn cp => (inst_s, (cls, tyc, vs', cp, sym))) cp_opt end
                   end
               end
           | _ => NONE)
@@ -2584,11 +2646,20 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         | NONE => t);
     (** One impl per instance, keyed by a representative method constant; the
         Inst payload carries (class, tyco), the instance vs, and every method. **)
+    fun merge_vs inherited vs =
+      if length vs <> length inherited then vs
+      else map2 (fn (v, sort) => fn (_, inherited_sort) =>
+        (v, union (op =) inherited_sort sort)) vs inherited;
     val inst_table_all =
       map (fn seg =>
         let
           val members = filter (fn (s, _) => s = seg) inst_methods
-          val (_, (cls, tyc, vs, _, repr_sym)) = hd members
+          val (_, (cls, tyc, vs0, _, repr_sym)) = hd members
+          (* Different methods of one class instance may use different
+             operational dictionaries.  They share the same type-constructor
+             parameters, so union their sorts positionally into one impl header. *)
+          val vs = fold merge_vs
+            (map (fn (_, (_, _, member_vs, _, _)) => member_vs) (tl members)) vs0
           val methods = map (fn (_, (_, _, _, cp, msym)) => (cp, msym)) members
         in (repr_sym, ((cls, tyc), (vs, methods))) end)
         (distinct (op =) (map fst inst_methods));
@@ -2606,7 +2677,9 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         map (fn k =>
           let
             val members = filter (fn e => key e = k) inst_table_all
-            val (repr_sym, ((cls, tyc), (vs, _))) = hd members
+            val (repr_sym, ((cls, tyc), (vs0, _))) = hd members
+            val vs = fold merge_vs
+              (map (fn (_, (_, (member_vs, _))) => member_vs) (tl members)) vs0
             val methods =
               distinct (fn ((cp1, _), (cp2, _)) => cp1 = cp2)
                 (maps (fn (_, (_, (_, ms))) => ms) members)
@@ -2641,10 +2714,6 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                   then collect seen cs
                   else collect (c :: seen) (direct_supers c @ cs)
           in collect [] (direct_supers cls) end;
-        fun merge_vs inherited vs =
-          if length vs <> length inherited then vs
-          else map2 (fn (v, sort) => fn (_, inherited_sort) =>
-            (v, union (op =) inherited_sort sort)) vs inherited;
         fun add_super_bounds (repr_sym, ((cls, tyc), (vs, methods))) =
           let
             val supers = superclasses cls;
