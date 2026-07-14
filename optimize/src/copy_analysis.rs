@@ -653,7 +653,9 @@ impl CopyContext {
                 }
                 self.rewrite_expr(body, &mut closure_env, copy_generics);
             }
-            Expr::Parenthesized(inner) => self.rewrite_expr(inner, env, copy_generics),
+            Expr::Parenthesized(inner) | Expr::Cast(inner, _) => {
+                self.rewrite_expr(inner, env, copy_generics)
+            }
             Expr::BinaryOp(left, _, right) => {
                 self.rewrite_expr(left, env, copy_generics);
                 self.rewrite_expr(right, env, copy_generics);
@@ -922,7 +924,7 @@ impl CopyContext {
                     );
                 }
             }
-            Expr::Parenthesized(inner) => self.collect_clone_demands_expr(
+            Expr::Parenthesized(inner) | Expr::Cast(inner, _) => self.collect_clone_demands_expr(
                 inner,
                 env,
                 tracked_generics,
@@ -1064,6 +1066,7 @@ impl CopyContext {
                 self.infer_expr_type(receiver, env)
             }
             Expr::Parenthesized(inner) => self.infer_expr_type(inner, env),
+            Expr::Cast(_, ty) => Some(ty.clone()),
             Expr::Block(block) => block
                 .expr
                 .as_ref()
@@ -1369,7 +1372,10 @@ fn collect_copy_calls_expr(expr: &Expr, generated: &HashSet<String>, out: &mut V
         Expr::Loop(block) | Expr::Unsafe(block) => {
             collect_copy_calls_block(block, generated, out);
         }
-        Expr::Closure(_, body, _) | Expr::Await(body) | Expr::Parenthesized(body) => {
+        Expr::Closure(_, body, _)
+        | Expr::Await(body)
+        | Expr::Parenthesized(body)
+        | Expr::Cast(body, _) => {
             collect_copy_calls_expr(body, generated, out);
         }
         Expr::If {

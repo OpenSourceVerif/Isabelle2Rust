@@ -181,6 +181,7 @@ fn transform_expr(expr: &mut Expr) -> bool {
         }
         Expr::UnaryOp(_, inner)
         | Expr::Parenthesized(inner)
+        | Expr::Cast(inner, _)
         | Expr::Reference(inner, _, _)
         | Expr::Await(inner) => {
             changed |= transform_expr(inner);
@@ -414,7 +415,7 @@ fn produces_owned_value(expr: &Expr, owned: &HashSet<String>) -> bool {
         Expr::Tuple(items) => items.iter().all(|item| produces_owned_value(item, owned)),
         Expr::BinaryOp(_, _, _) => true,
         Expr::UnaryOp(op, inner) if op == "*" => produces_owned_value(inner, owned),
-        Expr::Parenthesized(inner) => produces_owned_value(inner, owned),
+        Expr::Parenthesized(inner) | Expr::Cast(inner, _) => produces_owned_value(inner, owned),
         Expr::Block(block) => {
             let block_owned = owned_flow_for_block(block, owned)
                 .into_iter()
@@ -540,7 +541,7 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
                 rewrite_lastuse_expr(item, live, owned);
             }
         }
-        Expr::Parenthesized(inner) | Expr::UnaryOp(_, inner) => {
+        Expr::Parenthesized(inner) | Expr::Cast(inner, _) | Expr::UnaryOp(_, inner) => {
             rewrite_lastuse_expr(inner, live, owned)
         }
         Expr::Reference(inner, _, _) => rewrite_lastuse_expr(inner, live, owned),
@@ -663,6 +664,7 @@ fn collect_live_expr(expr: &Expr, live: &mut HashSet<String>) {
         }
         Expr::UnaryOp(_, inner)
         | Expr::Parenthesized(inner)
+        | Expr::Cast(inner, _)
         | Expr::Reference(inner, _, _)
         | Expr::Await(inner) => collect_live_expr(inner, live),
         Expr::Closure(_, body, _) => collect_live_expr(body, live),
@@ -782,6 +784,7 @@ fn count_reads_in_expr(expr: &Expr, name: &str) -> usize {
         }
         Expr::UnaryOp(_, inner)
         | Expr::Parenthesized(inner)
+        | Expr::Cast(inner, _)
         | Expr::Reference(inner, _, _)
         | Expr::Await(inner) => count_reads_in_expr(inner, name),
         Expr::Closure(_, body, _) => count_reads_in_expr(body, name),
@@ -917,6 +920,7 @@ fn count_bindings_in_expr(expr: &Expr, name: &str) -> usize {
         }
         Expr::UnaryOp(_, inner)
         | Expr::Parenthesized(inner)
+        | Expr::Cast(inner, _)
         | Expr::Reference(inner, _, _)
         | Expr::Await(inner) => count_bindings_in_expr(inner, name),
         Expr::Ident(_)
@@ -976,6 +980,7 @@ fn rename_reads_expr(expr: &mut Expr, map: &HashMap<String, String>) {
         }
         Expr::UnaryOp(_, inner)
         | Expr::Parenthesized(inner)
+        | Expr::Cast(inner, _)
         | Expr::Reference(inner, _, _)
         | Expr::Await(inner) => rename_reads_expr(inner, map),
         Expr::Closure(params, body, _) => {

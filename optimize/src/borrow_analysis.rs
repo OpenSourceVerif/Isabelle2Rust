@@ -774,7 +774,7 @@ impl BorrowContext {
                 }
             }
 
-            Expr::Parenthesized(inner) => {
+            Expr::Parenthesized(inner) | Expr::Cast(inner, _) => {
                 self.collect_demands_expr(
                     inner,
                     derived,
@@ -1535,6 +1535,16 @@ impl BorrowContext {
                 copy_generics,
                 orig_fn_name,
             ))),
+            Expr::Cast(inner, ty) => Expr::Cast(
+                Box::new(self.rewrite_expr_own(
+                    inner,
+                    borrow_env,
+                    orig_env,
+                    copy_generics,
+                    orig_fn_name,
+                )),
+                ty.clone(),
+            ),
             Expr::BinaryOp(l, op, r) => Expr::BinaryOp(
                 Box::new(self.rewrite_expr_own(
                     l,
@@ -1877,6 +1887,7 @@ impl BorrowContext {
                 })
             }
             Expr::Parenthesized(inner) => self.infer_type(inner, env),
+            Expr::Cast(_, ty) => Some(ty.clone()),
             Expr::Block(block) => block.expr.as_ref().and_then(|e| self.infer_type(e, env)),
             _ => None,
         }
@@ -2243,6 +2254,7 @@ fn collect_closure_binding_usage_expr(expr: &Expr, name: &str, usage: &mut Closu
         }
         Expr::Await(inner)
         | Expr::Parenthesized(inner)
+        | Expr::Cast(inner, _)
         | Expr::UnaryOp(_, inner)
         | Expr::Reference(inner, _, _) => {
             collect_closure_binding_usage_expr(inner, name, usage);
@@ -2333,6 +2345,7 @@ fn expr_has_free_var_from(expr: &Expr, vars: &HashSet<String>) -> bool {
         Expr::Block(block) => block_has_free_var_from(block, vars),
         Expr::Loop(block) | Expr::Unsafe(block) => block_has_free_var_from(block, vars),
         Expr::Parenthesized(inner)
+        | Expr::Cast(inner, _)
         | Expr::UnaryOp(_, inner)
         | Expr::Reference(inner, _, _)
         | Expr::Await(inner) => expr_has_free_var_from(inner, vars),
@@ -2460,6 +2473,9 @@ fn subst_idents_in_expr(expr: &Expr, subst: &HashMap<String, String>) -> Expr {
         Expr::Block(block) => Expr::Block(subst_idents_in_block(block, subst)),
         Expr::Parenthesized(inner) => {
             Expr::Parenthesized(Box::new(subst_idents_in_expr(inner, subst)))
+        }
+        Expr::Cast(inner, ty) => {
+            Expr::Cast(Box::new(subst_idents_in_expr(inner, subst)), ty.clone())
         }
         Expr::Tuple(elems) => Expr::Tuple(
             elems
@@ -2853,6 +2869,7 @@ fn collect_deref_ident_uses_expr(expr: &Expr, out: &mut HashSet<String>) {
         }
         Expr::Await(inner)
         | Expr::Parenthesized(inner)
+        | Expr::Cast(inner, _)
         | Expr::Reference(inner, _, _)
         | Expr::UnaryOp(_, inner) => collect_deref_ident_uses_expr(inner, out),
         Expr::BinaryOp(left, _, right) | Expr::Index(left, right) | Expr::Assign(left, right) => {
