@@ -802,13 +802,16 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                      case eqs
                       of [] =>
                            (* A constant without executable equations is emitted
-                              as a nullary panic stub returning its complete HOL
-                              value.  If that value is itself a function, its HOL
-                              arguments belong to the returned Rc<dyn Fn>, not to
-                              the stub; keep the declaration call at arity zero so
-                              application printing performs the two calls in the
-                              correct order. *)
-                           0
+                              as a panic stub whose Rust parameters are the arrows
+                              written directly in its polymorphic declaration.
+                              Preserve exactly that declared prefix at calls: an
+                              abort constant declared as `A -> B -> C` is called
+                              with two stub arguments, whereas `undefined :: 'a`
+                              has no declared arrow and remains a nullary stub even
+                              when 'a is instantiated by a function type.  Any
+                              arrows introduced only by such an instantiation are
+                              consumed from the returned Rc<dyn Fn> afterwards. *)
+                           arrow_arity ty
                        | [(([], _), _)] =>
                            if null (filter_out (null o snd) vs)
                               andalso (not o null o fst o Code_Thingol.unfold_fun) ty
