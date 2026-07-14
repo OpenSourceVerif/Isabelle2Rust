@@ -397,53 +397,143 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
       | term_type vars ((_, ty) `|=> (_, rty)) = SOME ("fun"`%%[ty, rty])
       | term_type vars (ICase {clauses = (_, body) :: _, ...}) = term_type vars body
       | term_type _ (ICase {clauses = [], ...}) = NONE;
-    type expected_type = itype * itype;
-    (** The expected type at an application boundary keeps both the polymorphic
-        declaration template and its concrete instantiation.  Consecutive arrows
-        explicitly present in the template remain one uncurried Rust Fn group;
-        arrows that appear only after the template's result variable is
-        instantiated form a nested returned Fn value. **)
-    fun function_boundary ((decl_ty, inst_ty): expected_type) =
-      let
-        val (decl_args, _) = fun_typs decl_ty;
-        val (inst_args, inst_ret) = fun_typs inst_ty;
-        val explicit = length decl_args;
-      in
-        if explicit > 0 andalso length inst_args > explicit
-        then SOME (explicit, inst_args, inst_ret)
-        else NONE
-      end;
-    fun subst_expected subst (ITyVar v) =
-          (case AList.lookup (op =) subst v of SOME ty => ty | NONE => ITyVar v)
-      | subst_expected subst (tyco `%% tys) =
-          tyco `%% map (subst_expected subst) tys;
-    (** Derive the expected type of each argument.  Ordinary functions obtain it
-        directly from their polymorphic declaration.  A constructor nested in an
-        already-expected datatype value (notably native tuple syntax) substitutes
-        that datatype's expected arguments into its polymorphic field types, so a
-        function boundary is not lost merely because it sits inside a product. **)
+    (** A HOL itype does not record how its adjacent arrows are grouped into Rust
+        trait objects: both `Fn(A, B) -> C` and `Fn(A) -> Fn(B) -> C` erase to
+        `A => B => C`.  Keep that representation choice alongside the semantic
+        type while printing terms.  Ordinary concrete function types use one
+        flat Rust_Fn group; nested groups arise only where a polymorphic result
+        variable is itself instantiated by a function in an enclosing context. **)
+    datatype rust_shape =
+        Rust_Var of string
+      | Rust_Tyco of string * rust_shape list
+      | Rust_Fn of rust_shape list * rust_shape;
+    type expected_type = {hol_type: itype, rust_shape: rust_shape};
+    fun shape_type (Rust_Var v) = ITyVar v
+      | shape_type (Rust_Tyco (tyco, shapes)) = tyco `%% map shape_type shapes
+      | shape_type (Rust_Fn (args, ret)) =
+          mk_fun_ty (map shape_type args, shape_type ret);
+    fun default_rust_shape (ITyVar v) = Rust_Var v
+      | default_rust_shape (ty as ("fun" `%% [_, _])) =
+          let val (args, ret) = fun_typs ty
+          in Rust_Fn (map default_rust_shape args, default_rust_shape ret) end
+      | default_rust_shape (tyco `%% tys) =
+          Rust_Tyco (tyco, map default_rust_shape tys);
+    fun print_rust_shape (Rust_Fn (args, ret)) =
+          rc_dyn_fn (map print_rust_shape args) (print_rust_shape ret)
+      | print_rust_shape shape = print_typ NOBR (shape_type shape);
+    fun rust_shape_groups (Rust_Fn (args, ret)) =
+          length args :: rust_shape_groups ret
+      | rust_shape_groups _ = [];
+    fun add_default_shape_subst (ITyVar v) inst subst =
+          if AList.defined (op =) subst v then subst
+          else (v, default_rust_shape inst) :: subst
+      | add_default_shape_subst (decl_tyco `%% decl_tys)
+          (inst_tyco `%% inst_tys) subst =
+          if decl_tyco = inst_tyco andalso length decl_tys = length inst_tys
+          then fold (fn (decl, inst) => add_default_shape_subst decl inst)
+            (ListPair.zip (decl_tys, inst_tys)) subst
+          else subst
+      | add_default_shape_subst _ _ subst = subst;
+    (** Match an enclosing representation against a declaration result.  A type
+        variable receives the complete contextual shape, rather than merely its
+        erased itype; this is what lets successive applications of a polymorphic
+        one-step operator accumulate `[A][B][C]` instead of stopping at
+        `[A][B,C]`. **)
+    fun bind_expected_shape (ITyVar v) shape subst =
+          AList.update (op =) (v, shape) subst
+      | bind_expected_shape (decl as ("fun" `%% [_, _]))
+          (Rust_Fn (arg_shapes, ret_shape)) subst =
+          let val (decl_args, decl_ret) = fun_typs decl
+          in
+            if length decl_args = length arg_shapes
+            then subst
+              |> fold (fn (decl_arg, arg_shape) =>
+                   bind_expected_shape decl_arg arg_shape)
+                   (ListPair.zip (decl_args, arg_shapes))
+              |> bind_expected_shape decl_ret ret_shape
+            else subst
+          end
+      | bind_expected_shape (decl_tyco `%% decl_tys)
+          (Rust_Tyco (shape_tyco, arg_shapes)) subst =
+          if decl_tyco = shape_tyco andalso length decl_tys = length arg_shapes
+          then fold (fn (decl, shape) => bind_expected_shape decl shape)
+            (ListPair.zip (decl_tys, arg_shapes)) subst
+          else subst
+      | bind_expected_shape _ _ subst = subst;
+    (** Instantiate a declaration template with both its concrete HOL types and
+        the contextual shapes already bound for result variables.  All adjacent
+        arrows explicitly written in the template remain one Rust_Fn parameter
+        group; a bound result-variable shape becomes the returned group tree. **)
+    fun instantiate_rust_shape subst (ITyVar v) inst =
+          (case AList.lookup (op =) subst v of
+            SOME shape => shape
+          | NONE => default_rust_shape inst)
+      | instantiate_rust_shape subst (decl as ("fun" `%% [_, _])) inst =
+          let
+            val (decl_args, decl_ret) = fun_typs decl;
+            val (inst_args, inst_ret) = fun_typs inst;
+            val explicit = length decl_args;
+          in
+            if explicit > 0 andalso length inst_args >= explicit
+            then
+              let
+                val inst_explicit = take explicit inst_args;
+                val inst_tail = mk_fun_ty (drop explicit inst_args, inst_ret);
+              in
+                Rust_Fn
+                  (map2 (instantiate_rust_shape subst) decl_args inst_explicit,
+                   instantiate_rust_shape subst decl_ret inst_tail)
+              end
+            else default_rust_shape inst
+          end
+      | instantiate_rust_shape subst (decl_tyco `%% decl_tys)
+          (inst_tyco `%% inst_tys) =
+          if decl_tyco = inst_tyco andalso length decl_tys = length inst_tys
+          then Rust_Tyco (inst_tyco,
+            map2 (instantiate_rust_shape subst) decl_tys inst_tys)
+          else default_rust_shape (inst_tyco `%% inst_tys)
+      | instantiate_rust_shape _ _ inst = default_rust_shape inst;
+    fun expected_from subst decl inst =
+      SOME {hol_type = inst, rust_shape = instantiate_rust_shape subst decl inst};
+    (** Derive each argument's Rust representation.  Besides declaration and
+        instantiation types, an ordinary function now consumes the expected
+        representation of its result.  Matching that result back to declaration
+        variables makes the representation flow through nested calls, datatype
+        fields and native tuple syntax without naming a particular constant such
+        as Code_Evaluation.valapp. **)
     fun argument_expecteds expected sym dom range =
       let
         fun pad xs =
           if length xs = length dom then xs else replicate (length dom) NONE;
-        fun constructor_expecteds (decl_ty, _) =
-          (case (lookup_constructor_fields sym, decl_ty) of
-            (SOME (parent, vs, fields), decl_parent `%% decl_args) =>
-              if parent = decl_parent andalso length vs = length decl_args
-                  andalso length fields = length dom
-              then
-                let val subst = ListPair.zip (vs, decl_args)
-                in map SOME (ListPair.zip (map (subst_expected subst) fields, dom)) end
-              else replicate (length dom) NONE
-          | _ => replicate (length dom) NONE);
+        fun constructor_expecteds (parent, vs, fields) =
+          if length fields = length dom
+          then
+            let
+              val decl_result = parent `%% map ITyVar vs;
+              val subst0 = add_default_shape_subst decl_result range [];
+              val subst =
+                (case expected of
+                  SOME {rust_shape, ...} =>
+                    bind_expected_shape decl_result rust_shape subst0
+                | NONE => subst0);
+            in map2 (expected_from subst) fields dom end
+          else replicate (length dom) NONE;
         fun function_expecteds () =
           (case lookup_constant_fun sym of
             SOME (((_, decl_ty), _), _) =>
-              let val (decl_args, _) = fun_typs decl_ty
+              let
+                val inst_ty = mk_fun_ty (dom, range);
+                val subst0 = add_default_shape_subst decl_ty inst_ty [];
+                val (decl_args, decl_ret) = fun_typs decl_ty;
+                val subst =
+                  (case expected of
+                    SOME {rust_shape, ...} =>
+                      bind_expected_shape decl_ret rust_shape subst0
+                  | NONE => subst0);
+                val n = Int.min (length decl_args, length dom);
               in
-                map SOME (ListPair.zip
-                  (take (Int.min (length decl_args, length dom)) decl_args,
-                   take (Int.min (length decl_args, length dom)) dom))
+                map2 (expected_from subst)
+                  (take n decl_args) (take n dom)
                 @ replicate (Int.max (0, length dom - length decl_args)) NONE
               end
           | NONE => replicate (length dom) NONE);
@@ -451,18 +541,20 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
            native tuple syntax) have no surviving Datatypecons node.  When their
            instantiated result arguments are exactly their term domains, project
            the caller's expected result arguments positionally into those terms. *)
-        fun syntax_result_expecteds (decl_ty, _) =
-          (case (decl_ty, range) of
-            (decl_tyco `%% decl_args, inst_tyco `%% inst_args) =>
-              if decl_tyco = inst_tyco andalso length decl_args = length dom
+        fun syntax_result_expecteds {rust_shape, ...} =
+          (case (rust_shape, range) of
+            (Rust_Tyco (shape_tyco, arg_shapes), inst_tyco `%% inst_args) =>
+              if shape_tyco = inst_tyco andalso length arg_shapes = length dom
                   andalso length inst_args = length dom
                   andalso ListPair.allEq (op =) (dom, inst_args)
-              then map SOME (ListPair.zip (decl_args, dom))
+              then map2 (fn shape => fn ty =>
+                SOME {hol_type = ty, rust_shape = shape}) arg_shapes dom
               else replicate (length dom) NONE
           | _ => replicate (length dom) NONE);
         val result = pad (case lookup_constructor_fields sym of
-          SOME _ => (case expected of SOME exp => constructor_expecteds exp
-                     | NONE => replicate (length dom) NONE)
+          SOME constructor =>
+            (case expected of SOME _ => constructor_expecteds constructor
+             | NONE => replicate (length dom) NONE)
         | NONE =>
             (case (lookup_constant_fun sym, expected) of
               (NONE, SOME exp) => syntax_result_expecteds exp
@@ -512,21 +604,18 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     and print_term_expected expected is_pseudo_fun
         (wrappers as (need_box, box_prcs, _)) some_thm vars fxy t =
           (case expected of
-            SOME exp =>
-              (case (function_boundary exp, term_type vars t) of
-                (SOME boundary, SOME source_ty) =>
-                  let val (source_args, _) = fun_typs source_ty
-                  in
-                    if length source_args > #1 boundary
-                    then
-                      let
-                        val adapted =
-                          print_function_adapter boundary is_pseudo_fun some_thm vars t
-                      in if need_box then box_prcs adapted else adapted end
-                    else print_term_raw expected is_pseudo_fun wrappers some_thm vars fxy t
-                  end
-              | _ => print_term_raw expected is_pseudo_fun wrappers some_thm vars fxy t)
-          | NONE => print_term_raw expected is_pseudo_fun wrappers some_thm vars fxy t)
+            SOME {rust_shape = target_shape as Rust_Fn _, ...} =>
+              (case term_type vars t of
+                SOME source_ty =>
+                  if default_rust_shape source_ty <> target_shape
+                  then
+                    let
+                      val adapted = print_function_adapter target_shape
+                        is_pseudo_fun some_thm vars t
+                    in if need_box then box_prcs adapted else adapted end
+                  else print_term_raw expected is_pseudo_fun wrappers some_thm vars fxy t
+              | NONE => print_term_raw expected is_pseudo_fun wrappers some_thm vars fxy t)
+          | _ => print_term_raw expected is_pseudo_fun wrappers some_thm vars fxy t)
     and print_term_raw expected is_pseudo_fun (need_box, box_prcs, clone_prcs)
         some_thm vars fxy (IConst const) =
           let
@@ -783,7 +872,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           let 
             val method_arity = trait_method_arity sym
             val is_trait_method_call = is_some method_arity
-            val expected_args = argument_expecteds NONE sym dom range
+            val expected_args = argument_expecteds expected sym dom range
             val wanted_app =
               if is_trait_method_call
               then
@@ -846,8 +935,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 `comp`, a result variable instantiated by `A => A` changes the
                 residual shape from `[Nat, A]` to `[Nat][A]`, so the two arguments
                 must be emitted as successive Rc<dyn Fn> calls. **)
-            val returned_boundary =
-              if is_trait_method_call then NONE
+            val returned_groups =
+              if is_trait_method_call then []
               else
                 (case lookup_constant_fun sym of
                   SOME (((_, decl_ty), _), _) =>
@@ -857,8 +946,10 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                         | drop_fun _ ty = ty;
                       val decl_tail = drop_fun wanted_fn decl_ty;
                       val inst_tail = mk_fun_ty (drop wanted_fn dom, range);
-                    in function_boundary (decl_tail, inst_tail) end
-                | NONE => NONE)
+                      val subst = add_default_shape_subst decl_tail inst_tail [];
+                    in rust_shape_groups
+                      (instantiate_rust_shape subst decl_tail inst_tail) end
+                | NONE => [])
             val prefix_target_ty =
               let
                 val instantiated_ty = mk_fun_ty (dom, range);
@@ -1037,17 +1128,21 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 then [Pretty.block call1]
                 else
                   let
-                    val split_at =
-                      (case returned_boundary of
-                        SOME (n, _, _) => Int.min (n, length ts2)
-                      | NONE => length ts2);
-                    val (ts21, ts22) = chop split_at ts2;
-                    val (expected21, expected22) = chop split_at expected2;
-                    val first = call_rc (Pretty.block call1)
-                      (print_args expected21 ts21);
-                    val result =
-                      if null ts22 then first
-                      else call_rc first (print_args expected22 ts22);
+                    fun call_groups callee [] args expecteds =
+                          call_rc callee (print_args expecteds args)
+                      | call_groups callee (n :: ns) args expecteds =
+                          let
+                            val split_at = Int.min (n, length args);
+                            val (args1, args2) = chop split_at args;
+                            val (expected1, expected2) = chop split_at expecteds;
+                            val next = call_rc callee
+                              (print_args expected1 args1);
+                          in
+                            if null args2 then next
+                            else call_groups next ns args2 expected2
+                          end;
+                    val result = call_groups (Pretty.block call1)
+                      returned_groups ts2 expected2;
                   in [result] end
               end
             else
@@ -1463,16 +1558,19 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                 (map print_select clauses
                   @ [rust_arm (str "_") (str "panic!(\"non-exhaustive match\")")])
           end
-    (** Adapt the backend's ordinary uncurried representation of a function value
-        to a polymorphic application slot whose declared result variable became a
-        function.  For source shape [A, B] and expected shape [A][B], construct
-        `%a. %b. source a b`; print the outer abstraction without type-level tail
-        eta-expansion, while the inner abstraction uses the normal function-value
-        printer.  Existing capture/clone handling is therefore reused for both
-        closure layers instead of manufacturing Rust ownership code here. **)
-    and print_function_adapter (outer_arity, inst_args, inst_ret)
+    (** Adapt the backend's default flat function value to a contextual parameter
+        grouping.  One invocation builds the outer group and an ordinary flat
+        lambda for all remaining arguments.  That inner lambda is printed with
+        the target result shape, so print_term_expected recursively inserts the
+        next adapter when the target contains further groups.  Reusing the normal
+        lambda printer at every level preserves its capture cloning, return-type
+        annotation and Rc unsizing rules. **)
+    and print_function_adapter (target_shape as Rust_Fn (outer_shapes, inner_shape))
         is_pseudo_fun some_thm vars t =
       let
+        val target_ty = shape_type target_shape;
+        val (inst_args, inst_ret) = fun_typs target_ty;
+        val outer_arity = length outer_shapes;
         val names =
           Name.invent (rv_names vars |> snd) "boundary_arg" (length inst_args)
           |> map SOME;
@@ -1480,17 +1578,22 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         val (outer_names, inner_names) = chop outer_arity names;
         val (outer_tys, inner_tys) = chop outer_arity inst_args;
         val full_app = Library.foldl (op `$) (t, args);
-        val inner_ty = mk_fun_ty (inner_tys, inst_ret);
+        val inner_ty = shape_type inner_shape;
         val inner_lambda =
           (ListPair.zip (inner_names, inner_tys)) `|==> (full_app, inst_ret);
         val outer_lambda =
           (ListPair.zip (outer_names, outer_tys)) `|==> (inner_lambda, inner_ty);
+        val inner_expected =
+          SOME {hol_type = inner_ty, rust_shape = inner_shape};
         val closure =
-          print_lambda_gen_limit false (SOME outer_arity)
+          print_lambda_gen_limit_expected inner_expected false (SOME outer_arity)
             is_pseudo_fun some_thm vars outer_lambda;
-        val expected_ty =
-          rc_dyn_fn (map (print_typ NOBR) outer_tys) (print_typ NOBR inner_ty);
-      in rust_open [str "((", closure, str ") as ", expected_ty, str ")"] end
+      in
+        rust_open [str "((", closure, str ") as ",
+          print_rust_shape target_shape, str ")"]
+      end
+      | print_function_adapter _ _ _ _ _ =
+          error "Rust function adapter requires a function target shape"
     (** Print a `move` closure with explicit capture-by-clone.
         For each outer variable v that occurs free in the body 
         we emit `let v_cap = v.clone();` before the closure
@@ -1498,8 +1601,9 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
         Closure parameter names (collected via add_varnames on each bind
         pattern) are excluded from the capture set. **)
     and print_lambda_parts_gen eta_tail is_pseudo_fun some_thm vars t =
-      print_lambda_parts_limit eta_tail NONE is_pseudo_fun some_thm vars t
-    and print_lambda_parts_limit eta_tail bind_limit is_pseudo_fun some_thm vars t =
+      print_lambda_parts_limit NONE eta_tail NONE is_pseudo_fun some_thm vars t
+    and print_lambda_parts_limit body_expected eta_tail bind_limit
+        is_pseudo_fun some_thm vars t =
       let
         val (binds0, body0) =
           (case bind_limit of
@@ -1583,7 +1687,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             (map (fn (p1, p2) => Pretty.block [p1, str ": ", p2])
               (ListPair.zip (ps, typs)))
         val closure_body =
-          print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars' NOBR t'
+          print_term_expected body_expected is_pseudo_fun (false, box_new, clone)
+            some_thm vars' NOBR t'
         (* A complete HOL function value is immediately erased to a
            `Rc<dyn Fn(..) -> T>` trait object.  State the same `T` on the Rust
            closure itself: a partial source match may lower to a body containing
@@ -1613,9 +1718,14 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     and print_lambda_gen eta_tail is_pseudo_fun some_thm vars t =
       print_lambda_gen_limit eta_tail NONE is_pseudo_fun some_thm vars t
     and print_lambda_gen_limit eta_tail bind_limit is_pseudo_fun some_thm vars t =
+      print_lambda_gen_limit_expected NONE eta_tail bind_limit
+        is_pseudo_fun some_thm vars t
+    and print_lambda_gen_limit_expected body_expected eta_tail bind_limit
+        is_pseudo_fun some_thm vars t =
       let
         val (cap_lets, closure_pretty) =
-          print_lambda_parts_limit eta_tail bind_limit is_pseudo_fun some_thm vars t
+          print_lambda_parts_limit body_expected eta_tail bind_limit
+            is_pseudo_fun some_thm vars t
         val closure_expr =
           if null cap_lets
           then closure_pretty
