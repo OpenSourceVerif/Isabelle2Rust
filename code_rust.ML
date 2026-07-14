@@ -100,9 +100,12 @@ fun rust_block header body =
 fun rust_bare_block body =
   rust_open_chunks [str "{", rust_indent body, str "}"];
 
-fun rust_closure params body =
+fun rust_closure params return_type body =
   rust_open_chunks [
-    Pretty.block (str "Rc::new(move |" :: params @ [str "| {"]),
+    Pretty.block
+      (str "Rc::new(move |" :: params @ [str "|"] @ (case return_type of
+          NONE => []
+        | SOME typ => [str " -> ", typ]) @ [str " {"]),
     rust_indent [body],
     str "})"
   ];
@@ -1558,11 +1561,23 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               (ListPair.zip (ps, typs)))
         val closure_body =
           print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars' NOBR t'
+        (* A complete HOL function value is immediately erased to a
+           `Rc<dyn Fn(..) -> T>` trait object.  State the same `T` on the Rust
+           closure itself: a partial source match may lower to a body containing
+           only `panic!`, whose inferred Output would otherwise remain the never
+           type `!` and fail the trait-object coercion.  Immediate-callee closures
+           (`eta_tail = false`) deliberately keep inference local to their call. *)
+        val closure_return_type =
+          if not eta_tail then NONE
+          else
+            Option.map (fn ty => print_typ NOBR (#2 (fun_typs ty)))
+              (term_type vars t)
         (* Wrap in Rc::new so the closure value has the cloneable trait-object
            type Rc<dyn Fn(..)>. The unsizing coercion Rc<{anon}> -> Rc<dyn Fn>
            happens at the enclosing coercion site (function return, constructor
-           argument, typed let), so no `as`/annotation is emitted here. *)
-        val closure_pretty = rust_closure params closure_body
+           argument, typed let); the return annotation above fixes only the
+           closure's Output and does not replace that enclosing coercion. *)
+        val closure_pretty = rust_closure params closure_return_type closure_body
       in
         (
           map2
