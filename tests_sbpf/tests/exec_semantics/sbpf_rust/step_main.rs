@@ -11,6 +11,9 @@
 pub mod Step_test;
 
 use crate::Step_test::{step_test, List};
+#[cfg(sbpf_no_bigint)]
+use crate::Step_test::{Int, Num};
+#[cfg(not(sbpf_no_bigint))]
 use num_bigint::BigInt;
 use serde::Deserialize;
 use std::env;
@@ -40,18 +43,80 @@ fn hex_i64(s: &str) -> i64 {
     u64::from_str_radix(t, 16).unwrap_or_else(|e| panic!("bad hex {}: {}", s, e)) as i64
 }
 
-// int maps to num_bigint::BigInt under Rust_BigInt_Int_Setup, which
-// Rust_BigInt_Nat_Setup imports.
+#[cfg(not(sbpf_no_bigint))]
+type ExportInt = BigInt;
+#[cfg(sbpf_no_bigint)]
+type ExportInt = Int;
+
+// int maps to num_bigint::BigInt under Rust_BigInt_Int_Setup.
+#[cfg(not(sbpf_no_bigint))]
 fn int_of_i64(n: i64) -> BigInt {
     BigInt::from(n)
 }
 
-fn list_of_hex(xs: &[String]) -> List<BigInt> {
+// The no-adaptation experiment exports Isabelle's binary Num representation.
+#[cfg(sbpf_no_bigint)]
+fn num_of_u64(n: u64) -> Num {
+    assert!(n > 0);
+    if n == 1 {
+        Num::One
+    } else if n & 1 == 0 {
+        Num::Bit0(Box::new(num_of_u64(n >> 1)))
+    } else {
+        Num::Bit1(Box::new(num_of_u64(n >> 1)))
+    }
+}
+
+#[cfg(sbpf_no_bigint)]
+fn int_of_i64(n: i64) -> Int {
+    if n == 0 {
+        Int::ZeroInta
+    } else if n > 0 {
+        Int::Pos(num_of_u64(n as u64))
+    } else {
+        Int::Neg(num_of_u64(n.unsigned_abs()))
+    }
+}
+
+fn list_of_hex(xs: &[String]) -> List<ExportInt> {
     let mut acc = List::Nil;
     for x in xs.iter().rev() {
         acc = List::Cons(int_of_i64(hex_i64(x)), Box::new(acc));
     }
     acc
+}
+
+#[cfg(not(sbpf_stage2))]
+fn run_exported(c: &Case) -> bool {
+    step_test(
+        list_of_hex(&c.lp_std),
+        list_of_hex(&c.lr_std),
+        list_of_hex(&c.lm_std),
+        list_of_hex(&c.lc_std),
+        int_of_i64(hex_i64(&c.v)),
+        int_of_i64(hex_i64(&c.fuel)),
+        int_of_i64(hex_i64(&c.ipc)),
+        int_of_i64(hex_i64(&c.index)),
+        int_of_i64(hex_i64(&c.result_expected)),
+    )
+}
+
+#[cfg(sbpf_stage2)]
+fn run_exported(c: &Case) -> bool {
+    let lp = list_of_hex(&c.lp_std);
+    let lc = list_of_hex(&c.lc_std);
+    let fuel = int_of_i64(hex_i64(&c.fuel));
+    step_test(
+        &lp,
+        list_of_hex(&c.lr_std),
+        list_of_hex(&c.lm_std),
+        &lc,
+        int_of_i64(hex_i64(&c.v)),
+        &fuel,
+        int_of_i64(hex_i64(&c.ipc)),
+        int_of_i64(hex_i64(&c.index)),
+        int_of_i64(hex_i64(&c.result_expected)),
+    )
 }
 
 fn main() {
@@ -74,19 +139,7 @@ fn main() {
     let mut failed = 0usize;
     let mut panicked = 0usize;
     for (i, c) in cases.iter().enumerate() {
-        let outcome = panic::catch_unwind(AssertUnwindSafe(|| {
-            step_test(
-                list_of_hex(&c.lp_std),
-                list_of_hex(&c.lr_std),
-                list_of_hex(&c.lm_std),
-                list_of_hex(&c.lc_std),
-                int_of_i64(hex_i64(&c.v)),
-                int_of_i64(hex_i64(&c.fuel)),
-                int_of_i64(hex_i64(&c.ipc)),
-                int_of_i64(hex_i64(&c.index)),
-                int_of_i64(hex_i64(&c.result_expected)),
-            )
-        }));
+        let outcome = panic::catch_unwind(AssertUnwindSafe(|| run_exported(c)));
         let (result, note) = match outcome {
             Ok(true) => (true, ""),
             Ok(false) => (false, ""),

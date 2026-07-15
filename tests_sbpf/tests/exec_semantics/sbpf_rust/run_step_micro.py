@@ -22,7 +22,7 @@ STEP_JSON = Path(os.environ.get("SBPF_STEP_JSON", DATA_DIR / "ocaml_in.json"))
 RUST_DIR = EXEC_DIR / "sbpf_rust"
 
 RUST_TOOLCHAIN = os.environ.get("RUST_TOOLCHAIN", "nightly-2025-12-01")
-GLUE_VERSION = "step-micro-rust-v1"
+GLUE_VERSION = "step-micro-rust-v3"
 
 
 def rel(path: Path) -> str:
@@ -118,6 +118,8 @@ def cache_key(export_rs: Path, glue_rs: Path) -> dict[str, str]:
     return {
         "rust_toolchain": RUST_TOOLCHAIN,
         "glue_version": GLUE_VERSION,
+        "sbpf_stage": os.environ.get("SBPF_STAGE", "1"),
+        "sbpf_no_bigint": os.environ.get("SBPF_NO_BIGINT", "0"),
         "export_rs_sha256": file_sha256(export_rs),
         "glue_rs_sha256": file_sha256(glue_rs),
     }
@@ -163,6 +165,10 @@ def main() -> int:
     env["CROSS_JSON"] = str(STEP_JSON)
     env["RUSTC_BOOTSTRAP"] = "1"
     env["RUSTFLAGS"] = "-Awarnings"
+    if os.environ.get("SBPF_STAGE") == "2":
+        env["RUSTFLAGS"] += " --cfg sbpf_stage2"
+    if os.environ.get("SBPF_NO_BIGINT") == "1":
+        env["RUSTFLAGS"] += " --cfg sbpf_no_bigint"
 
     if cache_is_valid(pkg_dir, key):
         announce("cache", "reusing compiled Rust micro binary (no source changes)")

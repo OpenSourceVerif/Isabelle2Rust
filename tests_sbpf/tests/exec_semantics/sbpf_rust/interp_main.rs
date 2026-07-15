@@ -14,6 +14,9 @@
 pub mod Interp_test;
 
 use crate::Interp_test::{bpf_interp_test, List};
+#[cfg(sbpf_no_bigint)]
+use crate::Interp_test::{Int, Num};
+#[cfg(not(sbpf_no_bigint))]
 use num_bigint::BigInt;
 use std::env;
 use std::fs;
@@ -224,19 +227,74 @@ fn read_cases(path: &str) -> Vec<Case> {
     JsonParser::new(&src).parse_cases()
 }
 
-// int64 -> exported BigInt (int maps to num_bigint::BigInt under
-// Rust_BigInt_Int_Setup, which Rust_BigInt_Nat_Setup imports), mirroring the
-// OCaml-side integer conversion glue.
+#[cfg(not(sbpf_no_bigint))]
+type ExportInt = BigInt;
+#[cfg(sbpf_no_bigint)]
+type ExportInt = Int;
+
+// int64 -> exported BigInt when the BigInt setup is active.
+#[cfg(not(sbpf_no_bigint))]
 fn int_of_i64(n: i64) -> BigInt {
     BigInt::from(n)
 }
 
-fn list_of_i64s(xs: &[i64]) -> List<BigInt> {
+// The no-adaptation experiment exports Isabelle's binary Num representation.
+#[cfg(sbpf_no_bigint)]
+fn num_of_u64(n: u64) -> Num {
+    assert!(n > 0);
+    if n == 1 {
+        Num::One
+    } else if n & 1 == 0 {
+        Num::Bit0(Box::new(num_of_u64(n >> 1)))
+    } else {
+        Num::Bit1(Box::new(num_of_u64(n >> 1)))
+    }
+}
+
+#[cfg(sbpf_no_bigint)]
+fn int_of_i64(n: i64) -> Int {
+    if n == 0 {
+        Int::ZeroInta
+    } else if n > 0 {
+        Int::Pos(num_of_u64(n as u64))
+    } else {
+        Int::Neg(num_of_u64(n.unsigned_abs()))
+    }
+}
+
+fn list_of_i64s(xs: &[i64]) -> List<ExportInt> {
     let mut acc = List::Nil;
     for &x in xs.iter().rev() {
         acc = List::Cons(int_of_i64(x), Box::new(acc));
     }
     acc
+}
+
+#[cfg(not(sbpf_stage2))]
+fn run_exported(c: &Case) -> bool {
+    bpf_interp_test(
+        list_of_i64s(&c.lp_std),
+        list_of_i64s(&c.lm_std),
+        list_of_i64s(&c.lc_std),
+        int_of_i64(c.v),
+        int_of_i64(c.fuel),
+        int_of_i64(c.result_expected),
+        c.isok,
+    )
+}
+
+#[cfg(sbpf_stage2)]
+fn run_exported(c: &Case) -> bool {
+    let lc = list_of_i64s(&c.lc_std);
+    bpf_interp_test(
+        list_of_i64s(&c.lp_std),
+        list_of_i64s(&c.lm_std),
+        &lc,
+        int_of_i64(c.v),
+        int_of_i64(c.fuel),
+        int_of_i64(c.result_expected),
+        c.isok,
+    )
 }
 
 fn main() {
@@ -264,17 +322,7 @@ fn main() {
                 continue;
             }
         }
-        let outcome = panic::catch_unwind(AssertUnwindSafe(|| {
-            bpf_interp_test(
-                list_of_i64s(&c.lp_std),
-                list_of_i64s(&c.lm_std),
-                list_of_i64s(&c.lc_std),
-                int_of_i64(c.v),
-                int_of_i64(c.fuel),
-                int_of_i64(c.result_expected),
-                c.isok,
-            )
-        }));
+        let outcome = panic::catch_unwind(AssertUnwindSafe(|| run_exported(c)));
         let (result, note) = match outcome {
             Ok(true) => (true, ""),
             Ok(false) => (false, ""),
