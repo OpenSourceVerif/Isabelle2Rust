@@ -15,10 +15,16 @@ text \<open>
   Binary-nat Rust stress-test entry point.  \<^theory>\<open>HOL-Library.Code_Binary_Nat\<close>
   changes the HOL \<^typ>\<open>nat\<close> code representation to zero-or-binary-numeral
   constructors instead of the target-integer mapping used by
-  \<^theory>\<open>Rust.Rust_BigInt_Nat_Setup\<close>.  We still import
+  \<^text>\<open>Rust_BigInt_Nat_Setup\<close>.  The latter theory is deliberately not an
+  ancestor here because its target-integer representation conflicts with the
+  binary-numeral representation under test.  We still import
   \<^theory>\<open>Rust.Rust_BigInt_Int_Setup\<close> because the binary-nat code equations
   and the wider HOL candidate graph use \<^typ>\<open>integer\<close> and \<^typ>\<open>int\<close>, which
   the Rust backend maps to BigInt.
+
+  Checking mode passes this binary-nat variant of the complete generated crate
+  to the registered Rust checker, so the theory succeeds only when the wildcard
+  graph both serialises as Rust and compiles with Cargo.
 \<close>
 
 export_code _ checking Rust
