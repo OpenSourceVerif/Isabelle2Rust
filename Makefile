@@ -1,4 +1,4 @@
-.PHONY: open open_test build build_silent code gen opt test targeted hol hol-gcd hol-stress macro_sbpf micro_sbpf micro_sbpf_gen sbpf x64 x64_gen x64_test clean help
+.PHONY: open open_test build build_silent code gen opt test targeted hol-gcd hol-stress macro_sbpf micro_sbpf micro_sbpf_gen x64 x64_gen x64_test clean help
 
 #### Configuration ####
 
@@ -35,7 +35,7 @@ open:
 open_test:
 	@if [ -z "$(TEST_DIR)" ] || [ -z "$(TEST_THEORY)" ]; then \
 	  echo "Usage: make open_test TEST_DIR=<dir> TEST_THEORY=<thy>"; \
-	  echo "Example: make open_test TEST_DIR=tests_targeted/types TEST_THEORY=Type_Tuple_Test"; \
+	  echo "Example: make open_test TEST_DIR=test/unit/types TEST_THEORY=Tuple_Test"; \
 	  exit 1; \
 	fi
 	@$(WRITE_TEST_ROOT)
@@ -45,7 +45,7 @@ open_test:
 build:
 	@if [ -z "$(TEST_DIR)" ] || [ -z "$(TEST_THEORY)" ]; then \
 	  echo "Usage: make build TEST_DIR=<dir> TEST_THEORY=<thy>"; \
-	  echo "Example: make build TEST_DIR=tests_targeted TEST_THEORY=List_Test"; \
+	  echo "Example: make build TEST_DIR=test/unit/mapping TEST_THEORY=Lists_Test"; \
 	  exit 1; \
 	fi
 	@{ \
@@ -56,7 +56,7 @@ build:
 	  $(ISABELLE_TEST_VERBOSE); \
 	} 9>$(ISABELLE_BUILD_LOCK)
 
-# build one theory (quiet, for targeted)
+# build one theory (quiet, for gen/test)
 build_silent:
 	@if [ -z "$(TEST_DIR)" ] || [ -z "$(TEST_THEORY)" ]; then \
 	  echo "Usage: make build_silent TEST_DIR=<dir> TEST_THEORY=<thy>"; \
@@ -147,12 +147,17 @@ gen:
 opt:
 	@_run_opt() { \
 	  local dir="$$1" name="$$2"; \
-	  local s1="$$dir/stage1/$$name/export1"; \
+	  local s1_root="$$dir/stage1/$$name"; \
+	  local s1; \
 	  local s2="$$dir/stage2/$$name"; \
 	  local items=0; \
 	  if [ -f "$$dir/$$name.thy" ]; then items=$$(perl "$(EXPORT_ITEM_COUNTER)" "$$dir/$$name.thy"); fi; \
-	  if [ ! -d "$$s1" ]; then \
-	    echo "ERROR: stage1 not found at $$s1 — run make gen first"; return 1; \
+	  if [ ! -d "$$s1_root" ]; then \
+	    echo "ERROR: stage1 not found at $$s1_root — run make gen first"; return 1; \
+	  fi; \
+	  s1=$$(find "$$s1_root" -mindepth 2 -maxdepth 2 -type f -name Cargo.toml -printf '%h\n' | sort -V | tail -n 1); \
+	  if [ -z "$$s1" ]; then \
+	    echo "ERROR: no Rust export found under $$s1_root"; return 1; \
 	  fi; \
 	  echo ">>> [opt] $$name ($$items exported definitions)  stage1 -> stage2"; \
 	  rm -rf "$$s2"; \
@@ -217,8 +222,16 @@ opt:
 test:
 	@_run_opt() { \
 	  local dir="$$1" name="$$2"; \
-	  local s1="$$dir/stage1/$$name/export1"; \
+	  local s1_root="$$dir/stage1/$$name"; \
+	  local s1; \
 	  local s2="$$dir/stage2/$$name"; \
+	  if [ ! -d "$$s1_root" ]; then \
+	    echo "ERROR: stage1 not found at $$s1_root"; return 1; \
+	  fi; \
+	  s1=$$(find "$$s1_root" -mindepth 2 -maxdepth 2 -type f -name Cargo.toml -printf '%h\n' | sort -V | tail -n 1); \
+	  if [ -z "$$s1" ]; then \
+	    echo "ERROR: no Rust export found under $$s1_root"; return 1; \
+	  fi; \
 	  rm -rf "$$s2"; \
 	  $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
 	    "$$s1" --out-dir "$$s2" || return 1; \
@@ -393,8 +406,6 @@ micro_sbpf:
 micro_sbpf_gen:
 	@PYTHONDONTWRITEBYTECODE=1 X="$(X)" python3 $(SBPF_EXEC)/run_micro_sbpf.py gen
 
-sbpf: macro_sbpf
-
 # x64 validation:
 #   x64_gen builds the random instruction/state data under tests_x64/x64-validation/0-data.
 #   x64_test compares the real x64 CPU stepper against the Isabelle-exported OCaml semantics.
@@ -430,6 +441,8 @@ clean:
 	find . -name "*\.cmi"  -exec rm {} \;
 	find . -name "*\.cmo"  -exec rm {} \;
 	find . -name "__pycache__" -type d -prune -exec rm -rf {} +
+	find test -path "*/stage1" -type d -prune -exec rm -rf {} +
+	find test -path "*/stage2" -type d -prune -exec rm -rf {} +
 	find tests_targeted -path "*/stage1" -type d -prune -exec rm -rf {} +
 	find tests_targeted -path "*/stage2" -type d -prune -exec rm -rf {} +
 	find tests_HOL -path "*/stage1" -type d -prune -exec rm -rf {} + 2>/dev/null || true
@@ -454,21 +467,21 @@ help:
 	@echo "      Generate test-root/ROOT and open the test theory in Isabelle/jEdit."
 	@echo "  build TEST_DIR=<dir> TEST_THEORY=<thy-name>"
 	@echo "      Generate test-root/ROOT and run isabelle build (verbose)."
-	@echo "      Example: make build TEST_DIR=tests_targeted TEST_THEORY=List_Test"
+	@echo "      Example: make build TEST_DIR=test/unit/mapping TEST_THEORY=Lists_Test"
 	@echo "  code"
 	@echo "      Build the project session from ROOT."
 	@echo "  gen DIR=<dir> [Name=<theory>]"
-	@echo "      Isabelle build -> stage1 + cargo run on stage1."
-	@echo "      Example: make gen DIR=tests_targeted/optimization/copy Name=Copy_Bool_Fields_Test"
-	@echo "      Example: make gen DIR=tests_targeted/optimization/copy"
+	@echo "      Isabelle build -> stage1 + cargo build on stage1."
+	@echo "      Example: make gen DIR=test/unit/optimization Name=Copy_Test"
+	@echo "      Example: make gen DIR=test/unit/optimization"
 	@echo "  opt DIR=<dir> [Name=<theory>]"
-	@echo "      Optimize stage1 -> stage2 + cargo run on stage2 (no Isabelle build)."
-	@echo "      Example: make opt DIR=tests_targeted/optimization/copy Name=Copy_Bool_Fields_Test"
-	@echo "      Example: make opt DIR=tests_targeted/optimization/copy"
+	@echo "      Optimize stage1 -> stage2 + cargo build on stage2 (no Isabelle build)."
+	@echo "      Example: make opt DIR=test/unit/optimization Name=Copy_Test"
+	@echo "      Example: make opt DIR=test/unit/optimization"
 	@echo "  test DIR=<dir> [Name=<theory>]"
-	@echo "      Full pipeline: stage1 (no cargo run) -> 'stage1 done' -> stage2 + cargo run."
-	@echo "      Example: make test DIR=tests_targeted/optimization/copy Name=Copy_Bool_Fields_Test"
-	@echo "      Example: make test DIR=tests_targeted/optimization/copy"
+	@echo "      Full pipeline: Isabelle -> stage1 -> stage2 + cargo build."
+	@echo "      Example: make test DIR=test/unit/optimization Name=Copy_Test"
+	@echo "      Example: make test DIR=test/unit/optimization"
 	@echo "  targeted"
 	@echo "      Build + cargo run stage1 for all *_Test.thy under tests_targeted."
 	@echo "      Example: make targeted"
@@ -476,8 +489,6 @@ help:
 	@echo "      Build and run the HOL gcd smoke test. Default: HOL_GCD_THEORY=$(HOL_GCD_THEORY)."
 	@echo "  hol-stress"
 	@echo "      Run the Rust HOL-Codegenerator pressure test session."
-	@echo "  hol"
-	@echo "      Alias for hol-gcd."
 	@echo "  macro_sbpf [REBUILD=1]"
 	@echo "      Run program-level sBPF validation over the Solana official macro cases"
 	@echo "      from Isabelle-generated OCaml and Rust exports. REBUILD=1 regenerates"
@@ -491,8 +502,6 @@ help:
 	@echo "  micro_sbpf_gen [X=100]"
 	@echo "      Generate random instruction-level step test data without running tests."
 	@echo "      Example: make micro_sbpf_gen X=100"
-	@echo "  sbpf"
-	@echo "      Alias for macro_sbpf."
 	@echo "  x64_gen [X64_COUNT=10000]"
 	@echo "      Generate x64 validation data under tests_x64/x64-validation/0-data"
 	@echo "      without running the Isabelle export or the final comparison."
@@ -501,4 +510,4 @@ help:
 	@echo "  x64"
 	@echo "      Run x64_gen followed by x64_test."
 	@echo "  clean"
-	@echo "      Remove temp files and generated output (stage1, stage2 under tests_targeted/$(HOL_DIR))."
+	@echo "      Remove temp files and generated output under test and legacy suites."
