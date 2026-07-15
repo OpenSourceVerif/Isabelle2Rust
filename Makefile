@@ -358,9 +358,12 @@ hol-gcd:
 
 # Both stress theories use `export_code _ checking Rust`, whose registered
 # checker compiles each generated crate with Cargo inside this Isabelle build.
+# A clean build of the selected stress session is required because an up-to-date
+# session would otherwise bypass both export commands and report success without
+# running either checker.
 hol-stress:
 	@echo ">>> Building HOL stress export ($(HOL_STRESS_SESSION))..."
-	isabelle build -v -e -d . $(HOL_STRESS_SESSION)
+	isabelle build -c -v -e -d . $(HOL_STRESS_SESSION)
 
 
 # sbpf macro validation:
