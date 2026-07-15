@@ -16,13 +16,11 @@ text \<open>
   \<^theory>\<open>Rust.Rust_BigInt_Nat_Setup\<close> maps HOL \<^typ>\<open>integer\<close>, \<^typ>\<open>int\<close>
   and \<^typ>\<open>nat\<close> to Rust BigInt operations.
 
-  DEBUG SCAFFOLD (Phase A): while stabilising the broad export we use
-  \<^text>\<open>in Rust\<close> so the generated crate is persisted via the
-  session's \<^text>\<open>export_files\<close> and can be inspected / \<^text>\<open>cargo build\<close>ed
-  outside Isabelle.  Once the crate compiles cleanly this reverts to
-  \<^theory_text>\<open>export_code _ checking Rust\<close> to match the other language backends.
+  Checking mode passes the complete generated crate to the registered Rust
+  checker.  The stress theory therefore succeeds only when the wildcard graph
+  both serialises as Rust and compiles with Cargo.
 \<close>
 
-export_code _ in Rust
+export_code _ checking Rust
 
 end

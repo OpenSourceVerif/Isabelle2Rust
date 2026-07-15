@@ -356,24 +356,11 @@ hol-gcd:
 	fi; \
 	RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) run --locked --manifest-path "$$CARGO_TOML"
 
-# Phase A debug scaffold: export the broad HOL crate to disk, then cargo build it
-# with failures tolerated (build correctness NOT required while iterating).  In
-# Phase C this reverts to a plain `isabelle build ... checking Rust`.
+# Both stress theories use `export_code _ checking Rust`, whose registered
+# checker compiles each generated crate with Cargo inside this Isabelle build.
 hol-stress:
 	@echo ">>> Building HOL stress export ($(HOL_STRESS_SESSION))..."
 	isabelle build -v -e -d . $(HOL_STRESS_SESSION)
-
-	@STRESS_DIR="$(HOL_DIR)/stage1/Generate/export1"; \
-	CARGO_TOML="$$STRESS_DIR/Cargo.toml"; \
-	if [ ! -f "$$CARGO_TOML" ]; then \
-	  echo "ERROR: $$CARGO_TOML not found. Serialization likely aborted (see build log)."; \
-	  exit 1; \
-	fi; \
-	if [ ! -f "$$STRESS_DIR/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
-	  cp "$(ISABELLE_EXPORTED_LOCK)" "$$STRESS_DIR/Cargo.lock"; \
-	fi; \
-	echo ">>> Running cargo build (failures tolerated)..."; \
-	RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --manifest-path "$$CARGO_TOML" || true
 
 
 # sbpf macro validation:
