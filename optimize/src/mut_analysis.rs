@@ -199,7 +199,9 @@ fn transform_expr(expr: &mut Expr) -> bool {
         | Expr::Await(inner) => {
             changed |= transform_expr(inner);
         }
-        Expr::Closure(_, body, _) => changed |= transform_expr(body),
+        Expr::Closure(_, body, _) | Expr::TypedClosure(_, _, body, _) => {
+            changed |= transform_expr(body)
+        }
         Expr::Ident(_)
         | Expr::Macro(_)
         | Expr::Path(_, _)
@@ -679,6 +681,17 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
             collect_live_closure_body(params, body, live);
         }
         Expr::Closure(params, body, false) => collect_live_closure_body(params, body, live),
+        Expr::TypedClosure(params, _, body, true) => {
+            let closure_owned = params
+                .iter()
+                .filter(|param| closure_param_is_owned(param))
+                .map(|param| closure_param_name(param))
+                .collect();
+            let mut closure_live = HashSet::new();
+            rewrite_lastuse_expr(body, &mut closure_live, &closure_owned);
+            collect_live_closure_body(params, body, live);
+        }
+        Expr::TypedClosure(params, _, body, false) => collect_live_closure_body(params, body, live),
         Expr::BuilderChain(methods) => {
             for method in methods {
                 if let BuilderMethod::Spawn { closure, .. } = method {
@@ -765,7 +778,9 @@ fn collect_call_borrow_sources(expr: &Expr, live: &mut HashSet<String>) {
                 collect_call_borrow_sources_block(&arm.body, live);
             }
         }
-        Expr::Closure(_, body, _) => collect_call_borrow_sources(body, live),
+        Expr::Closure(_, body, _) | Expr::TypedClosure(_, _, body, _) => {
+            collect_call_borrow_sources(body, live)
+        }
         Expr::BuilderChain(methods) => {
             for method in methods {
                 if let BuilderMethod::Spawn { closure, .. } = method {
@@ -833,7 +848,9 @@ fn collect_live_expr(expr: &Expr, live: &mut HashSet<String>) {
         | Expr::Cast(inner, _)
         | Expr::Reference(inner, _, _)
         | Expr::Await(inner) => collect_live_expr(inner, live),
-        Expr::Closure(_, body, _) => collect_live_expr(body, live),
+        Expr::Closure(_, body, _) | Expr::TypedClosure(_, _, body, _) => {
+            collect_live_expr(body, live)
+        }
         Expr::Block(block) => collect_live_block(block, live),
         Expr::Loop(block) | Expr::Unsafe(block) => collect_live_block(block, live),
         Expr::If {
@@ -955,7 +972,9 @@ fn count_reads_in_expr(expr: &Expr, name: &str) -> usize {
         | Expr::Cast(inner, _)
         | Expr::Reference(inner, _, _)
         | Expr::Await(inner) => count_reads_in_expr(inner, name),
-        Expr::Closure(_, body, _) => count_reads_in_expr(body, name),
+        Expr::Closure(_, body, _) | Expr::TypedClosure(_, _, body, _) => {
+            count_reads_in_expr(body, name)
+        }
         Expr::Block(block) => count_reads_in_block(block, name),
         Expr::Loop(block) | Expr::Unsafe(block) => count_reads_in_block(block, name),
         Expr::If {
@@ -1064,7 +1083,7 @@ fn count_bindings_in_expr(expr: &Expr, name: &str) -> usize {
                     })
                     .sum::<usize>()
         }
-        Expr::Closure(params, body, _) => {
+        Expr::Closure(params, body, _) | Expr::TypedClosure(params, _, body, _) => {
             usize::from(params.iter().any(|p| closure_param_name(p) == name))
                 + count_bindings_in_expr(body, name)
         }
@@ -1155,7 +1174,7 @@ fn rename_reads_expr(expr: &mut Expr, map: &HashMap<String, String>) {
         | Expr::Cast(inner, _)
         | Expr::Reference(inner, _, _)
         | Expr::Await(inner) => rename_reads_expr(inner, map),
-        Expr::Closure(params, body, _) => {
+        Expr::Closure(params, body, _) | Expr::TypedClosure(params, _, body, _) => {
             // A closure parameter shadows the outer name inside the body.
             let shadowed = params
                 .iter()

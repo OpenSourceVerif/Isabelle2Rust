@@ -362,6 +362,7 @@ fn optimize_expr(
             optimize_block(block, &mut block_env, scope, analysis);
         }
         Expr::Closure(_, body, _)
+        | Expr::TypedClosure(_, _, body, _)
         | Expr::Await(body)
         | Expr::Parenthesized(body)
         | Expr::Cast(body, _) => {
@@ -916,6 +917,7 @@ fn count_nonexhaustive_panics_in_expr(expr: &Expr) -> usize {
         Expr::Block(block) => count_nonexhaustive_panics_in_block(block),
         Expr::Loop(block) | Expr::Unsafe(block) => count_nonexhaustive_panics_in_block(block),
         Expr::Closure(_, body, _)
+        | Expr::TypedClosure(_, _, body, _)
         | Expr::Await(body)
         | Expr::Parenthesized(body)
         | Expr::Cast(body, _)

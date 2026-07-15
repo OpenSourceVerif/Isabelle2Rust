@@ -121,7 +121,8 @@ fn cleanup_expr(expr: &mut Expr, analysis: &mut IfCleanupAnalysis) {
         | Expr::Await(inner)
         | Expr::Parenthesized(inner)
         | Expr::Cast(inner, _)
-        | Expr::Closure(_, inner, _) => cleanup_expr(inner, analysis),
+        | Expr::Closure(_, inner, _)
+        | Expr::TypedClosure(_, _, inner, _) => cleanup_expr(inner, analysis),
         Expr::Index(base, index) | Expr::Assign(base, index) => {
             cleanup_expr(base, analysis);
             cleanup_expr(index, analysis);

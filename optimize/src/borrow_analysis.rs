@@ -1078,7 +1078,7 @@ impl BorrowContext {
             // The owncap pattern (`let y_cap = y.clone()` + `move |…| {…y_cap…}`)
             // does NOT capture `y` directly — only `y_cap` — so derived vars
             // for `y` don't appear free and no blocking demand is generated.
-            Expr::Closure(params, body, is_move) => {
+            Expr::Closure(params, body, is_move) | Expr::TypedClosure(params, _, body, is_move) => {
                 let shadowed: HashSet<String> =
                     params.iter().map(|p| closure_param_name(p)).collect();
                 let outer_derived: HashSet<String> =
@@ -1908,6 +1908,24 @@ impl BorrowContext {
                     *is_move,
                 )
             }
+            Expr::TypedClosure(params, return_type, body, is_move) => {
+                let mut inner_borrow = borrow_env.clone();
+                for param in params {
+                    inner_borrow.remove(&closure_param_name(param));
+                }
+                Expr::TypedClosure(
+                    params.clone(),
+                    return_type.clone(),
+                    Box::new(self.rewrite_expr_own(
+                        body,
+                        &mut inner_borrow,
+                        orig_env,
+                        copy_generics,
+                        scope,
+                    )),
+                    *is_move,
+                )
+            }
 
             // Leaves and unsupported constructs: return unchanged.
             Expr::Macro(_)
@@ -2599,7 +2617,7 @@ fn collect_closure_binding_usage_expr(expr: &Expr, name: &str, usage: &mut Closu
                 collect_closure_binding_usage_block(else_branch, name, usage);
             }
         }
-        Expr::Closure(params, body, _) => {
+        Expr::Closure(params, body, _) | Expr::TypedClosure(params, _, body, _) => {
             if !params.iter().any(|p| closure_param_name(p) == name) {
                 let vars = HashSet::from([name.to_string()]);
                 if expr_has_free_var_from(body, &vars) {
@@ -2681,7 +2699,7 @@ fn expr_has_free_var_from(expr: &Expr, vars: &HashSet<String>) -> bool {
                     .as_ref()
                     .map_or(false, |b| block_has_free_var_from(b, vars))
         }
-        Expr::Closure(params, body, _) => {
+        Expr::Closure(params, body, _) | Expr::TypedClosure(params, _, body, _) => {
             // Closure params shadow outer vars.
             let shadowed: HashSet<String> = params.iter().map(|p| closure_param_name(p)).collect();
             let outer: HashSet<String> = vars.difference(&shadowed).cloned().collect();
@@ -2737,7 +2755,9 @@ fn strip_parens(expr: &Expr) -> &Expr {
 /// any number of wrapping parentheses.  Returns `None` for non-move closures.
 fn extract_move_closure_parts(expr: &Expr) -> Option<(&[String], &Expr)> {
     match strip_parens(expr) {
-        Expr::Closure(params, body, true) => Some((params.as_slice(), body.as_ref())),
+        Expr::Closure(params, body, true) | Expr::TypedClosure(params, _, body, true) => {
+            Some((params.as_slice(), body.as_ref()))
+        }
         _ => None,
     }
 }
@@ -2826,6 +2846,18 @@ fn subst_idents_in_expr(expr: &Expr, subst: &HashMap<String, String>) -> Expr {
             }
             Expr::Closure(
                 params.clone(),
+                Box::new(subst_idents_in_expr(body, &inner_subst)),
+                *is_move,
+            )
+        }
+        Expr::TypedClosure(params, return_type, body, is_move) => {
+            let mut inner_subst = subst.clone();
+            for p in params {
+                inner_subst.remove(&closure_param_name(p));
+            }
+            Expr::TypedClosure(
+                params.clone(),
+                return_type.clone(),
                 Box::new(subst_idents_in_expr(body, &inner_subst)),
                 *is_move,
             )
@@ -3279,7 +3311,9 @@ fn collect_deref_ident_uses_expr(expr: &Expr, out: &mut HashSet<String>) {
                 collect_deref_ident_uses_block(else_branch, out);
             }
         }
-        Expr::Closure(_, body, _) => collect_deref_ident_uses_expr(body, out),
+        Expr::Closure(_, body, _) | Expr::TypedClosure(_, _, body, _) => {
+            collect_deref_ident_uses_expr(body, out)
+        }
         Expr::BuilderChain(methods) => {
             for method in methods {
                 if let BuilderMethod::Spawn { closure, .. } = method {

@@ -620,6 +620,7 @@ fn convert_expr(expr: &syn::Expr) -> syn::Result<Expr> {
         syn::Expr::Closure(ExprClosure {
             capture,
             inputs,
+            output,
             body,
             ..
         }) => {
@@ -634,11 +635,13 @@ fn convert_expr(expr: &syn::Expr) -> syn::Result<Expr> {
                     ts.to_string().replace("  ", " ")
                 })
                 .collect();
-            Ok(Expr::Closure(
-                params,
-                Box::new(convert_expr(body)?),
-                is_move,
-            ))
+            let body = Box::new(convert_expr(body)?);
+            match output {
+                ReturnType::Default => Ok(Expr::Closure(params, body, is_move)),
+                ReturnType::Type(_, ty) => {
+                    Ok(Expr::TypedClosure(params, convert_type(ty)?, body, is_move))
+                }
+            }
         }
         other => Err(syn::Error::new_spanned(
             other,
@@ -1209,5 +1212,23 @@ pub fn make_pair(y: Int) -> (Rc<dyn Fn(Int) -> Int>, Int) {
 
         assert!(printed.contains("as Rc<dyn Fn(Int) -> Int>"));
         syn::parse_file(&printed).expect("printed cast remains valid Rust");
+    }
+
+    #[test]
+    fn preserves_explicit_closure_return_types() {
+        let source = r#"
+use std::rc::Rc;
+
+pub fn partial() -> Rc<dyn Fn(Int) -> Pred<Unit>> {
+    Rc::new(move |x: Int| -> Pred<Unit> {
+        panic!("partial")
+    })
+}
+"#;
+        let (_, printed) = parse_and_print_rust_source(source, "Typed_Closure_Test")
+            .expect("typed closure parses");
+
+        assert!(printed.contains("move |x : Int| -> Pred<Unit>"));
+        syn::parse_file(&printed).expect("printed typed closure remains valid Rust");
     }
 }

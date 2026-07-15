@@ -762,7 +762,7 @@ impl CopyContext {
                     self.rewrite_block(&mut arm.body, &mut arm_env, scope, copy_generics);
                 }
             }
-            Expr::Closure(params, body, _) => {
+            Expr::Closure(params, body, _) | Expr::TypedClosure(params, _, body, _) => {
                 let mut closure_env = env.clone();
                 for param in params {
                     let name = closure_param_name(param);
@@ -1125,6 +1125,7 @@ impl CopyContext {
             | Expr::Loop(_)
             | Expr::Await(_)
             | Expr::Closure(_, _, _)
+            | Expr::TypedClosure(_, _, _, _)
             | Expr::BuilderChain(_)
             | Expr::Unsafe(_)
             | Expr::Reference(_, _, _)
@@ -1765,6 +1766,7 @@ fn collect_generated_calls_expr(
             collect_generated_calls_block(block, scope, generated, out);
         }
         Expr::Closure(_, body, _)
+        | Expr::TypedClosure(_, _, body, _)
         | Expr::Await(body)
         | Expr::Parenthesized(body)
         | Expr::Cast(body, _) => {

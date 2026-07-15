@@ -130,7 +130,8 @@ fn optimize_expr(expr: &mut Expr, analysis: &mut ClosureOptAnalysis) {
         | Expr::Await(inner)
         | Expr::Parenthesized(inner)
         | Expr::Cast(inner, _)
-        | Expr::Closure(_, inner, _) => optimize_expr(inner, analysis),
+        | Expr::Closure(_, inner, _)
+        | Expr::TypedClosure(_, _, inner, _) => optimize_expr(inner, analysis),
         Expr::Index(base, index) | Expr::Assign(base, index) => {
             optimize_expr(base, analysis);
             optimize_expr(index, analysis);
@@ -276,7 +277,9 @@ fn direct_move_rc_closure(expr: &Expr) -> Option<(&[String], &Expr)> {
         return None;
     }
     match strip_parens(&args[0]) {
-        Expr::Closure(params, body, true) => Some((params.as_slice(), body.as_ref())),
+        Expr::Closure(params, body, true) | Expr::TypedClosure(params, _, body, true) => {
+            Some((params.as_slice(), body.as_ref()))
+        }
         _ => None,
     }
 }
@@ -290,7 +293,9 @@ fn direct_move_rc_closure_mut(expr: &mut Expr) -> Option<(&[String], &mut Expr)>
         return None;
     }
     match strip_parens_mut(&mut args[0]) {
-        Expr::Closure(params, body, true) => Some((params.as_slice(), body.as_mut())),
+        Expr::Closure(params, body, true) | Expr::TypedClosure(params, _, body, true) => {
+            Some((params.as_slice(), body.as_mut()))
+        }
         _ => None,
     }
 }
@@ -443,6 +448,18 @@ fn subst_idents_in_expr(expr: &Expr, subst: &HashMap<String, Expr>) -> Expr {
                 *is_move,
             )
         }
+        Expr::TypedClosure(params, return_type, body, is_move) => {
+            let mut inner_subst = subst.clone();
+            for param in params {
+                inner_subst.remove(&closure_param_name(param));
+            }
+            Expr::TypedClosure(
+                params.clone(),
+                return_type.clone(),
+                Box::new(subst_idents_in_expr(body, &inner_subst)),
+                *is_move,
+            )
+        }
         Expr::Loop(block) => Expr::Loop(Box::new(subst_idents_in_block(block, subst))),
         Expr::Unsafe(block) => Expr::Unsafe(Box::new(subst_idents_in_block(block, subst))),
         Expr::Await(inner) => Expr::Await(Box::new(subst_idents_in_expr(inner, subst))),
@@ -563,7 +580,7 @@ fn count_reads_in_expr(expr: &Expr, name: &str) -> usize {
                     })
                     .sum::<usize>()
         }
-        Expr::Closure(params, body, _) => {
+        Expr::Closure(params, body, _) | Expr::TypedClosure(params, _, body, _) => {
             if params.iter().any(|param| closure_param_name(param) == name) {
                 0
             } else {
@@ -611,7 +628,7 @@ fn count_reads_in_block(block: &Block, name: &str) -> usize {
 
 fn binds_name_in_expr(expr: &Expr, name: &str) -> bool {
     match expr {
-        Expr::Closure(params, body, _) => {
+        Expr::Closure(params, body, _) | Expr::TypedClosure(params, _, body, _) => {
             params.iter().any(|param| closure_param_name(param) == name)
                 || binds_name_in_expr(body, name)
         }
