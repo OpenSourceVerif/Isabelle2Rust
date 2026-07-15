@@ -1213,7 +1213,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       (case rows of
                         (_, row_vars, _, _, _) :: _ => row_vars
                       | [] => vars);
-                    fun rows_for_constructor sym =
+                    fun exact_rows_for_constructor sym =
                       map_filter (fn (pats as p :: ps, row_vars, used_vars, lets, body) =>
                           (case constructor_pat p of
                             SOME (sym', dom, ts) =>
@@ -1222,16 +1222,52 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                               else NONE
                           | NONE => NONE)
                         | _ => NONE) rows;
+                    fun irrefutable_binding_used (p, _, used_vars, _, _) =
+                      (case p of
+                        IVar (SOME v) => member (op =) used_vars v
+                      | _ => false);
+                    val irrefutable_rows =
+                      map_filter (fn (pats as p :: ps, row_vars, used_vars, lets, body) =>
+                          if is_irrefutable_col_pat p
+                          then SOME (p, row_vars, used_vars, lets, body)
+                          else NONE
+                        | _ => NONE) rows;
+                    val needs_whole_scrutinee =
+                      exists irrefutable_binding_used irrefutable_rows;
+                    val whole_name =
+                      hd (fresh_names base_vars ("whole" ^ Int.toString depth) 1);
+                    val whole_scrutinee = str whole_name;
+                    val irrefutable_scrutinee =
+                      if needs_whole_scrutinee then whole_scrutinee else scrutinee;
                     fun print_constructor_arm sym =
                       let
-                        val spec_rows = rows_for_constructor sym;
-                        val (dom, ts0, _, row_vars0, _, _, _) = hd spec_rows;
+                        val exact_rows = exact_rows_for_constructor sym;
+                        val (dom, ts0, _, row_vars0, _, _, _) = hd exact_rows;
+                        val wildcard_fields = replicate (length dom) (IVar NONE);
+                        (* Pattern-matrix specialization keeps irrefutable rows
+                           in every constructor branch, in their original order.
+                           Restricting the branch to exact-constructor rows makes
+                           later wildcard equations unreachable. *)
+                        val spec_rows =
+                          map_filter (fn (pats as p :: ps, row_vars, used_vars, lets, body) =>
+                              (case constructor_pat p of
+                                SOME (sym', _, ts) =>
+                                  if sym = sym'
+                                  then SOME (ts, ps, row_vars, used_vars, lets, body)
+                                  else NONE
+                              | NONE =>
+                                  if is_irrefutable_col_pat p
+                                  then SOME (wildcard_fields, ps, row_vars, used_vars,
+                                    lets @ binding_let row_vars used_vars
+                                      irrefutable_scrutinee p, body)
+                                  else NONE)
+                            | _ => NONE) rows;
                         val boxes0 = box_table sym;
                         val boxes =
                           if length boxes0 = length dom then boxes0 else map (K false) dom;
                         val temp_names = fresh_names row_vars0 ("p" ^ Int.toString depth) (length dom);
                         fun field_entries i =
-                          map (fn (_, ts, _, row_vars, used_vars, _, _) =>
+                          map (fn (ts, _, row_vars, used_vars, _, _) =>
                             (nth ts i, row_vars, used_vars)) spec_rows;
                         fun used_name (IVar (SOME v), row_vars, used_vars) =
                               if member (op =) used_vars v
@@ -1289,7 +1325,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                             (case col of SOME _ => SOME pat | NONE => NONE))
                             (ListPair.zip (ts, field_decisions));
                         val specialized_rows =
-                          map (fn (_, ts, ps, row_vars, used_vars, lets, body) =>
+                          map (fn (ts, ps, row_vars, used_vars, lets, body) =>
                             (kept_field_pats ts @ ps, row_vars, used_vars, lets, body)) spec_rows;
                         val arm_body =
                           compile (field_columns @ rest_columns)
@@ -1301,7 +1337,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       map_filter (fn (pats as p :: ps, row_vars, used_vars, lets, body) =>
                           if is_irrefutable_col_pat p
                           then SOME (ps, row_vars, used_vars,
-                            lets @ binding_let row_vars used_vars scrutinee p, body)
+                            lets @ binding_let row_vars used_vars
+                              irrefutable_scrutinee p, body)
                           else NONE
                         | _ => NONE) rows;
                     val default_arm =
@@ -1315,7 +1352,18 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       else default_arm;
                   in
                     if null constructors then fallback
-                    else rust_match scrutinee (map print_constructor_arm constructors @ fallback_arm)
+                    else
+                      let
+                        val match_expr =
+                          rust_match scrutinee
+                            (map print_constructor_arm constructors @ fallback_arm);
+                      in
+                        if needs_whole_scrutinee
+                        then rust_bare_block
+                          [rust_open [str "let ", whole_scrutinee, str " = ",
+                            clone scrutinee, str ";"], match_expr]
+                        else match_expr
+                      end
                   end
               end;
       in
