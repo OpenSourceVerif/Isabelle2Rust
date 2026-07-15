@@ -1,5 +1,5 @@
 theory CopyCalls_Test
-  imports Main "Rust.Rust_Setup"
+  imports CopyGlobalData
 begin
 
 (* Copy-specialized callees should be selected at concrete and generic call sites. *)
@@ -149,6 +149,22 @@ fun use_wrap_dup_generic :: "'a copy_wrap \<Rightarrow> 'a copy_wrap \<times> 'a
 fun use_value_dup_flag :: "flag_pair \<Rightarrow> flag_pair \<times> flag_pair" where
   "use_value_dup_flag x = value_dup x"
 
+(* Package-level Copy inference across generated Rust modules. *)
+
+fun global_first_two :: "global_char global_list \<Rightarrow> global_char \<times> global_char" where
+  "global_first_two (GlobalCons x (GlobalCons y _)) = (x, y)"
+| "global_first_two _ = (GlobalChar False False, GlobalChar False False)"
+
+fun global_swap_first_two :: "global_char global_list \<Rightarrow> global_char global_list" where
+  "global_swap_first_two (GlobalCons x (GlobalCons y xs)) =
+     GlobalCons y (GlobalCons x xs)"
+| "global_swap_first_two xs = xs"
+
+fun use_global_duplicates ::
+    "global_char \<Rightarrow> (global_char \<times> global_char) \<times> (global_char \<times> global_char)"
+  where
+  "use_global_duplicates x = (duplicate_left x, duplicate_right x)"
+
 export_code
   flag_left flag_right flag_swap flag_dup triple_first triple_second triple_rotate
   color_is_red color_dup pixel_first pixel_second pixel_rotate pixel_replace_first
@@ -156,6 +172,7 @@ export_code
   wrap_dup wrap_map_flag pair_wrap_first pair_wrap_swap pair_wrap_dup nested_wrap_dup
   nested_wrap_unwrap_flag wrap_tree_dup mixed_pair_first mixed_pair_dup value_dup
   tree_is_leaf tree_dup use_wrap_dup_flag use_wrap_dup_generic use_value_dup_flag
+  global_first_two global_swap_first_two use_global_duplicates
   in Rust
 
 end
