@@ -41,11 +41,11 @@ definition let_shadow :: "'a \<Rightarrow> 'a \<times> 'a" where
 
 export_code
   case_id unbox_single let_pair1 let_pair2 let_1 let_case let_chain let_shadow
-  in Rust
+  in OCaml
 
 export_code
   case_id unbox_single let_pair1 let_pair2 let_1 let_case let_chain let_shadow
-  in OCaml
+  in Rust
 
 
 end
