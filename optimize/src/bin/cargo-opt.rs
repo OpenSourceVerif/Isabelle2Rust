@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
@@ -6,8 +5,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use isabelle2rust_optimize::{
-    optimize_borrow_modules_with_paths, optimize_closure, optimize_copy_with_options,
-    optimize_match_with_context, optimize_mut, parse_rust_source, CopyOptions, MatchTypeContext,
+    cleanup_if, optimize_borrow_modules_with_paths, optimize_closure,
+    optimize_copy_modules_with_paths, optimize_match_with_context, optimize_mut, parse_rust_source,
+    CopyOptions, MatchTypeContext,
 };
 use rustlightast::{RustCodeGenerator, RustModule};
 
@@ -220,7 +220,6 @@ fn write_optimized_sources(
         }
     }
 
-    let mut package_copy_types = HashSet::new();
     for unit in &mut units {
         if unit.needs_nightly {
             summary.needs_nightly = true;
@@ -228,11 +227,20 @@ fn write_optimized_sources(
 
         if let Some(module) = unit.parsed.as_mut() {
             optimize_match_with_context(module, &match_context, &unit.module_path);
-            let copy_analysis =
-                optimize_copy_with_options(module, CopyOptions { keep_unused_copy });
-            package_copy_types.extend(copy_analysis.copy_types);
         }
     }
+
+    let package_copy_types = {
+        let mut modules: Vec<(Vec<String>, &mut RustModule)> = units
+            .iter_mut()
+            .filter_map(|unit| {
+                unit.parsed
+                    .as_mut()
+                    .map(|module| (unit.module_path.clone(), module))
+            })
+            .collect();
+        optimize_copy_modules_with_paths(&mut modules, CopyOptions { keep_unused_copy }).copy_types
+    };
 
     {
         let mut modules: Vec<(Vec<String>, &mut RustModule)> = units
@@ -313,6 +321,7 @@ fn finish_source_module(
     optimize_closure(module);
     // Post-clean any discard/fallback artifacts introduced by later passes.
     optimize_match_with_context(module, match_context, module_path);
+    cleanup_if(module);
 
     let mut generator = RustCodeGenerator::new();
     generator.generate_module_code(module)

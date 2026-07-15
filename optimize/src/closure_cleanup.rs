@@ -86,7 +86,7 @@ fn optimize_expr(expr: &mut Expr, analysis: &mut ClosureOptAnalysis) {
                 optimize_expr(arg, analysis);
             }
         }
-        Expr::Tuple(items) => {
+        Expr::Array(items) | Expr::Tuple(items) => {
             for item in items {
                 optimize_expr(item, analysis);
             }
@@ -347,6 +347,12 @@ fn subst_idents_in_expr(expr: &Expr, subst: &HashMap<String, Expr>) -> Expr {
                 .collect(),
         ),
         Expr::Block(block) => Expr::Block(subst_idents_in_block(block, subst)),
+        Expr::Array(items) => Expr::Array(
+            items
+                .iter()
+                .map(|item| subst_idents_in_expr(item, subst))
+                .collect(),
+        ),
         Expr::Tuple(items) => Expr::Tuple(
             items
                 .iter()
@@ -502,7 +508,7 @@ fn count_reads_in_expr(expr: &Expr, name: &str) -> usize {
                     .sum::<usize>()
         }
         Expr::Block(block) => count_reads_in_block(block, name),
-        Expr::Tuple(items) => items
+        Expr::Array(items) | Expr::Tuple(items) => items
             .iter()
             .map(|item| count_reads_in_expr(item, name))
             .sum(),
@@ -653,7 +659,9 @@ fn binds_name_in_expr(expr: &Expr, name: &str) -> bool {
             binds_name_in_expr(receiver, name)
                 || args.iter().any(|arg| binds_name_in_expr(arg, name))
         }
-        Expr::Tuple(items) => items.iter().any(|item| binds_name_in_expr(item, name)),
+        Expr::Array(items) | Expr::Tuple(items) => {
+            items.iter().any(|item| binds_name_in_expr(item, name))
+        }
         Expr::BinaryOp(left, _, right) | Expr::Index(left, right) | Expr::Assign(left, right) => {
             binds_name_in_expr(left, name) || binds_name_in_expr(right, name)
         }

@@ -930,10 +930,10 @@ impl BorrowContext {
                 }
             }
 
-            // ── Tuple ────────────────────────────────────────────────────────
-            Expr::Tuple(elems) => {
+            // ── Aggregate expressions ────────────────────────────────────────
+            Expr::Array(elems) | Expr::Tuple(elems) => {
                 for e in elems {
-                    // Tuple fields are own positions (ownership is bundled).
+                    // Aggregate elements are own positions (ownership is bundled).
                     self.collect_demands_for_own_arg(
                         e,
                         derived,
@@ -1762,7 +1762,13 @@ impl BorrowContext {
                 ))
             }
 
-            // ── Tuple ─────────────────────────────────────────────────────────
+            // ── Aggregate expressions ─────────────────────────────────────────
+            Expr::Array(elems) => Expr::Array(
+                elems
+                    .iter()
+                    .map(|e| self.rewrite_expr_own(e, borrow_env, orig_env, copy_generics, scope))
+                    .collect(),
+            ),
             Expr::Tuple(elems) => Expr::Tuple(
                 elems
                     .iter()
@@ -2127,6 +2133,11 @@ impl BorrowContext {
         match expr {
             Expr::Ident(name) => env.get(name).cloned(),
             Expr::Literal(Literal::Bool(_)) => Some(Type::Named("bool".to_string())),
+            Expr::Array(elems) => {
+                let first = elems.first()?;
+                let element_ty = self.infer_type(first, env, scope)?;
+                Some(Type::Array(Box::new(element_ty), elems.len()))
+            }
             Expr::Tuple(elems) => {
                 let types: Option<Vec<_>> = elems
                     .iter()
@@ -2546,7 +2557,7 @@ fn collect_closure_binding_usage_expr(expr: &Expr, name: &str, usage: &mut Closu
             collect_closure_binding_usage_expr(left, name, usage);
             collect_closure_binding_usage_expr(right, name, usage);
         }
-        Expr::Tuple(elems) => {
+        Expr::Array(elems) | Expr::Tuple(elems) => {
             for elem in elems {
                 collect_closure_binding_usage_expr(elem, name, usage);
             }
@@ -2635,7 +2646,9 @@ fn expr_has_free_var_from(expr: &Expr, vars: &HashSet<String>) -> bool {
         Expr::BinaryOp(l, _, r) | Expr::Index(l, r) | Expr::Assign(l, r) => {
             expr_has_free_var_from(l, vars) || expr_has_free_var_from(r, vars)
         }
-        Expr::Tuple(elems) => elems.iter().any(|e| expr_has_free_var_from(e, vars)),
+        Expr::Array(elems) | Expr::Tuple(elems) => {
+            elems.iter().any(|e| expr_has_free_var_from(e, vars))
+        }
         Expr::Match { expr, arms } => {
             expr_has_free_var_from(expr, vars)
                 || arms.iter().any(|arm| {
@@ -2760,6 +2773,12 @@ fn subst_idents_in_expr(expr: &Expr, subst: &HashMap<String, String>) -> Expr {
         Expr::Cast(inner, ty) => {
             Expr::Cast(Box::new(subst_idents_in_expr(inner, subst)), ty.clone())
         }
+        Expr::Array(elems) => Expr::Array(
+            elems
+                .iter()
+                .map(|e| subst_idents_in_expr(e, subst))
+                .collect(),
+        ),
         Expr::Tuple(elems) => Expr::Tuple(
             elems
                 .iter()
@@ -3223,7 +3242,7 @@ fn collect_deref_ident_uses_expr(expr: &Expr, out: &mut HashSet<String>) {
             collect_deref_ident_uses_expr(left, out);
             collect_deref_ident_uses_expr(right, out);
         }
-        Expr::Tuple(elems) => {
+        Expr::Array(elems) | Expr::Tuple(elems) => {
             for elem in elems {
                 collect_deref_ident_uses_expr(elem, out);
             }

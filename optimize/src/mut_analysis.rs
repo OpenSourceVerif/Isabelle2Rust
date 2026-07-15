@@ -183,7 +183,7 @@ fn transform_expr(expr: &mut Expr) -> bool {
                 changed |= transform_expr(arg);
             }
         }
-        Expr::Tuple(items) => {
+        Expr::Array(items) | Expr::Tuple(items) => {
             for item in items {
                 changed |= transform_expr(item);
             }
@@ -425,7 +425,9 @@ fn produces_owned_value(expr: &Expr, owned: &HashSet<String>) -> bool {
         Expr::MethodCall(_, method, args) if method == "clone" && args.is_empty() => true,
         Expr::Call(_, _) => true,
         Expr::Literal(_) => true,
-        Expr::Tuple(items) => items.iter().all(|item| produces_owned_value(item, owned)),
+        Expr::Array(items) | Expr::Tuple(items) => {
+            items.iter().all(|item| produces_owned_value(item, owned))
+        }
         Expr::BinaryOp(_, _, _) => true,
         Expr::UnaryOp(op, inner) if op == "*" => produces_owned_value(inner, owned),
         Expr::Parenthesized(inner) | Expr::Cast(inner, _) => produces_owned_value(inner, owned),
@@ -494,6 +496,35 @@ fn rewrite_lastuse_block(block: &mut Block, live: &mut HashSet<String>, owned: &
             }
         }
     }
+
+    collapse_trailing_box_return(block);
+}
+
+/// Remove the narrow box-extraction residue exposed by M-LastUse:
+/// `let x = *p; x` becomes `*p`.
+fn collapse_trailing_box_return(block: &mut Block) {
+    let should_collapse = match (block.stmts.last(), block.expr.as_deref()) {
+        (Some(Statement::Let(let_stmt)), Some(Expr::Ident(tail_name))) => {
+            !let_stmt.ifmut
+                && let_stmt.ty.is_none()
+                && let_stmt.name == tail_name.as_str()
+                && matches!(
+                    let_stmt.init.as_ref(),
+                    Some(Expr::UnaryOp(op, inner))
+                        if op == "*" && matches!(inner.as_ref(), Expr::Ident(_))
+                )
+        }
+        _ => false,
+    };
+
+    if !should_collapse {
+        return;
+    }
+
+    let Some(Statement::Let(mut let_stmt)) = block.stmts.pop() else {
+        unreachable!("checked trailing let binding")
+    };
+    block.expr = let_stmt.init.take().map(Box::new);
 }
 
 fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &HashSet<String>) {
@@ -563,7 +594,7 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
                 rewrite_lastuse_expr(left, live, owned);
             }
         }
-        Expr::Tuple(items) => {
+        Expr::Array(items) | Expr::Tuple(items) => {
             for item in items.iter_mut().rev() {
                 rewrite_lastuse_expr(item, live, owned);
             }
@@ -683,7 +714,7 @@ fn collect_call_borrow_sources(expr: &Expr, live: &mut HashSet<String>) {
                 collect_call_borrow_sources(arg, live);
             }
         }
-        Expr::Tuple(items) => {
+        Expr::Array(items) | Expr::Tuple(items) => {
             for item in items {
                 collect_call_borrow_sources(item, live);
             }
@@ -790,7 +821,9 @@ fn collect_live_expr(expr: &Expr, live: &mut HashSet<String>) {
             collect_live_expr(receiver, live);
             args.iter().for_each(|a| collect_live_expr(a, live));
         }
-        Expr::Tuple(items) => items.iter().for_each(|i| collect_live_expr(i, live)),
+        Expr::Array(items) | Expr::Tuple(items) => {
+            items.iter().for_each(|i| collect_live_expr(i, live))
+        }
         Expr::BinaryOp(l, _, r) | Expr::Index(l, r) | Expr::Assign(l, r) => {
             collect_live_expr(l, live);
             collect_live_expr(r, live);
@@ -911,7 +944,9 @@ fn count_reads_in_expr(expr: &Expr, name: &str) -> usize {
                     .map(|a| count_reads_in_expr(a, name))
                     .sum::<usize>()
         }
-        Expr::Tuple(items) => items.iter().map(|i| count_reads_in_expr(i, name)).sum(),
+        Expr::Array(items) | Expr::Tuple(items) => {
+            items.iter().map(|i| count_reads_in_expr(i, name)).sum()
+        }
         Expr::BinaryOp(l, _, r) | Expr::Index(l, r) | Expr::Assign(l, r) => {
             count_reads_in_expr(l, name) + count_reads_in_expr(r, name)
         }
@@ -1047,7 +1082,9 @@ fn count_bindings_in_expr(expr: &Expr, name: &str) -> usize {
                     .map(|a| count_bindings_in_expr(a, name))
                     .sum::<usize>()
         }
-        Expr::Tuple(items) => items.iter().map(|i| count_bindings_in_expr(i, name)).sum(),
+        Expr::Array(items) | Expr::Tuple(items) => {
+            items.iter().map(|i| count_bindings_in_expr(i, name)).sum()
+        }
         Expr::BinaryOp(l, _, r) | Expr::Index(l, r) | Expr::Assign(l, r) => {
             count_bindings_in_expr(l, name) + count_bindings_in_expr(r, name)
         }
@@ -1106,7 +1143,9 @@ fn rename_reads_expr(expr: &mut Expr, map: &HashMap<String, String>) {
             rename_reads_expr(receiver, map);
             args.iter_mut().for_each(|a| rename_reads_expr(a, map));
         }
-        Expr::Tuple(items) => items.iter_mut().for_each(|i| rename_reads_expr(i, map)),
+        Expr::Array(items) | Expr::Tuple(items) => {
+            items.iter_mut().for_each(|i| rename_reads_expr(i, map))
+        }
         Expr::BinaryOp(l, _, r) | Expr::Index(l, r) | Expr::Assign(l, r) => {
             rename_reads_expr(l, map);
             rename_reads_expr(r, map);
@@ -1521,6 +1560,39 @@ mod tests {
             panic!("expected arm tail")
         };
         assert!(matches!(tail, Expr::Ident(name) if name == "x"));
+    }
+
+    #[test]
+    fn lastuse_collapses_trailing_box_extraction_return() {
+        let arm_body = Block {
+            stmts: vec![let_stmt(
+                "left",
+                Expr::UnaryOp("*".to_string(), Box::new(ident("p0"))),
+            )],
+            expr: Some(Box::new(clone_call("left"))),
+        };
+        let body = block_tail(Expr::Match {
+            expr: Box::new(ident("x0")),
+            arms: vec![MatchArm {
+                pattern: "Tree::Node(p0, _, _)".to_string(),
+                guard: None,
+                body: arm_body,
+            }],
+        });
+        let mut module = module_with(function(named("Tree"), body));
+
+        optimize_mut(&mut module);
+
+        let function = optimized_function(&module);
+        let Some(Expr::Match { arms, .. }) = function.body.expr.as_deref() else {
+            panic!("expected match")
+        };
+        assert!(arms[0].body.stmts.is_empty());
+        assert!(matches!(
+            arms[0].body.expr.as_deref(),
+            Some(Expr::UnaryOp(op, inner))
+                if op == "*" && matches!(inner.as_ref(), Expr::Ident(name) if name == "p0")
+        ));
     }
 
     #[test]

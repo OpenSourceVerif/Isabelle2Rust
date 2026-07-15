@@ -13,15 +13,59 @@ pub struct MatchOptAnalysis {
 
 type TypeEnv = HashMap<String, Type>;
 
+/// Closed-world facts for external Rust types whose definitions are not part
+/// of the generated crate and therefore cannot be collected from RustLightAST.
+#[derive(Debug, Clone)]
+pub struct ExternalTypeFacts {
+    unit_structs: HashSet<Vec<String>>,
+}
+
+impl Default for ExternalTypeFacts {
+    fn default() -> Self {
+        let mut facts = Self {
+            unit_structs: HashSet::new(),
+        };
+        facts.insert_unit_struct(["std", "marker", "PhantomData"]);
+        facts
+    }
+}
+
+impl ExternalTypeFacts {
+    /// Register an external unit struct by its fully qualified Rust path.
+    pub fn insert_unit_struct<I, S>(&mut self, path: I)
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.unit_structs
+            .insert(path.into_iter().map(Into::into).collect());
+    }
+
+    fn is_unit_struct(&self, path: &[String]) -> bool {
+        self.unit_structs.contains(path)
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct MatchTypeContext {
     function_returns: HashMap<Vec<String>, Type>,
     enum_defs: HashMap<Vec<String>, EnumInfo>,
+    unit_structs: HashSet<Vec<String>>,
+    external_types: ExternalTypeFacts,
 }
 
 impl MatchTypeContext {
     pub fn insert_module(&mut self, module_path: Vec<String>, module: &RustModule) {
         self.collect_module(module_path, module);
+    }
+
+    /// Extend the external type registry for a caller-specific Rust runtime.
+    pub fn external_types_mut(&mut self) -> &mut ExternalTypeFacts {
+        &mut self.external_types
+    }
+
+    fn is_unit_struct(&self, path: &[String]) -> bool {
+        self.unit_structs.contains(path) || self.external_types.is_unit_struct(path)
     }
 
     fn collect_module(&mut self, module_path: Vec<String>, module: &RustModule) {
@@ -49,6 +93,11 @@ impl MatchTypeContext {
                                 .collect(),
                         },
                     );
+                }
+                Item::Struct(struct_def) if struct_def.fields.is_empty() => {
+                    let mut struct_path = module_path.clone();
+                    struct_path.push(struct_def.name.clone());
+                    self.unit_structs.insert(struct_path);
                 }
                 Item::Mod(inner) => {
                     let mut inner_path = module_path.clone();
@@ -299,7 +348,7 @@ fn optimize_expr(
                 optimize_expr(arg, env, scope, analysis);
             }
         }
-        Expr::Tuple(items) => {
+        Expr::Array(items) | Expr::Tuple(items) => {
             for item in items {
                 optimize_expr(item, env, scope, analysis);
             }
@@ -423,10 +472,9 @@ fn can_remove_trailing_fallback_arm(
         return true;
     }
 
-    let Some(scrutinee_ty) = infer_type(scrutinee, env, scope) else {
-        return false;
-    };
-    patterns_cover_type(covered_arms, strip_ref_type(&scrutinee_ty), scope)
+    infer_type(scrutinee, env, scope).is_some_and(|scrutinee_ty| {
+        patterns_cover_type(covered_arms, strip_ref_type(&scrutinee_ty), scope)
+    }) || patterns_cover_from_patterns(covered_arms, scope)
 }
 
 fn collapse_single_irrefutable_match(scrutinee: &Expr, arms: &[MatchArm]) -> Option<Expr> {
@@ -481,21 +529,161 @@ fn patterns_cover_type(arms: &[MatchArm], ty: &Type, scope: &MatchScope) -> bool
         return tuple_patterns_cover_type(arms, types, scope);
     }
 
-    let Some(enum_info) = scope.enum_info_for_type(ty) else {
+    let Some(enum_path) = scope.resolve_type_path(ty) else {
+        return false;
+    };
+    enum_patterns_cover(
+        arms.iter()
+            .filter(|arm| arm.guard.is_none())
+            .map(|arm| arm.pattern.as_str()),
+        &enum_path,
+        scope,
+    )
+}
+
+/// Prove exhaustiveness from constructor-qualified patterns when the
+/// scrutinee's type is unavailable (for example, an `if` expression or a
+/// typed closure parameter). Isabelle-generated patterns name their enum
+/// owner, so this remains a closed-world proof over enums collected from the
+/// current package rather than a guess based on capitalization.
+fn patterns_cover_from_patterns(arms: &[MatchArm], scope: &MatchScope) -> bool {
+    patterns_cover_pattern_list(
+        arms.iter()
+            .filter(|arm| arm.guard.is_none())
+            .map(|arm| arm.pattern.as_str()),
+        None,
+        scope,
+    )
+}
+
+fn patterns_cover_pattern_list<'a>(
+    patterns: impl IntoIterator<Item = &'a str>,
+    known_ty: Option<&Type>,
+    scope: &MatchScope,
+) -> bool {
+    let patterns = patterns.into_iter().collect::<Vec<_>>();
+    if patterns.iter().any(|pattern| {
+        known_ty.map_or_else(
+            || is_irrefutable_pattern(pattern),
+            |ty| is_irrefutable_for_type(pattern, ty, scope),
+        )
+    }) {
+        return true;
+    }
+
+    if known_ty.is_some_and(is_bool_type)
+        || patterns
+            .iter()
+            .all(|pattern| matches!(pattern.trim(), "true" | "false"))
+    {
+        let values = patterns
+            .iter()
+            .filter_map(|pattern| match pattern.trim() {
+                "true" => Some(true),
+                "false" => Some(false),
+                _ => None,
+            })
+            .collect::<HashSet<_>>();
+        return values.len() == 2;
+    }
+
+    let enum_path = known_ty
+        .and_then(|ty| scope.resolve_type_path(ty))
+        .filter(|path| scope.context.enum_defs.contains_key(path))
+        .or_else(|| infer_enum_path_from_patterns(&patterns, scope));
+    let Some(enum_path) = enum_path else {
         return false;
     };
 
-    let mut covered = HashSet::new();
-    for arm in arms.iter().filter(|arm| arm.guard.is_none()) {
-        if let Some(variant) = covered_variant(&arm.pattern, ty, scope) {
-            covered.insert(variant);
+    enum_patterns_cover(patterns, &enum_path, scope)
+}
+
+fn infer_enum_path_from_patterns(patterns: &[&str], scope: &MatchScope) -> Option<Vec<String>> {
+    let mut inferred = None;
+
+    for pattern in patterns {
+        let pattern = strip_pattern_modifiers(pattern.trim());
+        if is_irrefutable_pattern(pattern) {
+            continue;
+        }
+
+        let (constructor, _) = split_constructor_pattern(pattern)?;
+        let (owner, _) = split_constructor_path(constructor);
+        let path = scope.resolve_segments(&owner?);
+        if !scope.context.enum_defs.contains_key(&path) {
+            return None;
+        }
+        match &inferred {
+            Some(previous) if previous != &path => return None,
+            Some(_) => {}
+            None => inferred = Some(path),
         }
     }
 
-    enum_info
-        .variants
-        .iter()
-        .all(|variant| covered.contains(variant.name.as_str()))
+    inferred
+}
+
+fn enum_patterns_cover<'a>(
+    patterns: impl IntoIterator<Item = &'a str>,
+    enum_path: &[String],
+    scope: &MatchScope,
+) -> bool {
+    let Some(enum_info) = scope.context.enum_defs.get(enum_path) else {
+        return false;
+    };
+    let patterns = patterns.into_iter().collect::<Vec<_>>();
+
+    enum_info.variants.iter().all(|variant| {
+        let rows = patterns
+            .iter()
+            .filter_map(|pattern| variant_pattern_args(pattern, enum_path, variant, scope))
+            .collect::<Vec<_>>();
+        variant_rows_cover_fields(&rows, &variant.fields, scope)
+    })
+}
+
+fn variant_pattern_args(
+    pattern: &str,
+    enum_path: &[String],
+    variant: &VariantInfo,
+    scope: &MatchScope,
+) -> Option<Vec<String>> {
+    let pattern = strip_pattern_modifiers(pattern.trim());
+    let (constructor, args) = split_constructor_pattern(pattern)?;
+    let (owner, variant_name) = split_constructor_path(constructor);
+    if variant_name != variant.name || args.len() != variant.fields.len() {
+        return None;
+    }
+    if owner.is_some_and(|owner| scope.resolve_segments(&owner) != enum_path) {
+        return None;
+    }
+    Some(args)
+}
+
+fn variant_rows_cover_fields(rows: &[Vec<String>], fields: &[Type], scope: &MatchScope) -> bool {
+    if fields.is_empty() {
+        return !rows.is_empty();
+    }
+
+    if rows.iter().any(|row| {
+        row.len() == fields.len()
+            && row
+                .iter()
+                .zip(fields.iter())
+                .all(|(pattern, ty)| is_irrefutable_for_type(pattern, ty, scope))
+    }) {
+        return true;
+    }
+
+    // Multiple rows can jointly cover a single payload, as in
+    // `Some(Val::A) | Some(Val::B(_))`. For multi-field variants we stay
+    // conservative unless one row is already irrefutable in every field.
+    fields.len() == 1
+        && patterns_cover_pattern_list(
+            rows.iter().map(|row| row[0].as_str()),
+            fields.first(),
+            scope,
+        )
 }
 
 fn tuple_patterns_cover_type(arms: &[MatchArm], types: &[Type], scope: &MatchScope) -> bool {
@@ -722,7 +910,9 @@ fn count_nonexhaustive_panics_in_expr(expr: &Expr) -> usize {
                     .map(count_nonexhaustive_panics_in_expr)
                     .sum::<usize>()
         }
-        Expr::Tuple(items) => items.iter().map(count_nonexhaustive_panics_in_expr).sum(),
+        Expr::Array(items) | Expr::Tuple(items) => {
+            items.iter().map(count_nonexhaustive_panics_in_expr).sum()
+        }
         Expr::Block(block) => count_nonexhaustive_panics_in_block(block),
         Expr::Loop(block) | Expr::Unsafe(block) => count_nonexhaustive_panics_in_block(block),
         Expr::Closure(_, body, _)
@@ -886,6 +1076,11 @@ fn infer_type(expr: &Expr, env: &TypeEnv, scope: &MatchScope) -> Option<Type> {
         Expr::Parenthesized(inner) => infer_type(inner, env, scope),
         Expr::Cast(_, ty) => Some(ty.clone()),
         Expr::Call(callee, _) => scope.return_type_for_callee(callee, env),
+        Expr::Array(items) => {
+            let first = items.first()?;
+            let element_ty = infer_type(first, env, scope)?;
+            Some(Type::Array(Box::new(element_ty), items.len()))
+        }
         Expr::Tuple(items) => items
             .iter()
             .map(|item| infer_type(item, env, scope))
@@ -921,6 +1116,14 @@ fn is_irrefutable_for_type(pattern: &str, ty: &Type, scope: &MatchScope) -> bool
         return true;
     }
 
+    // A registered unit-struct constructor has exactly one inhabitant, so its
+    // constructor pattern is irrefutable for the corresponding field type.
+    if let Some((constructor, args)) = split_constructor_pattern(pattern) {
+        if args.is_empty() && constructor_matches_type_name(constructor, ty, scope) {
+            return true;
+        }
+    }
+
     if let Some(inner) = outer_parens_inner(pattern) {
         let parts = split_top_level_commas(inner);
         if parts.len() > 1 {
@@ -935,6 +1138,22 @@ fn is_irrefutable_for_type(pattern: &str, ty: &Type, scope: &MatchScope) -> bool
     }
 
     false
+}
+
+fn constructor_matches_type_name(constructor: &str, ty: &Type, scope: &MatchScope) -> bool {
+    let (owner, constructor_name) = split_constructor_path(constructor);
+    let type_path = match strip_ref_type(ty) {
+        Type::Named(name) | Type::Generic(name, _) => scope.resolve_name_path(name),
+        Type::Path(path) => scope.resolve_segments(path),
+        _ => return false,
+    };
+
+    if constructor_name != type_path.last().map(String::as_str).unwrap_or_default() {
+        return false;
+    }
+    let constructor_path_matches =
+        owner.is_none_or(|owner| scope.resolve_segments(&owner) == type_path);
+    constructor_path_matches && scope.context.is_unit_struct(&type_path)
 }
 
 fn is_irrefutable_pattern(pattern: &str) -> bool {
@@ -1343,6 +1562,188 @@ where
         assert!(printed.contains("match x"));
         assert!(printed.contains("Single::Single(y)"));
         assert!(!printed.contains(r#"panic!("non-exhaustive match")"#));
+    }
+
+    #[test]
+    fn default_external_type_facts_register_only_phantom_data() {
+        let facts = ExternalTypeFacts::default();
+        let phantom_data_path = ["std", "marker", "PhantomData"]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+
+        assert_eq!(facts.unit_structs.len(), 1);
+        assert!(facts.is_unit_struct(&phantom_data_path));
+    }
+
+    #[test]
+    fn external_type_facts_can_be_extended_through_match_context() {
+        let mut context = MatchTypeContext::default();
+        context
+            .external_types_mut()
+            .insert_unit_struct(["runtime", "Marker"]);
+        let marker_path = ["runtime", "Marker"]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+
+        assert!(context.is_unit_struct(&marker_path));
+    }
+
+    #[test]
+    fn removes_single_constructor_with_unit_marker_fallback() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Marker<A>;
+
+#[derive(Clone)]
+pub enum Word<A> {
+    Word(i32, Marker<A>),
+}
+
+pub fn the_int<A>(x: Word<A>) -> i32 {
+    match x {
+        Word::Word(value, Marker) => { value },
+        _ => { panic!("non-exhaustive match") },
+    }
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.removed_panic_arms, 1);
+        assert!(!printed.contains(r#"panic!("non-exhaustive match")"#));
+    }
+
+    #[test]
+    fn removes_single_constructor_with_external_unit_marker_fallback() {
+        let source = r#"
+use std::marker::PhantomData;
+
+#[derive(Clone)]
+pub enum Word<A> {
+    Word(i32, PhantomData<A>),
+}
+
+pub fn the_int<A>(x: Word<A>) -> i32 {
+    match x {
+        Word::Word(value, PhantomData) => { value },
+        _ => { panic!("non-exhaustive match") },
+    }
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.removed_panic_arms, 1);
+        assert!(!printed.contains(r#"panic!("non-exhaustive match")"#));
+    }
+
+    #[test]
+    fn removes_pattern_proven_fallback_when_scrutinee_type_is_unknown() {
+        let source = r#"
+#[derive(Clone)]
+pub enum Slot<A> {
+    Empty,
+    Value(A),
+}
+
+pub fn select(flag: bool, x: i32) -> i32 {
+    match if flag { Slot::Empty } else { Slot::Value(x) } {
+        Slot::Empty => { 0 },
+        Slot::Value(value) => { value },
+        _ => { panic!("non-exhaustive match") },
+    }
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.removed_panic_arms, 1);
+        assert!(!printed.contains(r#"panic!("non-exhaustive match")"#));
+    }
+
+    #[test]
+    fn removes_nested_exhaustive_enum_fallback() {
+        let source = r#"
+#[derive(Clone)]
+pub enum Outer<A> {
+    None,
+    Some(A),
+}
+
+#[derive(Clone)]
+pub enum Inner {
+    Empty,
+    Value(i32),
+}
+
+pub fn unwrap_or_zero(x: Outer<Inner>) -> i32 {
+    match x {
+        Outer::None => { 0 },
+        Outer::Some(Inner::Empty) => { 0 },
+        Outer::Some(Inner::Value(value)) => { value },
+        _ => { panic!("non-exhaustive match") },
+    }
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.removed_panic_arms, 1);
+        assert!(!printed.contains(r#"panic!("non-exhaustive match")"#));
+    }
+
+    #[test]
+    fn keeps_nested_partial_enum_fallback() {
+        let source = r#"
+#[derive(Clone)]
+pub enum Outer<A> {
+    None,
+    Some(A),
+}
+
+#[derive(Clone)]
+pub enum Inner {
+    Empty,
+    Value(i32),
+}
+
+pub fn only_empty(x: Outer<Inner>) -> i32 {
+    match x {
+        Outer::None => { 0 },
+        Outer::Some(Inner::Empty) => { 0 },
+        _ => { panic!("non-exhaustive match") },
+    }
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.removed_panic_arms, 0);
+        assert!(printed.contains(r#"panic!("non-exhaustive match")"#));
+    }
+
+    #[test]
+    fn does_not_treat_same_named_enum_variant_as_unit_struct() {
+        let source = r#"
+#[derive(Clone)]
+pub enum Payload {
+    Payload,
+    Other,
+}
+
+#[derive(Clone)]
+pub enum Wrapper {
+    Wrapper(Payload),
+}
+
+pub fn only_payload(x: Wrapper) -> bool {
+    match x {
+        Wrapper::Wrapper(Payload::Payload) => { true },
+        _ => { panic!("non-exhaustive match") },
+    }
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.removed_panic_arms, 0);
+        assert!(printed.contains(r#"panic!("non-exhaustive match")"#));
     }
 
     #[test]

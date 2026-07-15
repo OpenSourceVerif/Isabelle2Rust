@@ -605,8 +605,7 @@ fn convert_expr(expr: &syn::Expr) -> syn::Result<Expr> {
             path.push(member.to_token_stream().to_string());
             Ok(Expr::Path(path, PathType::Member))
         }
-        syn::Expr::Array(ExprArray { elems, .. }) => Ok(Expr::Call(
-            Box::new(Expr::Ident("vec!".to_string())),
+        syn::Expr::Array(ExprArray { elems, .. }) => Ok(Expr::Array(
             elems
                 .iter()
                 .map(convert_expr)
@@ -721,15 +720,8 @@ fn path_segment_source(segment: &syn::PathSegment) -> String {
 
 fn convert_literal(lit: &Lit) -> syn::Result<Literal> {
     match lit {
-        Lit::Int(int_lit) => Ok(Literal::Int(int_lit.base10_parse()?)),
-        Lit::Float(float_lit) => Ok(Literal::Float(float_lit.base10_parse()?)),
-        Lit::Str(str_lit) => Ok(Literal::Str(str_lit.value())),
         Lit::Bool(bool_lit) => Ok(Literal::Bool(bool_lit.value)),
-        Lit::Char(char_lit) => Ok(Literal::Char(char_lit.value())),
-        other => Err(syn::Error::new_spanned(
-            other,
-            "unsupported literal syntax in RustLightAST parser",
-        )),
+        other => Ok(Literal::Raw(other.to_token_stream().to_string())),
     }
 }
 
@@ -1054,6 +1046,62 @@ pub fn unwrap_or_panic(x0: Option<bool>) -> bool {
         let mut generator = RustCodeGenerator::new();
         let printed = generator.generate_module_code(&module);
         assert!(printed.contains(r#"panic!("non-exhaustive match")"#));
+    }
+
+    #[test]
+    fn preserves_tuple_struct_syntax() {
+        let source = r#"
+#[derive(Clone)]
+struct Signed<A>(PhantomData<A>);
+"#;
+        let (_, printed) =
+            parse_and_print_rust_source(source, "Tuple_Struct_Test").expect("tuple struct parses");
+
+        assert!(printed.contains("struct Signed <A>(PhantomData<A>);"));
+        syn::parse_file(&printed).expect("printed tuple struct remains valid Rust");
+    }
+
+    #[test]
+    fn preserves_array_expressions_without_allocating_vecs() {
+        let source = r#"
+pub fn bytes(x: u8) -> [u8; 3] {
+    [1, x, 3]
+}
+"#;
+        let (module, printed) =
+            parse_and_print_rust_source(source, "Array_Test").expect("array expression parses");
+
+        let Item::Function(function) = &module.items[0] else {
+            panic!("expected bytes function");
+        };
+        assert!(matches!(
+            function.body.expr.as_deref(),
+            Some(Expr::Array(items)) if items.len() == 3
+        ));
+        assert!(printed.contains("[1, x, 3]"));
+        assert!(!printed.contains("vec!"));
+        syn::parse_file(&printed).expect("printed array remains valid Rust");
+    }
+
+    #[test]
+    fn preserves_literal_spelling_and_escaping() {
+        let source = r##"
+pub fn shift(x: u64) -> u64 {
+    x << 1usize
+}
+
+pub fn escaped() {
+    let _s = "line\n\"quoted\"";
+    let _c = '\n';
+}
+"##;
+        let (_, printed) =
+            parse_and_print_rust_source(source, "Literal_Test").expect("literals parse");
+
+        assert!(printed.contains("1usize"));
+        assert!(printed.contains(r#""line\n\"quoted\"""#));
+        assert!(printed.contains(r"'\n'"));
+        syn::parse_file(&printed).expect("printed literals remain valid Rust");
     }
 
     #[test]
