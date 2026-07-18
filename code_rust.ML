@@ -1589,11 +1589,28 @@ fun print_rust_stmt class_syntax tyco_syntax const_syntax reserved is_constr der
             fun print_args fxy expecteds args =
               map2 (fn expected_arg => fn t =>
                 print_term expected_arg some_thm vars fxy t) expecteds args;
+            (* A target-syntax function can hide every occurrence of a result-only
+               type parameter from Rust inference.  This is common for adapted
+               fixed-width words (`cast`, numerals, zero): Thingol still knows the
+               concrete result width, but the printed runtime call otherwise only
+               exposes an unconstrained `RustWord<_>`.  An explicit identity call
+               preserves the expression while carrying the mapped result type to
+               rustc. *)
+            fun force_mapped_result_type p =
+              (case range of
+                (tyco `%% (_ :: _)) =>
+                  if is_some (tyco_syntax tyco)
+                  then rust_open [
+                    str "std::convert::identity::<", print_typ NOBR range,
+                    str ">", rust_parens [p]]
+                  else p
+              | _ => p);
             fun print_registered_syntax () =
               (case const_syntax name of
                 NONE => brackify fxy (print_app_expr some_thm vars app)
               | SOME (_, Plain_printer s) =>
-                  brackify fxy (str s :: print_args BR expected_args ts)
+                  force_mapped_result_type
+                    (brackify fxy (str s :: print_args BR expected_args ts))
               | SOME (wanted, Complex_printer print) =>
                   let
                     val ((vs_tys, (ts1, rty)), ts2) =
@@ -1610,7 +1627,7 @@ fun print_rust_stmt class_syntax tyco_syntax const_syntax reserved is_constr der
                   in
                     if null vs_tys then
                       if null ts2 then
-                        print' fxy
+                        force_mapped_result_type (print' fxy)
                       else
                         brackify fxy (print' APP :: print_args BR expected2 ts2)
                     else
