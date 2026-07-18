@@ -36,8 +36,17 @@ class StageResult:
 ROOT = Path(__file__).resolve().parents[3]
 EXEC_DIR = ROOT / "tests_sbpf" / "tests" / "exec_semantics"
 DATA_DIR = ROOT / "tests_sbpf" / "tests" / "data"
-EXPORT_DIR = ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator"
-STEP_JSON = DATA_DIR / "ocaml_in.json"
+THEORY = os.environ.get("SBPF_THEORY") or "bpf_generator"
+EXPORT_DIR = Path(
+    os.environ.get("SBPF_EXPORT_DIR")
+    or ROOT / "tests_sbpf" / "theory" / "stage1" / THEORY
+)
+if not EXPORT_DIR.is_absolute():
+    EXPORT_DIR = ROOT / EXPORT_DIR
+OCAML_EXPORT_DIR = ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator"
+STEP_JSON = Path(os.environ.get("SBPF_STEP_JSON") or DATA_DIR / "ocaml_in.json")
+if not STEP_JSON.is_absolute():
+    STEP_JSON = ROOT / STEP_JSON
 GENERATOR_DIR = ROOT / "tests_sbpf" / "tests" / "rbpf" / "step_test_random"
 
 OCAML_RUNNER = EXEC_DIR / "sbpf_ocaml" / "run_step_micro.py"
@@ -96,22 +105,30 @@ def parse_summary(name: str, rc: int, output: str, note: str = "") -> StageResul
 
 def export_outputs() -> list[Path]:
     return [
-        EXPORT_DIR / "step_test.ocaml",
+        OCAML_EXPORT_DIR / "step_test.ocaml",
         EXPORT_DIR / "step_test" / "Cargo.toml",
     ]
 
 
 def ensure_isabelle_export() -> bool:
     missing = [path for path in export_outputs() if not path.exists()]
+    missing_ocaml = OCAML_EXPORT_DIR / "step_test.ocaml" in missing
+    if missing_ocaml:
+        print(
+            "ERROR: missing fixed OCaml baseline export: "
+            f"{rel(OCAML_EXPORT_DIR / 'step_test.ocaml')}"
+        )
+        return False
+
     force_rebuild = os.environ.get("REBUILD") == "1"
     if not missing and not force_rebuild:
         announce("Isabelle export", f"reusing {rel(EXPORT_DIR)}")
         return True
 
     reason = "REBUILD=1" if force_rebuild else "missing " + ", ".join(rel(p) for p in missing)
-    announce("Isabelle export", f"building bpf_generator ({reason})")
+    announce("Isabelle export", f"building {THEORY} ({reason})")
     rc, _ = run_command(
-        ["make", "build", "TEST_DIR=tests_sbpf/theory", "TEST_THEORY=bpf_generator"],
+        ["make", "build", "TEST_DIR=tests_sbpf/theory", f"TEST_THEORY={THEORY}"],
         cwd=ROOT,
     )
     if rc != 0:
@@ -127,17 +144,24 @@ def ensure_isabelle_export() -> bool:
 
 def generate_step_json() -> int:
     count = os.environ.get("X") or os.environ.get("num") or "100"
-    announce("generator", f"generating {count} random step cases into {rel(STEP_JSON)}")
-    rc, _ = run_command(["cargo", "run", "--", count], cwd=GENERATOR_DIR)
+    seed = os.environ.get("SBPF_STEP_SEED") or "5984326"
+    announce(
+        "generator",
+        f"generating {count} random step cases with seed {seed} into {rel(STEP_JSON)}",
+    )
+    rc, _ = run_command(
+        ["cargo", "run", "--", count, str(STEP_JSON), seed],
+        cwd=GENERATOR_DIR,
+    )
     return rc
 
 
-def run_stage(name: str, script: Path) -> StageResult:
+def run_stage(name: str, script: Path, export_dir: Path) -> StageResult:
     env = os.environ.copy()
     env["SBPF_ROOT"] = str(ROOT)
     env["SBPF_EXEC_DIR"] = str(EXEC_DIR)
     env["SBPF_DATA_DIR"] = str(DATA_DIR)
-    env["SBPF_EXPORT_DIR"] = str(EXPORT_DIR)
+    env["SBPF_EXPORT_DIR"] = str(export_dir)
     env["SBPF_STEP_JSON"] = str(STEP_JSON)
 
     announce(name, f"running {rel(script)}")
@@ -178,8 +202,8 @@ def run_micro() -> int:
         return 1
 
     results = [
-        run_stage("OCaml export", OCAML_RUNNER),
-        run_stage("Rust export", RUST_RUNNER),
+        run_stage("OCaml export", OCAML_RUNNER, OCAML_EXPORT_DIR),
+        run_stage("Rust export", RUST_RUNNER, EXPORT_DIR),
     ]
     print_final_summary(results)
 

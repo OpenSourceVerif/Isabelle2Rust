@@ -4,7 +4,9 @@ Date: 2026-07-19
 
 This note records the experiments used for the RQ3 performance draft. The
 functional oracle is the existing sBPF JSON corpus. The program-level suite has
-146 cases and the instruction-level suite has 300 vectors.
+146 cases. The original Word-only round used 300 instruction vectors; the
+hybrid native-integer round below expands that workload to a deterministic 800
+vectors.
 
 ## Protocol
 
@@ -17,11 +19,93 @@ functional oracle is the existing sBPF JSON corpus. The program-level suite has
 - JSON decoding and per-case output were outside the timed region.
 - Program-level Rust runs traversed all cases once. OCaml traversals were
   repeated 20 times per process and divided by 20.
-- Instruction-level inputs were converted before timing. Each process executed
-  all 300 vectors 20 times, for 6,000 timed steps.
+- Instruction-level inputs were converted before timing. The native-integer
+  round executed all 800 vectors 20 times, for 16,000 timed steps. Older tables
+  below retain their explicitly labelled 300 x 20 workload.
 - Performance timing began only after separate correctness validation.
 
-## Stage 1, current Stage 2, Stage 2 + Word, and OCaml
+## Hybrid native integer and natural-number ablation (800 vectors)
+
+This round compares all current Stage-2 representations in one session. The
+instruction corpus was generated with seed `5984326`; its SHA-256 is
+`1a5efc9e211e83c97cfd7f76b62f28f67c7e4a5ee2712ed36270ed7b590e6b8f`.
+The existing OCaml implementation was not changed or rebuilt. Program-level
+`Time / OCaml` uses its recorded 0.149621-second median for the same 146-case
+suite. Instruction-level `Time / OCaml` uses its recorded rate of 5,874.146
+steps/s; at that rate 16,000 steps correspond to 2.723800 seconds. Thus the
+instruction ratio is a throughput-normalized reference to the retained
+300-vector OCaml run, not a new OCaml measurement on the 800-vector corpus.
+
+| Level | Implementation | Raw times (s) | Median (s) | Rate | Speedup vs Stage 2 | Time / OCaml |
+|---|---|---:|---:|---:|---:|---:|
+| Program, 146 cases | Current Stage-2 Rust | 0.424206501, 0.409673010, 0.451409537 | 0.424206501 | 344.172 cases/s | 1.000x | 2.835x |
+| Program, 146 cases | Stage-2 + Word Rust | 0.248803401, 0.249134404, 0.251891931 | 0.249134404 | 586.029 cases/s | 1.703x | 1.665x |
+| Program, 146 cases | Stage-2 + Native Int/Nat Rust | 0.138938271, 0.123989903, 0.116269279 | 0.123989903 | 1,177.515 cases/s | 3.421x | 0.829x |
+| Program, 146 cases | Stage-2 + Word + Native Int/Nat Rust | 0.106489941, 0.109952100, 0.105878228 | 0.106489941 | 1,371.022 cases/s | 3.984x | 0.712x |
+| Instruction, 800 x 20 | Current Stage-2 Rust | 2.107991114, 2.070795739, 1.985447421 | 2.070795739 | 7,726.498 steps/s | 1.000x | 0.760x |
+| Instruction, 800 x 20 | Stage-2 + Word Rust | 0.544736320, 0.631324800, 0.560829038 | 0.560829038 | 28,529.193 steps/s | 3.692x | 0.206x |
+| Instruction, 800 x 20 | Stage-2 + Native Int/Nat Rust | 0.928876330, 0.456142331, 0.490124270 | 0.490124270 | 32,644.782 steps/s | 4.225x | 0.180x |
+| Instruction, 800 x 20 | Stage-2 + Word + Native Int/Nat Rust | 0.521546517, 0.268138939, 0.268130461 | 0.268138939 | 59,670.558 steps/s | 7.723x | 0.098x |
+
+The hybrid Int/Nat mapping alone improves the current Stage-2 median by 3.421x
+at program level and 4.225x at instruction level. Combining it with the Word
+adapter improves the current Stage-2 median by 3.984x and 7.723x respectively.
+Against Stage-2 + Word, the combined representation is another 2.340x faster
+for programs and 2.092x faster for instructions. Its program median is 1.405x
+faster than the retained OCaml median; its instruction rate is 10.158x the
+retained OCaml rate, subject to the corpus qualification above.
+
+`Rust_Native_Int_Setup.thy` maps Isabelle integers to
+`Small(i128) | Big(Box<BigInt>)`; `Rust_Native_Nat_Setup.thy` analogously uses
+`Small(u128) | Big(Box<BigUint>)`. Checked primitive operations promote only on
+overflow, and arbitrary-precision results demote when they fit again. The
+native Word setup consumes the small variants directly and performs BigInt
+modulo only at a big-value conversion boundary. These are selectable Stage-1
+representation mappings; the generated modules still pass through the normal
+Stage-2 optimizer.
+
+Release-symbol inspection of the combined instruction binary found no
+`Rust_Word::width`, `Rust_Word::mask`, `WordWidth::len_of`, or
+`NativeWordWidth` symbol. The Word hot paths use the associated `WIDTH`
+constant and were inlined, while only the cold big-value conversion functions
+remained as separate Word runtime symbols. The current BigInt Stage-2 baseline
+was regenerated in the same round and its concrete `push_bit`, `drop_bit`, and
+`mask` implementations contain direct shifts.
+
+## Borrow-safe `nth` ablation
+
+This round isolates the final borrow-inference change on the combined Stage-2
+Word and Native Int/Nat representation. The before snapshot uses the previous
+`OwnOK` policy; the after snapshot replaces it with the independent decision
+`BorrowSafe && !PreferOwned`. Both snapshots were measured alternately in the
+same session after release builds, pinned to CPU 0.
+
+| Level | Borrow inference | Raw times (s) | Median (s) | Rate | Speedup | Time / OCaml |
+|---|---|---:|---:|---:|---:|---:|
+| Program, 146 cases | Previous `OwnOK` | 0.103408430, 0.107461199, 0.112346009 | 0.107461199 | 1,358.630 cases/s | 1.000x | 0.718x |
+| Program, 146 cases | `BorrowSafe && !PreferOwned` | 0.034357110, 0.028816995, 0.029036570 | 0.029036570 | 5,028.142 cases/s | 3.701x | 0.194x |
+| Instruction, 800 x 20 | Previous `OwnOK` | 0.263284032, 0.274509486, 0.256205842 | 0.263284032 | 60,770.871 steps/s | 1.000x | 0.097x |
+| Instruction, 800 x 20 | `BorrowSafe && !PreferOwned` | 0.176802371, 0.158261923, 0.187586292 | 0.176802371 | 90,496.524 steps/s | 1.489x | 0.065x |
+
+The previous policy first previewed M-LastUse and then rejected every resulting
+direct owned use. For `nth`, this confused recursive last-use forwarding with a
+profitable structural move and retained calls of the form `nth(l.clone(), i)`.
+The revised analysis checks borrow safety against the original body and uses
+the M-LastUse preview only to decide whether ownership should be preferred.
+Recursive forwarding into the borrowed `nth` position is borrow-transparent,
+and returning a selected element does not transfer the list spine. Structural
+rebuilding paths that move a spine into an owned result remain owned.
+
+The optimized interpreter takes `nth`'s list parameter by shared reference,
+traverses boxed tails by reference, and clones only the selected result when
+required by its generic result type. This improves the combined representation
+by 3.701x at program level and 1.489x at instruction level. Its 0.029037-second
+program median is 5.153x faster than the retained 0.149621-second OCaml median.
+Its instruction rate is 15.406x the retained OCaml rate; as in the hybrid table
+above, that instruction comparison is throughput-normalized from the retained
+300-vector OCaml run rather than a fresh OCaml run on the 800-vector corpus.
+
+## Earlier 300-vector Stage 1, Stage 2, Word, and OCaml round
 
 The current Stage-2 and Stage-2 + Word rows were measured in the same run on
 2026-07-19. The Stage-1 and OCaml rows retain the earlier protocol-compatible

@@ -33,7 +33,30 @@ Generate random step-test data without running the test:
 ```sh
 make micro_sbpf_gen        # default: 100 cases
 make micro_sbpf_gen X=250  # custom case count
+SBPF_STEP_JSON=tests_sbpf/tests/data/ocaml_in_800.json \
+SBPF_STEP_SEED=5984326 make micro_sbpf_gen X=800
+
+# Validate an alternate corpus without replacing tests/data/ocaml_in.json.
+SBPF_STEP_JSON=tests_sbpf/tests/data/ocaml_in_800.json make micro_sbpf
 ```
+
+The alternate Rust numeric setups are selected explicitly; the fixed OCaml
+baseline always remains the export from `bpf_generator`:
+
+```sh
+# Hybrid i128/u128 integer and natural-number payloads with BigInt fallback.
+SBPF_NATIVE_INT=1 SBPF_THEORY=bpf_generator_native \
+SBPF_STEP_JSON=tests_sbpf/tests/data/ocaml_in_800.json make micro_sbpf
+SBPF_NATIVE_INT=1 SBPF_THEORY=bpf_generator_native_interp make macro_sbpf
+
+# The same numeric setup combined with the u128 fixed-width Word adapter.
+SBPF_NATIVE_INT=1 SBPF_THEORY=bpf_generator_word_native \
+SBPF_STEP_JSON=tests_sbpf/tests/data/ocaml_in_800.json make micro_sbpf
+SBPF_NATIVE_INT=1 SBPF_THEORY=bpf_generator_word_native_interp make macro_sbpf
+```
+
+Set `SBPF_STAGE=2` and `SBPF_EXPORT_DIR` to the corresponding directory under
+`theory/stage2/` when validating an optimizer output.
 
 ## Macro Test Flow
 
@@ -89,7 +112,9 @@ the shared instruction-level flow:
    - reads `tests/data/ocaml_in.json`
 
 `make micro_sbpf_gen` calls the local rbpf generator under
-`tests/rbpf/step_test_random` and refreshes `tests/data/ocaml_in.json`.
+`tests/rbpf/step_test_random` and refreshes `tests/data/ocaml_in.json` by
+default. Set `SBPF_STEP_JSON` to generate and run an alternate corpus without
+replacing that file.
 
 ## File Roles
 

@@ -8,10 +8,12 @@
 #![feature(box_patterns)]
 #![allow(non_snake_case)]
 
+#[cfg(sbpf_native_int)]
+use isabelle_exported::Rust_Native_Int::RustInt;
 use isabelle_exported::Step_test::{step_test, List};
 #[cfg(sbpf_no_bigint)]
 use isabelle_exported::Step_test::{Int, Num};
-#[cfg(not(sbpf_no_bigint))]
+#[cfg(all(not(sbpf_no_bigint), not(sbpf_native_int)))]
 use num_bigint::BigInt;
 use serde::Deserialize;
 use std::env;
@@ -21,6 +23,9 @@ use std::io::BufReader;
 use std::panic::{self, AssertUnwindSafe};
 use std::process::exit;
 use std::time::Instant;
+
+#[cfg(all(sbpf_no_bigint, sbpf_native_int))]
+compile_error!("sbpf_no_bigint and sbpf_native_int are mutually exclusive");
 
 #[derive(Deserialize)]
 struct Case {
@@ -43,15 +48,23 @@ fn hex_i64(s: &str) -> i64 {
     u64::from_str_radix(t, 16).unwrap_or_else(|e| panic!("bad hex {}: {}", s, e)) as i64
 }
 
-#[cfg(not(sbpf_no_bigint))]
+#[cfg(all(not(sbpf_no_bigint), not(sbpf_native_int)))]
 type ExportInt = BigInt;
 #[cfg(sbpf_no_bigint)]
 type ExportInt = Int;
+#[cfg(sbpf_native_int)]
+type ExportInt = RustInt;
 
 // int maps to num_bigint::BigInt under Rust_BigInt_Int_Setup.
-#[cfg(not(sbpf_no_bigint))]
+#[cfg(all(not(sbpf_no_bigint), not(sbpf_native_int)))]
 fn int_of_i64(n: i64) -> BigInt {
     BigInt::from(n)
+}
+
+// Rust_Native_Int_Setup keeps values in i128 until arbitrary precision is needed.
+#[cfg(sbpf_native_int)]
+fn int_of_i64(n: i64) -> RustInt {
+    RustInt::from_i128(i128::from(n))
 }
 
 // The no-adaptation experiment exports Isabelle's binary Num representation.

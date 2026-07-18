@@ -138,19 +138,21 @@ struct TypeDef {
 
 /// Ownership demand on a parameter or derived value (paper §4).
 ///
-/// Demands are ordered by how restrictive they are with respect to shared
-/// borrowing.  `Obs`, `Bor`, and `Own` are compatible with converting a
-/// parameter to `&T` only when every owned demand passes `OwnOK`.  `Esc` and
-/// `Unk` are always blocking.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// Borrow safety and ownership preference are deliberately separate. `Dup`
+/// records an owned value that the original source already materializes by
+/// clone/copy, whereas `Move` records a genuine transfer in the analyzed view.
+/// The original body decides `BorrowSafe`; an M-LastUse preview supplies the
+/// `Move` provenance used by `PreferOwned`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum Demand {
     /// Purely observational (match scrutinee, boolean predicate).
     Obs,
     /// Consumed through a borrowed interface (`&x`, `.as_ref()`).
     Bor,
-    /// Local owned demand satisfiable by cloning/copying without moving
-    /// the original (e.g., `x.clone()` used as a constructor field).
-    Own(OwnUse),
+    /// Local duplication already explicit in the original source.
+    Dup(DupUse),
+    /// Genuine ownership transfer in the analyzed view.
+    Move(MoveUse),
     /// Borrow escape – blocks borrow inference.
     Esc,
     /// Unknown or unsupported ownership form.
@@ -158,27 +160,43 @@ enum Demand {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum OwnUse {
+enum DupUse {
     /// Owned value is already produced by an explicit `.clone()` in the source.
     ExplicitClone,
     /// Owned value is obtained by copying a value whose type is known Copy.
     CopyUse,
-    /// Ownership-consuming use that is not backed by clone/copy evidence.
-    DirectOwned,
 }
 
-fn is_blocking(d: Demand) -> bool {
-    matches!(d, Demand::Esc | Demand::Unk)
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum MoveUse {
+    /// The function returns this derived binding directly. Returning the root
+    /// parameter preserves whole-value ownership; returning a strict
+    /// projection (as in `nth`) is handled separately.
+    Return(String),
+    /// A value flows into an aggregate, binding, constructor, or owned callee.
+    OwnedSink,
+    /// A value is captured by an ownership-taking closure.
+    ClosureCapture,
 }
 
-fn own_use_ok(source: OwnUse) -> bool {
-    matches!(source, OwnUse::ExplicitClone | OwnUse::CopyUse)
+/// Semantic/lifetime condition for replacing an owned origin by a shared one.
+fn borrow_safe(demands: &HashSet<Demand>) -> bool {
+    demands
+        .iter()
+        .all(|demand| matches!(demand, Demand::Obs | Demand::Bor | Demand::Dup(_)))
 }
 
-fn own_ok(demands: &HashSet<Demand>) -> bool {
-    demands.iter().all(|demand| match demand {
-        Demand::Own(source) => own_use_ok(*source),
-        _ => true,
+/// Profitability condition for retaining the original owned interface.
+///
+/// A last-use move into an owned sink retains structural ownership and should
+/// survive. A direct return prefers ownership only for the parameter root. A
+/// strict projection returned by an observer such as `nth` may still be cloned
+/// from a shared input, avoiding a clone of the complete container at callers.
+fn prefer_owned(demands: &HashSet<Demand>, root: &str) -> bool {
+    demands.iter().any(|demand| match demand {
+        Demand::Move(MoveUse::Return(name)) => name == root,
+        Demand::Move(MoveUse::OwnedSink | MoveUse::ClosureCapture) => true,
+        _ => false,
     })
 }
 
@@ -453,26 +471,25 @@ impl BorrowContext {
 
     /// Returns the sorted list of parameter indices that are borrowable for `f`.
     fn borrowable_positions(&self, f: &FunctionDef, scope: &ModuleScope) -> Vec<usize> {
-        // Analyze an ownership-normalized clone rather than rewriting the source
-        // function here. If M-LastUse can replace a clone by a move under the
-        // original owned interface, demand analysis must see that move and retain
-        // the parameter as owned. The actual rewrite still runs later in the
-        // mutability pass.
-        let mut demand_function = f.clone();
-        rewrite_last_use_clones_in_function(&mut demand_function);
+        // BorrowSafe is computed from the original body. PreferOwned consults a
+        // separate M-LastUse preview so a removable clone is not confused with
+        // an intrinsically required move. The actual M-LastUse rewrite still
+        // runs later in the mutability pass.
+        let mut last_use_view = f.clone();
+        rewrite_last_use_clones_in_function(&mut last_use_view);
 
-        let copy_generics = generic_names_with_bound(&demand_function, "Copy");
-        let base_env = function_type_env(&demand_function);
+        let copy_generics = generic_names_with_bound(f, "Copy");
+        let base_env = function_type_env(f);
 
-        demand_function
-            .params
+        f.params
             .iter()
             .enumerate()
             .filter(|(_, param)| {
                 // Only consider owned (non-reference) parameters.
                 self.is_borrow_candidate_type(&param.ty, &copy_generics)
                     && self.is_param_borrowable(
-                        &demand_function,
+                        f,
+                        &last_use_view,
                         param,
                         &base_env,
                         &copy_generics,
@@ -500,20 +517,35 @@ impl BorrowContext {
         }
     }
 
-    /// Checks `Borrowable_Γ(f, x)` from the paper:
-    ///   Dem_Γ(f, x) ⊆ {Obs, Bor, Own}  ∧  OwnOK_Γ(f, x)
-    ///
-    /// OwnOK requires every `Own` demand to come from a source that can produce
-    /// an owned value from a shared borrow: either an explicit `.clone()` that is
-    /// not an available last-use move, or a direct Copy use.
+    /// Checks the final parameter decision:
+    ///   Borrowable_Γ(f, x) = BorrowSafe_Γ(f, x) ∧ ¬PreferOwned_Γ(f, x)
     fn is_param_borrowable(
+        &self,
+        f: &FunctionDef,
+        last_use_view: &FunctionDef,
+        param: &Param,
+        base_env: &TypeEnv,
+        copy_generics: &HashSet<String>,
+        scope: &ModuleScope,
+    ) -> bool {
+        let original_demands = self.collect_param_demands(f, param, base_env, copy_generics, scope);
+        if !borrow_safe(&original_demands) {
+            return false;
+        }
+
+        let preview_demands =
+            self.collect_param_demands(last_use_view, param, base_env, copy_generics, scope);
+        !prefer_owned(&preview_demands, &param.name)
+    }
+
+    fn collect_param_demands(
         &self,
         f: &FunctionDef,
         param: &Param,
         base_env: &TypeEnv,
         copy_generics: &HashSet<String>,
         scope: &ModuleScope,
-    ) -> bool {
+    ) -> HashSet<Demand> {
         let mut derived: HashSet<String> = HashSet::new();
         derived.insert(param.name.clone());
 
@@ -528,10 +560,7 @@ impl BorrowContext {
             &mut demands,
             DemandSite::new(true, scope), // function-body tail is the return value
         );
-
-        // The parameter is borrowable iff no escaping borrow was found and
-        // every owned demand can be discharged locally from the borrowed origin.
-        !demands.iter().any(|d| is_blocking(*d)) && own_ok(&demands)
+        demands
     }
 
     /// Walk a block and collect ownership demands imposed on the derived set.
@@ -645,10 +674,10 @@ impl BorrowContext {
                         // Returning a derived value directly.
                         if ty.map(|t| self.is_copy(t, copy_generics)).unwrap_or(false) {
                             // Copy types can be implicitly copied.
-                            demands.insert(Demand::Own(OwnUse::CopyUse));
+                            demands.insert(Demand::Dup(DupUse::CopyUse));
                         } else {
                             // Non-Copy direct return lacks clone/copy evidence.
-                            demands.insert(Demand::Own(OwnUse::DirectOwned));
+                            demands.insert(Demand::Move(MoveUse::Return(name.clone())));
                         }
                     }
                     // In non-return context an Ident on its own may just be
@@ -664,7 +693,7 @@ impl BorrowContext {
                         if let Expr::Ident(name) = receiver.as_ref() {
                             if derived.contains(name) {
                                 // `x.clone()` → Own demand (satisfiable via Clone).
-                                demands.insert(Demand::Own(OwnUse::ExplicitClone));
+                                demands.insert(Demand::Dup(DupUse::ExplicitClone));
                                 return;
                             }
                         }
@@ -1085,7 +1114,7 @@ impl BorrowContext {
                     derived.difference(&shadowed).cloned().collect();
                 if !outer_derived.is_empty() && expr_has_free_var_from(body, &outer_derived) {
                     if *is_move {
-                        demands.insert(Demand::Own(OwnUse::DirectOwned));
+                        demands.insert(Demand::Move(MoveUse::ClosureCapture));
                     } else {
                         demands.insert(Demand::Esc);
                     }
@@ -1137,7 +1166,7 @@ impl BorrowContext {
                     if derived.contains(name) {
                         // Stable lowering of `box y`: a borrowed origin
                         // materializes the inner value with a clone.
-                        demands.insert(Demand::Own(OwnUse::ExplicitClone));
+                        demands.insert(Demand::Dup(DupUse::ExplicitClone));
                         return;
                     }
                 }
@@ -1154,7 +1183,7 @@ impl BorrowContext {
                 if let Expr::Ident(name) = receiver.as_ref() {
                     if derived.contains(name) {
                         // `x.clone()` in own position → Own demand (satisfiable).
-                        demands.insert(Demand::Own(OwnUse::ExplicitClone));
+                        demands.insert(Demand::Dup(DupUse::ExplicitClone));
                         return;
                     }
                 }
@@ -1172,11 +1201,11 @@ impl BorrowContext {
                     let ty = env.get(name);
                     if ty.map(|t| self.is_copy(t, copy_generics)).unwrap_or(false) {
                         // Copy type: direct use is an implicit copy – Own demand.
-                        demands.insert(Demand::Own(OwnUse::CopyUse));
+                        demands.insert(Demand::Dup(DupUse::CopyUse));
                     } else {
                         // Non-Copy type passed directly without clone lacks
                         // clone/copy evidence.
-                        demands.insert(Demand::Own(OwnUse::DirectOwned));
+                        demands.insert(Demand::Move(MoveUse::OwnedSink));
                     }
                 } else {
                     self.collect_demands_expr(
@@ -2322,7 +2351,7 @@ impl BorrowContext {
     /// }
     /// ```
     /// When *all* `_cap`-captured variables are borrowable within `clo_cap`
-    /// (demands ≤ {Obs, Bor, Own}), the whole block is replaced with a plain
+    /// (`BorrowSafe` and not `PreferOwned`), the whole block is replaced with a plain
     /// non-`move` closure `|x̄| { clo_bor }` where each `yj_cap` is
     /// substituted back to `yj`.
     ///
@@ -2381,11 +2410,10 @@ impl BorrowContext {
             }
         }
 
-        // Check borrowability: for each captured variable (`y_cap`), all
-        // demands it generates within the closure body must be ≤ {Obs, Bor, Own}.
+        // Check borrowability: for each captured variable (`y_cap`), borrowing
+        // must be safe and must not discard a profitable ownership transfer.
         // Use `in_return_ctx = true` because the closure body's tail expression
-        // is the closure's return value, so a derived var in tail position is an
-        // owned demand that must satisfy OwnOK.
+        // is the closure's return value.
         for (cap_name, _) in &captures {
             let derived: HashSet<String> = [cap_name.clone()].into_iter().collect();
             let mut demands = HashSet::new();
@@ -2398,7 +2426,7 @@ impl BorrowContext {
                 &mut demands,
                 DemandSite::new(true, scope), // closure-body tail is return context
             );
-            if demands.iter().any(|d| is_blocking(*d)) || !own_ok(&demands) {
+            if !borrow_safe(&demands) || prefer_owned(&demands, cap_name) {
                 return None;
             }
         }
@@ -3772,6 +3800,62 @@ where
         assert!(!printed.contains("v.clone()"));
         assert!(!printed.contains("va.clone()"));
         assert!(printed.contains("List::Cons(v, Box::new(va))"));
+    }
+
+    #[test]
+    fn nth_borrows_recursive_list_but_clones_selected_element() {
+        let source = r#"
+#[derive(Clone)]
+pub enum List<A> {
+    Nil,
+    Cons(A, Box<List<A>>),
+}
+
+pub fn nth<A>(x0: List<A>, n: usize) -> A
+where
+    A: Clone + 'static,
+{
+    match x0 {
+        List::Cons(x, p0a) => {
+            let xs = *p0a;
+            if n == 0 {
+                x.clone()
+            } else {
+                nth(xs.clone(), n - 1)
+            }
+        }
+        _ => panic!("non-exhaustive match"),
+    }
+}
+
+pub fn fetch<A>(xs: List<A>, n: usize) -> A
+where
+    A: Clone + 'static,
+{
+    nth(xs.clone(), n)
+}
+"#;
+        let mut module = parse_rust_source(source, "Nth_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("crate::Nth_Test::nth"));
+        let Item::Function(nth) = &module.items[1] else {
+            panic!("expected nth function");
+        };
+        assert!(is_reference_type(&nth.params[0].ty));
+
+        // M-LastUse must not turn the selected `&A` into a move. The returned
+        // element is still cloned, while neither recursive traversal nor the
+        // caller clones the complete list.
+        optimize_mut(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn nth<A>(x0: &List<A>, n: usize) -> A"));
+        assert!(printed.contains("let xs = p0a.as_ref();"));
+        assert!(printed.contains("nth(xs, n - 1)"));
+        assert!(printed.contains("x.clone()"));
+        assert!(!printed.contains("nth(xs.clone()"));
     }
 
     #[test]

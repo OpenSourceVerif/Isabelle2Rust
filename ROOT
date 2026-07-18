@@ -6,7 +6,10 @@ session Rust = Main +
     Rust_Setup
     Rust_BigInt_Int_Setup
     Rust_BigInt_Nat_Setup
+    Rust_Native_Int_Setup
+    Rust_Native_Nat_Setup
     Rust_U128_Word_Setup
+    Rust_U128_Word_Native_Setup
 
 session "Rust-HOL-Codegenerator_Test" in "test/HOL_Codegenerator" = "HOL-Library" +
   description "Rust stress test session for a broad HOL code-generator export"

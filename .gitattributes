@@ -10,3 +10,6 @@
 # Keep lockfiles/text configs as LF too (they are plain text).
 *.toml text eol=lf
 *.lock text eol=lf
+
+# Large generated sBPF instruction corpus.
+tests_sbpf/tests/data/ocaml_in.json filter=lfs diff=lfs merge=lfs -text

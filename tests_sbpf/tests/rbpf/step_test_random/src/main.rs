@@ -3,7 +3,8 @@ use solana_rbpf::program::{BuiltinFunction, BuiltinProgram, FunctionRegistry,SBP
 use solana_rbpf::memory_region::MemoryRegion;
 use solana_rbpf::vm::{Config, TestContextObject};
 use test_utils::create_vm;
-use rand::Rng;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use serde::{Serialize, Deserialize};
 use serde_json;
 use std::fs::{File, create_dir_all};
@@ -71,7 +72,7 @@ fn assemble_to_bytecode(assembly_code: &str) -> Result<Vec<u8>, String> {
     Ok(program.to_vec())
 }
 
-fn generate_and_process_test_cases(num_cases: usize) -> Vec<TestCase> {
+fn generate_and_process_test_cases(num_cases: usize, seed: u64) -> Vec<TestCase> {
 
     //let MM_INPUT_START::u64 = 0x400000000;
     let instruction_sets = [
@@ -172,7 +173,7 @@ fn generate_and_process_test_cases(num_cases: usize) -> Vec<TestCase> {
         },
     ];
 
-    let mut rng = rand::thread_rng();
+    let mut rng = StdRng::seed_from_u64(seed);
 
     let mut test_cases = Vec::new();
 
@@ -388,11 +389,18 @@ fn generate_and_process_test_cases(num_cases: usize) -> Vec<TestCase> {
 }
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();
-    let num_test_cases = args.get(1).map_or(100, |x| x.parse::<usize>().unwrap_or(100));
+    let num_test_cases = args
+        .get(1)
+        .map_or(100, |x| x.parse::<usize>().unwrap_or(100));
+    let output_path_str = args
+        .get(2)
+        .map(String::as_str)
+        .unwrap_or("../../data/ocaml_in.json");
+    let seed = args.get(3).map_or(0x5B_50_46_u64, |x| {
+        x.parse::<u64>().unwrap_or(0x5B_50_46_u64)
+    });
+    let test_cases = generate_and_process_test_cases(num_test_cases, seed);
 
-    let test_cases = generate_and_process_test_cases(num_test_cases);
-
-    let output_path_str = "../../data/ocaml_in.json";
     let output_path = shellexpand::tilde(output_path_str).into_owned();
 
     if let Some(dir_path) = Path::new(&output_path).parent() {
@@ -406,8 +414,11 @@ fn main() -> std::io::Result<()> {
 
     serde_json::to_writer_pretty(writer, &test_cases)?;
 
-    println!("Successfully generated {} random test cases.", num_test_cases);
+    println!(
+        "Successfully generated {} random test cases with seed {} into {}.",
+        test_cases.len(),
+        seed,
+        output_path
+    );
     Ok(())
 }
-
-

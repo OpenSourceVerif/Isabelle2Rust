@@ -14,7 +14,9 @@
 use isabelle_exported::Interp_test::{bpf_interp_test, List};
 #[cfg(sbpf_no_bigint)]
 use isabelle_exported::Interp_test::{Int, Num};
-#[cfg(not(sbpf_no_bigint))]
+#[cfg(sbpf_native_int)]
+use isabelle_exported::Rust_Native_Int::RustInt;
+#[cfg(all(not(sbpf_no_bigint), not(sbpf_native_int)))]
 use num_bigint::BigInt;
 use std::env;
 use std::fs;
@@ -23,6 +25,9 @@ use std::io::{self, Write};
 use std::panic::{self, AssertUnwindSafe};
 use std::process::exit;
 use std::time::Instant;
+
+#[cfg(all(sbpf_no_bigint, sbpf_native_int))]
+compile_error!("sbpf_no_bigint and sbpf_native_int are mutually exclusive");
 
 struct Case {
     dis: String,
@@ -227,15 +232,23 @@ fn read_cases(path: &str) -> Vec<Case> {
     JsonParser::new(&src).parse_cases()
 }
 
-#[cfg(not(sbpf_no_bigint))]
+#[cfg(all(not(sbpf_no_bigint), not(sbpf_native_int)))]
 type ExportInt = BigInt;
 #[cfg(sbpf_no_bigint)]
 type ExportInt = Int;
+#[cfg(sbpf_native_int)]
+type ExportInt = RustInt;
 
 // int64 -> exported BigInt when the BigInt setup is active.
-#[cfg(not(sbpf_no_bigint))]
+#[cfg(all(not(sbpf_no_bigint), not(sbpf_native_int)))]
 fn int_of_i64(n: i64) -> BigInt {
     BigInt::from(n)
+}
+
+// Rust_Native_Int_Setup keeps values in i128 until arbitrary precision is needed.
+#[cfg(sbpf_native_int)]
+fn int_of_i64(n: i64) -> RustInt {
+    RustInt::from_i128(i128::from(n))
 }
 
 // The no-adaptation experiment exports Isabelle's binary Num representation.

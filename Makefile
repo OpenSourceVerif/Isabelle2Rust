@@ -29,7 +29,7 @@ ISABELLE_TEST_SILENT   := isabelle build -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
 
 export ISABELLE_CARGO
 
-WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = 300]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "$(TEST_DIR)"' '  theories [document = false]' '    Rust_Setup' '    Rust_BigInt_Int_Setup' '    Rust_BigInt_Nat_Setup' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
+WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = 300]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "$(TEST_DIR)"' '  theories [document = false]' '    Rust_Setup' '    Rust_BigInt_Int_Setup' '    Rust_BigInt_Nat_Setup' '    Rust_Native_Int_Setup' '    Rust_Native_Nat_Setup' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
 
 #### Targets ####
 
@@ -145,15 +145,16 @@ gen:
 	  exit 1; \
 	fi
 
-# opt: optimizer stage1 -> stage2 + cargo build on stage2 (no Isabelle build)
+# opt: optimize every stage1 Rust export into stage2/<theory>/<export>/, then build it
+# (no Isabelle build)
 # Usage: make opt DIR=<dir> Name=<theory>   (single)
 #        make opt DIR=<dir>                 (all theories in dir/stage1/)
 opt:
 	@_run_opt() { \
 	  local dir="$$1" name="$$2"; \
 	  local s1_root="$$dir/stage1/$$name"; \
-	  local s1; \
-	  local s2="$$dir/stage2/$$name"; \
+	  local s2_root="$$dir/stage2/$$name"; \
+	  local manifests; \
 	  local items=0; \
 	  local item_label; \
 	  if [ -f "$$dir/$$name.thy" ]; then items=$$(perl "$(EXPORT_ITEM_COUNTER)" "$$dir/$$name.thy"); fi; \
@@ -165,23 +166,29 @@ opt:
 	  if [ ! -d "$$s1_root" ]; then \
 	    echo "ERROR: stage1 not found at $$s1_root — run make gen first"; return 1; \
 	  fi; \
-	  s1=$$(find "$$s1_root" -mindepth 2 -maxdepth 2 -type f -name Cargo.toml -printf '%h\n' | sort -V | tail -n 1); \
-	  if [ -z "$$s1" ]; then \
+	  manifests=$$(find "$$s1_root" -mindepth 2 -maxdepth 2 -type f -name Cargo.toml | sort -V); \
+	  if [ -z "$$manifests" ]; then \
 	    echo "ERROR: no Rust export found under $$s1_root"; return 1; \
 	  fi; \
 	  echo ">>> [opt] $$name ($$item_label)  stage1 -> stage2"; \
-	  rm -rf "$$s2"; \
-	  (ulimit -s "$(OPT_STACK_KB)"; \
-	    $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
-	      "$$s1" --out-dir "$$s2") || return 1; \
-	  if [ ! -f "$$s2/Cargo.lock" ]; then \
-	    if   [ -f "$$s1/Cargo.lock" ];           then cp "$$s1/Cargo.lock" "$$s2/Cargo.lock"; \
-	    elif [ -f "$(ISABELLE_EXPORTED_LOCK)" ];  then cp "$(ISABELLE_EXPORTED_LOCK)" "$$s2/Cargo.lock"; \
+	  rm -rf "$$s2_root"; \
+	  for manifest in $$manifests; do \
+	    local s1=$$(dirname "$$manifest"); \
+	    local export_name=$$(basename "$$s1"); \
+	    local s2="$$s2_root/$$export_name"; \
+	    echo ">>> [opt] optimizing Rust export: $$export_name"; \
+	    (ulimit -s "$(OPT_STACK_KB)"; \
+	      $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
+	        "$$s1" --out-dir "$$s2") || return 1; \
+	    if [ ! -f "$$s2/Cargo.lock" ]; then \
+	      if   [ -f "$$s1/Cargo.lock" ];           then cp "$$s1/Cargo.lock" "$$s2/Cargo.lock"; \
+	      elif [ -f "$(ISABELLE_EXPORTED_LOCK)" ];  then cp "$(ISABELLE_EXPORTED_LOCK)" "$$s2/Cargo.lock"; \
+	      fi; \
 	    fi; \
-	  fi; \
-	  echo ">>> [opt] cargo build stage2: $$name"; \
-	  RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
-	    --manifest-path "$$s2/Cargo.toml" || return 1; \
+	    echo ">>> [opt] cargo build stage2: $$name/$$export_name"; \
+	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
+	      --manifest-path "$$s2/Cargo.toml" || return 1; \
+	  done; \
 	}; \
 	if [ -n "$(DIR)" ] && [ -n "$(Name)" ]; then \
 	  _run_opt "$(DIR)" "$(Name)"; \
@@ -227,32 +234,40 @@ opt:
 	  exit 1; \
 	fi
 
-# test: full two-phase pipeline — stage1 (no cargo build) → "stage1 done" → stage2 + cargo build
+# test: full two-phase pipeline — stage1 (no cargo build) → "stage1 done" →
+# stage2/<theory>/<export>/ + cargo build
 # Usage: make test DIR=<dir> Name=<theory>   (single)
 #        make test DIR=<dir>                 (all *_Test.thy under dir)
 test:
 	@_run_opt() { \
 	  local dir="$$1" name="$$2"; \
 	  local s1_root="$$dir/stage1/$$name"; \
-	  local s1; \
-	  local s2="$$dir/stage2/$$name"; \
+	  local s2_root="$$dir/stage2/$$name"; \
+	  local manifests; \
 	  if [ ! -d "$$s1_root" ]; then \
 	    echo "ERROR: stage1 not found at $$s1_root"; return 1; \
 	  fi; \
-	  s1=$$(find "$$s1_root" -mindepth 2 -maxdepth 2 -type f -name Cargo.toml -printf '%h\n' | sort -V | tail -n 1); \
-	  if [ -z "$$s1" ]; then \
+	  manifests=$$(find "$$s1_root" -mindepth 2 -maxdepth 2 -type f -name Cargo.toml | sort -V); \
+	  if [ -z "$$manifests" ]; then \
 	    echo "ERROR: no Rust export found under $$s1_root"; return 1; \
 	  fi; \
-	  rm -rf "$$s2"; \
-	  $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
-	    "$$s1" --out-dir "$$s2" || return 1; \
-	  if [ ! -f "$$s2/Cargo.lock" ]; then \
-	    if   [ -f "$$s1/Cargo.lock" ];           then cp "$$s1/Cargo.lock" "$$s2/Cargo.lock"; \
-	    elif [ -f "$(ISABELLE_EXPORTED_LOCK)" ];  then cp "$(ISABELLE_EXPORTED_LOCK)" "$$s2/Cargo.lock"; \
+	  rm -rf "$$s2_root"; \
+	  for manifest in $$manifests; do \
+	    local s1=$$(dirname "$$manifest"); \
+	    local export_name=$$(basename "$$s1"); \
+	    local s2="$$s2_root/$$export_name"; \
+	    echo ">>> [test] optimizing Rust export: $$export_name"; \
+	    (ulimit -s "$(OPT_STACK_KB)"; \
+	      $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
+	        "$$s1" --out-dir "$$s2") || return 1; \
+	    if [ ! -f "$$s2/Cargo.lock" ]; then \
+	      if   [ -f "$$s1/Cargo.lock" ];           then cp "$$s1/Cargo.lock" "$$s2/Cargo.lock"; \
+	      elif [ -f "$(ISABELLE_EXPORTED_LOCK)" ];  then cp "$(ISABELLE_EXPORTED_LOCK)" "$$s2/Cargo.lock"; \
+	      fi; \
 	    fi; \
-	  fi; \
-	  RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
-	    --manifest-path "$$s2/Cargo.toml" || return 1; \
+	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
+	      --manifest-path "$$s2/Cargo.toml" || return 1; \
+	  done; \
 	}; \
 	if [ -n "$(DIR)" ] && [ -n "$(Name)" ]; then \
 	  ITEMS=$$(perl "$(EXPORT_ITEM_COUNTER)" "$(DIR)/$(Name).thy"); \
@@ -424,13 +439,13 @@ OCAML_VERSION     ?= 4.11.2
 RUST_TOOLCHAIN    ?= nightly-2025-12-01
 
 macro_sbpf:
-	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" DATA_REBUILD="$(DATA_REBUILD)" OCAML_REBUILD="$(OCAML_REBUILD)" OCAML_VERSION="$(OCAML_VERSION)" RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" python3 $(SBPF_EXEC)/run_macro_sbpf.py
+	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" DATA_REBUILD="$(DATA_REBUILD)" OCAML_REBUILD="$(OCAML_REBUILD)" OCAML_VERSION="$(OCAML_VERSION)" RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" SBPF_THEORY="$(SBPF_THEORY)" SBPF_EXPORT_DIR="$(SBPF_EXPORT_DIR)" python3 $(SBPF_EXEC)/run_macro_sbpf.py
 
 micro_sbpf:
-	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" OCAML_REBUILD="$(OCAML_REBUILD)" OCAML_VERSION="$(OCAML_VERSION)" RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" python3 $(SBPF_EXEC)/run_micro_sbpf.py
+	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" OCAML_REBUILD="$(OCAML_REBUILD)" OCAML_VERSION="$(OCAML_VERSION)" RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" SBPF_THEORY="$(SBPF_THEORY)" SBPF_EXPORT_DIR="$(SBPF_EXPORT_DIR)" SBPF_STEP_JSON="$(SBPF_STEP_JSON)" SBPF_STEP_SEED="$(SBPF_STEP_SEED)" python3 $(SBPF_EXEC)/run_micro_sbpf.py
 
 micro_sbpf_gen:
-	@PYTHONDONTWRITEBYTECODE=1 X="$(X)" python3 $(SBPF_EXEC)/run_micro_sbpf.py gen
+	@PYTHONDONTWRITEBYTECODE=1 X="$(X)" SBPF_STEP_JSON="$(SBPF_STEP_JSON)" SBPF_STEP_SEED="$(SBPF_STEP_SEED)" python3 $(SBPF_EXEC)/run_micro_sbpf.py gen
 
 # x64 validation:
 #   x64_gen builds the random instruction/state data under tests_x64/x64-validation/0-data.
@@ -501,11 +516,12 @@ help:
 	@echo "      Example: make gen DIR=test/unit/optimization Name=Copy_Test"
 	@echo "      Example: make gen DIR=test/unit/optimization"
 	@echo "  opt DIR=<dir> [Name=<theory>]"
-	@echo "      Optimize stage1 -> stage2 + cargo build on stage2 (no Isabelle build)."
+	@echo "      Optimize every Rust export into stage2/<theory>/<export>/ and build it."
+	@echo "      Does not run an Isabelle build."
 	@echo "      Example: make opt DIR=test/unit/optimization Name=Copy_Test"
 	@echo "      Example: make opt DIR=test/unit/optimization"
 	@echo "  test DIR=<dir> [Name=<theory>]"
-	@echo "      Full pipeline: Isabelle -> stage1 -> stage2 + cargo build."
+	@echo "      Full pipeline: Isabelle -> stage1 -> stage2/<theory>/<export>/ + cargo build."
 	@echo "      Example: make test DIR=test/unit/optimization Name=Copy_Test"
 	@echo "      Example: make test DIR=test/unit/optimization"
 	@echo "  targeted"
