@@ -1,4 +1,4 @@
-.PHONY: open open_test build build_silent code gen opt test targeted hol-gcd hol-stress macro_sbpf micro_sbpf micro_sbpf_gen x64 x64_gen x64_test clean help
+.PHONY: open open_test build build_silent code gen opt test targeted hol-gcd hol-stress kloc clippy macro_sbpf micro_sbpf micro_sbpf_gen x64 x64_gen x64_test clean help
 
 #### Configuration ####
 
@@ -515,6 +515,10 @@ help:
 	@echo "      Build and run the HOL gcd smoke test. Default: HOL_GCD_THEORY=$(HOL_GCD_THEORY)."
 	@echo "  hol-stress"
 	@echo "      Run the Rust HOL-Codegenerator pressure test session."
+	@echo "  kloc"
+	@echo "      Count generated Rust LOC for HOL, unit, and FPP at both stages."
+	@echo "  clippy [CLIPPY_PROCESSES=4] [CLIPPY_CARGO_JOBS=1]"
+	@echo "      Aggregate warning types from generated Stage 1 and Stage 2 crates."
 	@echo "  macro_sbpf [REBUILD=1]"
 	@echo "      Run program-level sBPF validation over the Solana official macro cases"
 	@echo "      from Isabelle-generated OCaml and Rust exports. REBUILD=1 regenerates"
