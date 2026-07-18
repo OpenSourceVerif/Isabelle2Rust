@@ -35,8 +35,25 @@ fun boxed_wildcard_fallback :: "token \<Rightarrow> token \<Rightarrow> nat" whe
 | "boxed_wildcard_fallback t Stop = token_size t"
 | "boxed_wildcard_fallback _ _ = 0"
 
+(* Native tuples nested with a boxed list pattern must remain visible to the
+   stable match compiler. *)
+fun pair_list_sum :: "(nat \<times> nat) list \<Rightarrow> nat" where
+  "pair_list_sum ((x, y) # _) = x + y"
+| "pair_list_sum [] = 0"
+
+fun nested_pair_list_sum :: "nat \<times> (nat \<times> nat) list \<Rightarrow> nat" where
+  "nested_pair_list_sum (z, (x, y) # _) = z + x + y"
+| "nested_pair_list_sum (_, []) = 0"
+
+definition nested_pair_list_case :: "nat \<times> (nat \<times> nat) list \<Rightarrow> nat" where
+  "nested_pair_list_case input =
+    (case input of
+       (z, (x, y) # _) \<Rightarrow> z + x + y
+     | (_, []) \<Rightarrow> 0)"
+
 export_code
   token_size choose_nat token_score first_some boxed_wildcard_fallback
+  pair_list_sum nested_pair_list_sum nested_pair_list_case
   in Rust
 
 end

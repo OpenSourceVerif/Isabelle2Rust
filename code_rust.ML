@@ -1719,10 +1719,19 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               else []
           | binding_let _ _ _ _ = [];
         fun row_pats (pats, _, _, _, _) = pats;
+        (* Product_Type.Pair is printed with native Rust tuple syntax and therefore
+           has no surviving Datatypecons node in the Thingol program.  Treat it as
+           a synthetic constructor while compiling stable matches; otherwise a
+           boxed pattern below a tuple (for example `(t, (k, v) # xs)`) has no
+           constructor column and incorrectly falls through to the non-exhaustive
+           fallback. *)
+        fun is_native_tuple (Constant "Product_Type.Pair") = true
+          | is_native_tuple _ = false;
         fun constructor_pat pat =
           (case Code_Thingol.unfold_const_app pat of
             SOME ({sym, dom, ...}, ts) =>
-              if is_constr sym andalso length dom = length ts
+              if (is_constr sym orelse is_native_tuple sym)
+                  andalso length dom = length ts
               then SOME (sym, dom, ts)
               else NONE
           | NONE => NONE);
@@ -1739,7 +1748,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             val phantom_args = List.tabulate (phantom_count, fn _ => str "PhantomData");
             val args = map str field_names @ phantom_args;
           in
-            if null args then str (constructor_name sym)
+            if is_native_tuple sym then rust_parens (map str field_names)
+            else if null args then str (constructor_name sym)
             else Pretty.block [str (constructor_name sym), str " ", rust_parens args]
           end;
         fun fresh_names row_vars base n =
