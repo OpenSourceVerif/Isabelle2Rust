@@ -1,6 +1,6 @@
 # sBPF performance experiments
 
-Date: 2026-07-18
+Date: 2026-07-19
 
 This note records the experiments used for the RQ3 performance draft. The
 functional oracle is the existing sBPF JSON corpus. The program-level suite has
@@ -24,25 +24,25 @@ functional oracle is the existing sBPF JSON corpus. The program-level suite has
 ## Stage 1, current Stage 2, Stage 2 + Word, and OCaml
 
 The current Stage-2 and Stage-2 + Word rows were measured in the same run on
-2026-07-18. The Stage-1 and OCaml rows retain the earlier protocol-compatible
+2026-07-19. The Stage-1 and OCaml rows retain the earlier protocol-compatible
 measurements. `Time / OCaml` compares medians, so values below one are faster
 than OCaml.
 
 | Level | Implementation | Raw times (s) | Median (s) | Rate | Time / OCaml |
 |---|---|---:|---:|---:|---:|
 | Program, 146 cases | Stage-1 Rust | 121.833824, 127.394794, 123.124299 | 123.124299 | 1.186 cases/s | 822.908x |
-| Program, 146 cases | Current Stage-2 Rust | 0.683812434, 0.676702593, 0.627388871 | 0.676702593 | 215.752 cases/s | 4.523x |
-| Program, 146 cases | Stage-2 + Word Rust | 0.384317575, 0.398009802, 0.374202400 | 0.384317575 | 379.894 cases/s | 2.569x |
+| Program, 146 cases | Current Stage-2 Rust | 0.432771943, 0.462209072, 0.441199319 | 0.441199319 | 330.916 cases/s | 2.949x |
+| Program, 146 cases | Stage-2 + Word Rust | 0.265086987, 0.289384312, 0.252743356 | 0.265086987 | 550.763 cases/s | 1.772x |
 | Program, 146 cases | OCaml native | 2.915914, 2.999822, 2.992418 for 20 traversals | 0.149621 per traversal | 975.800 cases/s | 1.000x |
 | Instruction, 300 x 20 | Stage-1 Rust | 20.523923, 21.280951, 20.684503 | 20.684503 | 290.072 steps/s | 20.251x |
-| Instruction, 300 x 20 | Current Stage-2 Rust | 0.964161813, 0.969869626, 0.934271442 | 0.964161813 | 6,223.022 steps/s | 0.944x |
-| Instruction, 300 x 20 | Stage-2 + Word Rust | 0.576837763, 0.590212632, 0.613177835 | 0.590212632 | 10,165.828 steps/s | 0.578x |
+| Instruction, 300 x 20 | Current Stage-2 Rust | 0.712960824, 0.727080263, 0.772733590 | 0.727080263 | 8,252.184 steps/s | 0.712x |
+| Instruction, 300 x 20 | Stage-2 + Word Rust | 0.246654430, 0.212129711, 0.195956027 | 0.212129711 | 28,284.581 steps/s | 0.208x |
 | Instruction, 300 x 20 | OCaml native | 1.021425, 1.034111, 0.983053 | 1.021425 | 5,874.146 steps/s | 1.000x |
 
-The Word adapter improves the current Stage-2 median by 1.761x at program level
-and 1.634x at instruction level. The resulting instruction kernel is 1.731x
+The Word adapter improves the current Stage-2 median by 1.664x at program level
+and 3.428x at instruction level. The resulting instruction kernel is 4.815x
 faster than the recorded OCaml median, while the full program interpreter
-remains 2.569x slower than OCaml.
+remains 1.772x slower than OCaml.
 
 ## Native rBPF interpreter
 
@@ -74,8 +74,8 @@ The full-suite rates were:
 | Implementation | Program rate (cases/s) | Instruction rate (steps/s) |
 |---|---:|---:|
 | Stage-1 Rust | 1.186 | 290.072 |
-| Current Stage-2 Rust | 215.752 | 6,223.022 |
-| Stage-2 + Word Rust | 379.894 | 10,165.828 |
+| Current Stage-2 Rust | 330.916 | 8,252.184 |
+| Stage-2 + Word Rust | 550.763 | 28,284.581 |
 | OCaml native | 975.800 | 5,874.146 |
 | rBPF native core | 4,288,720.406 | 23,485,806 |
 
@@ -128,6 +128,38 @@ BigInt` implementations of `push_bit`, `drop_bit`, and `mask` to native shifts
 and a shifted mask. Therefore the current Stage-2 rows above already contain
 this lowering, and there is no separate BigInt-shift experiment column.
 
+### Administrative closure eta-reduction
+
+The current Stage-2 pipeline also removes backend-generated forwarding
+closures of the form `Rc::new(move |x| (*factory(captures))(x))` when the local
+factory performs no eager work other than capture moves and returning an
+`Rc<dyn Fn>`. The replacement reuses `factory(captures)` directly. It neither
+inlines the factory body nor beta-reduces the returned closure, so the
+function-valued state representation is retained.
+
+The following ablation was measured in one session with pre-pass snapshots and
+the eta-enabled outputs run alternately. The OCaml medians are the recorded
+protocol-compatible baselines above.
+
+| Level | Representation | Eta reduction | Raw times (s) | Median (s) | Rate | Speedup | Time / OCaml |
+|---|---|---|---:|---:|---:|---:|---:|
+| Program, 146 cases | Current Stage-2 | Without | 0.667292603, 0.594387636, 0.717819110 | 0.667292603 | 218.795 cases/s | 1.000x | 4.460x |
+| Program, 146 cases | Current Stage-2 | With | 0.432771943, 0.462209072, 0.441199319 | 0.441199319 | 330.916 cases/s | 1.512x | 2.949x |
+| Program, 146 cases | Stage-2 + Word | Without | 0.266172902, 0.300679973, 0.282204488 | 0.282204488 | 517.355 cases/s | 1.000x | 1.886x |
+| Program, 146 cases | Stage-2 + Word | With | 0.265086987, 0.289384312, 0.252743356 | 0.265086987 | 550.763 cases/s | 1.065x | 1.772x |
+| Instruction, 300 x 20 | Current Stage-2 | Without | 0.904438141, 0.822814716, 0.891429547 | 0.891429547 | 6,730.762 steps/s | 1.000x | 0.873x |
+| Instruction, 300 x 20 | Current Stage-2 | With | 0.712960824, 0.727080263, 0.772733590 | 0.727080263 | 8,252.184 steps/s | 1.226x | 0.712x |
+| Instruction, 300 x 20 | Stage-2 + Word | Without | 0.242228359, 0.273348207, 0.255738803 | 0.255738803 | 23,461.438 steps/s | 1.000x | 0.250x |
+| Instruction, 300 x 20 | Stage-2 + Word | With | 0.246654430, 0.212129711, 0.195956027 | 0.212129711 | 28,284.581 steps/s | 1.206x | 0.208x |
+
+The larger program-level gain without the Word adapter is consistent with the
+eliminated forwarding closure repeatedly cloning BigInt-backed word values.
+With the `u128` payload those value clones are already cheap, but avoiding the
+temporary closure allocation and dispatch still improves the instruction
+kernel. Each update continues to allocate the `fun_upd` closure that represents
+the persistent register state; this pass removes only the redundant outer
+adapter.
+
 ### Stage-1 u128 word adapter
 
 The earlier `u64` design was rejected because signed and unsigned high-half
@@ -140,14 +172,15 @@ Stage-2 optimizer.
 
 | Level | Raw times (s) | Median (s) | Rate | Stage-2 speedup | Time / OCaml |
 |---|---:|---:|---:|---:|---:|
-| Program, 146 cases | 0.384317575, 0.398009802, 0.374202400 | 0.384317575 | 379.894 cases/s | 1.761x | 2.569x |
-| Instruction, 300 x 20 | 0.576837763, 0.590212632, 0.613177835 | 0.590212632 | 10,165.828 steps/s | 1.634x | 0.578x |
+| Program, 146 cases | 0.265086987, 0.289384312, 0.252743356 | 0.265086987 | 550.763 cases/s | 1.664x | 1.772x |
+| Instruction, 300 x 20 | 0.246654430, 0.212129711, 0.195956027 | 0.212129711 | 28,284.581 steps/s | 3.428x | 0.208x |
 
-Release inspection found that Rust still emits concrete `width::<W>` and
-`WordWidth::len_of` functions, including the generated `BigInt` computation;
-the width and mask are not yet constant-folded under this protocol. Concrete
-width specialization is therefore a possible later Stage-2 optimization, but
-it is separate from the Stage-1 representation adapter measured here.
+The Stage-1 setup maps the standard type-level numeral constructors to Rust
+width markers with an associated `u32` constant. Generated `len_of` methods
+remain source-compatible with Isabelle's `len0` class, but word operations use
+the associated constant. Release inspection found no remaining `width`, `mask`,
+or generated `len_of` symbols in either the Stage-1 or Stage-2 instruction
+binary, so a separate Stage-2 width-specialization pass is unnecessary.
 
 ## Explanation of the remaining gap
 
@@ -164,7 +197,7 @@ The ablation separates two kinds of cost:
    after word arithmetic becomes primitive.
 
 This explains why the word-adapted instruction kernel is faster than OCaml
-while the full program interpreter remains 2.569 times slower.
+while the full program interpreter remains 1.772 times slower.
 
 ## Implemented adapter
 

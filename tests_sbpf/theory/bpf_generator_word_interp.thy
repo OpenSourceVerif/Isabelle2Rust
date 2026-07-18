@@ -5,6 +5,9 @@ theory bpf_generator_word_interp
     "Rust.Rust_U128_Word_Setup"
 begin
 
+code_printing type_constructor signed \<rightharpoonup>
+  (Rust) "crate::Rust'_Word::Signed<_>"
+
 export_code bpf_interp_test in Rust
   module_name Interp_test file_prefix interp_test
 

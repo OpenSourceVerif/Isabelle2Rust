@@ -8,17 +8,22 @@ pub struct ClosureOptAnalysis {
     /// Number of generated `let x_cap = x;` bindings folded into direct
     /// by-value captures of `x`.
     pub capture_alias_eliminations: usize,
+    /// Number of generated forwarding closures replaced by the backend-owned
+    /// closure value they merely invoke.
+    pub eta_forwarder_eliminations: usize,
 }
 
-/// Remove generated capture aliases without erasing closure structure.
+/// Remove generated capture aliases and redundant forwarding closures.
 ///
 /// M-LastUse may turn a generated capture preparation
 /// `let x_cap = x.clone();` into the pure move `let x_cap = x;`.  When that
 /// binding is the final statement before a directly returned `Rc::new(move
 /// |...| ...)` closure, this pass removes the alias and makes the closure
-/// capture `x` directly.  It deliberately does not beta-reduce immediately
-/// invoked closures: `Rc::new`, the closure value, and its call remain visible
-/// in stage 2.
+/// capture `x` directly.  The pass also eta-reduces a directly returned
+/// `Rc::new(move |x| (*factory(...))(x))` when `factory` is a backend-owned
+/// function whose construction path consists solely of generated capture moves
+/// and returning another `Rc::new(move |...| ...)`.  It deliberately does not
+/// beta-reduce immediately invoked closures or inline the factory body.
 pub fn optimize_closure(module: &mut RustModule) -> ClosureOptAnalysis {
     let mut analysis = ClosureOptAnalysis::default();
     optimize_module(module, &mut analysis);
@@ -26,82 +31,107 @@ pub fn optimize_closure(module: &mut RustModule) -> ClosureOptAnalysis {
 }
 
 fn optimize_module(module: &mut RustModule, analysis: &mut ClosureOptAnalysis) {
+    let closure_factories = collect_closure_factories(module);
     for item in &mut module.items {
-        optimize_item(item, analysis);
+        optimize_item(item, &closure_factories, analysis);
     }
 }
 
-fn optimize_item(item: &mut Item, analysis: &mut ClosureOptAnalysis) {
+fn optimize_item(
+    item: &mut Item,
+    closure_factories: &HashMap<String, usize>,
+    analysis: &mut ClosureOptAnalysis,
+) {
     match item {
-        Item::Function(function) => optimize_block(&mut function.body, analysis),
+        Item::Function(function) => optimize_block(&mut function.body, closure_factories, analysis),
         Item::Impl(impl_block) => {
             for item in &mut impl_block.items {
                 match item {
-                    ImplItem::Method(method) => optimize_block(&mut method.body, analysis),
-                    ImplItem::AssocConst(_, _, expr) => optimize_expr(expr, analysis),
+                    ImplItem::Method(method) => {
+                        optimize_block(&mut method.body, closure_factories, analysis)
+                    }
+                    ImplItem::AssocConst(_, _, expr) => {
+                        optimize_expr(expr, closure_factories, analysis)
+                    }
                     ImplItem::AssocType(_, _) => {}
                 }
             }
         }
-        Item::Const(const_def) => optimize_expr(&mut const_def.value, analysis),
-        Item::LazyStatic(lazy_static) => optimize_block(&mut lazy_static.init, analysis),
+        Item::Const(const_def) => optimize_expr(&mut const_def.value, closure_factories, analysis),
+        Item::LazyStatic(lazy_static) => {
+            optimize_block(&mut lazy_static.init, closure_factories, analysis)
+        }
         Item::Mod(inner) => optimize_module(inner, analysis),
         _ => {}
     }
 }
 
-fn optimize_block(block: &mut Block, analysis: &mut ClosureOptAnalysis) {
-    // Clean nested closures first so each block can then inspect its own final
-    // capture-preparation suffix and tail expression.
+fn optimize_block(
+    block: &mut Block,
+    closure_factories: &HashMap<String, usize>,
+    analysis: &mut ClosureOptAnalysis,
+) {
+    // Clean statement initializers first.  Fold this block's capture suffix
+    // before visiting the tail so eta-reduction sees the original captured
+    // names rather than leaving now-redundant `_cap` moves behind.
     for stmt in &mut block.stmts {
         match stmt {
             Statement::Let(let_stmt) => {
                 if let Some(init) = &mut let_stmt.init {
-                    optimize_expr(init, analysis);
+                    optimize_expr(init, closure_factories, analysis);
                 }
             }
-            Statement::Expr(expr) => optimize_expr(expr, analysis),
-            Statement::Item(item) => optimize_item(item, analysis),
+            Statement::Expr(expr) => optimize_expr(expr, closure_factories, analysis),
+            Statement::Item(item) => optimize_item(item, closure_factories, analysis),
             Statement::Continue | Statement::Break | Statement::Comment(_) => {}
         }
     }
+    eliminate_capture_alias_suffix(block, analysis);
+
     if let Some(tail) = &mut block.expr {
-        optimize_expr(tail, analysis);
+        optimize_expr(tail, closure_factories, analysis);
     }
 
+    // Nested rewrites can expose another generated suffix.
     eliminate_capture_alias_suffix(block, analysis);
 }
 
-fn optimize_expr(expr: &mut Expr, analysis: &mut ClosureOptAnalysis) {
+fn optimize_expr(
+    expr: &mut Expr,
+    closure_factories: &HashMap<String, usize>,
+    analysis: &mut ClosureOptAnalysis,
+) {
     match expr {
         Expr::Call(callee, args) => {
-            optimize_expr(callee, analysis);
+            optimize_expr(callee, closure_factories, analysis);
             for arg in args {
-                optimize_expr(arg, analysis);
+                optimize_expr(arg, closure_factories, analysis);
             }
         }
         Expr::MethodCall(receiver, _, args) => {
-            optimize_expr(receiver, analysis);
+            optimize_expr(receiver, closure_factories, analysis);
             for arg in args {
-                optimize_expr(arg, analysis);
+                optimize_expr(arg, closure_factories, analysis);
             }
         }
         Expr::Array(items) | Expr::Tuple(items) => {
             for item in items {
-                optimize_expr(item, analysis);
+                optimize_expr(item, closure_factories, analysis);
             }
         }
-        Expr::Block(block) => optimize_block(block, analysis),
-        Expr::Loop(block) | Expr::Unsafe(block) => optimize_block(block, analysis),
+        Expr::Block(block) => optimize_block(block, closure_factories, analysis),
+        Expr::Loop(block) | Expr::Unsafe(block) => {
+            optimize_block(block, closure_factories, analysis)
+        }
         Expr::If {
             condition,
             then_branch,
             else_branch,
         } => {
-            optimize_expr(condition, analysis);
-            optimize_block(then_branch, analysis);
+            optimize_expr(condition, closure_factories, analysis);
+            optimize_block(then_branch, closure_factories, analysis);
             if let Some(else_branch) = else_branch {
-                optimize_block(else_branch, analysis);
+                optimize_block(else_branch, closure_factories, analysis);
             }
         }
         Expr::IfLet {
@@ -110,19 +140,19 @@ fn optimize_expr(expr: &mut Expr, analysis: &mut ClosureOptAnalysis) {
             else_branch,
             ..
         } => {
-            optimize_expr(value, analysis);
-            optimize_block(then_branch, analysis);
+            optimize_expr(value, closure_factories, analysis);
+            optimize_block(then_branch, closure_factories, analysis);
             if let Some(else_branch) = else_branch {
-                optimize_block(else_branch, analysis);
+                optimize_block(else_branch, closure_factories, analysis);
             }
         }
         Expr::Match { expr, arms } => {
-            optimize_expr(expr, analysis);
+            optimize_expr(expr, closure_factories, analysis);
             for arm in arms {
                 if let Some(guard) = &mut arm.guard {
-                    optimize_expr(guard, analysis);
+                    optimize_expr(guard, closure_factories, analysis);
                 }
-                optimize_block(&mut arm.body, analysis);
+                optimize_block(&mut arm.body, closure_factories, analysis);
             }
         }
         Expr::Reference(inner, _, _)
@@ -131,23 +161,149 @@ fn optimize_expr(expr: &mut Expr, analysis: &mut ClosureOptAnalysis) {
         | Expr::Parenthesized(inner)
         | Expr::Cast(inner, _)
         | Expr::Closure(_, inner, _)
-        | Expr::TypedClosure(_, _, inner, _) => optimize_expr(inner, analysis),
+        | Expr::TypedClosure(_, _, inner, _) => optimize_expr(inner, closure_factories, analysis),
         Expr::Index(base, index) | Expr::Assign(base, index) => {
-            optimize_expr(base, analysis);
-            optimize_expr(index, analysis);
+            optimize_expr(base, closure_factories, analysis);
+            optimize_expr(index, closure_factories, analysis);
         }
         Expr::BinaryOp(left, _, right) => {
-            optimize_expr(left, analysis);
-            optimize_expr(right, analysis);
+            optimize_expr(left, closure_factories, analysis);
+            optimize_expr(right, closure_factories, analysis);
         }
         Expr::BuilderChain(methods) => {
             for method in methods {
                 if let BuilderMethod::Spawn { closure, .. } = method {
-                    optimize_expr(closure, analysis);
+                    optimize_expr(closure, closure_factories, analysis);
                 }
             }
         }
         Expr::Ident(_) | Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) => {}
+    }
+
+    if eta_reduce_forwarder(expr, closure_factories) {
+        analysis.eta_forwarder_eliminations += 1;
+    }
+}
+
+/// Record local functions whose call performs no eager work other than moving
+/// generated `_cap` aliases and returning a move `Rc` closure.  Calls to such
+/// functions may be evaluated once when an administrative forwarding closure
+/// is built.
+fn collect_closure_factories(module: &RustModule) -> HashMap<String, usize> {
+    module
+        .items
+        .iter()
+        .filter_map(|item| {
+            let Item::Function(function) = item else {
+                return None;
+            };
+            if function
+                .body
+                .stmts
+                .iter()
+                .any(|stmt| capture_alias_move(stmt).is_none())
+            {
+                return None;
+            }
+            let tail = function.body.expr.as_deref()?;
+            let (params, _) = direct_move_rc_closure(tail)?;
+            Some((function.name.clone(), params.len()))
+        })
+        .collect()
+}
+
+/// Eta-reduce a backend-generated forwarding closure without opening the
+/// closure factory or substituting into its body:
+///
+/// ```text
+/// Rc::new(move |x| (*factory(captures))(x))
+///     ==> factory(captures)
+/// ```
+///
+/// Empty blocks, parentheses, and casts around the outer closure are retained.
+fn eta_reduce_forwarder(expr: &mut Expr, closure_factories: &HashMap<String, usize>) -> bool {
+    match expr {
+        Expr::Parenthesized(inner) | Expr::Cast(inner, _) => {
+            eta_reduce_forwarder(inner, closure_factories)
+        }
+        Expr::Block(block) if block.stmts.is_empty() => block
+            .expr
+            .as_deref_mut()
+            .is_some_and(|tail| eta_reduce_forwarder(tail, closure_factories)),
+        Expr::Call(callee, outer_args) if is_rc_new(callee) && outer_args.len() == 1 => {
+            let Some((params, body)) = move_closure(&outer_args[0]) else {
+                return false;
+            };
+            let Some((forwarded, forwarded_args)) = forwarded_call(body) else {
+                return false;
+            };
+            let Some(factory) = closure_factory_call(forwarded) else {
+                return false;
+            };
+            if closure_factories.get(factory) != Some(&params.len())
+                || params.len() != forwarded_args.len()
+                || !forwards_params_unchanged(params, forwarded_args)
+                || params
+                    .iter()
+                    .any(|param| count_reads_in_expr(forwarded, &closure_param_name(param)) != 0)
+            {
+                return false;
+            }
+            *expr = forwarded.clone();
+            true
+        }
+        _ => false,
+    }
+}
+
+fn move_closure(expr: &Expr) -> Option<(&[ClosureParam], &Expr)> {
+    match strip_parens(expr) {
+        Expr::Closure(params, body, true) | Expr::TypedClosure(params, _, body, true) => {
+            Some((params, body))
+        }
+        _ => None,
+    }
+}
+
+fn forwarded_call(expr: &Expr) -> Option<(&Expr, &[Expr])> {
+    let Expr::Call(callee, args) = strip_empty_blocks_and_parens(expr) else {
+        return None;
+    };
+    let Expr::UnaryOp(op, forwarded) = strip_parens(callee) else {
+        return None;
+    };
+    (op == "*").then_some((strip_parens(forwarded), args))
+}
+
+fn closure_factory_call(expr: &Expr) -> Option<&str> {
+    let Expr::Call(callee, _) = strip_parens(expr) else {
+        return None;
+    };
+    let Expr::Ident(name) = strip_parens(callee) else {
+        return None;
+    };
+    Some(name)
+}
+
+fn forwards_params_unchanged(params: &[ClosureParam], args: &[Expr]) -> bool {
+    let mut names = HashSet::new();
+    params.iter().zip(args).all(|(param, arg)| {
+        let name = closure_param_name(param);
+        is_binding_ident(&name)
+            && names.insert(name.clone())
+            && matches!(strip_parens(arg), Expr::Ident(arg_name) if arg_name == &name)
+    })
+}
+
+fn strip_empty_blocks_and_parens(expr: &Expr) -> &Expr {
+    match expr {
+        Expr::Parenthesized(inner) => strip_empty_blocks_and_parens(inner),
+        Expr::Block(block) if block.stmts.is_empty() => block
+            .expr
+            .as_deref()
+            .map(strip_empty_blocks_and_parens)
+            .unwrap_or(expr),
+        _ => expr,
     }
 }
 
@@ -904,5 +1060,107 @@ pub fn make_pair_adder(x: Int, y: Int) -> Rc<dyn Fn(Int) -> Int> {
         assert!(!printed.contains("let y_cap"));
         assert!(printed.contains("plus_int(x.clone(), y.clone())"));
         assert!(printed.contains("Rc::new"));
+    }
+
+    #[test]
+    fn eta_reduces_forwarder_to_backend_closure_factory() {
+        let source = r#"
+use std::rc::Rc;
+
+type RegisterFile = Rc<dyn Fn(u8) -> u64>;
+
+pub fn fun_upd(f: RegisterFile, key: u8, value: u64) -> RegisterFile {
+    let f_cap = f;
+    let key_cap = key;
+    let value_cap = value;
+    Rc::new(move |x: u8| {
+        if x == key_cap { value_cap } else { (*f_cap)(x) }
+    })
+}
+
+pub fn update(key: u8, value: u64, rs: RegisterFile) -> RegisterFile {
+    (({
+        Rc::new(move |x: u8| -> u64 {
+            (*fun_upd(rs.clone(), key, value))(x)
+        })
+    }) as RegisterFile)
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.eta_forwarder_eliminations, 1);
+        assert!(printed.contains("fun_upd(rs.clone(), key, value)"));
+        assert_eq!(printed.matches("Rc::new(move |x: u8|").count(), 1);
+    }
+
+    #[test]
+    fn keeps_forwarder_to_unknown_factory() {
+        let source = r#"
+use std::rc::Rc;
+
+type RegisterFile = Rc<dyn Fn(u8) -> u64>;
+
+pub fn update(key: u8, value: u64, rs: RegisterFile) -> RegisterFile {
+    Rc::new(move |x: u8| {
+        (*external_update(rs.clone(), key, value))(x)
+    })
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.eta_forwarder_eliminations, 0);
+        assert!(printed.contains("Rc::new(move |x: u8|"));
+        assert!(printed.contains("(*external_update(rs.clone(), key, value))(x)"));
+    }
+
+    #[test]
+    fn keeps_forwarder_that_transforms_its_argument() {
+        let source = r#"
+use std::rc::Rc;
+
+type RegisterFile = Rc<dyn Fn(u8) -> u64>;
+
+pub fn fun_upd(f: RegisterFile, key: u8, value: u64) -> RegisterFile {
+    Rc::new(move |x: u8| {
+        if x == key { value } else { (*f)(x) }
+    })
+}
+
+pub fn update(key: u8, value: u64, rs: RegisterFile) -> RegisterFile {
+    Rc::new(move |x: u8| {
+        (*fun_upd(rs.clone(), key, value))(x + 1)
+    })
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.eta_forwarder_eliminations, 0);
+        assert!(printed.contains("Rc::new(move |x: u8|"));
+        assert!(printed.contains(")(x + 1)"));
+    }
+
+    #[test]
+    fn keeps_factory_with_eager_construction_statements() {
+        let source = r#"
+use std::rc::Rc;
+
+type RegisterFile = Rc<dyn Fn(u8) -> u64>;
+
+pub fn make_checked(value: u64) -> RegisterFile {
+    let checked = check(value);
+    Rc::new(move |_: u8| checked)
+}
+
+pub fn wrap(value: u64) -> RegisterFile {
+    Rc::new(move |x: u8| {
+        (*make_checked(value))(x)
+    })
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.eta_forwarder_eliminations, 0);
+        assert!(printed.contains("Rc::new(move |x: u8|"));
+        assert!(printed.contains("(*make_checked(value))(x)"));
     }
 }

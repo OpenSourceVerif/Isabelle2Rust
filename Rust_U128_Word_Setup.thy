@@ -8,9 +8,10 @@ text \<open>
   A Rust adaptation for Isabelle words whose type-level width is at most 128
   bits.  The word payload is a primitive \<^verbatim>\<open>u128\<close>.  The existing
   Isabelle \<^class>\<open>len0\<close> instances implement a small Rust width trait, so no
-  width value is stored in a word.  Width lookup is isolated in the runtime
-  helpers, which also leaves room for a later target-side specialization of
-  concrete widths without changing the word representation.
+  width value is stored in a word.  The standard type-level numeral constructors
+  additionally provide their width through a Rust associated constant.  The
+  generated \<^verbatim>\<open>len_of\<close> methods remain available for compatibility,
+  while word hot paths use the constant width and mask.
 
   This setup deliberately retains Isabelle \<^typ>\<open>int\<close> and \<^typ>\<open>nat\<close> as
   \<^verbatim>\<open>BigInt\<close>.  Conversions at the word boundary preserve the unbounded
@@ -38,7 +39,57 @@ pub fn type_witness<A>() -> Itself<A> {
     Itself::Type(PhantomData)
 }
 
-pub trait WordWidth {
+// These marker types mirror the generated Isabelle datatype shapes.  RustWord
+// stores them only through PhantomData, so their value representation is never
+// part of a word payload.
+#[derive(Clone)]
+pub enum Num0 {
+    Num0,
+}
+
+#[derive(Clone)]
+pub enum Num1 {
+    OneNum1,
+}
+
+#[derive(Clone)]
+pub enum Bit0<A> {
+    AbsBit0(BigInt, PhantomData<A>),
+}
+
+#[derive(Clone)]
+pub enum Bit1<A> {
+    AbsBit1(BigInt, PhantomData<A>),
+}
+
+#[derive(Clone)]
+pub struct Signed<A>(pub PhantomData<A>);
+
+pub trait NativeWordWidth {
+    const WIDTH: u32;
+}
+
+impl NativeWordWidth for Num0 {
+    const WIDTH: u32 = 0;
+}
+
+impl NativeWordWidth for Num1 {
+    const WIDTH: u32 = 1;
+}
+
+impl<A: NativeWordWidth> NativeWordWidth for Bit0<A> {
+    const WIDTH: u32 = 2 * A::WIDTH;
+}
+
+impl<A: NativeWordWidth> NativeWordWidth for Bit1<A> {
+    const WIDTH: u32 = 2 * A::WIDTH + 1;
+}
+
+impl<A: NativeWordWidth> NativeWordWidth for Signed<A> {
+    const WIDTH: u32 = A::WIDTH;
+}
+
+pub trait WordWidth: NativeWordWidth {
     fn len_of(witness: Itself<Self>) -> BigInt
     where
         Self: Sized;
@@ -58,20 +109,16 @@ impl<W> Clone for RustWord<W> {
     }
 }
 
-#[inline]
-fn width<W: WordWidth>() -> u32 {
-    let width = W::len_of(type_witness::<W>())
-        .to_u32()
-        .expect("word width must fit u32");
-    assert!(
-        (1..=128).contains(&width),
-        "Rust u128 word adapter supports widths from 1 through 128 bits"
-    );
+#[inline(always)]
+const fn width<W: WordWidth>() -> u32 {
+    let width = <W as NativeWordWidth>::WIDTH;
+    assert!(width >= 1 && width <= 128,
+        "Rust u128 word adapter supports widths from 1 through 128 bits");
     width
 }
 
-#[inline]
-fn mask<W: WordWidth>() -> u128 {
+#[inline(always)]
+const fn mask<W: WordWidth>() -> u128 {
     let width = width::<W>();
     if width == 128 {
         u128::MAX
@@ -340,9 +387,14 @@ mod tests {
     struct W64;
     struct W128;
     struct W129;
+    struct WConstOnly;
 
     macro_rules! word_width {
         ($marker:ty, $width:expr) => {
+            impl NativeWordWidth for $marker {
+                const WIDTH: u32 = $width;
+            }
+
             impl WordWidth for $marker {
                 fn len_of(_: Itself<Self>) -> BigInt {
                     BigInt::from($width)
@@ -351,14 +403,24 @@ mod tests {
         };
     }
 
-    word_width!(W0, 0u8);
-    word_width!(W1, 1u8);
-    word_width!(W4, 4u8);
-    word_width!(W8, 8u8);
-    word_width!(W16, 16u8);
-    word_width!(W64, 64u8);
-    word_width!(W128, 128u8);
-    word_width!(W129, 129u8);
+    word_width!(W0, 0u32);
+    word_width!(W1, 1u32);
+    word_width!(W4, 4u32);
+    word_width!(W8, 8u32);
+    word_width!(W16, 16u32);
+    word_width!(W64, 64u32);
+    word_width!(W128, 128u32);
+    word_width!(W129, 129u32);
+
+    impl NativeWordWidth for WConstOnly {
+        const WIDTH: u32 = 8;
+    }
+
+    impl WordWidth for WConstOnly {
+        fn len_of(_: Itself<Self>) -> BigInt {
+            panic!("the adapter must use NativeWordWidth::WIDTH")
+        }
+    }
 
     fn word<W: WordWidth>(bits: u128) -> RustWord<W> {
         RustWord::<W>::from_bits(bits)
@@ -376,6 +438,21 @@ mod tests {
         let a = word::<W8>(42);
         let b = a;
         assert_eq!(bits(a), bits(b));
+    }
+
+    #[test]
+    fn native_marker_widths_cover_even_odd_and_signed_lengths() {
+        type W5 = Bit1<Bit0<Num1>>;
+        type SignedW5 = Signed<W5>;
+
+        assert_eq!(<Num0 as NativeWordWidth>::WIDTH, 0);
+        assert_eq!(<W5 as NativeWordWidth>::WIDTH, 5);
+        assert_eq!(<SignedW5 as NativeWordWidth>::WIDTH, 5);
+    }
+
+    #[test]
+    fn word_hot_paths_do_not_call_len_of() {
+        assert_eq!(bits(add(word::<WConstOnly>(255), word::<WConstOnly>(1))), 0);
     }
 
     #[test]
@@ -488,6 +565,14 @@ code_printing
     (Rust) "crate::Rust'_Word::RustWord<_>"
 | type_constructor itself \<rightharpoonup>
     (Rust) "crate::Rust'_Word::Itself<_>"
+| type_constructor num0 \<rightharpoonup>
+    (Rust) "crate::Rust'_Word::Num0"
+| type_constructor num1 \<rightharpoonup>
+    (Rust) "crate::Rust'_Word::Num1"
+| type_constructor bit0 \<rightharpoonup>
+    (Rust) "crate::Rust'_Word::Bit0<_>"
+| type_constructor bit1 \<rightharpoonup>
+    (Rust) "crate::Rust'_Word::Bit1<_>"
 | type_class len0 \<rightharpoonup>
     (Rust) "crate::Rust_Word::WordWidth"
 
