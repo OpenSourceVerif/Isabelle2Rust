@@ -2914,8 +2914,31 @@ fun variant_upper_camel_case s ctxt =
     and builds the hierarchical module structure via Code_Namespace. **)
 fun rust_program_of_program ctxt module_name reserved identifiers
     (inst_method_syms, inst_table) operational_function_vs
-    closure_inst_data orphan_closure_hosts =
+    closure_inst_data orphan_closure_hosts exports program =
   let
+    (* A Rust export is packaged as one crate and all generated references are
+       crate-qualified.  Give every reachable Thingol statement an explicit
+       identifier so Code_Namespace places the generated program in the requested
+       module instead of rebuilding the Isabelle theory hierarchy.  Besides making
+       that layout match `module_name`, this avoids quadratic cross-module export
+       propagation for large executable exports such as sBPF.  Existing target
+       names are preserved; only their module prefix is normalised. *)
+    fun force_identifier sym identifiers =
+      let
+        val base = (case Code_Symbol.lookup identifiers sym of
+            SOME (_, base) => base
+          | NONE => Code_Symbol.default_base sym)
+        val value = SOME (Long_Name.explode module_name, base)
+        val entry = (case sym of
+            Constant name => Constant (name, value)
+          | Type_Constructor name => Type_Constructor (name, value)
+          | Type_Class name => Type_Class (name, value)
+          | Class_Relation name => Class_Relation (name, value)
+          | Class_Instance name => Class_Instance (name, value)
+          | Module name => Module (name, value))
+      in Code_Symbol.set_data entry identifiers end;
+    val identifiers =
+      Code_Symbol.Graph.fold (fn (sym, _) => force_identifier sym) program identifiers;
     (** A constant that implements a polymorphic instance method: its body is
         inlined into the generated impl block (see the Inst printer), so it must
         not be emitted as a standalone top-level function. **)
@@ -3083,9 +3106,9 @@ fun rust_program_of_program ctxt module_name reserved identifiers
          the reconstructed `impl Zero/One for int` instances land in the Arith
          module while their trait/superclass relations live elsewhere, which the
          acyclic check would otherwise reject (zero_neq_one < one cycle). *)
-      cyclic_modules = true, class_transitive = true,
+      cyclic_modules = true, class_transitive = false,
       class_relation_public = true, empty_data = (),
-      memorize_data = K I, modify_stmts = modify_stmts }
+      memorize_data = K I, modify_stmts = modify_stmts } exports program
   end;
 
 (** Top-level serializer: orchestrates the full translation pipeline.
