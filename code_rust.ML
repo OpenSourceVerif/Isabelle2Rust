@@ -78,7 +78,8 @@ fun commas_append prts =
     and centralise only indentation / line breaking for braced Rust forms. **)
 fun comma_lines [] = []
   | comma_lines [p] = [p]
-  | comma_lines (p :: ps) = Pretty.block [p, str ","] :: comma_lines ps;
+  | comma_lines (p :: ps) =
+      Pretty.markup_open Markup.empty [p, str ","] :: comma_lines ps;
 
 fun rust_indent prts = indent 4 (Pretty.chunks prts);
 
@@ -94,8 +95,11 @@ fun rust_open_chunks prts = rust_open (Pretty.fbreaks prts);
 fun rust_parens prts =
   rust_open (str "(" :: commas_append prts @ [str ")"]);
 
+fun rust_multiline_parens prts =
+  rust_open_chunks [str "(", rust_indent (comma_lines prts), str ")"];
+
 fun rust_block header body =
-  Pretty.chunks [Pretty.block [header, str " {"], rust_indent body, str "}"];
+  rust_open_chunks [rust_open [header, str " {"], rust_indent body, str "}"];
 
 fun rust_bare_block body =
   rust_open_chunks [str "{", rust_indent body, str "}"];
@@ -114,11 +118,11 @@ fun rust_match scrutinee arms =
   rust_block (Pretty.block [str "match ", scrutinee]) (comma_lines arms);
 
 fun rust_arm pat body =
-  Pretty.chunks [Pretty.block [pat, str " =>"], rust_indent [body]];
+  rust_open_chunks [rust_open [pat, str " =>"], rust_indent [body]];
 
 fun rust_if cond then_body else_body =
-  Pretty.chunks [
-    Pretty.block [str "if ", cond, str " {"],
+  rust_open_chunks [
+    rust_open [str "if ", cond, str " {"],
     rust_indent [then_body],
     str "} else {",
     rust_indent [else_body],
@@ -468,6 +472,13 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
       | term_type vars ((_, ty) `|=> (_, rty)) = SOME ("fun"`%%[ty, rty])
       | term_type vars (ICase {clauses = (_, body) :: _, ...}) = term_type vars body
       | term_type _ (ICase {clauses = [], ...}) = NONE;
+    fun term_requires_multiline_layout (_ `|=> _) = true
+      | term_requires_multiline_layout (ICase _) = true
+      | term_requires_multiline_layout _ = false;
+    fun rust_term_parens terms prts =
+      if exists term_requires_multiline_layout terms
+      then rust_multiline_parens prts
+      else rust_parens prts;
     fun add_default_shape_subst (ITyVar v) inst subst =
           if AList.defined (op =) subst v then subst
           else (v, default_rust_shape inst) :: subst
@@ -1318,7 +1329,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               [rust_open [
                 (str o deresolve_base) sym,
                 str " ",
-                rust_parens
+                rust_term_parens ts
                   (map2
                     (fn (t, need_box) => fn expected_arg =>
                       print_term_expected expected_arg is_pseudo_fun
@@ -1525,16 +1536,16 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                       (false, box_prcs, clone_prcs) some_thm vars NOBR t)
                     expecteds args
                 fun call_rc callee args =
-                  Pretty.block [str "(*", callee, str ")", rust_parens args]
+                  rust_open [str "(*", callee, str ")", rust_parens args]
                 val call1 =
                   generic_prefixs
                   @ funcname
                   :: the_list turbofish
-                   @ [rust_parens
+                   @ [rust_term_parens ts1
                        (print_args expected1 ts1)]
               in
                 if List.null ts2
-                then [Pretty.block call1]
+                then [rust_open call1]
                 else
                   let
                     fun call_groups callee [] args expecteds =
@@ -1550,7 +1561,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                             if null args2 then next
                             else call_groups next ns args2 expected2
                           end;
-                    val result = call_groups (Pretty.block call1)
+                    val result = call_groups (rust_open call1)
                       returned_groups ts2 expected2;
                   in [result] end
               end
@@ -1606,7 +1617,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
           in
             (case (name, ts) of
               ("Product_Type.Pair", [left, right]) =>
-                rust_parens
+                rust_term_parens [left, right]
                   (print_args NOBR expected_args [left, right])
             | ("HOL.If", [cond, then_t, else_t]) =>
                 rust_if
