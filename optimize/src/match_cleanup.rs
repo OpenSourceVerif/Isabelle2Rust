@@ -9,6 +9,8 @@ pub struct MatchOptAnalysis {
     pub removed_panic_arms: usize,
     /// Rewrote single-arm irrefutable matches to scoped `let` bindings.
     pub collapsed_single_arm_matches: usize,
+    /// Fused adjacent constructor matches with the same generated panic fallback.
+    pub fused_nested_matches: usize,
 }
 
 type TypeEnv = HashMap<String, Type>;
@@ -414,14 +416,17 @@ fn optimize_expr(
                 optimize_block(&mut arm.body, &mut arm_env, scope, analysis);
             }
 
+            if fuse_adjacent_nested_match(arms) {
+                analysis.fused_nested_matches += 1;
+            }
+
             if can_remove_trailing_fallback_arm(scrutinee, arms, env, scope) {
                 if let Some(removed) = arms.pop() {
                     analysis.removed_panic_arms += count_nonexhaustive_panics_in_arm(&removed);
                 }
             }
 
-            let replacement = collapse_single_irrefutable_match(scrutinee, arms);
-            if let Some(replacement) = replacement {
+            if let Some(replacement) = collapse_single_irrefutable_match(scrutinee, arms) {
                 *expr = replacement;
                 analysis.collapsed_single_arm_matches += 1;
             }
@@ -499,6 +504,246 @@ fn collapse_single_irrefutable_match(scrutinee: &Expr, arms: &[MatchArm]) -> Opt
         stmts,
         expr: arm.body.expr.clone(),
     }))
+}
+
+/// Fuse the generated shape
+///
+/// ```text
+/// Outer::Ctor(binding) => match binding {
+///     Inner::Ctor(..) => body,
+///     _ => panic!("non-exhaustive match"),
+/// },
+/// _ => panic!("non-exhaustive match"),
+/// ```
+///
+/// into `Outer::Ctor(Inner::Ctor(..)) => body` followed by one shared
+/// fallback.  Requiring both fallback arms to be the same generated panic is
+/// deliberately conservative: if either fallback computes a value or has a
+/// different side effect, merging it into the other would change semantics.
+fn fuse_adjacent_nested_match(arms: &mut Vec<MatchArm>) -> bool {
+    if arms.len() < 2 {
+        return false;
+    }
+
+    let outer_idx = arms.len() - 2;
+    let outer_fallback_idx = arms.len() - 1;
+    let outer_arm = &arms[outer_idx];
+    let outer_fallback = &arms[outer_fallback_idx];
+
+    if outer_arm.guard.is_some() || !is_generated_panic_fallback(outer_fallback) {
+        return false;
+    }
+
+    let Some((inner_scrutinee, nested_arms)) = block_tail_match(&outer_arm.body) else {
+        return false;
+    };
+    let Expr::Ident(binding) = inner_scrutinee else {
+        return false;
+    };
+    let Some((inner_fallback, inner_arms)) = nested_arms.split_last() else {
+        return false;
+    };
+    if inner_arms.is_empty() || !is_generated_panic_fallback(inner_fallback) {
+        return false;
+    }
+
+    let mut fused_arms = Vec::with_capacity(inner_arms.len());
+    for inner_arm in inner_arms {
+        // This cleanup targets adjacent constructor matches.  Staying within
+        // that shape also avoids manufacturing patterns from opaque pattern
+        // syntax that RustLightAST intentionally stores as source text.
+        if inner_arm.guard.is_some()
+            || split_constructor_pattern(&inner_arm.pattern).is_none()
+            || block_uses_ident(&inner_arm.body, binding)
+        {
+            return false;
+        }
+        let Some(pattern) =
+            compose_constructor_pattern(&outer_arm.pattern, binding, &inner_arm.pattern)
+        else {
+            return false;
+        };
+
+        let mut fused = inner_arm.clone();
+        fused.pattern = pattern;
+        fused_arms.push(fused);
+    }
+
+    arms.splice(outer_idx..outer_fallback_idx, fused_arms);
+    true
+}
+
+fn block_tail_match(block: &Block) -> Option<(&Expr, &[MatchArm])> {
+    if !block.stmts.is_empty() {
+        return None;
+    }
+    nested_match_parts(block.expr.as_deref()?)
+}
+
+fn nested_match_parts(expr: &Expr) -> Option<(&Expr, &[MatchArm])> {
+    match expr {
+        Expr::Match { expr, arms } => Some((expr, arms)),
+        Expr::Parenthesized(inner) => nested_match_parts(inner),
+        _ => None,
+    }
+}
+
+fn is_generated_panic_fallback(arm: &MatchArm) -> bool {
+    arm.pattern.trim() == "_"
+        && arm.guard.is_none()
+        && arm.body.stmts.is_empty()
+        && matches!(
+            arm.body.expr.as_deref(),
+            Some(Expr::Macro(source))
+                if is_generated_nonexhaustive_panic(source)
+        )
+}
+
+fn is_generated_nonexhaustive_panic(source: &str) -> bool {
+    let Ok(expr) = syn::parse_str::<syn::ExprMacro>(source) else {
+        return false;
+    };
+    expr.mac.path.is_ident("panic")
+        && expr.mac.tokens.to_string().trim() == "\"non-exhaustive match\""
+}
+
+fn compose_constructor_pattern(
+    outer_pattern: &str,
+    binding: &str,
+    inner_pattern: &str,
+) -> Option<String> {
+    if !is_binding_ident(binding) {
+        return None;
+    }
+
+    let (constructor, mut args) = split_constructor_pattern(outer_pattern)?;
+    if args.len() != 1 {
+        return None;
+    }
+    let matching_args = args
+        .iter()
+        .enumerate()
+        .filter(|(_, arg)| arg.trim() == binding)
+        .map(|(idx, _)| idx)
+        .collect::<Vec<_>>();
+    let [binding_idx] = matching_args.as_slice() else {
+        return None;
+    };
+
+    args[*binding_idx] = inner_pattern.trim().to_string();
+    Some(format!("{}({})", constructor.trim(), args.join(", ")))
+}
+
+fn block_uses_ident(block: &Block, ident: &str) -> bool {
+    block
+        .stmts
+        .iter()
+        .any(|stmt| statement_uses_ident(stmt, ident))
+        || block
+            .expr
+            .as_deref()
+            .is_some_and(|expr| expr_uses_ident(expr, ident))
+}
+
+fn statement_uses_ident(stmt: &Statement, ident: &str) -> bool {
+    match stmt {
+        Statement::Let(let_stmt) => let_stmt
+            .init
+            .as_ref()
+            .is_some_and(|expr| expr_uses_ident(expr, ident)),
+        Statement::Expr(expr) => expr_uses_ident(expr, ident),
+        Statement::Item(item) => item_uses_ident(item, ident),
+        Statement::Continue | Statement::Break | Statement::Comment(_) => false,
+    }
+}
+
+fn item_uses_ident(item: &Item, ident: &str) -> bool {
+    match item {
+        Item::Function(function) => block_uses_ident(&function.body, ident),
+        Item::Impl(impl_block) => impl_block.items.iter().any(|item| match item {
+            ImplItem::Method(method) => block_uses_ident(&method.body, ident),
+            ImplItem::AssocConst(_, _, expr) => expr_uses_ident(expr, ident),
+            ImplItem::AssocType(_, _) => false,
+        }),
+        Item::Const(const_def) => expr_uses_ident(&const_def.value, ident),
+        Item::LazyStatic(lazy_static) => block_uses_ident(&lazy_static.init, ident),
+        Item::Mod(module) => module.items.iter().any(|item| item_uses_ident(item, ident)),
+        Item::Raw(_)
+        | Item::Struct(_)
+        | Item::Enum(_)
+        | Item::Union(_)
+        | Item::TypeAlias(_)
+        | Item::Use(_) => false,
+    }
+}
+
+fn expr_uses_ident(expr: &Expr, ident: &str) -> bool {
+    match expr {
+        Expr::Ident(name) => name == ident,
+        Expr::Path(parts, _) => parts.first().is_some_and(|part| part == ident),
+        Expr::Macro(source) => source
+            .split(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_')
+            .any(|token| token == ident),
+        Expr::Call(callee, args) => {
+            expr_uses_ident(callee, ident) || args.iter().any(|arg| expr_uses_ident(arg, ident))
+        }
+        Expr::MethodCall(receiver, _, args) => {
+            expr_uses_ident(receiver, ident) || args.iter().any(|arg| expr_uses_ident(arg, ident))
+        }
+        Expr::Array(items) | Expr::Tuple(items) => {
+            items.iter().any(|item| expr_uses_ident(item, ident))
+        }
+        Expr::Block(block) => block_uses_ident(block, ident),
+        Expr::Loop(block) | Expr::Unsafe(block) => block_uses_ident(block, ident),
+        Expr::Await(inner)
+        | Expr::Parenthesized(inner)
+        | Expr::Cast(inner, _)
+        | Expr::Reference(inner, _, _)
+        | Expr::UnaryOp(_, inner) => expr_uses_ident(inner, ident),
+        Expr::Closure(_, body, _) | Expr::TypedClosure(_, _, body, _) => {
+            expr_uses_ident(body, ident)
+        }
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
+            expr_uses_ident(condition, ident)
+                || block_uses_ident(then_branch, ident)
+                || else_branch
+                    .as_ref()
+                    .is_some_and(|block| block_uses_ident(block, ident))
+        }
+        Expr::IfLet {
+            value,
+            then_branch,
+            else_branch,
+            ..
+        } => {
+            expr_uses_ident(value, ident)
+                || block_uses_ident(then_branch, ident)
+                || else_branch
+                    .as_ref()
+                    .is_some_and(|block| block_uses_ident(block, ident))
+        }
+        Expr::Match { expr, arms } => {
+            expr_uses_ident(expr, ident)
+                || arms.iter().any(|arm| {
+                    arm.guard
+                        .as_ref()
+                        .is_some_and(|guard| expr_uses_ident(guard, ident))
+                        || block_uses_ident(&arm.body, ident)
+                })
+        }
+        Expr::BinaryOp(left, _, right) | Expr::Index(left, right) | Expr::Assign(left, right) => {
+            expr_uses_ident(left, ident) || expr_uses_ident(right, ident)
+        }
+        Expr::BuilderChain(methods) => methods.iter().any(|method| match method {
+            BuilderMethod::Spawn { closure, .. } => expr_uses_ident(closure, ident),
+            BuilderMethod::Named(_) => false,
+        }),
+        Expr::Literal(_) => false,
+    }
 }
 
 fn patterns_cover_type(arms: &[MatchArm], ty: &Type, scope: &MatchScope) -> bool {
@@ -1422,6 +1667,190 @@ where
     }
 
     #[test]
+    fn fuses_adjacent_constructor_matches_with_shared_panic_fallback() {
+        let source = r#"
+#[derive(Clone)]
+pub enum List<A> {
+    Nil,
+    Cons(A, Box<List<A>>),
+}
+
+#[derive(Clone)]
+pub enum Set<A> {
+    Set(List<A>),
+    Coset(List<A>),
+}
+
+pub fn head<A>(x0: Set<A>) -> A {
+    match x0 {
+        Set::Set(p0) => {
+            match p0 {
+                List::Cons(x, xs) => { x },
+                _ => { panic!("non-exhaustive match") },
+            }
+        },
+        _ => { panic!("non-exhaustive match") },
+    }
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.fused_nested_matches, 1);
+        assert!(printed.contains("Set::Set(List::Cons(x, xs))"));
+        assert!(!printed.contains("match p0"));
+        assert_eq!(
+            printed.matches(r#"panic!("non-exhaustive match")"#).count(),
+            1
+        );
+    }
+
+    #[test]
+    fn keeps_adjacent_constructor_matches_with_different_fallbacks() {
+        let source = r#"
+#[derive(Clone)]
+pub enum List<A> {
+    Nil,
+    Cons(A, Box<List<A>>),
+}
+
+#[derive(Clone)]
+pub enum Set<A> {
+    Set(List<A>),
+    Coset(List<A>),
+}
+
+pub fn head<A>(x0: Set<A>) -> A {
+    match x0 {
+        Set::Set(p0) => {
+            match p0 {
+                List::Cons(x, xs) => { x },
+                _ => { panic!("non-exhaustivematch") },
+            }
+        },
+        _ => { panic!("non-exhaustive match") },
+    }
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.fused_nested_matches, 0);
+        assert!(printed.contains("match p0"));
+        assert!(printed.contains(r#"panic!("non-exhaustivematch")"#));
+        assert!(printed.contains(r#"panic!("non-exhaustive match")"#));
+    }
+
+    #[test]
+    fn fuses_before_testing_whether_outer_fallback_is_redundant() {
+        let source = r#"
+#[derive(Clone)]
+pub enum Inner {
+    Hit,
+    Miss,
+}
+
+#[derive(Clone)]
+pub enum Outer {
+    Wrap(Inner),
+}
+
+pub fn hit(x0: Outer) -> bool {
+    match x0 {
+        Outer::Wrap(p0) => {
+            match p0 {
+                Inner::Hit => { true },
+                _ => { panic!("non-exhaustive match") },
+            }
+        },
+        _ => { panic!("non-exhaustive match") },
+    }
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.fused_nested_matches, 1);
+        assert_eq!(analysis.removed_panic_arms, 0);
+        assert!(printed.contains("Outer::Wrap(Inner::Hit)"));
+        assert!(!printed.contains("match p0"));
+        assert_eq!(
+            printed.matches(r#"panic!("non-exhaustive match")"#).count(),
+            1
+        );
+    }
+
+    #[test]
+    fn keeps_adjacent_constructor_match_when_outer_arm_has_a_guard() {
+        let source = r#"
+#[derive(Clone)]
+pub enum List<A> {
+    Nil,
+    Cons(A, Box<List<A>>),
+}
+
+#[derive(Clone)]
+pub enum Set<A> {
+    Set(List<A>),
+    Coset(List<A>),
+}
+
+pub fn guarded_head<A>(x0: Set<A>, take: bool) -> A {
+    match x0 {
+        Set::Set(p0) if take => {
+            match p0 {
+                List::Cons(x, xs) => { x },
+                _ => { panic!("non-exhaustive match") },
+            }
+        },
+        _ => { panic!("non-exhaustive match") },
+    }
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.fused_nested_matches, 0);
+        assert!(printed.contains("Set::Set(p0) if take"));
+        assert!(printed.contains("match p0"));
+    }
+
+    #[test]
+    fn keeps_nested_match_when_success_body_uses_outer_binding() {
+        let source = r#"
+#[derive(Clone, Copy)]
+pub enum Inner {
+    Hit,
+    Miss,
+}
+
+#[derive(Clone)]
+pub enum Outer {
+    Wrap(Inner),
+    Other,
+}
+
+pub fn consume_inner(x: Inner) -> bool {
+    true
+}
+
+pub fn inspect(x0: Outer) -> bool {
+    match x0 {
+        Outer::Wrap(p0) => {
+            match p0 {
+                Inner::Hit => { consume_inner(p0) },
+                _ => { panic!("non-exhaustive match") },
+            }
+        },
+        _ => { panic!("non-exhaustive match") },
+    }
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.fused_nested_matches, 0);
+        assert!(printed.contains("Outer::Wrap(p0)"));
+        assert!(printed.contains("match p0"));
+        assert!(printed.contains("consume_inner(p0)"));
+    }
+
+    #[test]
     fn removes_fallback_after_irrefutable_arm() {
         let source = r#"
 pub fn id_bool(x: bool) -> bool {
@@ -1438,6 +1867,49 @@ pub fn id_bool(x: bool) -> bool {
         assert!(!printed.contains(r#"panic!("non-exhaustive match")"#));
         assert!(printed.contains("let y = x;"));
         assert!(!printed.contains("match x"));
+    }
+
+    #[test]
+    fn collapses_nested_single_binding_match() {
+        let source = r#"
+pub fn nested_condition(x: (bool, bool), fallback: bool) -> bool {
+    if match x {
+        (k, _) => { k },
+        _ => { panic!("non-exhaustive match") },
+    } {
+        true
+    } else {
+        fallback
+    }
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.removed_panic_arms, 1);
+        assert_eq!(analysis.collapsed_single_arm_matches, 1);
+        assert!(!printed.contains(r#"panic!("non-exhaustive match")"#));
+        assert!(!printed.contains("match x"));
+        assert!(printed.contains("let (k, _) = x;"));
+    }
+
+    #[test]
+    fn collapses_tail_single_binding_match_after_statement() {
+        let source = r#"
+pub fn tail_after_statement(x: (bool, bool)) -> bool {
+    let fallback = false;
+    match x {
+        (k, _) => { k },
+        _ => { panic!("non-exhaustive match") },
+    }
+}
+"#;
+
+        let (analysis, printed) = optimize_and_print(source);
+        assert_eq!(analysis.removed_panic_arms, 1);
+        assert_eq!(analysis.collapsed_single_arm_matches, 1);
+        assert!(!printed.contains(r#"panic!("non-exhaustive match")"#));
+        assert!(!printed.contains("match x"));
+        assert!(printed.contains("let (k, _) = x;"));
     }
 
     #[test]
