@@ -35,6 +35,7 @@ definition bit_precedence_test :: "bool" where
 definition gcd_test :: "bool" where
 "gcd_test = (gcd_test_integer \<and> gcd_test_int \<and> bit_precedence_test)"
 
-export_code gcd_test in Rust
+export_code gcd_test_integer gcd_test_int bit_precedence_value
+  bit_precedence_test gcd_test in Rust
 
 end

@@ -20,3 +20,7 @@ session "Rust-HOL-Codegenerator_Test" in "test/HOL_Codegenerator" = "HOL-Library
     Candidates
     Generate
     Generate_Binary_Nat
+  export_files (in "stage1/Generate") [2]
+    "Rust-HOL-Codegenerator_Test.Generate:code/**"
+  export_files (in "stage1/Generate_Binary_Nat") [2]
+    "Rust-HOL-Codegenerator_Test.Generate_Binary_Nat:code/**"

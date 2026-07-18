@@ -380,14 +380,39 @@ hol-gcd:
 	fi; \
 	RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) run --locked --manifest-path "$$CARGO_TOML"
 
-# Both stress theories use `export_code _ checking Rust`, whose registered
-# checker compiles each generated crate with Cargo inside this Isabelle build.
-# A clean build of the selected stress session is required because an up-to-date
-# session would otherwise bypass both export commands and report success without
-# running either checker.
+# Both stress theories use `export_code _ in Rust`.  The session exports the
+# generated crates into persistent stage1 directories, after which this target
+# compiles each crate with Cargo.  A clean build is required because an
+# up-to-date session would otherwise bypass both wildcard exports.
 hol-stress:
 	@echo ">>> Building HOL stress export ($(HOL_STRESS_SESSION))..."
+	rm -rf $(HOL_DIR)/stage1/Generate $(HOL_DIR)/stage1/Generate_Binary_Nat
 	isabelle build -c -v -e -d . $(HOL_STRESS_SESSION)
+	@for THEORY in Generate Generate_Binary_Nat; do \
+	  ROOT="$(HOL_DIR)/stage1/$$THEORY"; \
+	  MANIFEST=$$(find "$$ROOT" -mindepth 2 -maxdepth 2 -type f -name Cargo.toml -printf '%p\n' | sort -V | tail -n 1); \
+	  if [ -z "$$MANIFEST" ]; then \
+	    echo "ERROR: no exported Cargo.toml under $$ROOT"; \
+	    exit 1; \
+	  fi; \
+	  PKG_DIR=$$(dirname "$$MANIFEST"); \
+	  if [ ! -f "$$PKG_DIR/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
+	    cp "$(ISABELLE_EXPORTED_LOCK)" "$$PKG_DIR/Cargo.lock"; \
+	  fi; \
+	  echo ">>> Cargo-checking HOL stress export: $$THEORY"; \
+	  RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked --manifest-path "$$MANIFEST" || exit 1; \
+	done
+
+# Count physical lines in the current HOL, unit, and FPP generated Rust crates.
+kloc:
+	@python3 "$(TEST_RUST_METRICS)" kloc
+
+# Aggregate warning types across Stage 1 and Stage 2 generated Rust crates.
+# Generate_Binary_Nat is intentionally excluded because it duplicates the
+# Generate lint profile.
+clippy:
+	@CARGO="$(CARGO)" python3 "$(TEST_RUST_METRICS)" clippy \
+	  --processes "$(CLIPPY_PROCESSES)" --cargo-jobs "$(CLIPPY_CARGO_JOBS)"
 
 
 # sbpf macro validation:

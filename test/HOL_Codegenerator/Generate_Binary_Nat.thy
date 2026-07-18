@@ -22,11 +22,26 @@ text \<open>
   and the wider HOL candidate graph use \<^typ>\<open>integer\<close> and \<^typ>\<open>int\<close>, which
   the Rust backend maps to BigInt.
 
-  Checking mode passes this binary-nat variant of the complete generated crate
-  to the registered Rust checker, so the theory succeeds only when the wildcard
-  graph both serialises as Rust and compiles with Cargo.
+  The session exports this binary-nat variant of the complete generated crate
+  to the persistent Stage-1 experiment directory, where the stress target
+  checks it with Cargo.
 \<close>
 
-export_code _ checking Rust
+ML_val \<open>
+  let
+    val constants = Code_Thingol.read_const_exprs @{context} ["_"];
+    val program = Code_Thingol.consts_program @{context} constants;
+    val definitions =
+      Code_Symbol.Graph.dest program
+      |> filter (fn ((_, Code_Thingol.Fun _), _) => true | _ => false)
+      |> length;
+  in
+    writeln ("HOL_STRESS_STATS theory=Generate_Binary_Nat entry_points=" ^
+      string_of_int (length constants) ^ " definitions=" ^
+      string_of_int definitions)
+  end
+\<close>
+
+export_code _ in Rust
 
 end

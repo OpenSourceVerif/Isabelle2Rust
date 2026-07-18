@@ -42,6 +42,8 @@ let
 in fold Code.declare_unimplemented_global consts thy end
 \<close>
 
+declare [[code drop: wfp_code]]
+
 text \<open>
   Predicate-compiler smoke definition.  Exporting \<^const>\<open>sublist\<close> together
   with the rest of the candidate graph exercises generated predicate code over
