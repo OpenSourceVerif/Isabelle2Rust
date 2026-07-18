@@ -1268,26 +1268,17 @@ fn ensure_function_comment(function: &mut FunctionDef, comment: &str) {
     }
 }
 
-fn closure_param_name(param: &str) -> String {
-    param
-        .trim_start_matches("mut ")
-        .split(':')
-        .next()
-        .unwrap_or(param)
-        .trim()
-        .to_string()
+fn closure_param_name(param: &ClosureParam) -> String {
+    param.pattern.trim_start_matches("mut ").trim().to_string()
 }
 
-fn closure_param_is_owned(param: &str) -> bool {
+fn closure_param_is_owned(param: &ClosureParam) -> bool {
     let name = closure_param_name(param);
     if !is_binding_ident(&name) {
         return false;
     }
 
-    param
-        .split_once(':')
-        .map(|(_, ty)| !ty.trim().starts_with('&'))
-        .unwrap_or(true)
+    !matches!(param.ty, Some(Type::Reference(_, true, _)))
 }
 
 fn is_binding_ident(input: &str) -> bool {

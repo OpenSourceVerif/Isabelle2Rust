@@ -2451,14 +2451,8 @@ fn strip_box_from_pattern(pattern: &str) -> String {
 
 /// Extract the bare parameter name from a possibly-typed closure param string.
 /// `"x"` → `"x"`, `"x: Int"` → `"x"`, `"mut x: Int"` → `"x"`.
-fn closure_param_name(param_str: &str) -> String {
-    param_str
-        .trim_start_matches("mut ")
-        .split(':')
-        .next()
-        .unwrap_or(param_str)
-        .trim()
-        .to_string()
+fn closure_param_name(param: &ClosureParam) -> String {
+    param.pattern.trim_start_matches("mut ").trim().to_string()
 }
 
 #[derive(Debug, Default)]
@@ -2753,7 +2747,7 @@ fn strip_parens(expr: &Expr) -> &Expr {
 
 /// Extract `(params, body)` from a `move |params| body` closure, handling
 /// any number of wrapping parentheses.  Returns `None` for non-move closures.
-fn extract_move_closure_parts(expr: &Expr) -> Option<(&[String], &Expr)> {
+fn extract_move_closure_parts(expr: &Expr) -> Option<(&[ClosureParam], &Expr)> {
     match strip_parens(expr) {
         Expr::Closure(params, body, true) | Expr::TypedClosure(params, _, body, true) => {
             Some((params.as_slice(), body.as_ref()))
@@ -3621,7 +3615,7 @@ mod tests {
                 )),
             })],
             expr: Some(Box::new(Expr::Closure(
-                vec!["x: i32".to_string()],
+                vec![ClosureParam::typed("x", named("i32"))],
                 Box::new(Expr::MethodCall(
                     Box::new(Expr::Ident(cap_name.to_string())),
                     "clone".to_string(),
@@ -4223,7 +4217,10 @@ where
         ]);
         let orig_env = borrow_env.clone();
         let expr = Expr::Closure(
-            vec!["a: bool".to_string(), "b: bool".to_string()],
+            vec![
+                ClosureParam::typed("a", named("bool")),
+                ClosureParam::typed("b", named("bool")),
+            ],
             Box::new(Expr::Call(
                 Box::new(Expr::Ident("make_triple".to_string())),
                 vec![clone_call("x_cap"), clone_call("a"), clone_call("b")],

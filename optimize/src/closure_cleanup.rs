@@ -269,7 +269,7 @@ fn capture_alias_move(stmt: &Statement) -> Option<CaptureAlias> {
     })
 }
 
-fn direct_move_rc_closure(expr: &Expr) -> Option<(&[String], &Expr)> {
+fn direct_move_rc_closure(expr: &Expr) -> Option<(&[ClosureParam], &Expr)> {
     let Expr::Call(callee, args) = strip_capture_wrappers(expr) else {
         return None;
     };
@@ -284,7 +284,7 @@ fn direct_move_rc_closure(expr: &Expr) -> Option<(&[String], &Expr)> {
     }
 }
 
-fn direct_move_rc_closure_mut(expr: &mut Expr) -> Option<(&[String], &mut Expr)> {
+fn direct_move_rc_closure_mut(expr: &mut Expr) -> Option<(&[ClosureParam], &mut Expr)> {
     let expr = strip_capture_wrappers_mut(expr);
     let Expr::Call(callee, args) = expr else {
         return None;
@@ -714,14 +714,8 @@ fn binds_name_in_block(block: &Block, name: &str) -> bool {
         .is_some_and(|expr| binds_name_in_expr(expr, name))
 }
 
-fn closure_param_name(param: &str) -> String {
-    param
-        .trim_start_matches("mut ")
-        .split(':')
-        .next()
-        .unwrap_or(param)
-        .trim()
-        .to_string()
+fn closure_param_name(param: &ClosureParam) -> String {
+    param.pattern.trim_start_matches("mut ").trim().to_string()
 }
 
 fn is_binding_ident(input: &str) -> bool {
@@ -807,7 +801,7 @@ where
         let (analysis, printed) = optimize_stage2_and_print(source);
         assert_eq!(analysis.capture_alias_eliminations, 0);
         assert!(printed.contains("Rc::new"));
-        assert!(printed.contains("move |xa : A|"));
+        assert!(printed.contains("move |xa: A|"));
         assert!(printed.contains("}))(x)"));
     }
 

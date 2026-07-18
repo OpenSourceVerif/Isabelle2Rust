@@ -10,10 +10,10 @@ use syn::{
 };
 
 use rustlightast::{
-    Attribute, AttributeArg, Block, CallableTraitQualifier, CallableTraitType, ConstDef, EnumDef,
-    Expr, Field, FunctionDef, GenericParam, ImplBlock, ImplItem, Item, LetStmt, Literal, MatchArm,
-    Param, PathType, RustCodeGenerator, RustModule, Statement, StructDef, Type, TypeAlias,
-    UnionDef, UseKind, UseStatement, Variant, Visibility,
+    Attribute, AttributeArg, Block, CallableTraitQualifier, CallableTraitType, ClosureParam,
+    ConstDef, EnumDef, Expr, Field, FunctionDef, GenericParam, ImplBlock, ImplItem, Item, LetStmt,
+    Literal, MatchArm, Param, PathType, RustCodeGenerator, RustModule, Statement, StructDef, Type,
+    TypeAlias, UnionDef, UseKind, UseStatement, Variant, Visibility,
 };
 
 pub fn parse_rust_source(source: &str, module_name: impl Into<String>) -> syn::Result<RustModule> {
@@ -625,16 +625,10 @@ fn convert_expr(expr: &syn::Expr) -> syn::Result<Expr> {
             ..
         }) => {
             let is_move = capture.is_some();
-            // Stringify each parameter pattern (`x`, `x: T`, etc.) using the
-            // `quote!` macro — avoids pulling in a conflicting `ToTokens` glob.
-            let params: Vec<String> = inputs
+            let params = inputs
                 .iter()
-                .map(|p| {
-                    let ts = quote::quote!(#p);
-                    // Collapse double-spaces that quote sometimes inserts.
-                    ts.to_string().replace("  ", " ")
-                })
-                .collect();
+                .map(convert_closure_param)
+                .collect::<syn::Result<Vec<_>>>()?;
             let body = Box::new(convert_expr(body)?);
             match output {
                 ReturnType::Default => Ok(Expr::Closure(params, body, is_move)),
@@ -647,6 +641,18 @@ fn convert_expr(expr: &syn::Expr) -> syn::Result<Expr> {
             other,
             "unsupported expression syntax in RustLightAST parser",
         )),
+    }
+}
+
+fn convert_closure_param(pattern: &syn::Pat) -> syn::Result<ClosureParam> {
+    match pattern {
+        syn::Pat::Type(typed) => Ok(ClosureParam::typed(
+            normalize_tokens(typed.pat.to_token_stream()),
+            convert_type(&typed.ty)?,
+        )),
+        other => Ok(ClosureParam::untyped(normalize_tokens(
+            other.to_token_stream(),
+        ))),
     }
 }
 
@@ -1228,7 +1234,7 @@ pub fn partial() -> Rc<dyn Fn(Int) -> Pred<Unit>> {
         let (_, printed) = parse_and_print_rust_source(source, "Typed_Closure_Test")
             .expect("typed closure parses");
 
-        assert!(printed.contains("move |x : Int| -> Pred<Unit>"));
+        assert!(printed.contains("move |x: Int| -> Pred<Unit>"));
         syn::parse_file(&printed).expect("printed typed closure remains valid Rust");
     }
 }

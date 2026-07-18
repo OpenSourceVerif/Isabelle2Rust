@@ -765,14 +765,11 @@ impl CopyContext {
             Expr::Closure(params, body, _) | Expr::TypedClosure(params, _, body, _) => {
                 let mut closure_env = env.clone();
                 for param in params {
-                    let name = closure_param_name(param);
-                    if !is_binding_ident(&name) {
-                        continue;
-                    }
+                    let pattern = closure_param_pattern(param);
                     if let Some(ty) = closure_param_type(param) {
-                        closure_env.insert(name, ty);
+                        self.bind_pattern_types(&pattern, &ty, &mut closure_env, scope);
                     } else {
-                        closure_env.remove(&name);
+                        remove_pattern_types(&pattern, &mut closure_env);
                     }
                 }
                 self.rewrite_expr(body, &mut closure_env, scope, copy_generics);
@@ -1879,40 +1876,33 @@ fn fresh_copy_specialization_name(base: &str, existing_names: &mut HashSet<Strin
     }
 }
 
-fn closure_param_name(param: &str) -> String {
-    param
-        .trim_start_matches("mut ")
-        .split(':')
-        .next()
-        .unwrap_or(param)
-        .trim()
-        .to_string()
+fn closure_param_pattern(param: &ClosureParam) -> String {
+    param.pattern.trim().to_string()
 }
 
-fn closure_param_type(param: &str) -> Option<Type> {
-    let ty = param.split_once(':')?.1.trim();
-    parse_simple_type(ty)
+fn closure_param_type(param: &ClosureParam) -> Option<Type> {
+    param.ty.clone()
 }
 
-fn parse_simple_type(ty: &str) -> Option<Type> {
-    let ty = ty.trim();
-    if let Some(inner) = ty.strip_prefix('&') {
-        let inner = inner.trim_start_matches("mut ").trim();
-        return parse_simple_type(inner).map(|ty| Type::Reference(Box::new(ty), true, false));
+fn remove_pattern_types(pattern: &str, env: &mut TypeEnv) {
+    let names = env.keys().cloned().collect::<Vec<_>>();
+    for name in names {
+        if pattern_binding_tokens(pattern).any(|token| token == name) {
+            env.remove(&name);
+        }
     }
+}
 
-    if ty
-        .chars()
-        .all(|ch| ch == '_' || ch == ':' || ch.is_ascii_alphanumeric())
-    {
-        return Some(if ty.contains("::") {
-            Type::Path(ty.split("::").map(str::to_string).collect())
-        } else {
-            Type::Named(ty.to_string())
-        });
-    }
-
-    None
+fn pattern_binding_tokens(pattern: &str) -> impl Iterator<Item = &str> {
+    pattern
+        .split(|ch: char| !(ch == '_' || ch.is_ascii_alphanumeric()))
+        .filter(|token| {
+            is_binding_ident(token)
+                && !token
+                    .chars()
+                    .next()
+                    .is_some_and(|ch| ch.is_ascii_uppercase())
+        })
 }
 
 fn type_substitution(def: &TypeDef, ty: &Type) -> HashMap<String, Type> {
