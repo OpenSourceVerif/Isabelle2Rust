@@ -126,8 +126,8 @@ struct CopyContext {
 /// a statically known Copy type.
 ///
 /// This pass intentionally stays on the paper's copy-inference side of the
-/// pipeline: it does not optimize borrow/reference expressions or method/impl
-/// bodies, which belong to later optimization stages.
+/// pipeline: it does not optimize borrow/reference expressions, which belong
+/// to later optimization stages.
 pub fn optimize_copy(module: &mut RustModule) -> CopyAnalysis {
     optimize_copy_with_options(module, CopyOptions::default())
 }
@@ -607,6 +607,24 @@ impl CopyContext {
     fn rewrite_item(&self, item: &mut Item, scope: &ModuleScope) {
         match item {
             Item::Function(function) => self.rewrite_function(function, scope),
+            Item::Impl(impl_block) => {
+                let impl_copy_generics =
+                    generic_param_names_with_bound(&impl_block.generics, "Copy");
+                for impl_item in &mut impl_block.items {
+                    match impl_item {
+                        ImplItem::Method(method) => self.rewrite_function_with_copy_generics(
+                            method,
+                            scope,
+                            &impl_copy_generics,
+                        ),
+                        ImplItem::AssocConst(_, _, expr) => {
+                            let mut env = TypeEnv::new();
+                            self.rewrite_expr(expr, &mut env, scope, &impl_copy_generics);
+                        }
+                        ImplItem::AssocType(_, _) => {}
+                    }
+                }
+            }
             Item::Mod(module) => {
                 let mut nested_path = scope.module_path.clone();
                 nested_path.push(module.name.clone());
@@ -617,9 +635,19 @@ impl CopyContext {
     }
 
     fn rewrite_function(&self, function: &mut FunctionDef, scope: &ModuleScope) {
+        self.rewrite_function_with_copy_generics(function, scope, &HashSet::new());
+    }
+
+    fn rewrite_function_with_copy_generics(
+        &self,
+        function: &mut FunctionDef,
+        scope: &ModuleScope,
+        outer_copy_generics: &HashSet<String>,
+    ) {
         let mut env = function_type_env(function);
 
-        let copy_generics = generic_names_with_bound(function, "Copy");
+        let mut copy_generics = generic_names_with_bound(function, "Copy");
+        copy_generics.extend(outer_copy_generics.iter().cloned());
 
         self.rewrite_block(&mut function.body, &mut env, scope, &copy_generics);
     }
@@ -1258,10 +1286,21 @@ impl CopyContext {
             }
             Expr::Parenthesized(inner) => self.infer_expr_type(inner, env, scope),
             Expr::Cast(_, ty) => Some(ty.clone()),
-            Expr::Block(block) => block
-                .expr
-                .as_ref()
-                .and_then(|expr| self.infer_expr_type(expr, env, scope)),
+            Expr::Block(block) => self.infer_block_type(block, env, scope),
+            Expr::If {
+                then_branch,
+                else_branch: Some(else_branch),
+                ..
+            } => {
+                let then_ty = self.infer_block_type(then_branch, env, scope)?;
+                let else_ty = self.infer_block_type(else_branch, env, scope)?;
+                types_equal(&then_ty, &else_ty).then_some(then_ty)
+            }
+            Expr::UnaryOp(op, inner) if op == "!" => {
+                let inner_ty = self.infer_expr_type(inner, env, scope)?;
+                matches!(inner_ty, Type::Named(ref name) if name == "bool")
+                    .then(|| Type::Named("bool".to_string()))
+            }
             Expr::UnaryOp(op, inner) if op == "*" => {
                 match self.infer_expr_type(inner, env, scope)? {
                     Type::Generic(name, mut params) if name == "Box" && params.len() == 1 => {
@@ -1276,6 +1315,36 @@ impl CopyContext {
             }
             _ => None,
         }
+    }
+
+    fn infer_block_type(&self, block: &Block, env: &TypeEnv, scope: &ModuleScope) -> Option<Type> {
+        let mut block_env = env.clone();
+
+        for stmt in &block.stmts {
+            if let Statement::Let(let_stmt) = stmt {
+                let inferred_ty = let_stmt.ty.clone().or_else(|| {
+                    let_stmt
+                        .init
+                        .as_ref()
+                        .and_then(|init| self.infer_expr_type(init, &block_env, scope))
+                });
+
+                if let Some(ty) = inferred_ty {
+                    if is_binding_ident(&let_stmt.name) {
+                        block_env.insert(let_stmt.name.clone(), ty);
+                    } else {
+                        self.bind_pattern_types(&let_stmt.name, &ty, &mut block_env, scope);
+                    }
+                } else {
+                    remove_pattern_types(&let_stmt.name, &mut block_env);
+                }
+            }
+        }
+
+        block
+            .expr
+            .as_ref()
+            .and_then(|expr| self.infer_expr_type(expr, &block_env, scope))
     }
 
     fn infer_call_type(&self, callee: &Expr, env: &TypeEnv, scope: &ModuleScope) -> Option<Type> {
@@ -1852,8 +1921,11 @@ fn has_bound(generic: &GenericParam, bound: &str) -> bool {
 }
 
 fn generic_names_with_bound(function: &FunctionDef, bound: &str) -> HashSet<String> {
-    function
-        .generics
+    generic_param_names_with_bound(&function.generics, bound)
+}
+
+fn generic_param_names_with_bound(generics: &[GenericParam], bound: &str) -> HashSet<String> {
+    generics
         .iter()
         .filter(|generic| has_bound(generic, bound))
         .map(|generic| generic.name.clone())
@@ -2300,6 +2372,87 @@ pub fn call_partial_triple(x: bool, y: bool) -> (bool, (bool, bool)) {
         let printed = optimize_and_print(source);
         assert!(printed.contains("(*partial_triple(x))(y, x)"));
         assert!(!printed.contains("partial_triple(x.clone())"));
+    }
+
+    #[test]
+    fn removes_copy_clones_inside_impl_methods() {
+        let source = r#"
+pub struct Marker {}
+
+impl Marker {
+    pub fn duplicate(x: bool) -> (bool, bool) {
+        (x.clone(), x.clone())
+    }
+}
+
+pub struct Holder<A> {
+    pub value: A,
+}
+
+impl<A: Copy> Holder<A> {
+    pub fn duplicate_value(x: A) -> (A, A) {
+        (x.clone(), x.clone())
+    }
+}
+"#;
+
+        let printed = optimize_and_print(source);
+        assert!(printed.contains("(x, x)"));
+        assert!(!printed.contains("x.clone()"));
+    }
+
+    #[test]
+    fn binds_typed_tuple_closure_parameters_before_clone_rewrite() {
+        let source = r#"
+use std::rc::Rc;
+
+pub fn make_checker()
+    -> Rc<dyn Fn((bool, Rc<dyn Fn(()) -> bool>)) -> bool>
+{
+    Rc::new(move |(flag, callback): (bool, Rc<dyn Fn(()) -> bool>)| -> bool {
+        let _ = callback;
+        flag.clone()
+    })
+}
+"#;
+
+        let printed = optimize_and_print(source);
+        assert!(!printed.contains("flag.clone()"));
+    }
+
+    #[test]
+    fn infers_if_tail_type_for_tuple_pattern_clone_rewrite() {
+        let source = r#"
+pub fn choose(gamma: bool, left: String, right: String) -> bool {
+    let (selected, (_left, _right)) = if gamma {
+        let flipped = !gamma;
+        (flipped, (left, right))
+    } else {
+        (gamma, (right, left))
+    };
+    selected.clone()
+}
+"#;
+
+        let printed = optimize_and_print(source);
+        assert!(!printed.contains("selected.clone()"));
+    }
+
+    #[test]
+    fn keeps_clone_when_if_branch_type_is_not_proven() {
+        let source = r#"
+pub fn choose_or_stop(gamma: bool) -> bool {
+    let selected = if gamma {
+        true
+    } else {
+        panic!("stop")
+    };
+    selected.clone()
+}
+"#;
+
+        let printed = optimize_and_print(source);
+        assert!(printed.contains("selected.clone()"));
     }
 
     #[test]
