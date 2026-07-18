@@ -2976,7 +2976,12 @@ fun rust_program_of_program ctxt module_name reserved identifiers
         Also detects eta-expanded constants and self-referential values. **)
     fun binding_of_stmt (sym as Constant const, (export, Code_Thingol.Fun (((vs, ty), raw_eqs), _))) =
           let
-            val tysm' = (operational_function_vs sym vs, ty);
+            (* Executable class bounds can only refine existing type variables.
+               Most large generated functions (notably the sBPF decoder and
+               interpreter) are monomorphic, so avoid traversing their often huge
+               equation bodies when there is no variable to refine. *)
+            val vs' = if null vs then vs else operational_function_vs sym vs;
+            val tysm' = (vs', ty);
             val eqs = filter (snd o snd) raw_eqs;
             val (eqs', some_sym) = if null (filter_out (null o snd) vs) then case eqs
                of [(([], t), some_thm)] => if (not o null o fst o Code_Thingol.unfold_fun) ty
