@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use isabelle2rust_optimize::{
-    cleanup_if, optimize_borrow_modules_with_paths, optimize_closure,
-    optimize_copy_modules_with_paths, optimize_match_with_context, optimize_mut, parse_rust_source,
-    CopyOptions, MatchTypeContext,
+    cleanup_booleans, cleanup_bounds, cleanup_complex_types, lower_bigint_shifts,
+    optimize_borrow_modules_with_paths, optimize_closure, optimize_copy_modules_with_paths,
+    optimize_match_with_context, optimize_mut, parse_rust_source, CopyOptions, MatchTypeContext,
 };
 use rustlightast::{RustCodeGenerator, RustModule};
 
@@ -226,6 +226,7 @@ fn write_optimized_sources(
         }
 
         if let Some(module) = unit.parsed.as_mut() {
+            lower_bigint_shifts(module);
             optimize_match_with_context(module, &match_context, &unit.module_path);
         }
     }
@@ -321,7 +322,9 @@ fn finish_source_module(
     optimize_closure(module);
     // Post-clean any discard/fallback artifacts introduced by later passes.
     optimize_match_with_context(module, match_context, module_path);
-    cleanup_if(module);
+    cleanup_booleans(module);
+    cleanup_bounds(module);
+    cleanup_complex_types(module);
 
     let mut generator = RustCodeGenerator::new();
     generator.generate_module_code(module)
