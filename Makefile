@@ -17,7 +17,11 @@ OCAMLC                 ?= ocamlc
 OCAMLFIND              ?= ocamlfind
 ISABELLE_EXPORTED_LOCK := $(CURDIR)/scripts/isabelle-exported.Cargo.lock
 OPTIMIZE_DIR           := $(CURDIR)/optimize
+OPT_STACK_KB            ?= 65536
 EXPORT_ITEM_COUNTER    := $(CURDIR)/scripts/count-rust-export-items.pl
+TEST_RUST_METRICS      := $(CURDIR)/scripts/test-rust-metrics.py
+CLIPPY_PROCESSES       ?= 4
+CLIPPY_CARGO_JOBS      ?= 1
 ISABELLE_BUILD_LOCK    := $(CURDIR)/.isabelle-build.lock
 ISABELLE_PROJECT_BUILD := isabelle build -v -e -d . $(PROJECT_SESSION)
 ISABELLE_TEST_VERBOSE  := isabelle build -v -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
@@ -151,7 +155,13 @@ opt:
 	  local s1; \
 	  local s2="$$dir/stage2/$$name"; \
 	  local items=0; \
+	  local item_label; \
 	  if [ -f "$$dir/$$name.thy" ]; then items=$$(perl "$(EXPORT_ITEM_COUNTER)" "$$dir/$$name.thy"); fi; \
+	  if [ -f "$$dir/$$name.thy" ] && grep -Eq '^[[:space:]]*export_code[[:space:]]+_[[:space:]]+in[[:space:]]+Rust' "$$dir/$$name.thy"; then \
+	    item_label="wildcard export"; \
+	  else \
+	    item_label="$$items exported definitions"; \
+	  fi; \
 	  if [ ! -d "$$s1_root" ]; then \
 	    echo "ERROR: stage1 not found at $$s1_root — run make gen first"; return 1; \
 	  fi; \
@@ -159,10 +169,11 @@ opt:
 	  if [ -z "$$s1" ]; then \
 	    echo "ERROR: no Rust export found under $$s1_root"; return 1; \
 	  fi; \
-	  echo ">>> [opt] $$name ($$items exported definitions)  stage1 -> stage2"; \
+	  echo ">>> [opt] $$name ($$item_label)  stage1 -> stage2"; \
 	  rm -rf "$$s2"; \
-	  $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
-	    "$$s1" --out-dir "$$s2" || return 1; \
+	  (ulimit -s "$(OPT_STACK_KB)"; \
+	    $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
+	      "$$s1" --out-dir "$$s2") || return 1; \
 	  if [ ! -f "$$s2/Cargo.lock" ]; then \
 	    if   [ -f "$$s1/Cargo.lock" ];           then cp "$$s1/Cargo.lock" "$$s2/Cargo.lock"; \
 	    elif [ -f "$(ISABELLE_EXPORTED_LOCK)" ];  then cp "$(ISABELLE_EXPORTED_LOCK)" "$$s2/Cargo.lock"; \
