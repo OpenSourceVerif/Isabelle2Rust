@@ -476,6 +476,11 @@ fn owned_flow_for_block(block: &Block, inherited: &HashSet<String>) -> Vec<HashS
 /// `live` is updated to the variables live on entry to the block.
 fn rewrite_lastuse_block(block: &mut Block, live: &mut HashSet<String>, owned: &HashSet<String>) {
     let owned_at = owned_flow_for_block(block, owned);
+    // Names already live after the block refer to bindings in the enclosing
+    // scope.  A same-named `let` inside this block shadows them only after its
+    // initializer has run, so preserve that outer liveness while walking the
+    // initializer backward.
+    let continuation_live = live.clone();
 
     // The tail expression executes last.
     if let Some(tail) = &mut block.expr {
@@ -489,6 +494,13 @@ fn rewrite_lastuse_block(block: &mut Block, live: &mut HashSet<String>, owned: &
             Statement::Let(let_stmt) => {
                 // The binding kills the name for everything before it.
                 remove_pattern_bindings_from_live(&let_stmt.name, live);
+                let mut bindings = HashSet::new();
+                collect_binding_names_from_pattern(&let_stmt.name, &mut bindings);
+                for binding in bindings {
+                    if continuation_live.contains(&binding) {
+                        live.insert(binding);
+                    }
+                }
                 if let Some(init) = &mut let_stmt.init {
                     rewrite_lastuse_expr(init, live, stmt_owned);
                 }
@@ -659,6 +671,16 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
                     rewrite_lastuse_expr(guard, &mut arm_live, &arm_owned);
                 }
                 remove_pattern_bindings_from_live(&arm.pattern, &mut arm_live);
+                // Pattern bindings shadow enclosing names only while the arm is
+                // evaluated.  If a same-named outer value is live after the
+                // match, it must remain live while walking the scrutinee.
+                let mut bindings = HashSet::new();
+                collect_binding_names_from_pattern(&arm.pattern, &mut bindings);
+                for binding in bindings {
+                    if live.contains(&binding) {
+                        arm_live.insert(binding);
+                    }
+                }
                 merged.extend(arm_live);
             }
             *live = merged;
@@ -912,7 +934,7 @@ fn collect_live_block(block: &Block, live: &mut HashSet<String>) {
     }
 }
 
-fn collect_live_closure_body(params: &[String], body: &Expr, live: &mut HashSet<String>) {
+fn collect_live_closure_body(params: &[ClosureParam], body: &Expr, live: &mut HashSet<String>) {
     let mut body_live = HashSet::new();
     collect_live_expr(body, &mut body_live);
     for param in params {
@@ -1748,5 +1770,89 @@ mod tests {
         };
         assert!(matches!(&args[1], Expr::Ident(name) if name == "x0"));
         assert!(matches!(&args[0], Expr::MethodCall(_, method, _) if method == "clone"));
+    }
+
+    #[test]
+    fn lastuse_preserves_outer_value_across_shadowing_block_initializer() {
+        let shadowing_block = Expr::Block(Block {
+            stmts: vec![let_stmt(
+                "(m, x0)",
+                Expr::Tuple(vec![
+                    Expr::Literal(Literal::Raw("0".to_string())),
+                    clone_call("x0"),
+                ]),
+            )],
+            expr: Some(Box::new(ident("m"))),
+        });
+        let body = block_tail(Expr::Call(
+            Box::new(ident("pair")),
+            vec![shadowing_block, clone_call("x0")],
+        ));
+        let mut module = module_with(function(named("Nat"), body));
+
+        optimize_mut(&mut module);
+
+        let function = optimized_function(&module);
+        let Some(Expr::Call(_, args)) = function.body.expr.as_deref() else {
+            panic!("expected call")
+        };
+        let Expr::Block(block) = &args[0] else {
+            panic!("expected shadowing block")
+        };
+        let Statement::Let(let_stmt) = &block.stmts[0] else {
+            panic!("expected tuple binding")
+        };
+        let Some(Expr::Tuple(init)) = &let_stmt.init else {
+            panic!("expected tuple initializer")
+        };
+        assert!(matches!(
+            &init[1],
+            Expr::MethodCall(receiver, method, method_args)
+                if matches!(receiver.as_ref(), Expr::Ident(name) if name == "x0")
+                    && method == "clone"
+                    && method_args.is_empty()
+        ));
+        assert!(matches!(&args[1], Expr::Ident(name) if name == "x0"));
+    }
+
+    #[test]
+    fn lastuse_preserves_outer_value_across_shadowing_match_pattern() {
+        let shadowing_match = Expr::Match {
+            expr: Box::new(Expr::Tuple(vec![
+                Expr::Literal(Literal::Raw("0".to_string())),
+                clone_call("x0"),
+            ])),
+            arms: vec![MatchArm {
+                pattern: "(m, x0)".to_string(),
+                guard: None,
+                body: block_tail(ident("m")),
+            }],
+        };
+        let body = block_tail(Expr::Call(
+            Box::new(ident("pair")),
+            vec![shadowing_match, clone_call("x0")],
+        ));
+        let mut module = module_with(function(named("Nat"), body));
+
+        optimize_mut(&mut module);
+
+        let function = optimized_function(&module);
+        let Some(Expr::Call(_, args)) = function.body.expr.as_deref() else {
+            panic!("expected call")
+        };
+        let Expr::Match { expr, .. } = &args[0] else {
+            panic!("expected shadowing match")
+        };
+        let Expr::Tuple(scrutinee) = expr.as_ref() else {
+            panic!("expected tuple scrutinee")
+        };
+        assert!(matches!(
+            &scrutinee[1],
+            Expr::MethodCall(receiver, method, method_args)
+                if matches!(receiver.as_ref(), Expr::Ident(name) if name == "x0")
+                    && method == "clone"
+                    && method_args.is_empty()
+        ));
+        assert!(matches!(&args[1], Expr::Ident(name) if name == "x0"));
     }
 }
