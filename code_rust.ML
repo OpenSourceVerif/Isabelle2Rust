@@ -236,7 +236,7 @@ fun rc_dyn_fn params ret =
       constr_method_of: SOME constructor-sym if (classparam, tyco) is a class
         method realised by a nullary data constructor (e.g. `0::int`), so the
         Inst printer fills its body with the constructor instead of a panic stub **)
-fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
+fun print_rust_stmt class_syntax tyco_syntax const_syntax reserved is_constr deresolve
   box_table phantom_table
   lookup_constant_typeco lookup_constructor_fields is_single_constr lookup_constant_fun
   lookup_method_class inst_method_info lookup_class_methods constr_method_of =
@@ -244,6 +244,8 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
     val deresolve_const = deresolve o Constant;
     val deresolve_typco = deresolve o Type_Constructor;
     val deresolve_class = deresolve o Type_Class;
+    fun class_name class =
+      (case class_syntax class of NONE => deresolve_class class | SOME name => name);
     (** The bare base name of a symbol (last path segment of its possibly
         crate-qualified deresolved name). Used in Rust "suffix" positions that
         must stay unqualified -- enum variants after `Enum::` and trait methods
@@ -287,6 +289,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
        "Unknown statement name". Route Type_Constructor through print_typ_gen
        (which dispatches on tyco_syntax); other symbols (classes) deresolve. *)
     fun print_tyco_expr (Type_Constructor t, tys) = print_typ_gen NOBR (t `%% tys)
+      | print_tyco_expr (Type_Class class, _) = str (class_name class)
       | print_tyco_expr (sym, tys) = print_tyco_expr_gen (sym, tys);
     (* The printed name of a type constructor for use as a path prefix
        (`Tyco::method`) or enum qualifier (`Tyco::Variant`). A code_printing-mapped
@@ -1499,7 +1502,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
             fun qualified_trait_prefix recv_shape class =
               Pretty.block
                 [str "<", print_rust_shape recv_shape, str " as ",
-                 str (deresolve_class class), str ">::"];
+                 str (class_name class), str ">::"];
             (* Decide the printed callee and any fully-qualified trait prefix. *)
             val (generic_prefixs, funcname) =
               (case inst_method_info sym of
@@ -2502,7 +2505,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
               if null vs then str "" else Pretty.brk 1,
               print_impl_generics vs,
               Pretty.brk_indent 1 2,
-              str (deresolve_class class),
+              str (class_name class),
               str " for",
               Pretty.brk_indent 1 2,
               print_tyco_expr (Type_Constructor tyco, map (ITyVar o fst) vs)
@@ -2778,7 +2781,7 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
                      str "impl<T",
                      print_super_traits classrels,
                      str "> ",
-                     str (deresolve_class class),
+                     str (class_name class),
                      str " for T {}"])
               else NONE
             val body_p =
@@ -3077,8 +3080,9 @@ fun rust_program_of_program ctxt module_name reserved identifiers
 fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_lints rust_includes
     print_rust_module print_rust_stmt rust_extension ctxt
     { module_name, reserved_syms, identifiers, includes,
-      class_syntax = _, tyco_syntax, const_syntax } program exports =
+      class_syntax, tyco_syntax, const_syntax } program exports =
   let
+    val reserved_syms = fold (insert (op =) o fst) includes reserved_syms
     val stmt_list = (Code_Symbol.Graph.dest program)
     val sym_dpdnc_list = map (fn ((sym, _), children) => (sym, children)) stmt_list
 
@@ -3106,6 +3110,12 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
               Code_Thingol.Class (_, (_, cps)) => cps
             | _ => [])
           handle Code_Symbol.Graph.UNDEF _ => [];
+        fun projected_classparams cls =
+          map_filter (fn ((sym, stmt), _) =>
+            (case (sym, stmt) of
+              (Constant cp, Code_Thingol.Classparam cls') =>
+                if cls = cls' then SOME cp else NONE
+            | _ => NONE)) stmt_list;
         (* Every type class declared in this program. We match a projection
            function to its instance by the `<class>_<tyco>_inst` segment of its
            name, tested against all classes: a method's sort-context vs need not
@@ -3115,6 +3125,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           distinct (op =) (map_filter (fn ((s, st), _) =>
             case (s, st) of
               (Type_Class c, Code_Thingol.Class _) => SOME c
+            | (Constant _, Code_Thingol.Classparam c) => SOME c
             | _ => NONE) stmt_list);
         (* Executable code equations can require dictionaries that do not occur
            in the logical class method's type.  Function strict order is the
@@ -3179,15 +3190,15 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                       NONE => NONE
                     | SOME (cls, tyc) =>
                         let
-                          val cps = class_classparams cls
+                          val cps = map fst (class_classparams cls) @ projected_classparams cls
                           val vs' = add_method_body_bounds sym vs
                           (* Require const = `<classparam>_<tyco>` even for a
                              single-method class, so an auxiliary function that
                              merely shares the `<class>_<tyco>_inst` segment is
                              not mistaken for the method. *)
                           val cp_opt =
-                            Option.map fst (find_first (fn (cp, _) =>
-                              after_last_dot const = after_last_dot cp ^ "_" ^ after_last_dot tyc) cps)
+                            find_first (fn cp =>
+                              after_last_dot const = after_last_dot cp ^ "_" ^ after_last_dot tyc) cps
                         in Option.map (fn cp => (inst_s, (cls, tyc, vs', cp, sym))) cp_opt end
                   end
               end
@@ -3775,7 +3786,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           not (Code_Thingol.is_case stmt) andalso
           not (member (op =) inst_method_syms sym)
       | (Type_Constructor tyco, Code_Thingol.Datatype _) => is_none (tyco_syntax tyco)
-      | (Type_Class _, Code_Thingol.Class _) => true
+      | (Type_Class class, Code_Thingol.Class _) => is_none (class_syntax class)
       | _ => false)
 
     fun import_candidate source_module sym =
@@ -3885,7 +3896,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           ^ Code_Debug_Info.print_debug_info_thingol_stmt (get_node program sym))
         val r = Exn.result (fn () =>
           (print_rust_stmt
-            tyco_syntax const_syntax (make_vars reserved_syms)
+            class_syntax tyco_syntax const_syntax (make_vars reserved_syms)
             is_constr_safe (modify_deresolver current_module (deresolver prefix_fragments))
             box_table phantom_table
             lookup_constant_typeco lookup_constructor_fields is_single_constr lookup_constant_fun
@@ -3924,10 +3935,14 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         lift_markup = K I } rust_program;
     val modules = map fst ps
       |> map (fn (SOME [x]) => (Pretty.string_of x))
+    val include_modules = map fst includes
+    val all_modules = distinct (op =) (include_modules @ modules)
     val unused_modules = subtract (op =) modules raw_modules
-    val srcs = ListPair.zip
+    val include_srcs = map (fn (name, body) =>
+      (["src", name ^ rust_extension], body)) includes
+    val generated_srcs = ListPair.zip
       (map (fn x => ["src", x^rust_extension]) modules,
-      map snd includes @ map snd ps)
+      map snd ps)
     val empty_mods = map (fn x => (pair
         (["src", x^rust_extension])
         (str "/*Empty module, added to pass compilition*/")))
@@ -3945,10 +3960,10 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
 	    val lib = pair
 	      (["src", "lib.rs"])
 	      (Pretty.chunks([
-	        str (fold (fn s => (fn acc => ("pub mod "^s^";\n")^acc)) modules "" )
+	        str (fold (fn s => (fn acc => ("pub mod "^s^";\n")^acc)) all_modules "" )
 	      ]))
   in
-    (Code_Target.Hierarchy (toml :: lib :: srcs @ empty_mods),
+    (Code_Target.Hierarchy (toml :: lib :: include_srcs @ generated_srcs @ empty_mods),
     try (deresolver []))
   end;
 
