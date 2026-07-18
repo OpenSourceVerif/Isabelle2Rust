@@ -186,6 +186,20 @@ def main() -> int:
     if os.environ.get("SBPF_NO_BIGINT") == "1":
         env["RUSTFLAGS"] += " --cfg sbpf_no_bigint"
 
+    if os.environ.get("SBPF_BENCH") == "1":
+        announce("glue", f"installing {rel(main_rs)} into {rel(pkg_dir / 'src' / 'main.rs')}")
+        shutil.copy2(main_rs, pkg_dir / "src" / "main.rs")
+        prepare_rust_cargo(toml)
+        build_cmd = cargo + ["build", "--release", "--locked", "-q", "--manifest-path", str(toml)]
+        announce("build", shlex.join(build_cmd))
+        rc, _ = run_command(build_cmd, cwd=ROOT, env=env)
+        if rc != 0:
+            return rc
+        binary = pkg_dir / "target" / "release" / "isabelle_exported"
+        announce("benchmark", f"one timed traversal of {len(json.loads((DATA_DIR / 'interp_in.json').read_text()))} cases")
+        rc, _ = run_command([str(binary)], cwd=ROOT, env=env)
+        return rc
+
     if cache_is_valid(pkg_dir, key):
         announce("cache", "reusing compiled Rust macro binary (no source changes)")
     else:

@@ -8,19 +8,19 @@
 #![feature(box_patterns)]
 #![allow(non_snake_case)]
 
-pub mod Step_test;
-
-use crate::Step_test::{step_test, List};
+use isabelle_exported::Step_test::{step_test, List};
 #[cfg(sbpf_no_bigint)]
-use crate::Step_test::{Int, Num};
+use isabelle_exported::Step_test::{Int, Num};
 #[cfg(not(sbpf_no_bigint))]
 use num_bigint::BigInt;
 use serde::Deserialize;
 use std::env;
 use std::fs::File;
+use std::hint::black_box;
 use std::io::BufReader;
 use std::panic::{self, AssertUnwindSafe};
 use std::process::exit;
+use std::time::Instant;
 
 #[derive(Deserialize)]
 struct Case {
@@ -101,6 +101,64 @@ fn run_exported(c: &Case) -> bool {
     )
 }
 
+struct BenchCase {
+    lp: List<ExportInt>,
+    lr: List<ExportInt>,
+    lm: List<ExportInt>,
+    lc: List<ExportInt>,
+    v: ExportInt,
+    fuel: ExportInt,
+    ipc: ExportInt,
+    index: ExportInt,
+    expected: ExportInt,
+}
+
+impl From<&Case> for BenchCase {
+    fn from(c: &Case) -> Self {
+        Self {
+            lp: list_of_hex(&c.lp_std),
+            lr: list_of_hex(&c.lr_std),
+            lm: list_of_hex(&c.lm_std),
+            lc: list_of_hex(&c.lc_std),
+            v: int_of_i64(hex_i64(&c.v)),
+            fuel: int_of_i64(hex_i64(&c.fuel)),
+            ipc: int_of_i64(hex_i64(&c.ipc)),
+            index: int_of_i64(hex_i64(&c.index)),
+            expected: int_of_i64(hex_i64(&c.result_expected)),
+        }
+    }
+}
+
+#[cfg(not(sbpf_stage2))]
+fn run_bench(c: &BenchCase) -> bool {
+    step_test(
+        c.lp.clone(),
+        c.lr.clone(),
+        c.lm.clone(),
+        c.lc.clone(),
+        c.v.clone(),
+        c.fuel.clone(),
+        c.ipc.clone(),
+        c.index.clone(),
+        c.expected.clone(),
+    )
+}
+
+#[cfg(sbpf_stage2)]
+fn run_bench(c: &BenchCase) -> bool {
+    step_test(
+        &c.lp,
+        c.lr.clone(),
+        c.lm.clone(),
+        &c.lc,
+        c.v.clone(),
+        &c.fuel,
+        c.ipc.clone(),
+        c.index.clone(),
+        c.expected.clone(),
+    )
+}
+
 #[cfg(sbpf_stage2)]
 fn run_exported(c: &Case) -> bool {
     let lp = list_of_hex(&c.lp_std);
@@ -130,6 +188,34 @@ fn main() {
         .unwrap_or_else(|e| panic!("open {}: {}", path, e));
     let cases: Vec<Case> = serde_json::from_reader(BufReader::new(file))
         .expect("parse step json");
+
+    if let Ok(repeats) = env::var("SBPF_BENCH_REPEATS") {
+        let repeats = repeats.parse::<usize>()
+            .expect("SBPF_BENCH_REPEATS must be a usize");
+        let cases: Vec<BenchCase> = cases.iter().map(BenchCase::from).collect();
+        assert!(cases.iter().all(run_bench), "warm-up validation failed");
+        let start = Instant::now();
+        let mut failures = 0usize;
+        for _ in 0..repeats {
+            for case in &cases {
+                if !black_box(run_bench(case)) {
+                    failures += 1;
+                }
+            }
+        }
+        let seconds = start.elapsed().as_secs_f64();
+        assert_eq!(failures, 0);
+        let executions = cases.len() * repeats;
+        println!(
+            "cases={} repeats={} executions={} seconds={:.9} executions_per_second={:.3}",
+            cases.len(),
+            repeats,
+            executions,
+            seconds,
+            executions as f64 / seconds
+        );
+        return;
+    }
 
     // A panic in the exported code is a failed case; report it instead of
     // aborting the whole run.

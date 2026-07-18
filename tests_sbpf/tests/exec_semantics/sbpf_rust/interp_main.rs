@@ -11,18 +11,18 @@
 #![feature(box_patterns)]
 #![allow(non_snake_case)]
 
-pub mod Interp_test;
-
-use crate::Interp_test::{bpf_interp_test, List};
+use isabelle_exported::Interp_test::{bpf_interp_test, List};
 #[cfg(sbpf_no_bigint)]
-use crate::Interp_test::{Int, Num};
+use isabelle_exported::Interp_test::{Int, Num};
 #[cfg(not(sbpf_no_bigint))]
 use num_bigint::BigInt;
 use std::env;
 use std::fs;
+use std::hint::black_box;
 use std::io::{self, Write};
 use std::panic::{self, AssertUnwindSafe};
 use std::process::exit;
+use std::time::Instant;
 
 struct Case {
     dis: String,
@@ -305,6 +305,22 @@ fn main() {
     let path = env::var("CROSS_JSON")
         .expect("set CROSS_JSON to the interp_in.json path");
     let cases = read_cases(&path);
+    if env::var("SBPF_BENCH").as_deref() == Ok("1") {
+        assert!(cases.iter().all(run_exported), "warm-up validation failed");
+        let start = Instant::now();
+        let failures = cases.iter()
+            .filter(|case| !black_box(run_exported(case)))
+            .count();
+        let seconds = start.elapsed().as_secs_f64();
+        assert_eq!(failures, 0);
+        println!(
+            "cases={} seconds={:.9} cases_per_second={:.3}",
+            cases.len(),
+            seconds,
+            cases.len() as f64 / seconds
+        );
+        return;
+    }
     let case_index = env::var("CROSS_CASE_INDEX")
         .ok()
         .map(|s| s.parse::<usize>().expect("CROSS_CASE_INDEX must be a usize"));

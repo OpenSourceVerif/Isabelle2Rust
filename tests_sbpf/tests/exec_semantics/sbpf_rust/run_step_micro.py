@@ -170,6 +170,27 @@ def main() -> int:
     if os.environ.get("SBPF_NO_BIGINT") == "1":
         env["RUSTFLAGS"] += " --cfg sbpf_no_bigint"
 
+    if os.environ.get("SBPF_BENCH_REPEATS") is not None:
+        announce("glue", f"installing {rel(main_rs)} into {rel(pkg_dir / 'src' / 'main.rs')}")
+        shutil.copy2(main_rs, pkg_dir / "src" / "main.rs")
+        prepare_rust_cargo(toml)
+        lock = toml.parent / "Cargo.lock"
+        if not lock_has_step_deps(lock):
+            lock_cmd = cargo + ["generate-lockfile", "--manifest-path", str(toml)]
+            announce("lockfile", shlex.join(lock_cmd))
+            rc, _ = run_command(lock_cmd, cwd=ROOT, env=env)
+            if rc != 0:
+                return rc
+        build_cmd = cargo + ["build", "--release", "--locked", "-q", "--manifest-path", str(toml)]
+        announce("build", shlex.join(build_cmd))
+        rc, _ = run_command(build_cmd, cwd=ROOT, env=env)
+        if rc != 0:
+            return rc
+        binary = pkg_dir / "target" / "release" / "isabelle_exported"
+        announce("benchmark", f"timing {rel(STEP_JSON)}")
+        rc, _ = run_command([str(binary)], cwd=ROOT, env=env)
+        return rc
+
     if cache_is_valid(pkg_dir, key):
         announce("cache", "reusing compiled Rust micro binary (no source changes)")
     else:
