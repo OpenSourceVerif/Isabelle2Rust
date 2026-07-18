@@ -1938,58 +1938,11 @@ fun print_rust_stmt tyco_syntax const_syntax reserved is_constr deresolve
       in
         compile columns columns rows 0
       end
-    (** Print a case expression. Three cases:
-        - Empty clauses: generates panic
-        - Single irrefutable clause: emitted as a let-binding expression block
-        - Multiple clauses: emitted as match block **)
+    (** Print a case expression as a match block.  Function-body cases are
+        handled separately by print_eqn_body, where a single irrefutable clause
+        can be emitted as direct let bindings. **)
     and print_case _ _ _ _ _ { clauses = [], ... } =
           (concat o map str) ["panic!(\"empty case\")", "\"empty case\""]
-      | print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy (case_expr as { clauses = [_], ... }) =
-          let
-            fun print_stable_match t ty clauses =
-              let
-                fun row (pat, body) =
-                  let
-                    val vars' = rv_intro_typed_pat pat ty vars;
-                    val used_vars = build (Code_Thingol.add_varnames body);
-                  in
-                    ([pat], vars', used_vars, [],
-                      print_term_app is_pseudo_fun some_thm vars' NOBR body)
-                  end;
-                val scrutinee = print_term_app is_pseudo_fun some_thm vars NOBR t;
-              in
-                stable_match_compile is_pseudo_fun some_thm vars
-                  [(scrutinee, ty)] (map row clauses)
-                  (str "panic!(\"non-exhaustive match\")")
-              end;
-          in
-            (case print_irrefutable_case_parts is_pseudo_fun
-                (need_box, box_prcs, clone_prcs) some_thm vars case_expr of
-              SOME (ps, body) => rust_bare_block (ps @ [body])
-            | NONE =>
-              (case case_expr of {term = t, typ = ty, clauses = clauses, ...} =>
-                let
-                  val has_boxed_patterns = exists (pat_contains_boxed_field o fst) clauses;
-                  fun print_select (pat, body) =
-                    let
-                      val used_vars = build (Code_Thingol.add_varnames body);
-                      val pat' = wildcard_unused_pattern used_vars pat;
-                      val vars' = rv_intro_typed_pat pat ty vars;
-                      val p = print_term_pattern is_pseudo_fun some_thm vars' NOBR pat';
-                    in
-                      rust_arm p (print_term_app is_pseudo_fun some_thm vars' NOBR body)
-                    end
-                in
-                  if has_boxed_patterns
-                  then print_stable_match t ty clauses
-                  else
-                    rust_match
-                      (print_term_app is_pseudo_fun some_thm vars NOBR t)
-                      (map print_select clauses
-                        @ [rust_arm (str "_") (str "panic!(\"non-exhaustive match\")")])
-                end))
-          end
-        (*match block*)
       | print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars _ (icase as { term = t, typ = _, clauses = clauses, ... }) =
           let
             val has_boxed_patterns = exists (pat_contains_boxed_field o fst) clauses;
