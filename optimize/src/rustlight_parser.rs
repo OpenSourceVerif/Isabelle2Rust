@@ -112,6 +112,7 @@ fn convert_item(item: &SynItem) -> syn::Result<Item> {
         SynItem::Type(item_type) => Ok(Item::TypeAlias(TypeAlias {
             name: item_type.ident.to_string(),
             target: convert_type(&item_type.ty)?,
+            generics: convert_generics(&item_type.generics),
             vis: convert_visibility(&item_type.vis),
             docs: extract_docs(&item_type.attrs),
         })),
