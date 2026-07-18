@@ -8,8 +8,6 @@ definition fof1 :: "nat \<Rightarrow> nat"
   where "fof1 x \<equiv>  power x 2"
 
 
-export_code fof1 in OCaml  
-export_code fof1 in Haskell
 
 value "fof1 2"
 
@@ -65,8 +63,6 @@ definition hoft4 :: "(int, int, int, int) hoftype4"
 subsection \<open>definition and usage of high-order functions\<close>
 definition hof2 :: "'a \<Rightarrow> ('a \<Rightarrow> 'b \<Rightarrow> 'c) \<Rightarrow> ('b \<Rightarrow> 'c)"
   where "hof2 x f \<equiv> f x"
-
-export_code hof2 in OCaml
 
 term "hof2 (1::int) plus"
 term "hof2 (2::int) plus"
