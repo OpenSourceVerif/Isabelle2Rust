@@ -17,12 +17,6 @@ export_code sum_int in Go module_name My_Code*)
 
 code_thms bpf_interp_test
 
-export_code bpf_interp_test in OCaml
-  module_name Interp_test file_prefix interp_test
-
-export_code step_test in OCaml
-  module_name Step_test file_prefix step_test
-
 (*export_code bpf_interp_test in Go
   module_name Interp_test file_prefix interp_test
 
