@@ -1,6 +1,6 @@
-# sBPF OCaml Macro Validation
+# SBPF OCaml Macro Validation
 
-This directory contains only the OCaml-side macro runner for the sBPF
+This directory contains only the OCaml-side macro runner for the SBPF
 program-level validation suite.
 
 The shared orchestration is in `../run_macro_sbpf.py`. This directory handles
@@ -23,7 +23,7 @@ are generated from `tests_sbpf/theory/bpf_generator.thy` under
 The fixed OCaml execution environment is:
 
 ```sh
-ocamlc -version
+ocamlopt -version
 # expected: 4.11.2
 
 ocamlfind query zarith

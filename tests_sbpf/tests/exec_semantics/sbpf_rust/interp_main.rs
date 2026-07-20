@@ -1,4 +1,4 @@
-// Rust runtime macro-test harness for the exported sBPF interpreter.
+// Rust runtime macro-test harness for the exported SBPF interpreter.
 //
 // This file is copied over the `interp_test` export's src/main.rs by `make macro_sbpf`.
 // It feeds the Rust-exported `bpf_interp_test` the local macro inputs from
@@ -8,7 +8,6 @@
 //
 // The JSON path is taken from the CROSS_JSON env var (set by the Makefile) so the
 // harness is independent of cargo's working directory.
-#![feature(box_patterns)]
 #![allow(non_snake_case)]
 
 use isabelle_exported::Interp_test::{bpf_interp_test, List};

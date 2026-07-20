@@ -1,0 +1,310 @@
+{
+  "Case-study baseline": {
+    "core_functions": {
+      "SBPF-instruction": "execute_step",
+      "SBPF-program": "execute_program"
+    },
+    "executables": {
+      "SBPF-instruction": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/case-study-baseline/target/allocation/release/sbpf-instruction-baseline",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "83a976aef619c7c5984afc8a7bef932841b8da1eeaeb6b00d19774081adf4f3f"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/case-study-baseline/target/runtime/release/sbpf-instruction-baseline",
+          "rustflags": "",
+          "sha256": "ced7b92d661351576a6a1cc713d6ba85288c3f379f0f608fd351702bcfbf1f01"
+        }
+      },
+      "SBPF-program": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/case-study-baseline/target/allocation/release/sbpf-program-baseline",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "bb433104383926704ad65bc2c6066be6434333cd97a4a6ae7abe520b20a38e9c"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/case-study-baseline/target/runtime/release/sbpf-program-baseline",
+          "rustflags": "",
+          "sha256": "d6afdd662d160ca6c9bcee252020d8009293b7440d24e55205a9ef931452f562"
+        }
+      }
+    }
+  },
+  "OCaml baseline": {
+    "compiler": "ocamlopt 4.11.2",
+    "executables": {
+      "SBPF-instruction": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/build/ocaml/instruction/sbpf-instruction",
+          "sha256": "c3ee4d727dce3a369bbbc817327b72a7e3babce8ad6ff1233eff43bb35262682"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/build/ocaml/instruction/sbpf-instruction",
+          "sha256": "c3ee4d727dce3a369bbbc817327b72a7e3babce8ad6ff1233eff43bb35262682"
+        }
+      },
+      "SBPF-program": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/build/ocaml/program/sbpf-program",
+          "sha256": "40186066a1767213fa7dc9bc161d25e53dd04c292a9dbe9adf08c82326ca7a47"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/build/ocaml/program/sbpf-program",
+          "sha256": "40186066a1767213fa7dc9bc161d25e53dd04c292a9dbe9adf08c82326ca7a47"
+        }
+      }
+    },
+    "source_export_sha256": {
+      "interp_test.ocaml": "a3740c48cb99d2b7f230c3b8fe6c7c9cc4a52fd88591892ccabe5bdc66f1faf8",
+      "step_test.ocaml": "0cbb4c808a01846f150bc8d89b548393764ebb3c7b23f963790430716d7c7731"
+    }
+  },
+  "Stage-1": {
+    "borrowed_adapter": false,
+    "executables": {
+      "SBPF-instruction": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage1/step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "4bd32200828fb8e962584f59d52f1a40e9821022c2b45141d3c24be91137a1ed"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage1/step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "",
+          "sha256": "4596ba49e823d2140efbdc9aee5d8943c6b5019376f6490458be719cced6e147"
+        }
+      },
+      "SBPF-program": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage1/interp_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "3ca9fd38fe9f9977b389666c71cf63f8769cecec7d2b59d96c66256886a80895"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage1/interp_test/target/runtime/release/isabelle_exported",
+          "rustflags": "",
+          "sha256": "de146c7b80b680b00fa79a7bf647a4964ed37a0e9ed8d00551ec77e725b392e2"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "interp_test/Interp_test.rs": "8b3db8948e770d546204498f8ffcb62f14b4df104974ab2404395595b687b02a",
+      "step_test/Step_test.rs": "f743712a7d47df1317b2e2e71f3b098953057715f1736ec850e51988b289f9cb"
+    },
+    "implementation": "Stage-1",
+    "optimizer_flag": null,
+    "optimizer_sha256": "f1ef5514ccb4aa62dc7f9feb0b5b89d260dec2843ce2f20697eed064f9fbce76",
+    "ownership_passes": {
+      "borrow": false,
+      "copy": false,
+      "mut": false
+    },
+    "source_stage1_sha256": {
+      "interp_test.ocaml": "a3740c48cb99d2b7f230c3b8fe6c7c9cc4a52fd88591892ccabe5bdc66f1faf8",
+      "interp_test/Interp_test.rs": "8b3db8948e770d546204498f8ffcb62f14b4df104974ab2404395595b687b02a",
+      "step_test.ocaml": "0cbb4c808a01846f150bc8d89b548393764ebb3c7b23f963790430716d7c7731",
+      "step_test/Step_test.rs": "f743712a7d47df1317b2e2e71f3b098953057715f1736ec850e51988b289f9cb"
+    }
+  },
+  "Stage-2 Full": {
+    "borrowed_adapter": true,
+    "executables": {
+      "SBPF-instruction": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-full/step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed --cfg allocation_metrics",
+          "sha256": "c3ee4c8d099e487c40450a039140e4705e6b056a2dcf11954bfb2de9ef0d0374"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-full/step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed",
+          "sha256": "f05566597f74743462148d50bd67466d7dd0969a91150fbca9d5b2c19aa6844d"
+        }
+      },
+      "SBPF-program": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-full/interp_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed --cfg allocation_metrics",
+          "sha256": "7ccce739761aaff4e7f085bd4dd1cb44195504801b10579877fc3e49fb134c2f"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-full/interp_test/target/runtime/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed",
+          "sha256": "c438448262f77d3432d582440c7ae51586fd366c750f82f7387b8ce110c7890b"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "interp_test/Interp_test.rs": "34ddf30068aa69c1e0579a6bfc8769d28c8d446c066946eeb1d6bc7cf52d98fc",
+      "step_test/Step_test.rs": "25c5f949b5bc7e305e8437b615d15c74a3f7e9e4986a9709b5ee8da166280fe5"
+    },
+    "implementation": "Stage-2 Full",
+    "optimizer_flag": null,
+    "optimizer_sha256": "f1ef5514ccb4aa62dc7f9feb0b5b89d260dec2843ce2f20697eed064f9fbce76",
+    "ownership_passes": {
+      "borrow": true,
+      "copy": true,
+      "mut": true
+    },
+    "source_stage1_sha256": {
+      "interp_test.ocaml": "a3740c48cb99d2b7f230c3b8fe6c7c9cc4a52fd88591892ccabe5bdc66f1faf8",
+      "interp_test/Interp_test.rs": "8b3db8948e770d546204498f8ffcb62f14b4df104974ab2404395595b687b02a",
+      "step_test.ocaml": "0cbb4c808a01846f150bc8d89b548393764ebb3c7b23f963790430716d7c7731",
+      "step_test/Step_test.rs": "f743712a7d47df1317b2e2e71f3b098953057715f1736ec850e51988b289f9cb"
+    }
+  },
+  "Stage-2 minus Borrow": {
+    "borrowed_adapter": false,
+    "executables": {
+      "SBPF-instruction": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-borrow/step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "2cefeac9fe679cc1064f46b5fb5cdd8712c3873af0d8565550a75e85f8d6c729"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-borrow/step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "",
+          "sha256": "a190f9d2cd93a850912d1fd4147f45fca1c8f5f17926343e4e0d88ccf107e7fa"
+        }
+      },
+      "SBPF-program": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-borrow/interp_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "ec8fdded7db2899d6ece0203d68615ad353f3d04b30d8845f0b09c44d0f75253"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-borrow/interp_test/target/runtime/release/isabelle_exported",
+          "rustflags": "",
+          "sha256": "de4bc419a7f523ffa9136848053ae3439366ce903a79b8c43300ee13b182c1cb"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "interp_test/Interp_test.rs": "5a49dd02200c6a85008015a3d644481b3b9d7393c932daf494518d1e2fb0d10a",
+      "step_test/Step_test.rs": "80b7fa19d871793cfcfb7571b6dac53ea6ea4410445008daf8c7b73f23d572e0"
+    },
+    "implementation": "Stage-2 minus Borrow",
+    "optimizer_flag": "--disable-borrow",
+    "optimizer_sha256": "f1ef5514ccb4aa62dc7f9feb0b5b89d260dec2843ce2f20697eed064f9fbce76",
+    "ownership_passes": {
+      "borrow": false,
+      "copy": true,
+      "mut": true
+    },
+    "source_stage1_sha256": {
+      "interp_test.ocaml": "a3740c48cb99d2b7f230c3b8fe6c7c9cc4a52fd88591892ccabe5bdc66f1faf8",
+      "interp_test/Interp_test.rs": "8b3db8948e770d546204498f8ffcb62f14b4df104974ab2404395595b687b02a",
+      "step_test.ocaml": "0cbb4c808a01846f150bc8d89b548393764ebb3c7b23f963790430716d7c7731",
+      "step_test/Step_test.rs": "f743712a7d47df1317b2e2e71f3b098953057715f1736ec850e51988b289f9cb"
+    }
+  },
+  "Stage-2 minus Copy": {
+    "borrowed_adapter": true,
+    "executables": {
+      "SBPF-instruction": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-copy/step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed --cfg allocation_metrics",
+          "sha256": "26707b7d3e149cea9b21a797d85a69f687b0278fc25f33d0f09895c24acb75ba"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-copy/step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed",
+          "sha256": "8fc42df1f632fcdd4a201b795169b96b5671e1138c047b32726bb8a554567b20"
+        }
+      },
+      "SBPF-program": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-copy/interp_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed --cfg allocation_metrics",
+          "sha256": "c79b955a705b2ca923ea15e960d02e8409ed5dad267a6d23745aa16c18151968"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-copy/interp_test/target/runtime/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed",
+          "sha256": "29099024f7850c4a3a7a2c3895f0c8471b16a842ff81d208e942d2d596a82ded"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "interp_test/Interp_test.rs": "17283788f859231c3eaac6621bf192e572abb7558d0427fab4545cf0c87fc4c9",
+      "step_test/Step_test.rs": "6895cbbd99feb1a164bb2d5fdb68e4f49d7301115dee10611adf30f80f972879"
+    },
+    "implementation": "Stage-2 minus Copy",
+    "optimizer_flag": "--disable-copy",
+    "optimizer_sha256": "f1ef5514ccb4aa62dc7f9feb0b5b89d260dec2843ce2f20697eed064f9fbce76",
+    "ownership_passes": {
+      "borrow": true,
+      "copy": false,
+      "mut": true
+    },
+    "source_stage1_sha256": {
+      "interp_test.ocaml": "a3740c48cb99d2b7f230c3b8fe6c7c9cc4a52fd88591892ccabe5bdc66f1faf8",
+      "interp_test/Interp_test.rs": "8b3db8948e770d546204498f8ffcb62f14b4df104974ab2404395595b687b02a",
+      "step_test.ocaml": "0cbb4c808a01846f150bc8d89b548393764ebb3c7b23f963790430716d7c7731",
+      "step_test/Step_test.rs": "f743712a7d47df1317b2e2e71f3b098953057715f1736ec850e51988b289f9cb"
+    }
+  },
+  "Stage-2 minus Mut": {
+    "borrowed_adapter": true,
+    "executables": {
+      "SBPF-instruction": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-mut/step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed --cfg allocation_metrics",
+          "sha256": "57d2780a1a924116a496c7e950a539fa02f8b30d26a2484bd7169dff86e14139"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-mut/step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed",
+          "sha256": "6d6cda6fe387575d9e028ac3591fff33e7fe36e6101e8a91bf7ff35ee63203db"
+        }
+      },
+      "SBPF-program": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-mut/interp_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed --cfg allocation_metrics",
+          "sha256": "db03beb4f05bdc0b547771d4583e47867c513602342dada16b75dc720ed1ba1c"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-mut/interp_test/target/runtime/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed",
+          "sha256": "0eec6942f0208fb0c431af993db314e4bd3ca18100d3020c7a6c07290b1b1376"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "interp_test/Interp_test.rs": "9a638f83179aad976e6558aa75eba1397dbea2930fd9f0b2ed60b52801dcdde0",
+      "step_test/Step_test.rs": "e688e2f3a730c5212b7111eb68836f6ec8ba1a698c02d2a9a20641968e60b23c"
+    },
+    "implementation": "Stage-2 minus Mut",
+    "optimizer_flag": "--disable-mut",
+    "optimizer_sha256": "f1ef5514ccb4aa62dc7f9feb0b5b89d260dec2843ce2f20697eed064f9fbce76",
+    "ownership_passes": {
+      "borrow": true,
+      "copy": true,
+      "mut": false
+    },
+    "source_stage1_sha256": {
+      "interp_test.ocaml": "a3740c48cb99d2b7f230c3b8fe6c7c9cc4a52fd88591892ccabe5bdc66f1faf8",
+      "interp_test/Interp_test.rs": "8b3db8948e770d546204498f8ffcb62f14b4df104974ab2404395595b687b02a",
+      "step_test.ocaml": "0cbb4c808a01846f150bc8d89b548393764ebb3c7b23f963790430716d7c7731",
+      "step_test/Step_test.rs": "f743712a7d47df1317b2e2e71f3b098953057715f1736ec850e51988b289f9cb"
+    }
+  },
+  "allocation_rule": "Successful alloc and alloc_zeroed add layout.size(); successful realloc adds new_size; dealloc subtracts nothing. The counter is reset immediately before the measurement region.",
+  "matrix_order": [
+    "Stage-1",
+    "Stage-2 minus Copy",
+    "Stage-2 minus Borrow",
+    "Stage-2 minus Mut",
+    "Stage-2 Full",
+    "OCaml baseline",
+    "Case-study baseline"
+  ],
+  "numeric_representation": "default bpf_generator with BigInt",
+  "rust_build": "cargo +stable build --release --locked"
+}

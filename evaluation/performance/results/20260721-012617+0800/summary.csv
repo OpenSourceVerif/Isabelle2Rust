@@ -1,0 +1,57 @@
+benchmark,implementation,metric,unit,run_1,run_2,run_3,median
+SBPF-program,Stage-1,Median runtime,s,182.309157712,174.301450236,172.046699118,174.301450236
+SBPF-program,Stage-1,Peak RSS,MiB,2087.097656250,2087.062500000,2087.062500000,2087.062500000
+SBPF-program,Stage-1,Heap allocation,MiB/case,373.700626948,373.700626948,373.700626948,373.700626948
+SBPF-program,Stage-1,Host instructions,instructions/case,TBD,TBD,TBD,TBD
+SBPF-program,Stage-2 minus Copy,Median runtime,s,0.043254225,0.039930800,0.042129870,0.042129870
+SBPF-program,Stage-2 minus Copy,Peak RSS,MiB,8.851562500,8.718750000,8.863281250,8.851562500
+SBPF-program,Stage-2 minus Copy,Heap allocation,MiB/case,0.130889684,0.130889684,0.130889684,0.130889684
+SBPF-program,Stage-2 minus Copy,Host instructions,instructions/case,TBD,TBD,TBD,TBD
+SBPF-program,Stage-2 minus Borrow,Median runtime,s,0.138871655,0.122332609,0.132339236,0.132339236
+SBPF-program,Stage-2 minus Borrow,Peak RSS,MiB,6.128906250,6.070312500,5.976562500,6.070312500
+SBPF-program,Stage-2 minus Borrow,Heap allocation,MiB/case,0.845668322,0.845668322,0.845668322,0.845668322
+SBPF-program,Stage-2 minus Borrow,Host instructions,instructions/case,TBD,TBD,TBD,TBD
+SBPF-program,Stage-2 minus Mut,Median runtime,s,2.634481253,2.419133037,2.537606136,2.537606136
+SBPF-program,Stage-2 minus Mut,Peak RSS,MiB,2087.113281250,2086.988281250,2087.078125000,2087.078125000
+SBPF-program,Stage-2 minus Mut,Heap allocation,MiB/case,11.833790087,11.833790087,11.833790087,11.833790087
+SBPF-program,Stage-2 minus Mut,Host instructions,instructions/case,TBD,TBD,TBD,TBD
+SBPF-program,Stage-2 Full,Median runtime,s,0.043181027,0.040084834,0.040078658,0.040084834
+SBPF-program,Stage-2 Full,Peak RSS,MiB,8.839843750,8.875000000,8.859375000,8.859375000
+SBPF-program,Stage-2 Full,Heap allocation,MiB/case,0.130889684,0.130889684,0.130889684,0.130889684
+SBPF-program,Stage-2 Full,Host instructions,instructions/case,TBD,TBD,TBD,TBD
+SBPF-program,OCaml baseline,Median runtime,s,0.276332092,0.312345457,0.195636797,0.276332092
+SBPF-program,OCaml baseline,Peak RSS,MiB,9.464843750,9.503906250,9.394531250,9.464843750
+SBPF-program,OCaml baseline,Heap allocation,MiB/case,2.539449488,2.539449488,2.539449488,2.539449488
+SBPF-program,OCaml baseline,Host instructions,instructions/case,TBD,TBD,TBD,TBD
+SBPF-program,Case-study baseline,Median runtime,s,0.000047628,0.000051748,0.000114484,0.000051748
+SBPF-program,Case-study baseline,Peak RSS,MiB,25.371093750,25.355468750,25.398437500,25.371093750
+SBPF-program,Case-study baseline,Heap allocation,MiB/case,0.000000000,0.000000000,0.000000000,0.000000000
+SBPF-program,Case-study baseline,Host instructions,instructions/case,TBD,TBD,TBD,TBD
+SBPF-instruction,Stage-1,Median runtime,s,13.175137303,11.327755512,14.976424056,13.175137303
+SBPF-instruction,Stage-1,Peak RSS,MiB,24.546875000,24.558593750,24.570312500,24.558593750
+SBPF-instruction,Stage-1,Heap allocation,KiB/step,1077.518020833,1077.518020833,1077.518020833,1077.518020833
+SBPF-instruction,Stage-1,Host instructions,instructions/step,TBD,TBD,TBD,TBD
+SBPF-instruction,Stage-2 minus Copy,Median runtime,s,0.077810266,0.079802032,0.074862725,0.077810266
+SBPF-instruction,Stage-2 minus Copy,Peak RSS,MiB,24.652343750,24.527343750,24.714843750,24.652343750
+SBPF-instruction,Stage-2 minus Copy,Heap allocation,KiB/step,17.351916667,17.351916667,17.351916667,17.351916667
+SBPF-instruction,Stage-2 minus Copy,Host instructions,instructions/step,TBD,TBD,TBD,TBD
+SBPF-instruction,Stage-2 minus Borrow,Median runtime,s,0.133013419,0.127421651,0.134856865,0.133013419
+SBPF-instruction,Stage-2 minus Borrow,Peak RSS,MiB,24.535156250,24.597656250,24.535156250,24.535156250
+SBPF-instruction,Stage-2 minus Borrow,Heap allocation,KiB/step,31.191869792,31.191869792,31.191869792,31.191869792
+SBPF-instruction,Stage-2 minus Borrow,Host instructions,instructions/step,TBD,TBD,TBD,TBD
+SBPF-instruction,Stage-2 minus Mut,Median runtime,s,2.758312446,2.526933479,2.595396557,2.595396557
+SBPF-instruction,Stage-2 minus Mut,Peak RSS,MiB,24.781250000,24.531250000,24.718750000,24.718750000
+SBPF-instruction,Stage-2 minus Mut,Heap allocation,KiB/step,680.528278646,680.528278646,680.528278646,680.528278646
+SBPF-instruction,Stage-2 minus Mut,Host instructions,instructions/step,TBD,TBD,TBD,TBD
+SBPF-instruction,Stage-2 Full,Median runtime,s,0.078288783,0.078978467,0.076670507,0.078288783
+SBPF-instruction,Stage-2 Full,Peak RSS,MiB,24.761718750,24.589843750,24.757812500,24.757812500
+SBPF-instruction,Stage-2 Full,Heap allocation,KiB/step,17.351916667,17.351916667,17.351916667,17.351916667
+SBPF-instruction,Stage-2 Full,Host instructions,instructions/step,TBD,TBD,TBD,TBD
+SBPF-instruction,OCaml baseline,Median runtime,s,0.924461126,2.677940845,2.480318069,2.480318069
+SBPF-instruction,OCaml baseline,Peak RSS,MiB,38.617187500,38.773437500,38.542968750,38.617187500
+SBPF-instruction,OCaml baseline,Heap allocation,KiB/step,295.356296875,295.356296875,295.356296875,295.356296875
+SBPF-instruction,OCaml baseline,Host instructions,instructions/step,TBD,TBD,TBD,TBD
+SBPF-instruction,Case-study baseline,Median runtime,s,0.002857294,0.002120514,0.003508093,0.002857294
+SBPF-instruction,Case-study baseline,Peak RSS,MiB,59.484375000,59.472656250,59.398437500,59.472656250
+SBPF-instruction,Case-study baseline,Heap allocation,KiB/step,0.000000000,0.000000000,0.000000000,0.000000000
+SBPF-instruction,Case-study baseline,Host instructions,instructions/step,TBD,TBD,TBD,TBD

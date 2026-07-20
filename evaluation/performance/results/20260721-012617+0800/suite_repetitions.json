@@ -1,0 +1,14 @@
+{
+  "SBPF-instruction": {
+    "Stage-2 Full": 73,
+    "Stage-2 minus Borrow": 37,
+    "Stage-2 minus Copy": 61,
+    "Stage-2 minus Mut": 2
+  },
+  "SBPF-program": {
+    "Stage-2 Full": 111,
+    "Stage-2 minus Borrow": 31,
+    "Stage-2 minus Copy": 142,
+    "Stage-2 minus Mut": 2
+  }
+}

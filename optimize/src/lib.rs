@@ -26,4 +26,4 @@ pub use match_cleanup::{
     MatchTypeContext,
 };
 pub use mut_analysis::{optimize_mut, MutAnalysis};
-pub use rustlight_parser::{parse_and_print_rust_source, parse_rust_source};
+pub use rustlight_parser::{parse_and_print_rust_source, parse_rust_source, parse_rust_type_facts};

@@ -203,8 +203,18 @@ fn prefer_owned(demands: &HashSet<Demand>, root: &str) -> bool {
 // ── Main context ──────────────────────────────────────────────────────────────
 
 struct BorrowContext {
-    /// Types known to implement `Copy` (result of the preceding copy pass).
+    /// Types inferred and materialized by the preceding Copy pass. These facts
+    /// drive BorrowSafe and the size-aware interface decision only when that
+    /// pass is enabled; a `-Copy` ablation supplies an empty set.
     copy_types: HashSet<String>,
+    /// Types that already implement `Copy` in the module being rewritten.
+    /// Only these may be materialised by dereferencing a shared reference.
+    materialized_copy_types: HashSet<String>,
+    /// Generic types with an explicit unconditional `impl Copy`, such as the
+    /// native `RustWord<W>` adapter whose marker parameter does not constrain
+    /// copyability.
+    unconditional_copy_types: HashSet<String>,
+    materialized_unconditional_copy_types: HashSet<String>,
     type_defs: HashMap<String, TypeDef>,
     variant_owners: HashMap<String, Option<String>>,
     /// `fully_qualified_fn_id → (generics, param_types, return_type)`
@@ -218,8 +228,10 @@ struct BorrowContext {
 
 /// Infer borrowed parameter interfaces for functions in `module`.
 ///
-/// `copy_types` must be the set produced by `optimize_copy` so that the pass
-/// can treat Copy fields as non-consuming uses.
+/// When the Copy pass is enabled, `copy_types` is its result and lets Borrow
+/// treat inferred Copy fields as non-consuming uses. A Copy-pass ablation must
+/// supply an empty set; intrinsic and source-level Copy facts are collected
+/// independently by Borrow.
 pub fn optimize_borrow(module: &mut RustModule, copy_types: &HashSet<String>) -> BorrowAnalysis {
     let mut modules = [module];
     optimize_borrow_modules(&mut modules, copy_types)
@@ -310,6 +322,9 @@ impl BorrowContext {
     fn empty(copy_types: &HashSet<String>) -> Self {
         Self {
             copy_types: copy_types.clone(),
+            materialized_copy_types: HashSet::new(),
+            unconditional_copy_types: HashSet::new(),
+            materialized_unconditional_copy_types: HashSet::new(),
             type_defs: HashMap::new(),
             variant_owners: HashMap::new(),
             fn_sigs: HashMap::new(),
@@ -341,6 +356,10 @@ impl BorrowContext {
     ) {
         match item {
             Item::Struct(def) => {
+                if def.derives.iter().any(|derive| derive == "Copy") {
+                    self.copy_types.insert(def.name.clone());
+                    self.materialized_copy_types.insert(def.name.clone());
+                }
                 self.type_defs.insert(
                     def.name.clone(),
                     TypeDef {
@@ -358,6 +377,10 @@ impl BorrowContext {
                 );
             }
             Item::Enum(def) => {
+                if def.derives.iter().any(|derive| derive == "Copy") {
+                    self.copy_types.insert(def.name.clone());
+                    self.materialized_copy_types.insert(def.name.clone());
+                }
                 for v in &def.variants {
                     self.insert_variant_owner(&v.name, &def.name);
                 }
@@ -394,6 +417,22 @@ impl BorrowContext {
                     scope: scope.clone(),
                     function: f.clone(),
                 });
+            }
+            Item::Impl(impl_block)
+                if impl_block
+                    .trait_impl
+                    .as_ref()
+                    .is_some_and(type_is_copy_trait)
+                    && impl_block
+                        .generics
+                        .iter()
+                        .all(|generic| generic.bounds.is_empty()) =>
+            {
+                if let Some(name) = local_type_name(&impl_block.target) {
+                    self.unconditional_copy_types.insert(name.to_string());
+                    self.materialized_unconditional_copy_types
+                        .insert(name.to_string());
+                }
             }
             Item::Mod(m) => {
                 let mut nested_path = scope.module_path.clone();
@@ -501,7 +540,7 @@ impl BorrowContext {
     }
 
     fn is_borrow_candidate_type(&self, ty: &Type, copy_generics: &HashSet<String>) -> bool {
-        if is_reference_type(ty) || contains_callable_trait(ty) || self.is_copy(ty, copy_generics) {
+        if is_reference_type(ty) || contains_callable_trait(ty) {
             return false;
         }
 
@@ -518,7 +557,9 @@ impl BorrowContext {
     }
 
     /// Checks the final parameter decision:
-    ///   Borrowable_Γ(f, x) = BorrowSafe_Γ(f, x) ∧ ¬PreferOwned_Γ(f, x)
+    ///   Borrowable_Γ(f, x:T) = BorrowSafe_Γ(f, x)
+    ///                         ∧ ¬PreferOwnedFlow_Γ(f, x)
+    ///                         ∧ ¬PreferByValue_Γ(T)
     fn is_param_borrowable(
         &self,
         f: &FunctionDef,
@@ -536,6 +577,7 @@ impl BorrowContext {
         let preview_demands =
             self.collect_param_demands(last_use_view, param, base_env, copy_generics, scope);
         !prefer_owned(&preview_demands, &param.name)
+            && !self.prefer_by_value(&param.ty, copy_generics, scope)
     }
 
     fn collect_param_demands(
@@ -1557,7 +1599,7 @@ impl BorrowContext {
                     if is_reference_type(bty) {
                         // &T in own context: deref-copy if Copy, else clone.
                         let inner = ref_inner(bty);
-                        if self.is_copy(inner.unwrap_or(bty), copy_generics) {
+                        if self.is_materialized_copy(inner.unwrap_or(bty), copy_generics) {
                             return Expr::UnaryOp(
                                 "*".to_string(),
                                 Box::new(Expr::Ident(name.clone())),
@@ -1593,6 +1635,14 @@ impl BorrowContext {
                                     vec![],
                                 );
                                 Expr::MethodCall(Box::new(as_ref_call), "clone".to_string(), vec![])
+                            } else if self.is_materialized_copy(inner.unwrap_or(bty), copy_generics)
+                            {
+                                // Method resolution on `v: &T` may select
+                                // `Clone for T` and produce an owned `T`.  Once
+                                // the preceding Copy analysis has proved `T:
+                                // Copy`, preserve that result without retaining
+                                // a redundant clone introduced by B-Match.
+                                Expr::UnaryOp("*".to_string(), Box::new(Expr::Ident(name.clone())))
                             } else {
                                 // &T.clone() in own context → v.clone() (gives T)
                                 Expr::MethodCall(
@@ -1686,6 +1736,38 @@ impl BorrowContext {
                     });
                 let borrowed_tuple_scrutinee =
                     borrowed_tuple_scrutinee(scrutinee.as_ref(), borrow_env);
+                // A clone-marked match records a non-consuming inspection.
+                // Copy deliberately preserves this outer clone until here so
+                // the size-aware policy can either materialise a small Copy
+                // value or borrow a large outer object.
+                let clone_match = match scrutinee.as_ref() {
+                    Expr::MethodCall(receiver, method, args)
+                        if method == "clone" && args.is_empty() =>
+                    {
+                        if let Expr::Ident(name) = receiver.as_ref() {
+                            let receiver_is_borrowed =
+                                borrow_env.get(name).is_some_and(is_reference_type);
+                            self.infer_type(receiver, orig_env, scope).and_then(|ty| {
+                                local_type_name(&ty)
+                                    .is_some_and(|name| self.type_defs.contains_key(name))
+                                    .then(|| {
+                                        let materialize_by_value = self
+                                            .is_materialized_copy(&ty, copy_generics)
+                                            && self.prefer_copy_match_by_value(&ty, copy_generics);
+                                        (
+                                            receiver.as_ref().clone(),
+                                            ty,
+                                            receiver_is_borrowed,
+                                            materialize_by_value,
+                                        )
+                                    })
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                };
                 let borrow_match_inner_type = match scrutinee.as_ref() {
                     Expr::Ident(name) => borrow_env
                         .get(name)
@@ -1699,11 +1781,56 @@ impl BorrowContext {
                             borrowed_tuple_scrutinee
                                 .as_ref()
                                 .map(|(_, inner_ty)| inner_ty.clone())
+                        })
+                        .or_else(|| {
+                            clone_match
+                                .as_ref()
+                                .and_then(|(_, ty, _, materialize_by_value)| {
+                                    (!materialize_by_value).then(|| ty.clone())
+                                })
                         }),
                 };
-                let scrutinee_is_borrowed = borrow_match_inner_type.is_some();
+                // Copy runs before Borrow.  It can therefore turn
+                // `match x.clone()` into `match x` while `x` is still owned;
+                // after B-Sig changes `x` to `&T`, blindly retaining that
+                // scrutinee would switch a small by-value match into a
+                // reference match.  Besides changing the generated access
+                // pattern, that proved measurably slower for word-sized SBPF
+                // tags.  Preserve the original by-value shape for Copy values
+                // of at most two machine words, and reserve non-consuming
+                // field-sensitive matching for larger outer objects.
+                let materialize_direct_small_copy_match =
+                    matches!(
+                        scrutinee.as_ref(),
+                        Expr::Ident(name)
+                            if orig_env.get(name).is_some_and(|ty| !is_reference_type(ty))
+                    ) && borrow_match_inner_type.as_ref().is_some_and(|ty| {
+                        self.is_materialized_copy(ty, copy_generics)
+                            && self.prefer_copy_match_by_value(ty, copy_generics)
+                    });
+                let materialize_clone_match = clone_match
+                    .as_ref()
+                    .is_some_and(|(_, _, _, materialize_by_value)| *materialize_by_value);
+                let scrutinee_is_borrowed =
+                    borrow_match_inner_type.is_some() && !materialize_direct_small_copy_match;
 
-                let new_scrutinee = if let Some((name, _)) = &deref_borrowed_box_scrutinee {
+                let new_scrutinee = if let Some((receiver, _, receiver_is_borrowed, _)) =
+                    clone_match.as_ref().filter(|_| materialize_clone_match)
+                {
+                    if *receiver_is_borrowed {
+                        Expr::UnaryOp("*".to_string(), Box::new(receiver.clone()))
+                    } else {
+                        receiver.clone()
+                    }
+                } else if let Some((receiver, _, receiver_is_borrowed, _)) = &clone_match {
+                    if *receiver_is_borrowed {
+                        receiver.clone()
+                    } else {
+                        Expr::Reference(Box::new(receiver.clone()), true, false)
+                    }
+                } else if materialize_direct_small_copy_match {
+                    Expr::UnaryOp("*".to_string(), Box::new(scrutinee.as_ref().clone()))
+                } else if let Some((name, _)) = &deref_borrowed_box_scrutinee {
                     borrowed_box_as_ref(name)
                 } else if let Some((tuple_expr, _)) = &borrowed_tuple_scrutinee {
                     tuple_expr.clone()
@@ -2050,7 +2177,11 @@ impl BorrowContext {
 
         if let Some(inner) = strip_prefix_word(pattern, "box") {
             let inner_ty = match expected {
-                Type::Generic(name, params) if name == "Box" && params.len() == 1 => &params[0],
+                Type::Generic(name, params)
+                    if type_name_leaf(name) == "Box" && params.len() == 1 =>
+                {
+                    &params[0]
+                }
                 _ => expected,
             };
             self.bind_pattern_env(inner, inner_ty, env);
@@ -2198,8 +2329,11 @@ impl BorrowContext {
                     }
                 })
             }
-            Expr::Call(callee, _) => callee_leaf_name(callee)
-                .and_then(|name| self.owner_for_variant_name(&name).map(Type::Named))
+            Expr::Call(callee, _) => explicit_identity_return_type(callee)
+                .or_else(|| {
+                    callee_leaf_name(callee)
+                        .and_then(|name| self.owner_for_variant_name(&name).map(Type::Named))
+                })
                 .or_else(|| {
                     self.resolve_callee_id(callee, scope, env)
                         .and_then(|id| self.fn_sigs.get(&id).map(|(_, _, ret)| ret.clone()))
@@ -2216,7 +2350,9 @@ impl BorrowContext {
             }
             Expr::UnaryOp(op, inner) if op == "*" => {
                 self.infer_type(inner, env, scope).and_then(|ty| match ty {
-                    Type::Generic(name, params) if name == "Box" && params.len() == 1 => {
+                    Type::Generic(name, params)
+                        if type_name_leaf(&name) == "Box" && params.len() == 1 =>
+                    {
                         params.into_iter().next()
                     }
                     Type::Reference(inner, true, _) => Some(*inner),
@@ -2327,14 +2463,155 @@ impl BorrowContext {
                     || copy_generics.contains(name)
             }
             Type::Generic(name, params) => {
-                self.copy_types.contains(name)
-                    && params.iter().all(|p| self.is_copy(p, copy_generics))
+                let leaf = type_name_leaf(name);
+                leaf == "PhantomData"
+                    || self.unconditional_copy_types.contains(leaf)
+                    || (self.copy_types.contains(leaf)
+                        && params.iter().all(|p| self.is_copy(p, copy_generics)))
             }
             Type::Tuple(types) => types.iter().all(|t| self.is_copy(t, copy_generics)),
-            Type::Reference(_, _, _) => true, // references are always Copy
+            // Rust shared references are `Copy`; mutable references are not.
+            Type::Reference(_, true, false) => true,
+            Type::Reference(_, _, _) => false,
             Type::Unit | Type::Never => true,
             _ => false,
         }
+    }
+
+    /// Whether Rust can perform an implicit copy in the emitted program. This
+    /// remains distinct from `is_copy` so only implementations materialized in
+    /// the AST can license `*shared_ref` rewrites.
+    fn is_materialized_copy(&self, ty: &Type, copy_generics: &HashSet<String>) -> bool {
+        match ty {
+            Type::Named(name) => {
+                matches!(
+                    name.as_str(),
+                    "bool"
+                        | "char"
+                        | "i8"
+                        | "i16"
+                        | "i32"
+                        | "i64"
+                        | "i128"
+                        | "isize"
+                        | "u8"
+                        | "u16"
+                        | "u32"
+                        | "u64"
+                        | "u128"
+                        | "usize"
+                        | "f32"
+                        | "f64"
+                ) || self.materialized_copy_types.contains(name)
+                    || copy_generics.contains(name)
+            }
+            Type::Generic(name, params) => {
+                let leaf = type_name_leaf(name);
+                leaf == "PhantomData"
+                    || self.materialized_unconditional_copy_types.contains(leaf)
+                    || (self.materialized_copy_types.contains(leaf)
+                        && params
+                            .iter()
+                            .all(|param| self.is_materialized_copy(param, copy_generics)))
+            }
+            Type::Tuple(types) => types
+                .iter()
+                .all(|ty| self.is_materialized_copy(ty, copy_generics)),
+            Type::Reference(_, true, false) => true,
+            Type::Reference(_, _, _) => false,
+            Type::Unit | Type::Never => true,
+            _ => false,
+        }
+    }
+
+    fn prefer_by_value(
+        &self,
+        ty: &Type,
+        copy_generics: &HashSet<String>,
+        _scope: &ModuleScope,
+    ) -> bool {
+        const MAX_BY_VALUE_WORDS: usize = 2;
+        self.is_copy(ty, copy_generics)
+            && self
+                .estimated_size_words(ty, copy_generics, &mut HashSet::new())
+                .is_some_and(|words| words <= MAX_BY_VALUE_WORDS)
+    }
+
+    fn prefer_copy_match_by_value(&self, ty: &Type, copy_generics: &HashSet<String>) -> bool {
+        // A match immediately inspects the whole discriminant/payload and is
+        // more tolerant of a register-sized materialisation than a general
+        // call boundary.  In particular, an `Option<RustWord<_>>` contains a
+        // two-word u128 payload plus an enum tag and is therefore matched by
+        // reference instead of materialising the complete value.
+        const MAX_MATCH_BY_VALUE_WORDS: usize = 2;
+        self.estimated_size_words(ty, copy_generics, &mut HashSet::new())
+            .is_some_and(|words| words <= MAX_MATCH_BY_VALUE_WORDS)
+    }
+
+    fn estimated_size_words(
+        &self,
+        ty: &Type,
+        copy_generics: &HashSet<String>,
+        visiting: &mut HashSet<String>,
+    ) -> Option<usize> {
+        match ty {
+            Type::Named(name) if copy_generics.contains(name) => None,
+            Type::Named(name) => primitive_size_words(name)
+                .or_else(|| self.estimated_local_type_size(name, ty, copy_generics, visiting)),
+            Type::Path(path) => path.last().and_then(|name| {
+                primitive_size_words(name)
+                    .or_else(|| self.estimated_local_type_size(name, ty, copy_generics, visiting))
+            }),
+            Type::Generic(name, _) if type_name_leaf(name) == "PhantomData" => Some(0),
+            Type::Generic(name, _) => {
+                self.estimated_local_type_size(type_name_leaf(name), ty, copy_generics, visiting)
+            }
+            Type::Tuple(types) => sum_estimated_words(
+                types
+                    .iter()
+                    .map(|field| self.estimated_size_words(field, copy_generics, visiting)),
+            ),
+            Type::Array(inner, len) => self
+                .estimated_size_words(inner, copy_generics, visiting)
+                .and_then(|words| words.checked_mul(*len)),
+            Type::Reference(_, _, _) => Some(1),
+            Type::Unit | Type::Never => Some(0),
+            Type::CallableTrait(_) | Type::Slice(_) => None,
+        }
+    }
+
+    fn estimated_local_type_size(
+        &self,
+        name: &str,
+        instantiated: &Type,
+        copy_generics: &HashSet<String>,
+        visiting: &mut HashSet<String>,
+    ) -> Option<usize> {
+        if !visiting.insert(name.to_string()) {
+            return None;
+        }
+        let result = self.type_defs.get(name).and_then(|def| {
+            let subst = type_substitution(def, instantiated);
+            match &def.kind {
+                TypeDefKind::Struct(fields) => sum_estimated_words(fields.iter().map(|field| {
+                    let ty = apply_type_subst(&field.ty, &subst);
+                    self.estimated_size_words(&ty, copy_generics, visiting)
+                })),
+                TypeDefKind::Enum(variants) => {
+                    let mut largest = 0usize;
+                    for variant in variants {
+                        let payload = sum_estimated_words(variant.fields.iter().map(|field| {
+                            let ty = apply_type_subst(field, &subst);
+                            self.estimated_size_words(&ty, copy_generics, visiting)
+                        }))?;
+                        largest = largest.max(payload);
+                    }
+                    1usize.checked_add(largest)
+                }
+            }
+        });
+        visiting.remove(name);
+        result
     }
 
     // ── B-Closure ─────────────────────────────────────────────────────────────
@@ -2939,7 +3216,9 @@ fn ref_inner(ty: &Type) -> Option<&Type> {
 
 fn box_inner_type(ty: &Type) -> Option<&Type> {
     match ty {
-        Type::Generic(name, params) if name == "Box" && params.len() == 1 => Some(&params[0]),
+        Type::Generic(name, params) if type_name_leaf(name) == "Box" && params.len() == 1 => {
+            Some(&params[0])
+        }
         _ => None,
     }
 }
@@ -3004,9 +3283,34 @@ fn local_type_name(ty: &Type) -> Option<&str> {
     match ty {
         Type::Named(name) => Some(name.as_str()),
         Type::Path(path) => path.last().map(String::as_str),
-        Type::Generic(name, _) => Some(name.as_str()),
+        Type::Generic(name, _) => Some(type_name_leaf(name)),
         _ => None,
     }
+}
+
+fn type_name_leaf(name: &str) -> &str {
+    name.rsplit("::").next().unwrap_or(name)
+}
+
+fn type_is_copy_trait(ty: &Type) -> bool {
+    match ty {
+        Type::Named(name) => name == "Copy",
+        Type::Path(path) => path.last().is_some_and(|name| name == "Copy"),
+        _ => false,
+    }
+}
+
+fn primitive_size_words(name: &str) -> Option<usize> {
+    match name {
+        "bool" | "char" | "i8" | "i16" | "i32" | "i64" | "isize" | "u8" | "u16" | "u32" | "u64"
+        | "usize" | "f32" | "f64" => Some(1),
+        "i128" | "u128" => Some(2),
+        _ => None,
+    }
+}
+
+fn sum_estimated_words(mut values: impl Iterator<Item = Option<usize>>) -> Option<usize> {
+    values.try_fold(0usize, |total, value| total.checked_add(value?))
 }
 
 fn contains_callable_trait(ty: &Type) -> bool {
@@ -3118,6 +3422,18 @@ fn callee_leaf_name(callee: &Expr) -> Option<String> {
         Expr::Parenthesized(inner) => callee_leaf_name(inner),
         _ => None,
     }
+}
+
+fn explicit_identity_return_type(callee: &Expr) -> Option<Type> {
+    let segment = match callee {
+        Expr::Ident(segment) => segment,
+        Expr::Path(path, PathType::Namespace) => path.last()?,
+        Expr::Parenthesized(inner) => return explicit_identity_return_type(inner),
+        _ => return None,
+    };
+    (strip_path_segment_generics(segment) == "identity")
+        .then(|| crate::rustlight_parser::first_explicit_type_argument(segment))
+        .flatten()
 }
 
 fn strip_path_segment_generics(segment: &str) -> &str {
@@ -3498,7 +3814,7 @@ fn split_top_level_commas(input: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{optimize_mut, parse_rust_source};
+    use crate::{optimize_copy, optimize_mut, parse_rust_source};
     use rustlightast::RustCodeGenerator;
 
     fn named(name: &str) -> Type {
@@ -3622,6 +3938,9 @@ mod tests {
     fn empty_ctx() -> BorrowContext {
         BorrowContext {
             copy_types: HashSet::new(),
+            materialized_copy_types: HashSet::new(),
+            unconditional_copy_types: HashSet::new(),
+            materialized_unconditional_copy_types: HashSet::new(),
             type_defs: HashMap::new(),
             variant_owners: HashMap::new(),
             fn_sigs: HashMap::new(),
@@ -4330,5 +4649,261 @@ where
         assert!(args
             .iter()
             .all(|arg| matches!(arg, Expr::Reference(_, true, false))));
+    }
+
+    #[test]
+    fn size_aware_policy_keeps_small_copy_values_owned() {
+        let source = r#"
+#[derive(Clone, Copy)]
+pub enum Small { No, Yes }
+
+pub fn observe(x: Small) -> bool {
+    match x { Small::No => false, Small::Yes => true }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        optimize_borrow(&mut module, &HashSet::new());
+
+        let Item::Function(observe) = module
+            .items
+            .iter()
+            .find(|item| matches!(item, Item::Function(function) if function.name == "observe"))
+            .expect("observe function")
+        else {
+            unreachable!()
+        };
+        assert!(!is_reference_type(&observe.params[0].ty));
+    }
+
+    #[test]
+    fn copy_ablation_does_not_reinfer_small_copy_values_for_borrow() {
+        let source = r#"
+#[derive(Clone)]
+pub enum Small { No, Yes }
+
+pub fn observe(x: Small) -> bool {
+    match x { Small::No => false, Small::Yes => true }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+
+        // This is the downstream state used by --disable-copy: no inferred
+        // Copy facts are passed in, and the source itself does not implement
+        // Copy for Small.
+        optimize_borrow(&mut module, &HashSet::new());
+
+        let Item::Function(observe) = module
+            .items
+            .iter()
+            .find(|item| matches!(item, Item::Function(function) if function.name == "observe"))
+            .expect("observe function")
+        else {
+            unreachable!()
+        };
+        assert!(is_reference_type(&observe.params[0].ty));
+    }
+
+    #[test]
+    fn size_aware_policy_borrows_large_copy_values() {
+        let source = r#"
+#[derive(Clone, Copy)]
+pub struct Large(pub u64, pub u64, pub u64, pub u64);
+
+pub fn first(x: Large) -> u64 {
+    match x { Large(a, _, _, _) => a }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        optimize_borrow(&mut module, &HashSet::new());
+
+        let Item::Function(first) = module
+            .items
+            .iter()
+            .find(|item| matches!(item, Item::Function(function) if function.name == "first"))
+            .expect("first function")
+        else {
+            unreachable!()
+        };
+        assert!(is_reference_type(&first.params[0].ty));
+    }
+
+    #[test]
+    fn size_aware_match_borrows_medium_copy_scrutinee() {
+        let source = r#"
+#[derive(Clone, Copy)]
+pub enum Medium { Empty, Value(u128) }
+
+pub fn present(x: Medium) -> bool {
+    match x { Medium::Empty => false, Medium::Value(_) => true }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        optimize_borrow(&mut module, &HashSet::new());
+
+        let Item::Function(present) = module
+            .items
+            .iter()
+            .find(|item| matches!(item, Item::Function(function) if function.name == "present"))
+            .expect("present function")
+        else {
+            unreachable!()
+        };
+        assert!(is_reference_type(&present.params[0].ty));
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("match x"));
+        assert!(!printed.contains("match *x"));
+    }
+
+    #[test]
+    fn copy_preserves_large_clone_match_provenance_for_borrow() {
+        let source = r#"
+#[derive(Clone)]
+pub enum Large { Empty, Value([u128; 3]) }
+
+pub fn keep(x: Large) -> Large {
+    let _present = match x.clone() {
+        Large::Empty => false,
+        Large::Value(_) => true,
+    };
+    x
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        let copy_types = optimize_copy(&mut module).copy_types;
+        optimize_borrow(&mut module, &copy_types);
+
+        let Item::Function(keep) = module
+            .items
+            .iter()
+            .find(|item| matches!(item, Item::Function(function) if function.name == "keep"))
+            .expect("keep function")
+        else {
+            unreachable!()
+        };
+        assert!(is_reference_type(&keep.params[0].ty));
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("match x"));
+        assert!(!printed.contains("match x.clone()"));
+    }
+
+    #[test]
+    fn local_match_borrows_a_cloned_scrutinee_while_preserving_final_move() {
+        let source = r#"
+#[derive(Clone)]
+pub enum State {
+    Ready(bool, Box<bool>),
+    Halted,
+}
+
+pub fn keep(x: State) -> State {
+    let _seen = match x.clone() {
+        State::Ready(flag, _) => flag,
+        State::Halted => false,
+    };
+    x
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        optimize_borrow(&mut module, &HashSet::new());
+
+        let Item::Function(keep) = module
+            .items
+            .iter()
+            .find(|item| matches!(item, Item::Function(function) if function.name == "keep"))
+            .expect("keep function")
+        else {
+            unreachable!()
+        };
+        assert!(!is_reference_type(&keep.params[0].ty));
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("match &x"));
+        assert!(!printed.contains("match x.clone()"));
+    }
+
+    #[test]
+    fn field_sensitive_match_clones_only_the_selected_field() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub Box<u64>);
+
+#[derive(Clone)]
+pub enum Outer {
+    Empty,
+    Pair(Blob, Blob),
+}
+
+pub fn select_first(x: Outer) -> Blob {
+    match x.clone() {
+        Outer::Empty => Blob(Box::new(0)),
+        Outer::Pair(first, _) => first.clone(),
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        optimize_borrow(&mut module, &HashSet::new());
+
+        let Item::Function(select_first) = module
+            .items
+            .iter()
+            .find(
+                |item| matches!(item, Item::Function(function) if function.name == "select_first"),
+            )
+            .expect("select_first function")
+        else {
+            unreachable!()
+        };
+        assert!(is_reference_type(&select_first.params[0].ty));
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("match x"));
+        assert!(!printed.contains("match x.clone()"));
+        assert!(printed.contains("first.clone()"));
+    }
+
+    #[test]
+    fn borrowed_explicit_copy_value_uses_deref_instead_of_clone() {
+        let source = r#"
+pub struct Marker(pub Box<bool>);
+
+pub struct Word<W>(pub u64, pub std::marker::PhantomData<W>);
+
+impl<W> Copy for Word<W> {}
+
+impl<W> Clone for Word<W> {
+    fn clone(&self) -> Self { *self }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        let modules = vec![(vec!["crate".to_string(), "Test".to_string()], &mut module)];
+        let (ctx, _) = BorrowContext::from_modules(&modules, &HashSet::new());
+        assert!(ctx.unconditional_copy_types.contains("Word"));
+
+        let word_ty = Type::Generic("crate::Test::Word".to_string(), vec![named("Marker")]);
+        let shared = Type::Reference(Box::new(named("bool")), true, false);
+        let mutable = Type::Reference(Box::new(named("bool")), true, true);
+        assert!(ctx.is_copy(&shared, &HashSet::new()));
+        assert!(ctx.is_materialized_copy(&shared, &HashSet::new()));
+        assert!(!ctx.is_copy(&mutable, &HashSet::new()));
+        assert!(!ctx.is_materialized_copy(&mutable, &HashSet::new()));
+        let borrow_env = HashMap::from([("word".to_string(), make_ref_type(&word_ty))]);
+        let rewritten = ctx.rewrite_expr_own(
+            &clone_call("word"),
+            &borrow_env,
+            &HashMap::new(),
+            &HashSet::new(),
+            &test_scope(),
+        );
+        assert!(matches!(
+            rewritten,
+            Expr::UnaryOp(op, inner)
+                if op == "*" && matches!(inner.as_ref(), Expr::Ident(name) if name == "word")
+        ));
     }
 }

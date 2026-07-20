@@ -1,7 +1,7 @@
-# sBPF Rust Macro Validation
+# SBPF Rust Macro Validation
 
 This directory contains only the Rust-side macro runner and glue harness for the
-sBPF program-level validation suite.
+SBPF program-level validation suite.
 
 The shared orchestration is in `../run_macro_sbpf.py`. This directory handles
 the Rust-specific part of the path:
@@ -21,15 +21,14 @@ lives one level up in `exec_semantics/`.
 ## Fixed Rust Environment
 
 ```sh
-cargo +nightly-2025-12-01 --version
-# expected: cargo 1.93.0-nightly (2a7c49606 2025-11-25)
+cargo +stable --version
 
-rustc +nightly-2025-12-01 --version
-# expected: rustc 1.93.0-nightly (b84478a1c 2025-11-30)
+rustc +stable --version
 ```
 
-`run_interp_macro.py` uses `cargo +nightly-2025-12-01` by default, builds with
-`--locked`, and sets `RUSTC_BOOTSTRAP=1` and `RUSTFLAGS=-Awarnings`.
+The Rust runners use `cargo +stable` by default and build generated crates with
+`--release --locked`. They do not set `RUSTC_BOOTSTRAP` or enable unstable
+features.
 
 ## Files
 

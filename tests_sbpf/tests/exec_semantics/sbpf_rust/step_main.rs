@@ -1,11 +1,10 @@
-// Rust runtime micro-test harness for the exported sBPF single-step semantics.
+// Rust runtime micro-test harness for the exported SBPF single-step semantics.
 //
 // Feeds the Rust-exported `step_test` the local step vectors in
 // tests_sbpf/tests/data/ocaml_in.json and asserts each self-checking call
 // returns `true`.
 //
 // JSON path via CROSS_JSON.
-#![feature(box_patterns)]
 #![allow(non_snake_case)]
 
 #[cfg(sbpf_native_int)]

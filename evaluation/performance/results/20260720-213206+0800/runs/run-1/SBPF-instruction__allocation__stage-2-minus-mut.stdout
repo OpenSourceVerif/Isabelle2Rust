@@ -1,0 +1,1 @@
+RESULT benchmark=SBPF-instruction metric=allocation process_id=186814 cases=6000 suite_repetitions=1 logical_units=6000 elapsed_seconds=3.407868943 allocated_bytes=4211885744

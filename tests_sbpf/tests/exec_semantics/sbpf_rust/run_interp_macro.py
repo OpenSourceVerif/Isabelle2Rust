@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the Rust sBPF interpreter macro test from Isabelle-generated code."""
+"""Run the Rust SBPF interpreter macro test from Isabelle-generated code."""
 
 from __future__ import annotations
 
@@ -21,8 +21,8 @@ DATA_DIR = Path(os.environ.get("SBPF_DATA_DIR", ROOT / "tests_sbpf" / "tests" / 
 EXPORT_DIR = Path(os.environ.get("SBPF_EXPORT_DIR", ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator"))
 RUST_DIR = EXEC_DIR / "sbpf_rust"
 
-RUST_TOOLCHAIN = os.environ.get("RUST_TOOLCHAIN", "nightly-2025-12-01")
-GLUE_VERSION = "interp-macro-rust-v3"
+RUST_TOOLCHAIN = os.environ.get("RUST_TOOLCHAIN", "stable")
+GLUE_VERSION = "interp-macro-rust-stable-v1"
 
 
 def rel(path: Path) -> str:
@@ -135,7 +135,7 @@ def cache_key(export_rs: Path, glue_rs: Path) -> dict[str, str]:
 
 def cache_is_valid(pkg_dir: Path, key: dict[str, str]) -> bool:
     stamp = pkg_dir / ".rust_macro_cache.json"
-    binary = pkg_dir / "target" / "debug" / "isabelle_exported"
+    binary = pkg_dir / "target" / "release" / "isabelle_exported"
     if os.environ.get("REBUILD") == "1":
         return False
     if not stamp.exists() or not binary.exists():
@@ -184,7 +184,6 @@ def main() -> int:
 
     env = os.environ.copy()
     env["CROSS_JSON"] = str(DATA_DIR / "interp_in.json")
-    env["RUSTC_BOOTSTRAP"] = "1"
     env["RUSTFLAGS"] = "-Awarnings"
     if os.environ.get("SBPF_STAGE") == "2":
         env["RUSTFLAGS"] += " --cfg sbpf_stage2"
@@ -214,7 +213,7 @@ def main() -> int:
         shutil.copy2(main_rs, pkg_dir / "src" / "main.rs")
         prepare_rust_cargo(toml)
 
-        build_cmd = cargo + ["build", "--locked", "-q", "--manifest-path", str(toml)]
+        build_cmd = cargo + ["build", "--release", "--locked", "-q", "--manifest-path", str(toml)]
         announce("build", shlex.join(build_cmd))
         rc, _ = run_command(build_cmd, cwd=ROOT, env=env)
         if rc != 0:
@@ -224,7 +223,7 @@ def main() -> int:
         stamp.write_text(json.dumps(key, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         announce("cache", f"wrote stamp {rel(stamp)}")
 
-    binary = pkg_dir / "target" / "debug" / "isabelle_exported"
+    binary = pkg_dir / "target" / "release" / "isabelle_exported"
     with open(DATA_DIR / "interp_in.json", "r", encoding="utf-8") as f:
         cases = json.load(f)
 

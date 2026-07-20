@@ -1,0 +1,180 @@
+{
+  "Case-study baseline": {
+    "SBPF-instruction": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/case-study-baseline/target/allocation/release/sbpf-instruction-baseline",
+        "rustflags": "--cfg allocation_metrics",
+        "sha256": "83a976aef619c7c5984afc8a7bef932841b8da1eeaeb6b00d19774081adf4f3f"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/case-study-baseline/target/runtime/release/sbpf-instruction-baseline",
+        "rustflags": "",
+        "sha256": "ced7b92d661351576a6a1cc713d6ba85288c3f379f0f608fd351702bcfbf1f01"
+      }
+    },
+    "SBPF-program": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/case-study-baseline/target/allocation/release/sbpf-program-baseline",
+        "rustflags": "--cfg allocation_metrics",
+        "sha256": "bb433104383926704ad65bc2c6066be6434333cd97a4a6ae7abe520b20a38e9c"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/case-study-baseline/target/runtime/release/sbpf-program-baseline",
+        "rustflags": "",
+        "sha256": "d6afdd662d160ca6c9bcee252020d8009293b7440d24e55205a9ef931452f562"
+      }
+    }
+  },
+  "OCaml baseline": {
+    "SBPF-instruction": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/build/ocaml/instruction/sbpf-instruction",
+        "sha256": "c3ee4d727dce3a369bbbc817327b72a7e3babce8ad6ff1233eff43bb35262682"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/build/ocaml/instruction/sbpf-instruction",
+        "sha256": "c3ee4d727dce3a369bbbc817327b72a7e3babce8ad6ff1233eff43bb35262682"
+      }
+    },
+    "SBPF-program": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/build/ocaml/program/sbpf-program",
+        "sha256": "40186066a1767213fa7dc9bc161d25e53dd04c292a9dbe9adf08c82326ca7a47"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/sbpf/build/ocaml/program/sbpf-program",
+        "sha256": "40186066a1767213fa7dc9bc161d25e53dd04c292a9dbe9adf08c82326ca7a47"
+      }
+    }
+  },
+  "Stage-1": {
+    "SBPF-instruction": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage1/step_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg allocation_metrics",
+        "sha256": "285d2d79c9ab3ce7033d42c12261cec717751189f174c9e0297e26059f2b7a87"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage1/step_test/target/runtime/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int",
+        "sha256": "bd5675757ba03d18656e74cd7b8e4c57a423d416e14b83024850e13826b6becc"
+      }
+    },
+    "SBPF-program": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage1/interp_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg allocation_metrics",
+        "sha256": "38c2ad2a70ae48d7c26f9f9aebbd3c2d63d89aeed2b84c14a5f007563e531ad0"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage1/interp_test/target/runtime/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int",
+        "sha256": "0a8cffbb0271c000257ad32c90efef00dd3cb276d2cbcfbcdbcf5f7c0d31b474"
+      }
+    }
+  },
+  "Stage-2 Full": {
+    "SBPF-instruction": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-full/step_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg sbpf_borrowed --cfg allocation_metrics",
+        "sha256": "f95ec3038e6fad3e3334a483c8fa5cce9f7320a3a543281473e0659e6c72ade4"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-full/step_test/target/runtime/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg sbpf_borrowed",
+        "sha256": "3f8c4e6a0b91e5e07dbf4713989ec2643c757a1c47429f61ce43e81c60186837"
+      }
+    },
+    "SBPF-program": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-full/interp_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg sbpf_borrowed --cfg allocation_metrics",
+        "sha256": "5031e9d4d1e87083deb9ec59c1aafd691481d2b3c30b5f0e65d1e94cc96dc168"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-full/interp_test/target/runtime/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg sbpf_borrowed",
+        "sha256": "4698bdbbb93f7c2de3225979d407e0a77a3fa45d82f24e77548c75dff55cc28a"
+      }
+    }
+  },
+  "Stage-2 minus Borrow": {
+    "SBPF-instruction": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-borrow/step_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg allocation_metrics",
+        "sha256": "73a54d8f8f0753ad4ee90556fe65328e492b40a32284bfd8edc1aae521ab3244"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-borrow/step_test/target/runtime/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int",
+        "sha256": "2a8913877e3c31161cbbc5e158589f5fb9490b0c07e8b0cababa251db211402b"
+      }
+    },
+    "SBPF-program": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-borrow/interp_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg allocation_metrics",
+        "sha256": "839e6a5af3d252bb84ff7d8a9af4506cd185c3773cb3228a9105dd70dc228977"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-borrow/interp_test/target/runtime/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int",
+        "sha256": "2cc7c0252fcbcacd5303a23ad28d1bb88c2c953f290a8fc0bf8f409debf90df9"
+      }
+    }
+  },
+  "Stage-2 minus Copy": {
+    "SBPF-instruction": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-copy/step_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg sbpf_borrowed --cfg allocation_metrics",
+        "sha256": "8051b16e6b4b96cc28ed48f958dbbaaeb0238ef399da67e70d81cf964bdbbc6d"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-copy/step_test/target/runtime/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg sbpf_borrowed",
+        "sha256": "0737b1b8294c59ad5aacf7dddfe947a72ef42827df3521b67fb731ae1b829374"
+      }
+    },
+    "SBPF-program": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-copy/interp_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg sbpf_borrowed --cfg allocation_metrics",
+        "sha256": "b4b3c4b515c2bf22c605286add09dd5ea5f1594ab2aff37d8fe52122632e9bc5"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-copy/interp_test/target/runtime/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg sbpf_borrowed",
+        "sha256": "aca4b74920ec752e387c323725b89b1de3df5482385862842b07ac1139029a5a"
+      }
+    }
+  },
+  "Stage-2 minus Mut": {
+    "SBPF-instruction": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-mut/step_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg sbpf_borrowed --cfg allocation_metrics",
+        "sha256": "c695c7b0d4a558c8271dbaa4c1ba478b0f8a12082493920d0018e4f8cd9a1e09"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-mut/step_test/target/runtime/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg sbpf_borrowed",
+        "sha256": "764ce12b99de0e53053c416f76eb05964c777101844679e660171f6d3a755933"
+      }
+    },
+    "SBPF-program": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-mut/interp_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg sbpf_borrowed --cfg allocation_metrics",
+        "sha256": "08e38f444a75c8edbc357f0c5c96242f52644ea7f85f53808b78cf985dab1830"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-mut/interp_test/target/runtime/release/isabelle_exported",
+        "rustflags": "--cfg sbpf_native_int --cfg sbpf_borrowed",
+        "sha256": "cb481b0e42254d4ed4184845ba920607be66c92eb739170ebea64cabf711db94"
+      }
+    }
+  }
+}

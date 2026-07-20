@@ -109,14 +109,25 @@ struct CopySpecialization {
     upgraded_generics: HashSet<String>,
 }
 
+#[derive(Debug, Clone)]
+struct ExplicitCopyImpl {
+    target: Type,
+    generic_names: HashSet<String>,
+    copy_generics: HashSet<String>,
+    scope: ModuleScope,
+}
+
 struct CopyContext {
     copy_types: HashSet<ItemId>,
+    explicit_copy_impls: Vec<ExplicitCopyImpl>,
     type_defs: HashMap<ItemId, TypeDef>,
-    type_aliases: HashMap<ItemId, (Type, ModuleScope)>,
+    type_aliases: HashMap<ItemId, (Vec<String>, Type, ModuleScope)>,
     variant_owners: HashMap<ItemId, Option<ItemId>>,
     functions: HashMap<ItemId, Type>,
     // Full signatures for C-Call: generic params + parameter types
     fn_sigs: HashMap<ItemId, (Vec<GenericParam>, Vec<Type>)>,
+    function_defs: HashMap<ItemId, (FunctionDef, ModuleScope)>,
+    copy_upgrade_requirements: HashMap<ItemId, HashSet<String>>,
     copy_specializations: HashMap<ItemId, CopySpecialization>,
     generated_copy_specializations: HashSet<ItemId>,
 }
@@ -164,6 +175,7 @@ pub fn optimize_copy_modules_with_paths(
     // Infer the package-wide fixed point before adding derives or rewriting
     // any body, so imported data types and callees see the same Copy facts.
     ctx.infer_copy_types();
+    ctx.infer_copy_specialization_requirements();
 
     for (module_path, module) in modules.iter_mut() {
         ctx.apply_copy_derives(&mut module.items, module_path);
@@ -190,11 +202,14 @@ impl CopyContext {
                 .into_iter()
                 .map(|name| vec![name.to_string()])
                 .collect(),
+            explicit_copy_impls: Vec::new(),
             type_defs: HashMap::new(),
             type_aliases: HashMap::new(),
             variant_owners: HashMap::new(),
             functions: HashMap::new(),
             fn_sigs: HashMap::new(),
+            function_defs: HashMap::new(),
+            copy_upgrade_requirements: HashMap::new(),
             copy_specializations: HashMap::new(),
             generated_copy_specializations: HashSet::new(),
         };
@@ -220,6 +235,9 @@ impl CopyContext {
         match item {
             Item::Struct(def) => {
                 let id = item_id(scope, &def.name);
+                if def.derives.iter().any(|derive| derive == "Copy") {
+                    self.copy_types.insert(id.clone());
+                }
                 self.type_defs.insert(
                     id,
                     TypeDef {
@@ -243,6 +261,9 @@ impl CopyContext {
             }
             Item::Enum(def) => {
                 let owner_id = item_id(scope, &def.name);
+                if def.derives.iter().any(|derive| derive == "Copy") {
+                    self.copy_types.insert(owner_id.clone());
+                }
                 for variant in &def.variants {
                     let mut variant_id = owner_id.clone();
                     variant_id.push(variant.name.clone());
@@ -273,7 +294,15 @@ impl CopyContext {
             Item::TypeAlias(alias) => {
                 self.type_aliases.insert(
                     item_id(scope, &alias.name),
-                    (alias.target.clone(), scope.clone()),
+                    (
+                        alias
+                            .generics
+                            .iter()
+                            .map(|generic| generic.name.clone())
+                            .collect(),
+                        alias.target.clone(),
+                        scope.clone(),
+                    ),
                 );
             }
             Item::Function(function) => {
@@ -281,12 +310,33 @@ impl CopyContext {
                 self.functions
                     .insert(id.clone(), function.return_type.clone());
                 self.fn_sigs.insert(
-                    id,
+                    id.clone(),
                     (
                         function.generics.clone(),
                         function.params.iter().map(|p| p.ty.clone()).collect(),
                     ),
                 );
+                self.function_defs
+                    .insert(id, (function.clone(), scope.clone()));
+            }
+            Item::Impl(impl_block)
+                if impl_block
+                    .trait_impl
+                    .as_ref()
+                    .is_some_and(type_is_copy_trait) =>
+            {
+                let generic_names = impl_block
+                    .generics
+                    .iter()
+                    .map(|generic| generic.name.clone())
+                    .collect::<HashSet<_>>();
+                let copy_generics = generic_param_names_with_bound(&impl_block.generics, "Copy");
+                self.explicit_copy_impls.push(ExplicitCopyImpl {
+                    target: impl_block.target.clone(),
+                    generic_names,
+                    copy_generics,
+                    scope: scope.clone(),
+                });
             }
             Item::Mod(module) => {
                 let mut nested_path = scope.module_path.clone();
@@ -316,7 +366,7 @@ impl CopyContext {
         while changed {
             changed = false;
 
-            for (name, (target, scope)) in &self.type_aliases {
+            for (name, (_, target, scope)) in &self.type_aliases {
                 if !self.copy_types.contains(name)
                     && self.type_is_copy_in_scope(target, scope, &HashSet::new())
                 {
@@ -336,6 +386,59 @@ impl CopyContext {
                 }
             }
         }
+    }
+
+    fn infer_copy_specialization_requirements(&mut self) {
+        let functions = self
+            .function_defs
+            .iter()
+            .map(|(id, (function, scope))| (id.clone(), function.clone(), scope.clone()))
+            .collect::<Vec<_>>();
+        let mut requirements = HashMap::<ItemId, HashSet<String>>::new();
+
+        loop {
+            let previous = requirements.clone();
+            let mut changed = false;
+
+            for (id, function, scope) in &functions {
+                let clone_generics = function
+                    .generics
+                    .iter()
+                    .filter(|generic| has_bound(generic, "Clone") && !has_bound(generic, "Copy"))
+                    .map(|generic| generic.name.clone())
+                    .collect::<HashSet<_>>();
+                if clone_generics.is_empty() {
+                    continue;
+                }
+
+                let env = function_type_env(function);
+                let copy_generics = generic_names_with_bound(function, "Copy");
+                let mut inferred = previous.get(id).cloned().unwrap_or_default();
+                self.collect_copy_bound_candidates(
+                    &function.body,
+                    &env,
+                    scope,
+                    &clone_generics,
+                    &copy_generics,
+                    Some(&previous),
+                    &mut inferred,
+                );
+                inferred.retain(|generic| clone_generics.contains(generic));
+
+                if previous.get(id) != Some(&inferred) && !inferred.is_empty() {
+                    changed = true;
+                }
+                if !inferred.is_empty() {
+                    requirements.insert(id.clone(), inferred);
+                }
+            }
+
+            if !changed {
+                break;
+            }
+        }
+
+        self.copy_upgrade_requirements = requirements;
     }
 
     fn type_def_is_copy(&self, def: &TypeDef) -> bool {
@@ -360,6 +463,10 @@ impl CopyContext {
         scope: &ModuleScope,
         copy_generics: &HashSet<String>,
     ) -> bool {
+        if self.explicit_copy_impl_applies(ty, scope, copy_generics) {
+            return true;
+        }
+
         match ty {
             Type::Named(name) => {
                 copy_generics.contains(name)
@@ -367,20 +474,69 @@ impl CopyContext {
             }
             Type::Path(path) => self.copy_types.contains(&scope.resolve_segments(path)),
             Type::Generic(name, params) => {
-                self.copy_types.contains(&scope.resolve_name_path(name))
-                    && params
-                        .iter()
-                        .all(|param| self.type_is_copy_in_scope(param, scope, copy_generics))
+                if type_name_leaf(name) == "PhantomData" {
+                    true
+                } else {
+                    self.copy_types
+                        .contains(&resolve_type_constructor_name(name, scope))
+                        && params
+                            .iter()
+                            .all(|param| self.type_is_copy_in_scope(param, scope, copy_generics))
+                }
             }
             Type::Tuple(types) => types
                 .iter()
                 .all(|ty| self.type_is_copy_in_scope(ty, scope, copy_generics)),
             Type::Array(inner, _) => self.type_is_copy_in_scope(inner, scope, copy_generics),
             Type::Unit | Type::Never => true,
+            // Rust shared references are `Copy`; mutable references are not.
+            Type::Reference(_, true, false) => true,
             Type::Reference(_, _, _) => false,
             Type::CallableTrait(_) => false,
             Type::Slice(_) => false,
         }
+    }
+
+    fn explicit_copy_impl_applies(
+        &self,
+        ty: &Type,
+        scope: &ModuleScope,
+        copy_generics: &HashSet<String>,
+    ) -> bool {
+        let Some(actual_id) = type_constructor_id(ty, scope) else {
+            return false;
+        };
+        let Some(actual_name) = type_leaf_name(ty) else {
+            return false;
+        };
+        let matching_ids = self
+            .explicit_copy_impls
+            .iter()
+            .filter(|rule| type_leaf_name(&rule.target) == Some(actual_name))
+            .filter_map(|rule| type_constructor_id(&rule.target, &rule.scope))
+            .collect::<HashSet<_>>();
+        let unique_leaf_match = matching_ids.len() == 1;
+
+        self.explicit_copy_impls.iter().any(|rule| {
+            let rule_id = type_constructor_id(&rule.target, &rule.scope);
+            let exact_match = rule_id.as_ref() == Some(&actual_id);
+            let unambiguous_leaf_match =
+                unique_leaf_match && type_leaf_name(&rule.target) == Some(actual_name);
+            if !exact_match && !unambiguous_leaf_match {
+                return false;
+            }
+
+            let mut subst = HashMap::new();
+            if !unify_type(&rule.target, ty, &rule.generic_names, &mut subst) {
+                return false;
+            }
+
+            rule.copy_generics.iter().all(|generic| {
+                subst
+                    .get(generic)
+                    .is_some_and(|actual| self.type_is_copy_in_scope(actual, scope, copy_generics))
+            })
+        })
     }
 
     fn public_copy_type_names(&self) -> HashSet<String> {
@@ -410,11 +566,17 @@ impl CopyContext {
         };
         for item in items {
             match item {
-                Item::Struct(def) if self.copy_types.contains(&item_id(&scope, &def.name)) => {
+                Item::Struct(def)
+                    if self.copy_types.contains(&item_id(&scope, &def.name))
+                        && !self.has_explicit_copy_impl(&item_id(&scope, &def.name)) =>
+                {
                     ensure_item_comment(&mut def.docs, "// copy-optimized by inferred Copy derive");
                     ensure_clone_copy_derives(&mut def.derives);
                 }
-                Item::Enum(def) if self.copy_types.contains(&item_id(&scope, &def.name)) => {
+                Item::Enum(def)
+                    if self.copy_types.contains(&item_id(&scope, &def.name))
+                        && !self.has_explicit_copy_impl(&item_id(&scope, &def.name)) =>
+                {
                     ensure_item_comment(&mut def.docs, "// copy-optimized by inferred Copy derive");
                     ensure_clone_copy_derives(&mut def.derives);
                 }
@@ -426,6 +588,12 @@ impl CopyContext {
                 _ => {}
             }
         }
+    }
+
+    fn has_explicit_copy_impl(&self, id: &ItemId) -> bool {
+        self.explicit_copy_impls
+            .iter()
+            .any(|rule| type_constructor_id(&rule.target, &rule.scope).as_ref() == Some(id))
     }
 
     fn rewrite_items(&self, items: &mut [Item], module_path: &[String]) {
@@ -460,6 +628,7 @@ impl CopyContext {
                     let original_name = function.name.clone();
                     let original_id = item_id(&scope, &original_name);
                     let specialization = self.copy_specialization_for_function(
+                        &original_id,
                         function,
                         &scope,
                         &mut existing_function_names,
@@ -539,6 +708,7 @@ impl CopyContext {
 
     fn copy_specialization_for_function(
         &self,
+        function_id: &ItemId,
         function: &FunctionDef,
         scope: &ModuleScope,
         existing_names: &mut HashSet<String>,
@@ -558,18 +728,11 @@ impl CopyContext {
             return None;
         }
 
-        let env = function_type_env(function);
-
-        let mut copy_bound_candidates = HashSet::new();
-        let copy_generics = generic_names_with_bound(function, "Copy");
-        self.collect_copy_bound_candidates(
-            &function.body,
-            &env,
-            scope,
-            &clone_generics,
-            &copy_generics,
-            &mut copy_bound_candidates,
-        );
+        let copy_bound_candidates = self
+            .copy_upgrade_requirements
+            .get(function_id)
+            .cloned()
+            .unwrap_or_default();
 
         if copy_bound_candidates.is_empty() {
             return None;
@@ -729,7 +892,10 @@ impl CopyContext {
                     && args.is_empty()
                     && self
                         .infer_expr_type(receiver, env, scope)
-                        .is_some_and(|ty| self.type_is_copy_in_scope(&ty, scope, copy_generics))
+                        .is_some_and(|ty| {
+                            !matches!(ty, Type::Reference(_, _, _))
+                                && self.type_is_copy_in_scope(&ty, scope, copy_generics)
+                        })
                 {
                     // For Copy receivers, `x.clone()` is semantically just `x`.
                     *expr = receiver.as_ref().clone();
@@ -774,7 +940,25 @@ impl CopyContext {
                 }
             }
             Expr::Match { expr, arms } => {
-                self.rewrite_expr(expr, env, scope, copy_generics);
+                // Preserve a top-level `x.clone()` until B-Match runs.  Its
+                // presence records that the generated program copied the
+                // outer object only to inspect it; erasing it here would make
+                // the later Borrow pass mistake a large, non-consuming match
+                // for an intentional move.  B-Match applies the size-aware
+                // profitability rule and removes the clone in either the
+                // by-value or by-reference form.
+                let preserved_clone = match expr.as_mut() {
+                    Expr::MethodCall(receiver, method, args)
+                        if method == "clone" && args.is_empty() =>
+                    {
+                        self.rewrite_expr(receiver, env, scope, copy_generics);
+                        true
+                    }
+                    _ => false,
+                };
+                if !preserved_clone {
+                    self.rewrite_expr(expr, env, scope, copy_generics);
+                }
                 let scrutinee_ty = self.infer_expr_type(expr, env, scope);
 
                 for arm in arms {
@@ -832,6 +1016,7 @@ impl CopyContext {
         scope: &ModuleScope,
         clone_generics: &HashSet<String>,
         copy_generics: &HashSet<String>,
+        callee_requirements: Option<&HashMap<ItemId, HashSet<String>>>,
         out: &mut HashSet<String>,
     ) {
         let mut required_copy_env = copy_generics.clone();
@@ -844,6 +1029,7 @@ impl CopyContext {
             scope,
             clone_generics,
             Some(&required_copy_env),
+            callee_requirements,
             out,
         );
     }
@@ -855,6 +1041,7 @@ impl CopyContext {
         scope: &ModuleScope,
         tracked_generics: &HashSet<String>,
         required_copy_env: Option<&HashSet<String>>,
+        callee_requirements: Option<&HashMap<ItemId, HashSet<String>>>,
         out: &mut HashSet<String>,
     ) {
         let mut block_env = env.clone();
@@ -869,6 +1056,7 @@ impl CopyContext {
                             scope,
                             tracked_generics,
                             required_copy_env,
+                            callee_requirements,
                             out,
                         );
                     }
@@ -894,6 +1082,7 @@ impl CopyContext {
                     scope,
                     tracked_generics,
                     required_copy_env,
+                    callee_requirements,
                     out,
                 ),
                 Statement::Item(_)
@@ -910,6 +1099,7 @@ impl CopyContext {
                 scope,
                 tracked_generics,
                 required_copy_env,
+                callee_requirements,
                 out,
             );
         }
@@ -922,6 +1112,7 @@ impl CopyContext {
         scope: &ModuleScope,
         tracked_generics: &HashSet<String>,
         required_copy_env: Option<&HashSet<String>>,
+        callee_requirements: Option<&HashMap<ItemId, HashSet<String>>>,
         out: &mut HashSet<String>,
     ) {
         match expr {
@@ -933,6 +1124,7 @@ impl CopyContext {
                         scope,
                         tracked_generics,
                         required_copy_env,
+                        callee_requirements,
                         out,
                     );
                 }
@@ -944,6 +1136,7 @@ impl CopyContext {
                     scope,
                     tracked_generics,
                     required_copy_env,
+                    callee_requirements,
                     out,
                 );
                 for arg in args {
@@ -953,6 +1146,20 @@ impl CopyContext {
                         scope,
                         tracked_generics,
                         required_copy_env,
+                        callee_requirements,
+                        out,
+                    );
+                }
+
+                if let Some(requirements) = callee_requirements {
+                    self.collect_transitive_call_requirements(
+                        callee,
+                        args,
+                        env,
+                        scope,
+                        tracked_generics,
+                        required_copy_env,
+                        requirements,
                         out,
                     );
                 }
@@ -964,6 +1171,7 @@ impl CopyContext {
                     scope,
                     tracked_generics,
                     required_copy_env,
+                    callee_requirements,
                     out,
                 );
                 for arg in args {
@@ -973,6 +1181,7 @@ impl CopyContext {
                         scope,
                         tracked_generics,
                         required_copy_env,
+                        callee_requirements,
                         out,
                     );
                 }
@@ -1000,6 +1209,7 @@ impl CopyContext {
                     scope,
                     tracked_generics,
                     required_copy_env,
+                    callee_requirements,
                     out,
                 );
             }
@@ -1014,6 +1224,7 @@ impl CopyContext {
                     scope,
                     tracked_generics,
                     required_copy_env,
+                    callee_requirements,
                     out,
                 );
                 self.collect_clone_demands(
@@ -1022,6 +1233,7 @@ impl CopyContext {
                     scope,
                     tracked_generics,
                     required_copy_env,
+                    callee_requirements,
                     out,
                 );
                 if let Some(else_branch) = else_branch {
@@ -1031,6 +1243,7 @@ impl CopyContext {
                         scope,
                         tracked_generics,
                         required_copy_env,
+                        callee_requirements,
                         out,
                     );
                 }
@@ -1047,6 +1260,7 @@ impl CopyContext {
                     scope,
                     tracked_generics,
                     required_copy_env,
+                    callee_requirements,
                     out,
                 );
                 let mut then_env = env.clone();
@@ -1059,6 +1273,7 @@ impl CopyContext {
                     scope,
                     tracked_generics,
                     required_copy_env,
+                    callee_requirements,
                     out,
                 );
                 if let Some(else_branch) = else_branch {
@@ -1068,6 +1283,7 @@ impl CopyContext {
                         scope,
                         tracked_generics,
                         required_copy_env,
+                        callee_requirements,
                         out,
                     );
                 }
@@ -1079,6 +1295,7 @@ impl CopyContext {
                     scope,
                     tracked_generics,
                     required_copy_env,
+                    callee_requirements,
                     out,
                 );
                 let scrutinee_ty = self.infer_expr_type(expr, env, scope);
@@ -1094,6 +1311,7 @@ impl CopyContext {
                             scope,
                             tracked_generics,
                             required_copy_env,
+                            callee_requirements,
                             out,
                         );
                     }
@@ -1103,6 +1321,7 @@ impl CopyContext {
                         scope,
                         tracked_generics,
                         required_copy_env,
+                        callee_requirements,
                         out,
                     );
                 }
@@ -1113,6 +1332,7 @@ impl CopyContext {
                 scope,
                 tracked_generics,
                 required_copy_env,
+                callee_requirements,
                 out,
             ),
             Expr::BinaryOp(left, _, right) => {
@@ -1122,6 +1342,7 @@ impl CopyContext {
                     scope,
                     tracked_generics,
                     required_copy_env,
+                    callee_requirements,
                     out,
                 );
                 self.collect_clone_demands_expr(
@@ -1130,6 +1351,7 @@ impl CopyContext {
                     scope,
                     tracked_generics,
                     required_copy_env,
+                    callee_requirements,
                     out,
                 );
             }
@@ -1139,6 +1361,7 @@ impl CopyContext {
                 scope,
                 tracked_generics,
                 required_copy_env,
+                callee_requirements,
                 out,
             ),
             // Clone calls under unsupported Rust constructs do not participate
@@ -1156,6 +1379,66 @@ impl CopyContext {
             | Expr::Reference(_, _, _)
             | Expr::Index(_, _)
             | Expr::Assign(_, _) => {}
+        }
+    }
+
+    fn collect_transitive_call_requirements(
+        &self,
+        callee: &Expr,
+        args: &[Expr],
+        env: &TypeEnv,
+        scope: &ModuleScope,
+        tracked_generics: &HashSet<String>,
+        required_copy_env: Option<&HashSet<String>>,
+        requirements: &HashMap<ItemId, HashSet<String>>,
+        out: &mut HashSet<String>,
+    ) {
+        let Some(callee_id) = self.resolve_callee_id(callee, env, scope) else {
+            return;
+        };
+        let Some(required_by_callee) = requirements.get(&callee_id) else {
+            return;
+        };
+        let Some((generics, param_types)) = self.fn_sigs.get(&callee_id) else {
+            return;
+        };
+        if args.len() != param_types.len() {
+            return;
+        }
+
+        let actual_types = args
+            .iter()
+            .map(|arg| self.infer_expr_type(arg, env, scope))
+            .collect::<Option<Vec<_>>>();
+        let Some(actual_types) = actual_types else {
+            return;
+        };
+        let callee_generics = generics
+            .iter()
+            .map(|generic| generic.name.clone())
+            .collect::<HashSet<_>>();
+        let mut subst = HashMap::new();
+        for (formal, actual) in param_types.iter().zip(&actual_types) {
+            if !unify_type(formal, actual, &callee_generics, &mut subst) {
+                return;
+            }
+        }
+
+        for required in required_by_callee {
+            let Some(actual) = subst.get(required) else {
+                continue;
+            };
+            let admissible = required_copy_env
+                .map(|copy_env| self.type_is_copy_in_scope(actual, scope, copy_env))
+                .unwrap_or(true);
+            if !admissible {
+                continue;
+            }
+
+            let mut caller_generics = HashSet::new();
+            generic_names_in_type(actual, &mut caller_generics);
+            caller_generics.retain(|name| tracked_generics.contains(name));
+            out.extend(caller_generics);
         }
     }
 
@@ -1280,7 +1563,7 @@ impl CopyContext {
                     Some(Type::Tuple(types))
                 }
             }
-            Expr::Call(callee, _) => self.infer_call_type(callee, env, scope),
+            Expr::Call(callee, args) => self.infer_call_type(callee, args, env, scope),
             Expr::MethodCall(receiver, method, args) if method == "clone" && args.is_empty() => {
                 self.infer_expr_type(receiver, env, scope)
             }
@@ -1292,9 +1575,29 @@ impl CopyContext {
                 else_branch: Some(else_branch),
                 ..
             } => {
-                let then_ty = self.infer_block_type(then_branch, env, scope)?;
-                let else_ty = self.infer_block_type(else_branch, env, scope)?;
-                types_equal(&then_ty, &else_ty).then_some(then_ty)
+                let then_ty = self.expand_alias_type(
+                    &self.infer_block_type(then_branch, env, scope)?,
+                    scope,
+                    &mut HashSet::new(),
+                );
+                let else_ty = self.expand_alias_type(
+                    &self.infer_block_type(else_branch, env, scope)?,
+                    scope,
+                    &mut HashSet::new(),
+                );
+                self.types_equal_in_scope(&then_ty, &else_ty, scope)
+                    .then_some(then_ty)
+            }
+            Expr::Match { arms, .. } => {
+                let mut arm_types = arms
+                    .iter()
+                    .map(|arm| self.infer_block_type(&arm.body, env, scope));
+                let first = arm_types.next()??;
+                arm_types.try_fold(first, |expected, actual| {
+                    let actual = actual?;
+                    self.types_equal_in_scope(&expected, &actual, scope)
+                        .then_some(expected)
+                })
             }
             Expr::UnaryOp(op, inner) if op == "!" => {
                 let inner_ty = self.infer_expr_type(inner, env, scope)?;
@@ -1303,7 +1606,9 @@ impl CopyContext {
             }
             Expr::UnaryOp(op, inner) if op == "*" => {
                 match self.infer_expr_type(inner, env, scope)? {
-                    Type::Generic(name, mut params) if name == "Box" && params.len() == 1 => {
+                    Type::Generic(name, mut params)
+                        if type_name_leaf(&name) == "Box" && params.len() == 1 =>
+                    {
                         params.pop()
                     }
                     Type::Reference(inner, _, _) => Some(*inner),
@@ -1347,19 +1652,115 @@ impl CopyContext {
             .and_then(|expr| self.infer_expr_type(expr, &block_env, scope))
     }
 
-    fn infer_call_type(&self, callee: &Expr, env: &TypeEnv, scope: &ModuleScope) -> Option<Type> {
-        match callee {
-            Expr::Ident(name) if env.contains_key(name) => None,
-            Expr::Ident(name) => self
-                .owner_for_variant_name(name, scope)
-                .map(Type::Path)
-                .or_else(|| self.functions.get(&scope.resolve_name_path(name)).cloned()),
-            Expr::Path(path, PathType::Namespace) => self
-                .owner_for_variant_path(path, scope)
-                .map(Type::Path)
-                .or_else(|| self.functions.get(&scope.resolve_segments(path)).cloned()),
-            Expr::Parenthesized(inner) => self.infer_call_type(inner, env, scope),
-            _ => None,
+    fn infer_call_type(
+        &self,
+        callee: &Expr,
+        args: &[Expr],
+        env: &TypeEnv,
+        scope: &ModuleScope,
+    ) -> Option<Type> {
+        if let Some(ty) = explicit_identity_return_type(callee) {
+            return Some(ty);
+        }
+        if let Some(ty) = self.infer_constructor_call_type(callee, args, env, scope) {
+            return Some(ty);
+        }
+
+        let id = match callee {
+            Expr::Ident(name) if env.contains_key(name) => return None,
+            Expr::Ident(name) => scope.resolve_name_path(name),
+            Expr::Path(path, PathType::Namespace) => scope.resolve_segments(path),
+            Expr::Parenthesized(inner) => return self.infer_call_type(inner, args, env, scope),
+            _ => return None,
+        };
+        let return_type = self.functions.get(&id)?.clone();
+        let Some((generics, param_types)) = self.fn_sigs.get(&id) else {
+            return Some(return_type);
+        };
+        let generic_names = generics
+            .iter()
+            .map(|generic| generic.name.clone())
+            .collect::<HashSet<_>>();
+        let mut subst = HashMap::new();
+        for (formal, actual_expr) in param_types.iter().zip(args) {
+            if let Some(actual) = self.infer_expr_type(actual_expr, env, scope) {
+                let _ = unify_type(formal, &actual, &generic_names, &mut subst);
+            }
+        }
+        Some(apply_type_subst(&return_type, &subst))
+    }
+
+    fn infer_constructor_call_type(
+        &self,
+        callee: &Expr,
+        args: &[Expr],
+        env: &TypeEnv,
+        scope: &ModuleScope,
+    ) -> Option<Type> {
+        let (owner, variant_name) = match callee {
+            Expr::Ident(name) => (
+                self.owner_for_variant_name(name, scope)?,
+                type_name_leaf(name).to_string(),
+            ),
+            Expr::Path(path, PathType::Namespace) => (
+                self.owner_for_variant_path(path, scope)?,
+                path.last().map(|name| type_name_leaf(name).to_string())?,
+            ),
+            Expr::Parenthesized(inner) => {
+                return self.infer_constructor_call_type(inner, args, env, scope)
+            }
+            _ => return None,
+        };
+        let def = self.type_defs.get(&owner)?;
+        let fields = match &def.kind {
+            TypeDefKind::Enum(variants) => variants
+                .iter()
+                .find(|variant| variant.name == variant_name)?
+                .fields
+                .as_slice(),
+            TypeDefKind::Struct(fields) => {
+                if owner.last().is_none_or(|name| name != &variant_name) {
+                    return None;
+                }
+                return self.instantiate_constructor_owner(
+                    &owner,
+                    def,
+                    fields.iter().map(|f| &f.ty),
+                    args,
+                    env,
+                    scope,
+                );
+            }
+        };
+        self.instantiate_constructor_owner(&owner, def, fields.iter(), args, env, scope)
+    }
+
+    fn instantiate_constructor_owner<'a>(
+        &self,
+        owner: &ItemId,
+        def: &TypeDef,
+        fields: impl Iterator<Item = &'a Type>,
+        args: &[Expr],
+        env: &TypeEnv,
+        scope: &ModuleScope,
+    ) -> Option<Type> {
+        let generic_names = def.generics.iter().cloned().collect::<HashSet<_>>();
+        let mut subst = HashMap::new();
+        for (formal, actual_expr) in fields.zip(args) {
+            let actual = self.infer_expr_type(actual_expr, env, scope)?;
+            if !unify_type(formal, &actual, &generic_names, &mut subst) {
+                return None;
+            }
+        }
+        if def.generics.is_empty() {
+            Some(Type::Path(owner.clone()))
+        } else {
+            let params = def
+                .generics
+                .iter()
+                .map(|generic| subst.get(generic).cloned())
+                .collect::<Option<Vec<_>>>()?;
+            Some(Type::Generic(owner.join("::"), params))
         }
     }
 
@@ -1412,7 +1813,11 @@ impl CopyContext {
         // recovers just enough structure to bind identifiers to payload types.
         if let Some(inner) = strip_prefix_word(pattern, "box") {
             let inner_ty = match expected {
-                Type::Generic(name, params) if name == "Box" && params.len() == 1 => &params[0],
+                Type::Generic(name, params)
+                    if type_name_leaf(name) == "Box" && params.len() == 1 =>
+                {
+                    &params[0]
+                }
                 _ => expected,
             };
             self.bind_pattern_types(inner, inner_ty, env, scope);
@@ -1463,9 +1868,11 @@ impl CopyContext {
             .unwrap_or(constructor)
             .trim();
 
-        if let Some(expected_id) = self.type_id_for_type(expected, scope) {
+        let expanded_expected = self.expand_alias_type(expected, scope, &mut HashSet::new());
+
+        if let Some(expected_id) = self.type_id_for_type(&expanded_expected, scope) {
             if let Some(def) = self.type_defs.get(&expected_id) {
-                let subst = type_substitution(def, expected);
+                let subst = type_substitution(def, &expanded_expected);
                 match &def.kind {
                     TypeDefKind::Enum(variants) => {
                         if let Some(variant) =
@@ -1525,20 +1932,115 @@ impl CopyContext {
 
     fn owner_for_variant_path(&self, path: &[String], scope: &ModuleScope) -> Option<ItemId> {
         let variant_id = scope.resolve_segments(path);
-        self.variant_owners.get(&variant_id).cloned().flatten()
+        self.variant_owners
+            .get(&variant_id)
+            .cloned()
+            .flatten()
+            .or_else(|| {
+                path.last()
+                    .and_then(|variant| self.owner_for_variant_name(variant, scope))
+            })
     }
 
     fn owner_for_variant_name(&self, variant_name: &str, scope: &ModuleScope) -> Option<ItemId> {
         let variant_id = scope.resolve_name_path(variant_name);
-        self.variant_owners.get(&variant_id).cloned().flatten()
+        if let Some(owner) = self.variant_owners.get(&variant_id).cloned().flatten() {
+            return Some(owner);
+        }
+
+        let mut matches = self
+            .variant_owners
+            .iter()
+            .filter(|(id, owner)| {
+                owner.is_some()
+                    && id.last().is_some_and(|name| name == variant_name)
+                    && id.starts_with(&scope.module_path)
+            })
+            .filter_map(|(_, owner)| owner.clone());
+        let first = matches.next()?;
+        matches.all(|owner| owner == first).then_some(first)
     }
 
     fn type_id_for_type(&self, ty: &Type, scope: &ModuleScope) -> Option<ItemId> {
-        match ty {
-            Type::Named(name) | Type::Generic(name, _) => Some(scope.resolve_name_path(name)),
+        let direct = match ty {
+            Type::Named(name) => Some(scope.resolve_name_path(name)),
+            Type::Generic(name, _) => Some(resolve_type_constructor_name(name, scope)),
             Type::Path(path) => Some(scope.resolve_segments(path)),
             Type::Reference(inner, _, _) => self.type_id_for_type(inner, scope),
             _ => None,
+        }?;
+        if let Some((_, target, alias_scope)) = self.type_aliases.get(&direct) {
+            self.type_id_for_type(target, alias_scope)
+        } else {
+            Some(direct)
+        }
+    }
+
+    fn expand_alias_type(
+        &self,
+        ty: &Type,
+        scope: &ModuleScope,
+        visiting: &mut HashSet<ItemId>,
+    ) -> Type {
+        let id = match ty {
+            Type::Named(name) => scope.resolve_name_path(name),
+            Type::Generic(name, _) => resolve_type_constructor_name(name, scope),
+            Type::Path(path) => scope.resolve_segments(path),
+            _ => return ty.clone(),
+        };
+        if !visiting.insert(id.clone()) {
+            return ty.clone();
+        }
+        let Some((generics, target, alias_scope)) = self.type_aliases.get(&id) else {
+            return ty.clone();
+        };
+        let subst = match ty {
+            Type::Generic(_, params) if params.len() == generics.len() => generics
+                .iter()
+                .cloned()
+                .zip(params.iter().cloned())
+                .collect(),
+            _ => HashMap::new(),
+        };
+        let expanded = apply_type_subst(target, &subst);
+        self.expand_alias_type(&expanded, alias_scope, visiting)
+    }
+
+    fn types_equal_in_scope(&self, left: &Type, right: &Type, scope: &ModuleScope) -> bool {
+        let left = self.expand_alias_type(left, scope, &mut HashSet::new());
+        let right = self.expand_alias_type(right, scope, &mut HashSet::new());
+        match (&left, &right) {
+            (Type::Named(a), Type::Named(b)) => {
+                scope.resolve_name_path(a) == scope.resolve_name_path(b)
+            }
+            (Type::Named(a), Type::Path(b)) | (Type::Path(b), Type::Named(a)) => {
+                scope.resolve_name_path(a) == scope.resolve_segments(b)
+            }
+            (Type::Path(a), Type::Path(b)) => {
+                scope.resolve_segments(a) == scope.resolve_segments(b)
+            }
+            (Type::Generic(a, ap), Type::Generic(b, bp)) => {
+                ap.len() == bp.len()
+                    && resolve_type_constructor_name(a, scope)
+                        == resolve_type_constructor_name(b, scope)
+                    && ap
+                        .iter()
+                        .zip(bp)
+                        .all(|(a, b)| self.types_equal_in_scope(a, b, scope))
+            }
+            (Type::Tuple(a), Type::Tuple(b)) => {
+                a.len() == b.len()
+                    && a.iter()
+                        .zip(b)
+                        .all(|(a, b)| self.types_equal_in_scope(a, b, scope))
+            }
+            (Type::Array(a, an), Type::Array(b, bn)) => {
+                an == bn && self.types_equal_in_scope(a, b, scope)
+            }
+            (Type::Reference(a, ar, am), Type::Reference(b, br, bm)) => {
+                ar == br && am == bm && self.types_equal_in_scope(a, b, scope)
+            }
+            _ => types_equal(&left, &right),
         }
     }
 
@@ -1651,10 +2153,66 @@ impl CopyContext {
     }
 }
 
+fn explicit_identity_return_type(callee: &Expr) -> Option<Type> {
+    let segment = match callee {
+        Expr::Ident(segment) => segment,
+        Expr::Path(path, PathType::Namespace) => path.last()?,
+        Expr::Parenthesized(inner) => return explicit_identity_return_type(inner),
+        _ => return None,
+    };
+    let name = segment
+        .split_once('<')
+        .map_or(segment.as_str(), |(head, _)| head)
+        .trim()
+        .trim_end_matches("::");
+    (name == "identity")
+        .then(|| crate::rustlight_parser::first_explicit_type_argument(segment))
+        .flatten()
+}
+
 fn item_id(scope: &ModuleScope, name: &str) -> ItemId {
     let mut id = scope.module_path.clone();
     id.push(name.to_string());
     id
+}
+
+fn type_is_copy_trait(ty: &Type) -> bool {
+    match ty {
+        Type::Named(name) => name == "Copy",
+        Type::Path(path) => path.last().is_some_and(|name| name == "Copy"),
+        _ => false,
+    }
+}
+
+fn type_constructor_id(ty: &Type, scope: &ModuleScope) -> Option<ItemId> {
+    match ty {
+        Type::Named(name) => Some(scope.resolve_name_path(name)),
+        Type::Generic(name, _) => Some(resolve_type_constructor_name(name, scope)),
+        Type::Path(path) => Some(scope.resolve_segments(path)),
+        _ => None,
+    }
+}
+
+fn type_leaf_name(ty: &Type) -> Option<&str> {
+    match ty {
+        Type::Named(name) => Some(name),
+        Type::Generic(name, _) => Some(type_name_leaf(name)),
+        Type::Path(path) => path.last().map(String::as_str),
+        _ => None,
+    }
+}
+
+fn type_name_leaf(name: &str) -> &str {
+    name.rsplit("::").next().unwrap_or(name)
+}
+
+fn resolve_type_constructor_name(name: &str, scope: &ModuleScope) -> ItemId {
+    if name.contains("::") {
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        scope.resolve_segments(&segments)
+    } else {
+        scope.resolve_name_path(name)
+    }
 }
 
 fn primitive_copy_types() -> [&'static str; 16] {
@@ -2211,7 +2769,10 @@ fn unify_type(
         },
         Type::Named(name) => matches!(actual, Type::Named(n) if n == name),
         Type::Generic(name, params) => match actual {
-            Type::Generic(aname, aparams) if name == aname && params.len() == aparams.len() => {
+            Type::Generic(aname, aparams)
+                if type_name_leaf(name) == type_name_leaf(aname)
+                    && params.len() == aparams.len() =>
+            {
                 params
                     .iter()
                     .zip(aparams)
@@ -2629,5 +3190,93 @@ pub fn duplicate(x: Token) -> (Token, Token) {
         // Borrow receives simple names, so an ambiguous leaf name is exposed
         // only when every package definition with that name is Copy.
         assert!(!analysis.copy_types.contains("Token"));
+    }
+
+    #[test]
+    fn explicit_unconditional_copy_impl_removes_clone_without_copy_marker_bound() {
+        let source = r#"
+use std::marker::PhantomData;
+
+#[derive(Clone)]
+pub struct Marker(pub Box<bool>);
+
+pub struct Word<W> {
+    bits: u128,
+    marker: PhantomData<W>,
+}
+
+impl<W> Copy for Word<W> {}
+
+impl<W> Clone for Word<W> {
+    fn clone(&self) -> Self { *self }
+}
+
+pub fn use_word(x: crate::Test::Word<Marker>) -> crate::Test::Word<Marker> {
+    let y = std::convert::identity::<crate::Test::Word<Marker>>(x);
+    y.clone()
+}
+"#;
+
+        let printed = optimize_and_print(source);
+        assert!(printed.contains("impl<W> Copy for Word<W>"));
+        assert!(!printed.contains("#[derive(Clone, Copy)]\npub struct Word"));
+        assert!(!printed.contains("y.clone()"));
+    }
+
+    #[test]
+    fn references_and_phantom_data_follow_standard_copy_semantics() {
+        let source = r#"
+use std::marker::PhantomData;
+
+pub fn copy_pair<A>(x: (&A, bool)) -> (&A, bool) {
+    x.clone()
+}
+
+pub fn copy_marker<A>(x: PhantomData<A>) -> PhantomData<A> {
+    x.clone()
+}
+"#;
+
+        let printed = optimize_and_print(source);
+        assert!(!printed.contains("x.clone()"));
+
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        let modules = vec![(vec!["crate".to_string(), "Test".to_string()], &mut module)];
+        let ctx = CopyContext::from_modules(&modules);
+        let scope = ModuleScope {
+            module_path: vec!["crate".to_string(), "Test".to_string()],
+            imports: HashMap::new(),
+        };
+        let shared = Type::Reference(Box::new(Type::Named("bool".to_string())), true, false);
+        let mutable = Type::Reference(Box::new(Type::Named("bool".to_string())), true, true);
+        assert!(ctx.type_is_copy_in_scope(&shared, &scope, &HashSet::new()));
+        assert!(!ctx.type_is_copy_in_scope(&mutable, &scope, &HashSet::new()));
+    }
+
+    #[test]
+    fn propagates_copy_specialization_requirements_through_generic_wrappers() {
+        let source = r#"
+pub fn duplicate<A>(x: A) -> (A, A)
+where A: Clone + 'static
+{
+    (x.clone(), x.clone())
+}
+
+pub fn wrapper<A>(x: A) -> (A, A)
+where A: Clone + 'static
+{
+    duplicate(x)
+}
+
+pub fn use_wrapper(x: bool) -> (bool, bool) {
+    wrapper(x)
+}
+"#;
+
+        let printed = optimize_and_print(source);
+        assert!(printed.contains("pub fn duplicate_copy"));
+        assert!(printed.contains("pub fn wrapper_copy"));
+        assert!(printed.contains("duplicate_copy(x)"));
+        assert!(printed.contains("wrapper_copy(x)"));
     }
 }

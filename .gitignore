@@ -9,6 +9,7 @@ temp/
 *.lock
 !scripts/isabelle-exported.Cargo.lock
 !optimize/**/Cargo.lock
+!evaluation/performance/sbpf/case-study-baseline/Cargo.lock
 __pycache__/
 **/__pycache__/
 **/export
@@ -24,3 +25,6 @@ optimize/tests/out/
 tests_x64/x64-validation/backups/
 **/stage1
 **/stage2
+tests_sbpf/theory/performance/
+evaluation/performance/sbpf/build/
+evaluation/performance/sbpf/case-study-baseline/target/

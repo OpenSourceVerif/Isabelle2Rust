@@ -21,6 +21,55 @@ pub fn parse_rust_source(source: &str, module_name: impl Into<String>) -> syn::R
     convert_file(file, module_name.into())
 }
 
+/// Recover package-wide type facts even when an unsupported function body
+/// prevents conversion of the complete source file.  These fact-only modules
+/// are never printed; they let Copy and Borrow observe datatype declarations,
+/// imports, aliases, and explicit `impl Copy` declarations in adapter modules.
+pub fn parse_rust_type_facts(
+    source: &str,
+    module_name: impl Into<String>,
+) -> syn::Result<RustModule> {
+    let file = parse_file(source)?;
+    Ok(RustModule {
+        name: module_name.into(),
+        docs: vec![],
+        items: file
+            .items
+            .iter()
+            .filter_map(convert_type_fact_item)
+            .collect(),
+        attrs: vec![],
+        vis: rustlightast::Visibility::Public,
+    })
+}
+
+fn convert_type_fact_item(item: &SynItem) -> Option<Item> {
+    match item {
+        SynItem::Struct(_) | SynItem::Enum(_) | SynItem::Type(_) | SynItem::Use(_) => {
+            convert_item(item).ok()
+        }
+        SynItem::Impl(item_impl)
+            if item_impl
+                .trait_
+                .as_ref()
+                .and_then(|(_, path, _)| path.segments.last())
+                .is_some_and(|segment| segment.ident == "Copy") =>
+        {
+            convert_item(item).ok()
+        }
+        SynItem::Mod(item_mod) => item_mod.content.as_ref().map(|(_, nested)| {
+            Item::Mod(Box::new(RustModule {
+                name: item_mod.ident.to_string(),
+                docs: vec![],
+                items: nested.iter().filter_map(convert_type_fact_item).collect(),
+                attrs: vec![],
+                vis: convert_visibility(&item_mod.vis),
+            }))
+        }),
+        _ => None,
+    }
+}
+
 pub fn parse_and_print_rust_source(
     source: &str,
     module_name: impl Into<String>,
@@ -160,6 +209,7 @@ fn convert_item(item: &SynItem) -> syn::Result<Item> {
             })))
         }
         SynItem::Trait(item_trait) => Ok(Item::Raw(normalize_tokens(item_trait.to_token_stream()))),
+        SynItem::Macro(item_macro) => Ok(Item::Raw(normalize_tokens(item_macro.to_token_stream()))),
         other => Err(syn::Error::new_spanned(
             other,
             "unsupported item kind in RustLightAST parser",
@@ -485,10 +535,13 @@ fn convert_block(block: &syn::Block) -> syn::Result<Block> {
                 }
             }
             Stmt::Macro(mac) => {
-                return Err(syn::Error::new_spanned(
-                    mac,
-                    "unsupported statement macro in RustLightAST parser",
-                ));
+                // A statement-position macro can contain syntax outside the
+                // lightweight AST (notably the `macro_rules!` declarations in
+                // the native Word adapter). Preserve it verbatim as an opaque
+                // item so the rest of the module, including explicit trait
+                // impls, remains available to package-wide analyses.
+                let source = normalize_tokens(mac.to_token_stream()).replace(" !", "!");
+                stmts.push(Statement::Item(Box::new(Item::Raw(source))));
             }
         }
     }
@@ -728,6 +781,18 @@ fn path_segment_source(segment: &syn::PathSegment) -> String {
     }
 }
 
+pub(crate) fn first_explicit_type_argument(segment: &str) -> Option<Type> {
+    let path = syn::parse_str::<syn::Path>(segment).ok()?;
+    let last = path.segments.last()?;
+    let PathArguments::AngleBracketed(arguments) = &last.arguments else {
+        return None;
+    };
+    arguments.args.iter().find_map(|argument| match argument {
+        GenericArgument::Type(ty) => convert_type(ty).ok(),
+        _ => None,
+    })
+}
+
 fn convert_literal(lit: &Lit) -> syn::Result<Literal> {
     match lit {
         Lit::Bool(bool_lit) => Ok(Literal::Bool(bool_lit.value)),
@@ -939,7 +1004,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_and_print_rust_source, parse_rust_source};
+    use super::{parse_and_print_rust_source, parse_rust_source, parse_rust_type_facts};
     use rustlightast::{Expr, Item, RustCodeGenerator, Type};
 
     #[test]
@@ -1056,6 +1121,49 @@ pub fn unwrap_or_panic(x0: Option<bool>) -> bool {
         let mut generator = RustCodeGenerator::new();
         let printed = generator.generate_module_code(&module);
         assert!(printed.contains(r#"panic!("non-exhaustive match")"#));
+    }
+
+    #[test]
+    fn preserves_statement_macros_without_rejecting_the_module() {
+        let source = r#"
+pub fn value() -> u64 {
+    macro_rules! one {
+        () => { 1u64 };
+    }
+    one!()
+}
+"#;
+        let module = parse_rust_source(source, "Macro_Stmt_Test").expect("module parses");
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        syn::parse_file(&printed).expect("statement macro roundtrips as valid Rust");
+        assert!(printed.replace(' ', "").contains("macro_rules!one"));
+    }
+
+    #[test]
+    fn recovers_explicit_copy_facts_from_an_unconvertible_module() {
+        let source = r#"
+pub struct Word<W>(pub u128, pub std::marker::PhantomData<W>);
+impl<W> Copy for Word<W> {}
+impl<W> Clone for Word<W> { fn clone(&self) -> Self { *self } }
+pub fn unsupported() { let _bytes = [0u8; 4]; }
+"#;
+        assert!(parse_rust_source(source, "Facts_Test").is_err());
+        let facts = parse_rust_type_facts(source, "Facts_Test").expect("facts parse");
+        assert!(facts
+            .items
+            .iter()
+            .any(|item| matches!(item, Item::Struct(def) if def.name == "Word")));
+        assert!(facts.items.iter().any(|item| matches!(
+            item,
+            Item::Impl(block)
+                if block.trait_impl.as_ref().is_some_and(type_is_copy_trait_for_test)
+        )));
+    }
+
+    fn type_is_copy_trait_for_test(ty: &Type) -> bool {
+        matches!(ty, Type::Named(name) if name == "Copy")
+            || matches!(ty, Type::Path(path) if path.last().is_some_and(|name| name == "Copy"))
     }
 
     #[test]

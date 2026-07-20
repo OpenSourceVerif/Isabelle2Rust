@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the OCaml sBPF instruction-level micro test from Isabelle-generated code."""
+"""Run the OCaml SBPF instruction-level micro test from Isabelle-generated code."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ let int_list_of_standard_int_list (xs : int64 list) : int list =
 
 end;; (*struct Step_test*)"""
 
-GLUE_VERSION = "step-micro-zarith-v1"
+GLUE_VERSION = "step-micro-zarith-ocamlopt-v2"
 
 
 def rel(path: Path) -> str:
@@ -86,15 +86,15 @@ def command_output(cmd: list[str]) -> str:
 
 def check_ocaml_environment() -> bool:
     try:
-        actual = command_output(["ocamlc", "-version"])
+        actual = command_output(["ocamlopt", "-version"])
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
-        print(f"ERROR: could not run ocamlc: {exc}")
+        print(f"ERROR: could not run ocamlopt: {exc}")
         return False
 
-    announce("OCaml version", f"ocamlc {actual}")
+    announce("OCaml version", f"ocamlopt {actual}")
     if EXPECTED_OCAML_VERSION and actual != EXPECTED_OCAML_VERSION:
         print(
-            f"ERROR: expected ocamlc {EXPECTED_OCAML_VERSION}, got {actual}. "
+            f"ERROR: expected ocamlopt {EXPECTED_OCAML_VERSION}, got {actual}. "
             "Set OCAML_VERSION=... only when intentionally changing the fixed test version."
         )
         return False
@@ -188,15 +188,15 @@ def main() -> int:
         print(f"ERROR: {exc}")
         return 2
 
-    compile_base = ["ocamlfind", "ocamlc", "-package", "zarith,yojson", "-linkpkg"]
+    compile_base = ["ocamlfind", "ocamlopt", "-package", "zarith,yojson", "-linkpkg"]
     if not reused:
-        announce("compile", "ocamlfind ocamlc -package zarith,yojson -linkpkg -c step_test.ml")
+        announce("compile", "ocamlfind ocamlopt -package zarith,yojson -linkpkg -c step_test.ml")
         rc, _ = run_command(compile_base + ["-c", "step_test.ml"], cwd=build_dir)
         if rc != 0:
             return rc
 
-        announce("compile", "ocamlfind ocamlc -package zarith,yojson -linkpkg -o step step_test.cmo step.ml")
-        rc, _ = run_command(compile_base + ["-o", "step", "step_test.cmo", "step.ml"], cwd=build_dir)
+        announce("compile", "ocamlfind ocamlopt -package zarith,yojson -linkpkg -o step step_test.cmx step.ml")
+        rc, _ = run_command(compile_base + ["-o", "step", "step_test.cmx", "step.ml"], cwd=build_dir)
         if rc != 0:
             return rc
 

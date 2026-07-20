@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared sBPF micro-validation orchestration.
+"""Shared SBPF micro-validation orchestration.
 
 This script owns the language-independent instruction-level path:
   1. ensure bpf_generator is exported from Isabelle,
@@ -149,8 +149,9 @@ def generate_step_json() -> int:
         "generator",
         f"generating {count} random step cases with seed {seed} into {rel(STEP_JSON)}",
     )
+    rust_toolchain = os.environ.get("RUST_TOOLCHAIN") or "stable"
     rc, _ = run_command(
-        ["cargo", "run", "--", count, str(STEP_JSON), seed],
+        ["cargo", f"+{rust_toolchain}", "run", "--locked", "--", count, str(STEP_JSON), seed],
         cwd=GENERATOR_DIR,
     )
     return rc

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared sBPF macro-validation orchestration.
+"""Shared SBPF macro-validation orchestration.
 
 This script owns only the language-independent path:
   1. ensure bpf_generator is exported from Isabelle,
