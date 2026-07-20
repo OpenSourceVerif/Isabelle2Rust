@@ -1,4 +1,4 @@
-.PHONY: open open_test build build_silent code gen opt test targeted hol-gcd hol-stress kloc clippy macro_sbpf micro_sbpf micro_sbpf_gen x64 x64_gen x64_test clean help
+.PHONY: open open_test build build_silent code gen opt test targeted hol-gcd hol-stress kloc clippy macro_sbpf micro_sbpf micro_sbpf_gen x64 x64-rust-export x64-gen x64-test x64_gen x64_test clean help
 
 #### Configuration ####
 
@@ -7,6 +7,7 @@ PROJECT_SESSION := Rust
 TEST_SESSION    := Rust
 TEST_ROOT_DIR   := test-root
 TEST_ROOT_FILE  := $(TEST_ROOT_DIR)/ROOT
+TEST_TIMEOUT    ?= 300
 HOL_DIR         ?= test/HOL_Codegenerator
 HOL_GCD_THEORY ?= Code_Test_Rust
 HOL_STRESS_SESSION ?= Rust-HOL-Codegenerator_Test
@@ -29,7 +30,7 @@ ISABELLE_TEST_SILENT   := isabelle build -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
 
 export ISABELLE_CARGO
 
-WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = 300]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "$(TEST_DIR)"' '  theories [document = false]' '    Rust_Setup' '    Rust_BigInt_Int_Setup' '    Rust_BigInt_Nat_Setup' '    Rust_Native_Int_Setup' '    Rust_Native_Nat_Setup' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
+WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = $(TEST_TIMEOUT)]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "$(TEST_DIR)"' '  theories [document = false]' '    Rust_Setup' '    Rust_BigInt_Int_Setup' '    Rust_BigInt_Nat_Setup' '    Rust_Native_Int_Setup' '    Rust_Native_Nat_Setup' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
 
 #### Targets ####
 
@@ -456,25 +457,53 @@ X64_ASSEMBLER       := $(X64_VALIDATION)/2-exec-assembler
 X64_MAP_GEN         := $(X64_VALIDATION)/3-x64-map-gen
 X64_STEPPER_C       := $(X64_VALIDATION)/4-x64-stepper-c
 X64_SEMANTICS       := $(X64_VALIDATION)/5-exec-semantics
+X64_RUST_EXPORT     := $(X64_VALIDATION)/run_rust_export.py
+X64_RUST_VALIDATION := $(X64_VALIDATION)/run_rust_validation.py
 X64_COUNT           ?= 10000
+X64_ISABELLE_THREADS ?= 1
+X64_ISABELLE_TIMEOUT ?= 1200
+X64_ISABELLE_MAX_HEAP ?= 3200
+X64_ISABELLE_JAVA_HEAP ?= 768
 X64_OCAML_PACKAGES  ?= yojson
 X64_JANSSON_LIBS    ?= $(shell pkg-config --libs jansson 2>/dev/null || echo -ljansson)
 
-x64_gen:
+# Compile both untouched stage1 Rust exports before any correctness harness is
+# allowed to run.  The script builds Rust-only theories, so the fixed OCaml
+# baseline is neither regenerated nor rewritten by this gate.
+x64-rust-export:
+	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" X64_ISABELLE_THREADS="$(X64_ISABELLE_THREADS)" X64_ISABELLE_TIMEOUT="$(X64_ISABELLE_TIMEOUT)" X64_ISABELLE_MAX_HEAP="$(X64_ISABELLE_MAX_HEAP)" X64_ISABELLE_JAVA_HEAP="$(X64_ISABELLE_JAVA_HEAP)" python3 $(X64_RUST_EXPORT)
+
+# The hyphenated target is the canonical stage-1 workflow.  Its prerequisite
+# guarantees both raw Rust exports compile before random data or OCaml oracle
+# output is changed.  The Rust adapter then checks each raw x64_encode result
+# against the fixed OCaml encoder output.
+x64-gen: x64-rust-export
 	@echo ">>> [x64_gen] generating $(X64_COUNT) random x64 instructions"
 	@$(CARGO) run --quiet --manifest-path $(X64_INS_GEN)/Cargo.toml -- $(X64_COUNT)
 	@echo ">>> [x64_gen] encoding instructions with the existing OCaml x64 encoder"
 	@cd "$(X64_ASSEMBLER)" && $(OCAMLC) -o exec x64_encode.ml && ./exec
+	@echo ">>> [x64_gen] cross-checking the raw Rust x64 encoder against OCaml"
+	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" python3 $(X64_RUST_VALIDATION) encoder
 	@echo ">>> [x64_gen] generating register and memory maps"
 	@$(CARGO) run --quiet --manifest-path $(X64_MAP_GEN)/Cargo.toml
 
-x64_test:
+# Stage 2 retains the established CPU and fixed OCaml checks, then observes the
+# raw Rust x64_step_test through glue installed only in an _build crate copy.
+x64-test: x64-rust-export
 	@echo ">>> [x64_test] running cases on the real x64 CPU stepper"
 	@cd "$(X64_STEPPER_C)" && $(CC) -O2 -Wall -Wextra -o ptrace_exec ptrace_exec.c $(X64_JANSSON_LIBS) && ./ptrace_exec
 	@echo ">>> [x64_test] running Isabelle-exported OCaml semantics and comparing results"
 	@cd "$(X64_SEMANTICS)" && $(OCAMLFIND) ocamlc -package $(X64_OCAML_PACKAGES) -linkpkg -c x64_step_test.ml && $(OCAMLFIND) ocamlc -package $(X64_OCAML_PACKAGES) -linkpkg -o exec x64_step_test.cmo exec.ml && ./exec
+	@echo ">>> [x64_test] running the raw Rust semantics observation against the CPU"
+	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" python3 $(X64_RUST_VALIDATION) stepper
 
-x64: x64_gen x64_test
+# Keep the historical underscore entry points as compatibility aliases while
+# documenting and composing the canonical hyphenated targets.
+x64_gen: x64-gen
+
+x64_test: x64-test
+
+x64: x64-gen x64-test
 
 clean:
 	@echo "Cleaning temp files and generated output..."
@@ -495,6 +524,11 @@ clean:
 	rm -f tests_x64/x64-validation/2-exec-assembler/exec tests_x64/x64-validation/2-exec-assembler/*.cmi tests_x64/x64-validation/2-exec-assembler/*.cmo
 	rm -f tests_x64/x64-validation/4-x64-stepper-c/ptrace_exec
 	rm -f tests_x64/x64-validation/5-exec-semantics/exec tests_x64/x64-validation/5-exec-semantics/*.cmi tests_x64/x64-validation/5-exec-semantics/*.cmo
+	# Rust x64 stage1 exports and correctness copies are reproducible build
+	# products.  Fixed OCaml files and 0-data vectors are intentionally retained.
+	rm -rf tests_x64/theory/stage1/x64EncodeRustGenerator tests_x64/theory/stage1/x64StepRustGenerator
+	rm -rf tests_x64/x64-validation/_build
+	rm -rf tests_x64/x64-validation/1-x64-ins-gen/target tests_x64/x64-validation/3-x64-map-gen/target
 	rm -rf optimize/tests/stage1 optimize/tests/stage2
 	rm -rf tests_HOL/Hol_Test/target
 	rm -rf $(HOL_DIR)/Hol_Test/target
@@ -506,6 +540,10 @@ help:
 	@echo "      Open $(DEFAULT_FILE) in Isabelle/jEdit."
 	@echo "  open_test TEST_DIR=<dir> TEST_THEORY=<thy-name>"
 	@echo "      Generate test-root/ROOT and open the test theory in Isabelle/jEdit."
+	@echo "  x64-rust-export"
+	@echo "      Export and compile the untouched Rust x64_encode/x64_step_test crates."
+	@echo "  x64-gen / x64-test / x64"
+	@echo "      Cross-check raw Rust exports against fixed OCaml output and the x64 CPU."
 	@echo "  build TEST_DIR=<dir> TEST_THEORY=<thy-name>"
 	@echo "      Generate test-root/ROOT and run isabelle build (verbose)."
 	@echo "      Example: make build TEST_DIR=test/unit/mapping TEST_THEORY=Lists_Test"
