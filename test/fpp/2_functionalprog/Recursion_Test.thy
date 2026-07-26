@@ -1,5 +1,5 @@
 theory Recursion_Test
-  imports HOL.Fun Main "Rust.Rust_Setup"
+  imports HOL.Fun Main "Rust.Rust_Base_Setup"
 begin
 declare [[quick_and_dirty = true]]
 

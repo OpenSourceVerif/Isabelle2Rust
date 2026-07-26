@@ -1,5 +1,5 @@
 theory Builtin_Fun_Instance_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* hol-stress guidance test (Generate.thy: Orderings.rs, Lattices.rs and

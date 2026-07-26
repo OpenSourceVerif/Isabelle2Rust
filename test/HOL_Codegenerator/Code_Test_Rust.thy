@@ -1,7 +1,7 @@
 theory Code_Test_Rust
 imports
   "HOL-Library.Code_Test"
-  "Rust.Rust_BigInt_Int_Setup"
+  "Rust.Rust_BigInt_Setup"
 begin
 
 text \<open>Test cases for \<^text>\<open>test_code\<close>\<close>

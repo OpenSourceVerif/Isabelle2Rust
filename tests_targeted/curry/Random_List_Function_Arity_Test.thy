@@ -1,5 +1,5 @@
 theory Random_List_Function_Arity_Test
-  imports "HOL.Quickcheck_Random" "Rust.Rust_Setup"
+  imports "HOL.Quickcheck_Random" "Rust.Rust_Base_Setup"
 begin
 
 (* hol-stress guidance test (Generate.thy: List.rs `random_aux_list`, with the

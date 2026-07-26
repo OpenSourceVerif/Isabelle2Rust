@@ -4,7 +4,7 @@ subsection \<open>Invariant\<close>
 
 theory AVL_Set_Test
 imports
- AVL_Set_Code_Test "Rust.Rust_Setup"
+ AVL_Set_Code_Test "Rust.Rust_Base_Setup"
 begin
 
 (* Cleaned for the Rust export suite: the original theory's height/size-bound

@@ -1,6 +1,6 @@
 section "IMP --- A Simple Imperative Language"
 
-theory Com_Test imports BExp_Test "Rust.Rust_Setup"
+theory Com_Test imports BExp_Test "Rust.Rust_Base_Setup"
 begin
 
 datatype

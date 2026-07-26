@@ -1,5 +1,5 @@
 theory BasicDefinitions_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Direct single-equation bodies should be printed without a dispatch match. *)

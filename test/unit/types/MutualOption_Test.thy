@@ -1,5 +1,5 @@
 theory MutualOption_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 datatype aoption = Nonea | Somea int | MutualReca boption

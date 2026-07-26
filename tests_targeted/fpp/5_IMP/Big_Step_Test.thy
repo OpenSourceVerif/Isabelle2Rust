@@ -2,7 +2,7 @@
 
 subsection "Big-Step Semantics of Commands"
 
-theory Big_Step_Test imports Com_Test "Rust.Rust_Setup"
+theory Big_Step_Test imports Com_Test "Rust.Rust_Base_Setup"
 begin
 
 text \<open>

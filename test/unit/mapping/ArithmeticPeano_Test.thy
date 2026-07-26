@@ -1,5 +1,5 @@
 theory ArithmeticPeano_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Without BigInt setup, nat remains the generated Peano datatype. *)

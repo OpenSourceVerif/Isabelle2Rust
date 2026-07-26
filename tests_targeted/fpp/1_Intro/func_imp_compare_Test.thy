@@ -1,5 +1,5 @@
 theory func_imp_compare_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 primrec insert :: "int \<Rightarrow> int list \<Rightarrow> int list"

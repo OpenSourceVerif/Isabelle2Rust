@@ -1,5 +1,5 @@
 theory Applications_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 definition make_triple :: "bool \<Rightarrow> bool \<Rightarrow> bool \<Rightarrow> bool \<times> bool \<times> bool" where

@@ -1,5 +1,5 @@
 theory Equal_Inst_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* A monomorphic datatype with derived equality, used through `fun_upd` (which

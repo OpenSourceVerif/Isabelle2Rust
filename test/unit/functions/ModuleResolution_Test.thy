@@ -1,5 +1,5 @@
 theory ModuleResolution_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Equal Rust basenames from different modules must remain qualified. *)

@@ -244,7 +244,7 @@ fn int_of_i64(n: i64) -> BigInt {
     BigInt::from(n)
 }
 
-// Rust_Native_Int_Setup keeps values in i128 until arbitrary precision is needed.
+// Rust_Hybrid128_Setup keeps values in i128 until arbitrary precision is needed.
 #[cfg(sbpf_native_int)]
 fn int_of_i64(n: i64) -> RustInt {
     RustInt::from_i128(i128::from(n))

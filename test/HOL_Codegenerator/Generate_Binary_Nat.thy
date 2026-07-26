@@ -8,17 +8,17 @@ imports
   "HOL-Library.AList_Mapping"
   "HOL-Library.Finite_Lattice"
   "HOL-Library.Code_Binary_Nat"
-  "Rust.Rust_BigInt_Int_Setup"
+  "Rust.Rust_Integer_BigInt_Layer"
 begin
 
 text \<open>
   Binary-nat Rust stress-test entry point.  \<^theory>\<open>HOL-Library.Code_Binary_Nat\<close>
   changes the HOL \<^typ>\<open>nat\<close> code representation to zero-or-binary-numeral
   constructors instead of the target-integer mapping used by
-  \<^text>\<open>Rust_BigInt_Nat_Setup\<close>.  The latter theory is deliberately not an
+  \<^text>\<open>Rust_BigInt_Setup\<close>.  The latter theory is deliberately not an
   ancestor here because its target-integer representation conflicts with the
   binary-numeral representation under test.  We still import
-  \<^theory>\<open>Rust.Rust_BigInt_Int_Setup\<close> because the binary-nat code equations
+  \<^theory>\<open>Rust.Rust_Integer_BigInt_Layer\<close> because the binary-nat code equations
   and the wider HOL candidate graph use \<^typ>\<open>integer\<close> and \<^typ>\<open>int\<close>, which
   the Rust backend maps to BigInt.
 

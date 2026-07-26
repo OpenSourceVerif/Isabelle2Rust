@@ -3,7 +3,7 @@
 section \<open>Specifications of Set ADT\<close>
 
 theory Set_Specs_Test
-imports List_Ins_Del_Test "Rust.Rust_Setup"
+imports List_Ins_Del_Test "Rust.Rust_Base_Setup"
 begin
 
 text \<open>The basic set interface with traditional \<open>set\<close>-based specification:\<close>

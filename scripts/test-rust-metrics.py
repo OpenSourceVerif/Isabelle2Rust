@@ -22,6 +22,8 @@ HOL_KLOC_THEORIES = ("Generate", "Generate_Binary_Nat")
 HOL_CLIPPY_THEORIES = ("Generate",)
 EXPORT_CODE = re.compile(r"^\s*export_code(?:\s|$)", re.MULTILINE)
 NATURAL_PART = re.compile(r"(\d+)")
+CARGO_LOCK_HELPER = REPO_ROOT / "scripts" / "ensure-cargo-lock.py"
+SHARED_CARGO_LOCK = REPO_ROOT / "scripts" / "isabelle-exported.Cargo.lock"
 
 
 def natural_key(path: Path):
@@ -170,6 +172,26 @@ def parse_warning_counts(output: str):
 
 
 def clippy_one(manifest: Path, cargo_command, cargo_jobs: int):
+    environment = os.environ.copy()
+    environment["RUSTC_BOOTSTRAP"] = "1"
+    lock_result = subprocess.run(
+        [
+            sys.executable,
+            str(CARGO_LOCK_HELPER),
+            str(manifest),
+            str(SHARED_CARGO_LOCK),
+        ],
+        cwd=REPO_ROOT,
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    if lock_result.returncode != 0:
+        error = lock_result.stderr.strip() or lock_result.stdout.strip()
+        return Counter(), lock_result.returncode, error
+
     command = [
         *cargo_command,
         "clippy",
@@ -186,8 +208,6 @@ def clippy_one(manifest: Path, cargo_command, cargo_jobs: int):
         "-W",
         "clippy::all",
     ]
-    environment = os.environ.copy()
-    environment["RUSTC_BOOTSTRAP"] = "1"
     result = subprocess.run(
         command,
         cwd=REPO_ROOT,

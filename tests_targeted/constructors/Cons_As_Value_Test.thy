@@ -1,5 +1,5 @@
 theory Cons_As_Value_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* A unary constructor of a polymorphic-free datatype used as a first-class

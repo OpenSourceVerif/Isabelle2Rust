@@ -26,5 +26,7 @@ tests_x64/x64-validation/backups/
 **/stage1
 **/stage2
 tests_sbpf/theory/performance/
+tests_x64/theory/performance/
 evaluation/performance/sbpf/build/
 evaluation/performance/sbpf/case-study-baseline/target/
+evaluation/performance/results/

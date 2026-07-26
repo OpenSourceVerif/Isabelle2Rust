@@ -1,5 +1,5 @@
 theory Mut_Nat_Test
-  imports Main "Rust.Rust_BigInt_Nat_Setup"
+  imports Main "Rust.Rust_BigInt_Setup"
 begin
 
 

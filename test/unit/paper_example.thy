@@ -1,5 +1,5 @@
 theory paper_example
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 datatype ('a, 'b) tree =

@@ -1,5 +1,5 @@
 theory Instance_Nat_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 class inc =

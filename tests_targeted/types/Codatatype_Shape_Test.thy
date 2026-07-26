@@ -1,5 +1,5 @@
 theory Codatatype_Shape_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Finite use of a codatatype constructor shape. This test intentionally avoids

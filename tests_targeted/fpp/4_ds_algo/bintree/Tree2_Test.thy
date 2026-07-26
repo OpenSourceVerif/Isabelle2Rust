@@ -1,7 +1,7 @@
 section \<open>Augmented Tree (Tree2)\<close>
 
 theory Tree2_Test
-imports "Tree_Test" "Rust.Rust_Setup"
+imports "Tree_Test" "Rust.Rust_Base_Setup"
 begin
 
 text \<open>This theory provides the basic infrastructure for the type @{typ \<open>('a * 'b) tree\<close>}

@@ -1,5 +1,5 @@
 theory CopyGlobalData
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 datatype global_char =

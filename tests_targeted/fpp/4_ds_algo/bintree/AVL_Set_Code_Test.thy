@@ -8,7 +8,7 @@ section "AVL Tree Implementation of Sets"
 theory AVL_Set_Code_Test
 imports
  Cmp_Test
- Isin2_Test "Rust.Rust_Setup"
+ Isin2_Test "Rust.Rust_Base_Setup"
 begin
 
 subsection \<open>Code\<close>

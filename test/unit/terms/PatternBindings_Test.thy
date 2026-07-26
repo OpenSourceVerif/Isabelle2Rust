@@ -1,5 +1,5 @@
 theory PatternBindings_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Irrefutable patterns exercise the direct-binding case of pattern matching. *)

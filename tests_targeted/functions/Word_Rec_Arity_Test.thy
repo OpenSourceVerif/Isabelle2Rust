@@ -1,5 +1,5 @@
 theory Word_Rec_Arity_Test
-  imports "HOL-Library.Word" "Rust.Rust_Setup"
+  imports "HOL-Library.Word" "Rust.Rust_Base_Setup"
 begin
 
 (* hol-stress guidance test (Generate.thy: Word.rs `word_rec` --

@@ -2,7 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use rustlightast::*;
 
-use crate::mut_analysis::rewrite_last_use_clones_in_function;
+use crate::rustlight_parser::TYPE_FACT_ONLY_DOC;
+
+use crate::last_use_analysis::rewrite_last_use_clones_in_function;
 
 /// Result of the borrow-analysis pass.
 #[derive(Debug, Clone, Default)]
@@ -141,7 +143,7 @@ struct TypeDef {
 /// Borrow safety and ownership preference are deliberately separate. `Dup`
 /// records an owned value that the original source already materializes by
 /// clone/copy, whereas `Move` records a genuine transfer in the analyzed view.
-/// The original body decides `BorrowSafe`; an M-LastUse preview supplies the
+/// The original body decides `BorrowSafe`; a Last-Use preview supplies the
 /// `Move` provenance used by `PreferOwned`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum Demand {
@@ -203,12 +205,16 @@ fn prefer_owned(demands: &HashSet<Demand>, root: &str) -> bool {
 // ── Main context ──────────────────────────────────────────────────────────────
 
 struct BorrowContext {
-    /// Types inferred and materialized by the preceding Copy pass. These facts
-    /// drive BorrowSafe and the size-aware interface decision only when that
-    /// pass is enabled; a `-Copy` ablation supplies an empty set.
-    copy_types: HashSet<String>,
-    /// Types that already implement `Copy` in the module being rewritten.
-    /// Only these may be materialised by dereferencing a shared reference.
+    /// Types whose `Copy` implementation was inferred and materialized by the
+    /// preceding Copy pass. A `-Copy` ablation supplies an empty set here.
+    inferred_copy_types: HashSet<String>,
+    /// Types that already carried `#[derive(Copy)]` in the input source. These
+    /// facts remain available under `-Copy` because the Copy pass did not
+    /// create them.
+    source_copy_types: HashSet<String>,
+    /// Types with a materialized `Copy` implementation in the rewritten AST,
+    /// whether source-provided or inferred. Only these may license `*shared`
+    /// rewrites in emitted Rust.
     materialized_copy_types: HashSet<String>,
     /// Generic types with an explicit unconditional `impl Copy`, such as the
     /// native `RustWord<W>` adapter whose marker parameter does not constrain
@@ -228,13 +234,16 @@ struct BorrowContext {
 
 /// Infer borrowed parameter interfaces for functions in `module`.
 ///
-/// When the Copy pass is enabled, `copy_types` is its result and lets Borrow
-/// treat inferred Copy fields as non-consuming uses. A Copy-pass ablation must
-/// supply an empty set; intrinsic and source-level Copy facts are collected
-/// independently by Borrow.
-pub fn optimize_borrow(module: &mut RustModule, copy_types: &HashSet<String>) -> BorrowAnalysis {
+/// When the Copy pass is enabled, `inferred_copy_types` is its result and lets
+/// Borrow use newly materialized Copy facts. A Copy-pass ablation supplies an
+/// empty set. Source derives, explicit implementations, and primitive scalar
+/// facts are collected independently and remain available under `-Copy`.
+pub fn optimize_borrow(
+    module: &mut RustModule,
+    inferred_copy_types: &HashSet<String>,
+) -> BorrowAnalysis {
     let mut modules = [module];
-    optimize_borrow_modules(&mut modules, copy_types)
+    optimize_borrow_modules(&mut modules, inferred_copy_types)
 }
 
 /// Infer borrowed parameter interfaces for every parsed module in a package.
@@ -243,7 +252,7 @@ pub fn optimize_borrow(module: &mut RustModule, copy_types: &HashSet<String>) ->
 /// computed across module boundaries before any body rewrite starts.
 pub fn optimize_borrow_modules(
     modules: &mut [&mut RustModule],
-    copy_types: &HashSet<String>,
+    inferred_copy_types: &HashSet<String>,
 ) -> BorrowAnalysis {
     let mut located_modules = modules
         .iter_mut()
@@ -254,16 +263,16 @@ pub fn optimize_borrow_modules(
             )
         })
         .collect::<Vec<_>>();
-    optimize_borrow_modules_with_paths(&mut located_modules, copy_types)
+    optimize_borrow_modules_with_paths(&mut located_modules, inferred_copy_types)
 }
 
 /// Package-level borrow inference with canonical module paths supplied by the
 /// source-file discovery layer.  This is the entry point used by `cargo-opt`.
 pub fn optimize_borrow_modules_with_paths(
     modules: &mut [(Vec<String>, &mut RustModule)],
-    copy_types: &HashSet<String>,
+    inferred_copy_types: &HashSet<String>,
 ) -> BorrowAnalysis {
-    let (mut ctx, functions) = BorrowContext::from_modules(modules, copy_types);
+    let (mut ctx, functions) = BorrowContext::from_modules(modules, inferred_copy_types);
 
     // Three-pass design:
     //  1. Analyse every post-copy function, including _copy specialisations.
@@ -307,11 +316,30 @@ impl BorrowContext {
         self.fn_sigs.contains_key(&id).then_some(id)
     }
 
+    /// Positions that accept a shared value at a call site.  This includes
+    /// both interfaces inferred by B-Sig and references already declared in
+    /// the input; the latter must not be rewritten as ownership-consuming
+    /// arguments merely because Borrow did not create them.
+    fn callee_borrow_positions(&self, id: &FunctionId) -> Vec<usize> {
+        let mut positions = self.borrow_positions.get(id).cloned().unwrap_or_default();
+        if let Some((_, params, _)) = self.fn_sigs.get(id) {
+            positions.extend(
+                params
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, ty)| is_reference_type(ty).then_some(index)),
+            );
+        }
+        positions.sort_unstable();
+        positions.dedup();
+        positions
+    }
+
     fn from_modules(
         modules: &[(Vec<String>, &mut RustModule)],
-        copy_types: &HashSet<String>,
+        inferred_copy_types: &HashSet<String>,
     ) -> (Self, Vec<LocatedFunction>) {
-        let mut ctx = Self::empty(copy_types);
+        let mut ctx = Self::empty(inferred_copy_types);
         let mut functions = Vec::new();
         for (module_path, module) in modules {
             ctx.collect_items(&module.items, module_path, &mut functions);
@@ -319,9 +347,10 @@ impl BorrowContext {
         (ctx, functions)
     }
 
-    fn empty(copy_types: &HashSet<String>) -> Self {
+    fn empty(inferred_copy_types: &HashSet<String>) -> Self {
         Self {
-            copy_types: copy_types.clone(),
+            inferred_copy_types: inferred_copy_types.clone(),
+            source_copy_types: HashSet::new(),
             materialized_copy_types: HashSet::new(),
             unconditional_copy_types: HashSet::new(),
             materialized_unconditional_copy_types: HashSet::new(),
@@ -357,7 +386,9 @@ impl BorrowContext {
         match item {
             Item::Struct(def) => {
                 if def.derives.iter().any(|derive| derive == "Copy") {
-                    self.copy_types.insert(def.name.clone());
+                    if !self.inferred_copy_types.contains(&def.name) {
+                        self.source_copy_types.insert(def.name.clone());
+                    }
                     self.materialized_copy_types.insert(def.name.clone());
                 }
                 self.type_defs.insert(
@@ -378,7 +409,9 @@ impl BorrowContext {
             }
             Item::Enum(def) => {
                 if def.derives.iter().any(|derive| derive == "Copy") {
-                    self.copy_types.insert(def.name.clone());
+                    if !self.inferred_copy_types.contains(&def.name) {
+                        self.source_copy_types.insert(def.name.clone());
+                    }
                     self.materialized_copy_types.insert(def.name.clone());
                 }
                 for v in &def.variants {
@@ -412,11 +445,13 @@ impl BorrowContext {
                         f.return_type.clone(),
                     ),
                 );
-                functions.push(LocatedFunction {
-                    id,
-                    scope: scope.clone(),
-                    function: f.clone(),
-                });
+                if !f.docs.iter().any(|doc| doc == TYPE_FACT_ONLY_DOC) {
+                    functions.push(LocatedFunction {
+                        id,
+                        scope: scope.clone(),
+                        function: f.clone(),
+                    });
+                }
             }
             Item::Impl(impl_block)
                 if impl_block
@@ -511,9 +546,9 @@ impl BorrowContext {
     /// Returns the sorted list of parameter indices that are borrowable for `f`.
     fn borrowable_positions(&self, f: &FunctionDef, scope: &ModuleScope) -> Vec<usize> {
         // BorrowSafe is computed from the original body. PreferOwned consults a
-        // separate M-LastUse preview so a removable clone is not confused with
-        // an intrinsically required move. The actual M-LastUse rewrite still
-        // runs later in the mutability pass.
+        // separate Last-Use preview so a removable clone is not confused with
+        // an intrinsically required move. The actual Last-Use rewrite still
+        // runs later in its dedicated pass.
         let mut last_use_view = f.clone();
         rewrite_last_use_clones_in_function(&mut last_use_view);
 
@@ -812,9 +847,7 @@ impl BorrowContext {
                     // Determine whether position j takes an owned or borrowed arg.
                     let borrow_pos = callee_id
                         .as_ref()
-                        .and_then(|id| self.borrow_positions.get(id))
-                        .map(|positions| positions.contains(&j))
-                        .unwrap_or(false);
+                        .is_some_and(|id| self.callee_borrow_positions(id).contains(&j));
 
                     if borrow_pos {
                         // The callee accepts a shared borrow at this position.
@@ -1597,6 +1630,13 @@ impl BorrowContext {
             Expr::Ident(name) => {
                 if let Some(bty) = borrow_env.get(name) {
                     if is_reference_type(bty) {
+                        // A reference already present in the input is itself
+                        // the value of this expression.  Cloning the pointee is
+                        // only necessary when B-Sig changed an owned `T` into
+                        // `&T`.
+                        if orig_env.get(name).is_some_and(is_reference_type) {
+                            return expr.clone();
+                        }
                         // &T in own context: deref-copy if Copy, else clone.
                         let inner = ref_inner(bty);
                         if self.is_materialized_copy(inner.unwrap_or(bty), copy_generics) {
@@ -1676,11 +1716,11 @@ impl BorrowContext {
             Expr::Call(callee, args) => {
                 let callee_id = self.resolve_callee_id(callee, scope, orig_env);
 
-                if let Some(borrow_positions) = callee_id.as_ref().and_then(|id| {
-                    self.borrow_positions
-                        .get(id)
-                        .filter(|positions| !positions.is_empty())
-                }) {
+                let borrow_positions = callee_id
+                    .as_ref()
+                    .map(|id| self.callee_borrow_positions(id))
+                    .unwrap_or_default();
+                if !borrow_positions.is_empty() {
                     let new_callee = callee.as_ref().clone();
                     let new_args: Vec<Expr> = args
                         .iter()
@@ -1933,11 +1973,30 @@ impl BorrowContext {
             ),
 
             // ── Reference ────────────────────────────────────────────────────
-            Expr::Reference(inner, is_ref, is_mut) => Expr::Reference(
-                Box::new(self.rewrite_expr_own(inner, borrow_env, orig_env, copy_generics, scope)),
-                *is_ref,
-                *is_mut,
-            ),
+            Expr::Reference(inner, is_ref, is_mut) => {
+                // If B-Sig has already changed `x: T` into `x: &T`, an
+                // original `&x` is now a redundant reborrow.  Rewriting the
+                // inner expression as owned would instead create
+                // `&x.clone()`, whose temporary cannot back a shared tail.
+                if *is_ref && !*is_mut {
+                    if let Expr::Ident(name) = inner.as_ref() {
+                        if borrow_env.get(name).is_some_and(is_reference_type) {
+                            return Expr::Ident(name.clone());
+                        }
+                    }
+                }
+                Expr::Reference(
+                    Box::new(self.rewrite_expr_own(
+                        inner,
+                        borrow_env,
+                        orig_env,
+                        copy_generics,
+                        scope,
+                    )),
+                    *is_ref,
+                    *is_mut,
+                )
+            }
 
             // ── If ────────────────────────────────────────────────────────────
             Expr::If {
@@ -2049,15 +2108,23 @@ impl BorrowContext {
 
             Expr::Closure(params, body, is_move) => {
                 let mut inner_borrow = borrow_env.clone();
+                let mut inner_orig = orig_env.clone();
                 for param in params {
-                    inner_borrow.remove(&closure_param_name(param));
+                    let name = closure_param_name(param);
+                    if let Some(ty) = &param.ty {
+                        inner_borrow.insert(name.clone(), ty.clone());
+                        inner_orig.insert(name, ty.clone());
+                    } else {
+                        inner_borrow.remove(&name);
+                        inner_orig.remove(&name);
+                    }
                 }
                 Expr::Closure(
                     params.clone(),
                     Box::new(self.rewrite_expr_own(
                         body,
                         &mut inner_borrow,
-                        orig_env,
+                        &inner_orig,
                         copy_generics,
                         scope,
                     )),
@@ -2066,8 +2133,16 @@ impl BorrowContext {
             }
             Expr::TypedClosure(params, return_type, body, is_move) => {
                 let mut inner_borrow = borrow_env.clone();
+                let mut inner_orig = orig_env.clone();
                 for param in params {
-                    inner_borrow.remove(&closure_param_name(param));
+                    let name = closure_param_name(param);
+                    if let Some(ty) = &param.ty {
+                        inner_borrow.insert(name.clone(), ty.clone());
+                        inner_orig.insert(name, ty.clone());
+                    } else {
+                        inner_borrow.remove(&name);
+                        inner_orig.remove(&name);
+                    }
                 }
                 Expr::TypedClosure(
                     params.clone(),
@@ -2075,7 +2150,7 @@ impl BorrowContext {
                     Box::new(self.rewrite_expr_own(
                         body,
                         &mut inner_borrow,
-                        orig_env,
+                        &inner_orig,
                         copy_generics,
                         scope,
                     )),
@@ -2459,14 +2534,16 @@ impl BorrowContext {
                         | "usize"
                         | "f32"
                         | "f64"
-                ) || self.copy_types.contains(name)
+                ) || self.inferred_copy_types.contains(name)
+                    || self.source_copy_types.contains(name)
                     || copy_generics.contains(name)
             }
             Type::Generic(name, params) => {
                 let leaf = type_name_leaf(name);
                 leaf == "PhantomData"
                     || self.unconditional_copy_types.contains(leaf)
-                    || (self.copy_types.contains(leaf)
+                    || ((self.inferred_copy_types.contains(leaf)
+                        || self.source_copy_types.contains(leaf))
                         && params.iter().all(|p| self.is_copy(p, copy_generics)))
             }
             Type::Tuple(types) => types.iter().all(|t| self.is_copy(t, copy_generics)),
@@ -3814,7 +3891,7 @@ fn split_top_level_commas(input: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{optimize_copy, optimize_mut, parse_rust_source};
+    use crate::{optimize_copy, optimize_last_use, parse_rust_source};
     use rustlightast::RustCodeGenerator;
 
     fn named(name: &str) -> Type {
@@ -3937,7 +4014,8 @@ mod tests {
 
     fn empty_ctx() -> BorrowContext {
         BorrowContext {
-            copy_types: HashSet::new(),
+            inferred_copy_types: HashSet::new(),
+            source_copy_types: HashSet::new(),
             materialized_copy_types: HashSet::new(),
             unconditional_copy_types: HashSet::new(),
             materialized_unconditional_copy_types: HashSet::new(),
@@ -4111,9 +4189,9 @@ where
         };
         assert!(!is_reference_type(&function.params[0].ty));
 
-        // Borrow analysis only consults the move opportunity. M-LastUse performs
+        // Borrow analysis only consults the move opportunity. Last-Use performs
         // the actual rewrite later, once the parameter has remained owned.
-        optimize_mut(&mut module);
+        optimize_last_use(&mut module);
         let mut generator = RustCodeGenerator::new();
         let printed = generator.generate_module_code(&module);
         assert!(!printed.contains("v.clone()"));
@@ -4164,10 +4242,10 @@ where
         };
         assert!(is_reference_type(&nth.params[0].ty));
 
-        // M-LastUse must not turn the selected `&A` into a move. The returned
+        // Last-Use must not turn the selected `&A` into a move. The returned
         // element is still cloned, while neither recursive traversal nor the
         // caller clones the complete list.
-        optimize_mut(&mut module);
+        optimize_last_use(&mut module);
         let mut generator = RustCodeGenerator::new();
         let printed = generator.generate_module_code(&module);
         assert!(printed.contains("pub fn nth<A>(x0: &List<A>, n: usize) -> A"));
@@ -4662,6 +4740,34 @@ pub fn observe(x: Small) -> bool {
 }
 "#;
         let mut module = parse_rust_source(source, "Test").expect("source parses");
+        let inferred_copy_types = optimize_copy(&mut module).inferred_copy_types;
+        optimize_borrow(&mut module, &inferred_copy_types);
+
+        let Item::Function(observe) = module
+            .items
+            .iter()
+            .find(|item| matches!(item, Item::Function(function) if function.name == "observe"))
+            .expect("observe function")
+        else {
+            unreachable!()
+        };
+        assert!(!is_reference_type(&observe.params[0].ty));
+    }
+
+    #[test]
+    fn copy_ablation_retains_source_copy_facts_for_borrow() {
+        let source = r#"
+#[derive(Clone, Copy)]
+pub enum Small { No, Yes }
+
+pub fn observe(x: Small) -> bool {
+    match x { Small::No => false, Small::Yes => true }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+
+        // This is the downstream state used by --disable-copy: no inferred
+        // facts are passed in, but the source derive remains valid.
         optimize_borrow(&mut module, &HashSet::new());
 
         let Item::Function(observe) = module
@@ -4676,7 +4782,7 @@ pub fn observe(x: Small) -> bool {
     }
 
     #[test]
-    fn copy_ablation_does_not_reinfer_small_copy_values_for_borrow() {
+    fn copy_ablation_does_not_reconstruct_an_inferred_copy_fact() {
         let source = r#"
 #[derive(Clone)]
 pub enum Small { No, Yes }
@@ -4687,9 +4793,6 @@ pub fn observe(x: Small) -> bool {
 "#;
         let mut module = parse_rust_source(source, "Test").expect("source parses");
 
-        // This is the downstream state used by --disable-copy: no inferred
-        // Copy facts are passed in, and the source itself does not implement
-        // Copy for Small.
         optimize_borrow(&mut module, &HashSet::new());
 
         let Item::Function(observe) = module
@@ -4771,8 +4874,8 @@ pub fn keep(x: Large) -> Large {
 }
 "#;
         let mut module = parse_rust_source(source, "Test").expect("source parses");
-        let copy_types = optimize_copy(&mut module).copy_types;
-        optimize_borrow(&mut module, &copy_types);
+        let inferred_copy_types = optimize_copy(&mut module).inferred_copy_types;
+        optimize_borrow(&mut module, &inferred_copy_types);
 
         let Item::Function(keep) = module
             .items
@@ -4788,6 +4891,31 @@ pub fn keep(x: Large) -> Large {
         let printed = generator.generate_module_code(&module);
         assert!(printed.contains("match x"));
         assert!(!printed.contains("match x.clone()"));
+    }
+
+    #[test]
+    fn typed_closure_match_uses_the_closure_parameter_type() {
+        let source = r#"
+#[derive(Clone)]
+pub enum Small { First, Second }
+
+pub fn keep(x: Small) -> Small {
+    (move |y: Small| {
+        match y.clone() {
+            Small::First => y,
+            Small::Second => y,
+        }
+    })(x)
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        let inferred_copy_types = optimize_copy(&mut module).inferred_copy_types;
+        optimize_borrow(&mut module, &inferred_copy_types);
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("match y"));
+        assert!(!printed.contains("match y.clone()"));
     }
 
     #[test]

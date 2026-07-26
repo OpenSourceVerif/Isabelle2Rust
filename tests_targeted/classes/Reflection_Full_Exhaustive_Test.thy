@@ -1,5 +1,5 @@
 theory Reflection_Full_Exhaustive_Test
-  imports "HOL.Quickcheck_Exhaustive" "Rust.Rust_Setup"
+  imports "HOL.Quickcheck_Exhaustive" "Rust.Rust_Base_Setup"
 begin
 
 (* hol-stress guidance test (Generate.thy: String.rs `FullExhaustive for Char`,

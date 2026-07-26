@@ -1,5 +1,5 @@
 theory AlgebraicStructure_Test
-imports Main "HOL-Library.Monad_Syntax" "Rust.Rust_Setup"
+imports Main "HOL-Library.Monad_Syntax" "Rust.Rust_Base_Setup"
 begin
 
 (* Cleaned for the Rust export suite. The original theory did not elaborate

@@ -1,9 +1,0 @@
-{
-  "Case-study baseline": 20,
-  "OCaml baseline": 20,
-  "Stage-1": 1,
-  "Stage-2 Full": 20,
-  "Stage-2 minus Borrow": 20,
-  "Stage-2 minus Copy": 20,
-  "Stage-2 minus Mut": 1
-}

@@ -1,5 +1,5 @@
 theory Phantom_Expected_Type_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* A phantom datatype constructor carries no ordinary field from which Rust can

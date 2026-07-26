@@ -1,5 +1,5 @@
 theory Codatatype_Recursive_Field_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* A recursive codatatype field is represented by Box in Rust.  The tail of

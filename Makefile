@@ -1,8 +1,8 @@
-.PHONY: open open_test build build_silent code gen opt test targeted hol-gcd hol-stress kloc clippy macro_sbpf micro_sbpf micro_sbpf_gen x64 x64-rust-export x64-gen x64-test x64_gen x64_test clean help
+.PHONY: open open_test build build_silent code gen opt test targeted hol-gcd hol-stress kloc clippy macro_sbpf micro_sbpf micro_sbpf_gen x64 x64-rust-export x64-gen x64-test x64-performance x64_gen x64_test clean help
 
 #### Configuration ####
 
-DEFAULT_FILE := $(CURDIR)/Rust_Setup.thy
+DEFAULT_FILE := $(CURDIR)/Rust_Base_Setup.thy
 PROJECT_SESSION := Rust
 TEST_SESSION    := Rust
 TEST_ROOT_DIR   := test-root
@@ -17,6 +17,7 @@ ISABELLE_CARGO         ?= $(HOME)/.cargo/bin/cargo
 OCAMLC                 ?= ocamlc
 OCAMLFIND              ?= ocamlfind
 ISABELLE_EXPORTED_LOCK := $(CURDIR)/scripts/isabelle-exported.Cargo.lock
+CARGO_LOCK_HELPER      := $(CURDIR)/scripts/ensure-cargo-lock.py
 OPTIMIZE_DIR           := $(CURDIR)/optimize
 OPT_STACK_KB            ?= 65536
 EXPORT_ITEM_COUNTER    := $(CURDIR)/scripts/count-rust-export-items.pl
@@ -30,7 +31,7 @@ ISABELLE_TEST_SILENT   := isabelle build -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
 
 export ISABELLE_CARGO
 
-WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = $(TEST_TIMEOUT)]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "$(TEST_DIR)"' '  theories [document = false]' '    Rust_Setup' '    Rust_BigInt_Int_Setup' '    Rust_BigInt_Nat_Setup' '    Rust_Native_Int_Setup' '    Rust_Native_Nat_Setup' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
+WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = $(TEST_TIMEOUT)]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "$(TEST_DIR)"' '  theories [document = false]' '    Rust_Base_Setup' '    Rust_Integer_BigInt_Layer' '    Rust_BigInt_Setup' '    Rust_Integer_Hybrid128_Layer' '    Rust_Hybrid128_Setup' '    Rust_Checked128_Setup' '    Rust_BigInt_WordU128_Setup' '    Rust_Hybrid128_WordU128_Setup' '    Rust_Checked128_WordU128_Setup' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
 
 #### Targets ####
 
@@ -88,10 +89,7 @@ gen:
 	  manifests=$$(find "$$out" -maxdepth 2 -type f -name Cargo.toml | sort); \
 	  if [ -z "$$manifests" ]; then echo "No Cargo.toml under $$out"; return 1; fi; \
 	  for m in $$manifests; do \
-	    local pkg_dir=$$(dirname "$$m"); \
-	    if [ ! -f "$$pkg_dir/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
-	      cp "$(ISABELLE_EXPORTED_LOCK)" "$$pkg_dir/Cargo.lock"; \
-	    fi; \
+	    CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$m" "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
 	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked --manifest-path "$$m" || return 1; \
 	  done; \
 	}; \
@@ -181,11 +179,8 @@ opt:
 	    (ulimit -s "$(OPT_STACK_KB)"; \
 	      $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
 	        "$$s1" --out-dir "$$s2") || return 1; \
-	    if [ ! -f "$$s2/Cargo.lock" ]; then \
-	      if   [ -f "$$s1/Cargo.lock" ];           then cp "$$s1/Cargo.lock" "$$s2/Cargo.lock"; \
-	      elif [ -f "$(ISABELLE_EXPORTED_LOCK)" ];  then cp "$(ISABELLE_EXPORTED_LOCK)" "$$s2/Cargo.lock"; \
-	      fi; \
-	    fi; \
+	    CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$s2/Cargo.toml" \
+	      "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
 	    echo ">>> [opt] cargo build stage2: $$name/$$export_name"; \
 	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
 	      --manifest-path "$$s2/Cargo.toml" || return 1; \
@@ -261,11 +256,8 @@ test:
 	    (ulimit -s "$(OPT_STACK_KB)"; \
 	      $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
 	        "$$s1" --out-dir "$$s2") || return 1; \
-	    if [ ! -f "$$s2/Cargo.lock" ]; then \
-	      if   [ -f "$$s1/Cargo.lock" ];           then cp "$$s1/Cargo.lock" "$$s2/Cargo.lock"; \
-	      elif [ -f "$(ISABELLE_EXPORTED_LOCK)" ];  then cp "$(ISABELLE_EXPORTED_LOCK)" "$$s2/Cargo.lock"; \
-	      fi; \
-	    fi; \
+	    CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$s2/Cargo.toml" \
+	      "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
 	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
 	      --manifest-path "$$s2/Cargo.toml" || return 1; \
 	  done; \
@@ -336,10 +328,7 @@ targeted:
 	  manifests=$$(find "$$out" -maxdepth 2 -type f -name Cargo.toml | sort); \
 	  if [ -z "$$manifests" ]; then echo "No Cargo.toml under $$out"; return 1; fi; \
 	  for m in $$manifests; do \
-	    local pkg_dir=$$(dirname "$$m"); \
-	    if [ ! -f "$$pkg_dir/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
-	      cp "$(ISABELLE_EXPORTED_LOCK)" "$$pkg_dir/Cargo.lock"; \
-	    fi; \
+	    CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$m" "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
 	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked --manifest-path "$$m" || return 1; \
 	  done; \
 	}; \
@@ -390,10 +379,7 @@ hol-gcd:
 	  echo "ERROR: Cargo.toml not found at $$CARGO_TOML"; \
 	  exit 1; \
 	fi; \
-	package_dir=$$(dirname "$$CARGO_TOML"); \
-	if [ ! -f "$$package_dir/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
-	  cp "$(ISABELLE_EXPORTED_LOCK)" "$$package_dir/Cargo.lock"; \
-	fi; \
+	CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$CARGO_TOML" "$(ISABELLE_EXPORTED_LOCK)" || exit 1; \
 	RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) run --locked --manifest-path "$$CARGO_TOML"
 
 # Both stress theories use `export_code _ in Rust`.  The session exports the
@@ -411,10 +397,7 @@ hol-stress:
 	    echo "ERROR: no exported Cargo.toml under $$ROOT"; \
 	    exit 1; \
 	  fi; \
-	  PKG_DIR=$$(dirname "$$MANIFEST"); \
-	  if [ ! -f "$$PKG_DIR/Cargo.lock" ] && [ -f "$(ISABELLE_EXPORTED_LOCK)" ]; then \
-	    cp "$(ISABELLE_EXPORTED_LOCK)" "$$PKG_DIR/Cargo.lock"; \
-	  fi; \
+	  CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$MANIFEST" "$(ISABELLE_EXPORTED_LOCK)" || exit 1; \
 	  echo ">>> Cargo-checking HOL stress export: $$THEORY"; \
 	  RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked --manifest-path "$$MANIFEST" || exit 1; \
 	done
@@ -459,6 +442,7 @@ X64_STEPPER_C       := $(X64_VALIDATION)/4-x64-stepper-c
 X64_SEMANTICS       := $(X64_VALIDATION)/5-exec-semantics
 X64_RUST_EXPORT     := $(X64_VALIDATION)/run_rust_export.py
 X64_RUST_VALIDATION := $(X64_VALIDATION)/run_rust_validation.py
+X64_PERFORMANCE     := $(X64_SEMANTICS)/run.py
 X64_COUNT           ?= 10000
 X64_ISABELLE_THREADS ?= 1
 X64_ISABELLE_TIMEOUT ?= 1200
@@ -505,6 +489,12 @@ x64_test: x64-test
 
 x64: x64-gen x64-test
 
+# RQ3 performance matrix for the x64 semantics only.  It reuses the fixed
+# OCaml stepper export and existing step4 CPU observations; the encoder is
+# neither exported nor executed by this target.
+x64-performance:
+	@PYTHONDONTWRITEBYTECODE=1 RUST_TOOLCHAIN=stable python3 $(X64_PERFORMANCE)
+
 clean:
 	@echo "Cleaning temp files and generated output..."
 	find . -name "*\.thy~" -exec rm {} \;
@@ -528,6 +518,7 @@ clean:
 	# products.  Fixed OCaml files and 0-data vectors are intentionally retained.
 	rm -rf tests_x64/theory/stage1/x64EncodeRustGenerator tests_x64/theory/stage1/x64StepRustGenerator
 	rm -rf tests_x64/x64-validation/_build
+	rm -rf tests_x64/theory/performance
 	rm -rf tests_x64/x64-validation/1-x64-ins-gen/target tests_x64/x64-validation/3-x64-map-gen/target
 	rm -rf optimize/tests/stage1 optimize/tests/stage2
 	rm -rf tests_HOL/Hol_Test/target
@@ -544,6 +535,9 @@ help:
 	@echo "      Export and compile the untouched Rust x64_encode/x64_step_test crates."
 	@echo "  x64-gen / x64-test / x64"
 	@echo "      Cross-check raw Rust exports against fixed OCaml output and the x64 CPU."
+	@echo "  x64-performance"
+	@echo "      Run the seven-implementation RQ3 x64-stepper performance matrix."
+	@echo "      Reuses step4.json and does not regenerate or execute the encoder."
 	@echo "  build TEST_DIR=<dir> TEST_THEORY=<thy-name>"
 	@echo "      Generate test-root/ROOT and run isabelle build (verbose)."
 	@echo "      Example: make build TEST_DIR=test/unit/mapping TEST_THEORY=Lists_Test"

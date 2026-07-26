@@ -1,6 +1,8 @@
 open Interp_test
 open Yojson.Safe.Util
 
+external monotonic_seconds : unit -> float = "i2r_monotonic_seconds"
+
 type raw_case = {
   name : string;
   lp : int64 list;
@@ -92,9 +94,9 @@ let () =
         run_workload ();
         (0., Gc.allocated_bytes () -. before_alloc)
       end else begin
-        let started = Unix.gettimeofday () in
+        let started = monotonic_seconds () in
         run_workload ();
-        (Unix.gettimeofday () -. started, 0.)
+        (monotonic_seconds () -. started, 0.)
       end
     in
     if !failures <> 0 then failwith "timed OCaml SBPF-program validation failed";

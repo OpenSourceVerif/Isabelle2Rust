@@ -1,5 +1,5 @@
 theory Rbt_Balance_Move_Test
-  imports "HOL-Library.RBT_Impl" "Rust.Rust_Setup"
+  imports "HOL-Library.RBT_Impl" "Rust.Rust_Base_Setup"
 begin
 
 (* hol-stress guidance test (Generate.thy: RBT_Impl.rs `balance` -- E0382

@@ -1,6 +1,6 @@
 theory Type_Func_Poly_Test
   imports   
-    Main "Rust.Rust_Setup"
+    Main "Rust.Rust_Base_Setup"
 begin
 
 fun apply_twice :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a \<Rightarrow> 'a" where

@@ -1,5 +1,5 @@
 theory Curry_HO_Fold_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Curry/uncurry consistency, facet 1: a higher-order combinator whose callback

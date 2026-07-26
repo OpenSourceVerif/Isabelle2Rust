@@ -2,7 +2,7 @@ section "Arithmetic and Boolean Expressions"
 
 subsection "Arithmetic Expressions"
 
-theory AExp_Test imports Main "Rust.Rust_Setup"
+theory AExp_Test imports Main "Rust.Rust_Base_Setup"
 begin
 
 type_synonym vname = string

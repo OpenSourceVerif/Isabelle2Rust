@@ -1,5 +1,5 @@
 theory Predicate_Partial_Match_Closure_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Predicate compilation represents each rule branch as a function returning a

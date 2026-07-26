@@ -1,7 +1,7 @@
 theory High_Level_Mapping_Test
   imports
     Main
-    "Rust.Rust_BigInt_Nat_Setup"
+    "Rust.Rust_BigInt_Setup"
 begin
 
 definition nat_branch :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat" where

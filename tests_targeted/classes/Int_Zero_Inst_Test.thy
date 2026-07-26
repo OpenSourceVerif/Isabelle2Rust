@@ -1,5 +1,5 @@
 theory Int_Zero_Inst_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* `0::int` is registered as a code_datatype constructor for int

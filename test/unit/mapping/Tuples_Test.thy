@@ -1,5 +1,5 @@
 theory Tuples_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Product types and Pair constructors are printed as Rust tuple syntax. *)

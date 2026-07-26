@@ -1,5 +1,5 @@
 theory Rbt_Conditional_Function_Test
-  imports "HOL-Library.RBT_Impl" "Rust.Rust_Setup"
+  imports "HOL-Library.RBT_Impl" "Rust.Rust_Base_Setup"
 begin
 
 (* hol-stress guidance test (Generate.thy: RBT_Impl.rs `rbt_union_rec` and

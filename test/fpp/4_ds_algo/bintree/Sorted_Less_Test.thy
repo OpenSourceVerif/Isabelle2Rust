@@ -3,7 +3,7 @@
 section \<open>Lists Sorted wrt $<$\<close>
 
 theory Sorted_Less_Test
-imports Less_False_Test "Rust.Rust_Setup"
+imports Less_False_Test "Rust.Rust_Base_Setup"
 begin
 
 hide_const sorted

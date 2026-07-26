@@ -55,14 +55,14 @@ for programs and 2.092x faster for instructions. Its program median is 1.405x
 faster than the retained OCaml median; its instruction rate is 10.158x the
 retained OCaml rate, subject to the corpus qualification above.
 
-`Rust_Native_Int_Setup.thy` maps Isabelle integers to
-`Small(i128) | Big(Box<BigInt>)`; `Rust_Native_Nat_Setup.thy` analogously uses
+`Rust_Hybrid128_Setup.thy` maps Isabelle integers to
+`Small(i128) | Big(Box<BigInt>)` and natural numbers to
 `Small(u128) | Big(Box<BigUint>)`. Checked primitive operations promote only on
-overflow, and arbitrary-precision results demote when they fit again. The
-native Word setup consumes the small variants directly and performs BigInt
-modulo only at a big-value conversion boundary. These are selectable Stage-1
-representation mappings; the generated modules still pass through the normal
-Stage-2 optimizer.
+overflow, and arbitrary-precision results demote when they fit again.
+`Rust_Hybrid128_WordU128_Setup.thy` adds the matching Word layer, which consumes
+the small variants directly and performs BigInt modulo only at a big-value
+conversion boundary. These are selectable Stage-1 representation mappings;
+the generated modules still pass through the normal Stage-2 optimizer.
 
 Release-symbol inspection of the combined instruction binary found no
 `Rust_Word::width`, `Rust_Word::mask`, `WordWidth::len_of`, or
@@ -171,7 +171,7 @@ generated interpreters retain the functional semantics and their checks.
 
 ### Unadapted Isabelle integers
 
-`theory/bpf_generator_no_bigint.thy` imports `Rust.Rust_Setup` without the
+`theory/bpf_generator_no_bigint.thy` imports `Rust.Rust_Base_Setup` without the
 BigInt setup theories. It generates structural `Int` and `Num` datatypes and a
 Peano `Nat` rather than `num_bigint::BigInt`.
 
@@ -204,13 +204,14 @@ functional correctness after the match compiler fix, but it remains essential
 for a compact and practically executable baseline. Timing the structural
 variant as an optimization would still be misleading.
 
-### Direct BigInt shifts
+### Direct BigInt bit operations
 
-The current Stage-2 pipeline includes `bigint_shift` by default. It keeps the
-`BigInt` representation but lowers the concrete `SemiringBitOperations for
-BigInt` implementations of `push_bit`, `drop_bit`, and `mask` to native shifts
-and a shifted mask. Therefore the current Stage-2 rows above already contain
-this lowering, and there is no separate BigInt-shift experiment column.
+The optimizer retains a standalone `bigint_bit_operations` implementation that lowers
+the concrete `SemiringBitOperations for BigInt` implementations of `push_bit`,
+`drop_bit`, and `mask` to native shifts and a shifted mask. The current
+`cargo-opt` and evaluation pipelines do not invoke this pass. Historical rows
+in this document that predate the pipeline change may include the lowering;
+the current paper-facing Stage-2 matrix does not.
 
 ### Administrative closure eta-reduction
 
@@ -247,7 +248,7 @@ adapter.
 ### Stage-1 u128 word adapter
 
 The earlier `u64` design was rejected because signed and unsigned high-half
-multiplication require a 128-bit intermediate. `Rust_U128_Word_Setup.thy`
+multiplication require a 128-bit intermediate. `Rust_BigInt_WordU128_Setup.thy`
 instead maps Isabelle words to `RustWord<W>` with a `u128` payload and a
 `PhantomData<W>` width marker. It masks constructions and arithmetic to the
 Isabelle type-level width, while conversions to and from `int` and `nat` remain
@@ -285,10 +286,11 @@ while the full program interpreter remains 1.772 times slower.
 
 ## Implemented adapter
 
-`Rust_U128_Word_Setup.thy` is a selectable Stage-1 setup registered in `ROOT`.
+`Rust_BigInt_WordU128_Setup.thy` is a selectable Stage-1 setup registered in `ROOT`.
 It supports widths from 1 through 128 bits and covers construction, conversion,
 wrapping arithmetic, division and remainder, unsigned and signed comparison,
 bitwise operations, shifts, bit updates and tests, casts, and the 128-bit
 intermediate used by the 64-bit high-half multiplication paths. Isabelle `int`
-and `nat` remain `BigInt`, and the default Stage-2 BigInt shift lowering composes
-with this representation change without adding another experiment column.
+and `nat` remain `BigInt`. The retained standalone BigInt bit-operation lowering can
+still be applied independently, but it is disabled in the current Stage-2
+evaluation pipeline.

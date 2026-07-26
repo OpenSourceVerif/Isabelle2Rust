@@ -2,7 +2,7 @@
 section \<open>Bubblesort\<close>
 
 theory Bubblesort_Test
-imports "HOL-Library.Multiset" "Rust.Rust_Setup"
+imports "HOL-Library.Multiset" "Rust.Rust_Base_Setup"
 begin
 
 text\<open>This is \emph{a} version of bubblesort.\<close>

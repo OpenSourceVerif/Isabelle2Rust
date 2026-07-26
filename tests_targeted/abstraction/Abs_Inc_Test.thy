@@ -1,5 +1,5 @@
 theory Abs_Inc_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 definition inc :: "int \<Rightarrow> int" where

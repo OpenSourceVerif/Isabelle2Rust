@@ -1,5 +1,5 @@
 theory MutChains_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Adjacent shadowed bindings form local mutable handoff chains. *)

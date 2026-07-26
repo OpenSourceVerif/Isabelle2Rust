@@ -1,5 +1,5 @@
 theory Constructors_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 datatype bitnum = One | Bit0 bitnum | Bit1 bitnum

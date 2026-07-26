@@ -1,8 +1,8 @@
 theory Booleans_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
-(* Rust_Setup maps HOL bools, connectives, and conditionals to Rust bool code. *)
+(* Rust_Base_Setup maps HOL bools, connectives, and conditionals to Rust bool code. *)
 
 definition bool_not :: "bool \<Rightarrow> bool" where
   "bool_not b = (\<not> b)"

@@ -1,5 +1,5 @@
 theory BigInt_Divmod_Dispatch_Test
-  imports Main "Rust.Rust_BigInt_Nat_Setup"
+  imports Main "Rust.Rust_BigInt_Setup"
 begin
 
 (* hol-stress guidance test (Generate.thy: Arith.rs `divmod` implementation --

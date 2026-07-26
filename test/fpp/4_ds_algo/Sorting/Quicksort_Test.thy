@@ -2,7 +2,7 @@
 section \<open>Quicksort with function package\<close>
 
 theory Quicksort_Test
-imports "HOL-Library.Multiset" "Rust.Rust_Setup"
+imports "HOL-Library.Multiset" "Rust.Rust_Base_Setup"
 begin
 
 context linorder

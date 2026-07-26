@@ -47,9 +47,15 @@ class ExportSpec:
         return self.export_root / self.crate
 
 
-EXPORTS = (
+CORRECTNESS_EXPORTS = (
     ExportSpec("x64EncodeRustGenerator", "x64_encode", "X64_encode.rs"),
     ExportSpec("x64StepRustGenerator", "x64_step_test", "X64_step_test.rs"),
+)
+
+PERFORMANCE_EXPORTS = (
+    ExportSpec(
+        "x64StepRustPerformanceGenerator", "x64_step_test", "X64_step_test.rs"
+    ),
 )
 
 
@@ -217,6 +223,24 @@ def compile_export(spec: ExportSpec, cargo: list[str]) -> bool:
     env["RUSTC_BOOTSTRAP"] = "1"
     env["RUSTFLAGS"] = "-Awarnings"
     manifest = spec.crate_dir / "Cargo.toml"
+    # The shared lockfile pins every optional generated-code dependency.  Trim
+    # it offline to the dependencies selected by this export: Checked128 has
+    # none, whereas the BigInt profiles retain the pinned entries.
+    if (
+        run(
+            cargo
+            + [
+                "generate-lockfile",
+                "--offline",
+                "--manifest-path",
+                str(manifest),
+            ],
+            cwd=ROOT,
+            env=env,
+        )
+        != 0
+    ):
+        return False
     announce("raw Cargo build", rel(manifest))
     return (
         run(
@@ -229,6 +253,10 @@ def compile_export(spec: ExportSpec, cargo: list[str]) -> bool:
 
 
 def main() -> int:
+    if len(sys.argv) > 2 or (len(sys.argv) == 2 and sys.argv[1] != "performance"):
+        print("usage: run_rust_export.py [performance]")
+        return 2
+    exports = PERFORMANCE_EXPORTS if len(sys.argv) == 2 else CORRECTNESS_EXPORTS
     rebuild = os.environ.get("REBUILD") == "1"
     cargo = cargo_command()
     if run(cargo + ["--version"], cwd=ROOT) != 0:
@@ -245,7 +273,7 @@ def main() -> int:
     if not check_isabelle_environment(isabelle_env):
         return 2
     passed = 0
-    for spec in EXPORTS:
+    for spec in exports:
         if not ensure_export(spec, rebuild=rebuild, isabelle_env=isabelle_env):
             print(f"ERROR: Rust export failed for {spec.theory}")
             break
@@ -254,7 +282,7 @@ def main() -> int:
             break
         passed += 1
 
-    failed = len(EXPORTS) - passed
+    failed = len(exports) - passed
     print("\n========================================")
     print("x64 raw Rust export summary")
     print(f"  Passed: {passed}")

@@ -16,6 +16,8 @@ use rustlightast::{
     TypeAlias, UnionDef, UseKind, UseStatement, Variant, Visibility,
 };
 
+pub const TYPE_FACT_ONLY_DOC: &str = "@isabelle2rust-type-fact-only";
+
 pub fn parse_rust_source(source: &str, module_name: impl Into<String>) -> syn::Result<RustModule> {
     let file = parse_file(source)?;
     convert_file(file, module_name.into())
@@ -24,7 +26,8 @@ pub fn parse_rust_source(source: &str, module_name: impl Into<String>) -> syn::R
 /// Recover package-wide type facts even when an unsupported function body
 /// prevents conversion of the complete source file.  These fact-only modules
 /// are never printed; they let Copy and Borrow observe datatype declarations,
-/// imports, aliases, and explicit `impl Copy` declarations in adapter modules.
+/// imports, aliases, function signatures, and explicit `impl Copy`
+/// declarations in adapter modules.
 pub fn parse_rust_type_facts(
     source: &str,
     module_name: impl Into<String>,
@@ -48,6 +51,7 @@ fn convert_type_fact_item(item: &SynItem) -> Option<Item> {
         SynItem::Struct(_) | SynItem::Enum(_) | SynItem::Type(_) | SynItem::Use(_) => {
             convert_item(item).ok()
         }
+        SynItem::Fn(item_fn) => convert_function_type_fact(item_fn).map(Item::Function),
         SynItem::Impl(item_impl)
             if item_impl
                 .trait_
@@ -68,6 +72,29 @@ fn convert_type_fact_item(item: &SynItem) -> Option<Item> {
         }),
         _ => None,
     }
+}
+
+fn convert_function_type_fact(item_fn: &syn::ItemFn) -> Option<FunctionDef> {
+    Some(FunctionDef {
+        name: item_fn.sig.ident.to_string(),
+        params: item_fn
+            .sig
+            .inputs
+            .iter()
+            .map(convert_fn_arg)
+            .collect::<syn::Result<Vec<_>>>()
+            .ok()?,
+        return_type: convert_return_type(&item_fn.sig.output).ok()?,
+        generics: convert_generics(&item_fn.sig.generics),
+        body: Block {
+            stmts: Vec::new(),
+            expr: None,
+        },
+        asyncness: item_fn.sig.asyncness.is_some(),
+        vis: convert_visibility(&item_fn.vis),
+        docs: vec![TYPE_FACT_ONLY_DOC.to_string()],
+        attrs: Vec::new(),
+    })
 }
 
 pub fn parse_and_print_rust_source(

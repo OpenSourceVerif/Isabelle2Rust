@@ -1,5 +1,5 @@
 theory SortBounds_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Source sorts with several classes become multiple Rust trait bounds. *)

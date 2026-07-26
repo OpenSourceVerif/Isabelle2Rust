@@ -1,8 +1,7 @@
 theory bpf_generator_word_native
   imports
     Main Interpreter rBPFSyntax vm_state rBPFCommType
-    "Rust.Rust_Setup"
-    "Rust.Rust_U128_Word_Native_Setup"
+    "Rust.Rust_Hybrid128_WordU128_Setup"
 begin
 
 text \<open>

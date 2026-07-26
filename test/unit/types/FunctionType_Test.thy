@@ -1,5 +1,5 @@
 theory FunctionType_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 fun apply_twice_int :: "(int \<Rightarrow> int) \<Rightarrow> int \<Rightarrow> int" where

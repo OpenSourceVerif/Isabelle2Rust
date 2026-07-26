@@ -1,5 +1,5 @@
 theory Tuple_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 fun make_tuple3 :: "'a \<Rightarrow> 'b \<Rightarrow> 'c \<Rightarrow> 'a \<times> 'b \<times> 'c" where

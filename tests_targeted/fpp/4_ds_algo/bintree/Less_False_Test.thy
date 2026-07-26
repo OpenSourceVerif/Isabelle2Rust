@@ -3,7 +3,7 @@
 section \<open>Improved Simproc for $<$\<close>
 
 theory Less_False_Test
-imports Main "Rust.Rust_Setup"
+imports Main "Rust.Rust_Base_Setup"
 begin
 
 simproc_setup less_False ("(x::'a::order) < y") = \<open>fn _ => fn ctxt => fn ct =>

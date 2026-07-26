@@ -1,8 +1,7 @@
 theory bpf_generator_native_interp
   imports
     Main Interpreter rBPFSyntax vm_state rBPFCommType
-    "Rust.Rust_Setup"
-    "Rust.Rust_Native_Nat_Setup"
+    "Rust.Rust_Hybrid128_Setup"
 begin
 
 text \<open>sBPF interpreter export using the hybrid native integer adapter.\<close>

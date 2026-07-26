@@ -1,5 +1,5 @@
 theory PatternDispatch_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Refutable left-hand-side patterns are compiled into match dispatch. *)

@@ -1,12 +1,12 @@
 theory Equal_Pair_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* REGRESSION — `HOL.equal` on a tuple / `prod` (now FIXED, exports + compiles).
 
    Trigger: comparing a pair with `=` forces the code generator to emit the
    `equal :: prod ⇒ prod ⇒ bool` instance (`equal_prod`). `prod`/`Pair` are
-   registered in `Rust_Setup.thy` only as the mixfix templates
+   registered in `Rust_Base_Setup.thy` only as the mixfix templates
    `type_constructor prod ⇀ "( _ , _ )"` and `constant Pair ⇀ "( _ , _ )"`
    (Rust has no nominal Pair constructor), so the instance must be reconstructed
    as `impl<A: Equal, B: Equal> Equal for (A, B)`.

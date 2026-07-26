@@ -1,6 +1,6 @@
 theory bpf_generator_no_bigint
   imports Main Interpreter rBPFSyntax vm_state rBPFCommType
-    "Rust.Rust_Setup"
+    "Rust.Rust_Base_Setup"
 begin
 
 (* Experimental baseline: retain Isabelle's generated integer/natural-number

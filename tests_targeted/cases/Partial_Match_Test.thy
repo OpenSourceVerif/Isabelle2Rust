@@ -1,5 +1,5 @@
 theory Partial_Match_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* A PARTIAL HOL function: no equation for the empty list. HOL allows this (the

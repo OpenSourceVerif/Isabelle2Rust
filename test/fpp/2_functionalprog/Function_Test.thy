@@ -1,5 +1,5 @@
 theory Function_Test
-  imports HOL.Fun Main "Rust.Rust_Setup"
+  imports HOL.Fun Main "Rust.Rust_Base_Setup"
 begin
 
 (* Cleaned for the Rust export suite. The original theory failed to elaborate

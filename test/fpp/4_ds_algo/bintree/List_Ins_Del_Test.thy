@@ -3,7 +3,7 @@
 section \<open>List Insertion and Deletion\<close>
 
 theory List_Ins_Del_Test
-imports Sorted_Less_Test "Rust.Rust_Setup"
+imports Sorted_Less_Test "Rust.Rust_Base_Setup"
 begin
 
 subsection \<open>Elements in a list\<close>

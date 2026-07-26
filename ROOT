@@ -3,13 +3,15 @@ session Rust = Main +
   sessions
     "HOL-Library"
   theories
-    Rust_Setup
-    Rust_BigInt_Int_Setup
-    Rust_BigInt_Nat_Setup
-    Rust_Native_Int_Setup
-    Rust_Native_Nat_Setup
-    Rust_U128_Word_Setup
-    Rust_U128_Word_Native_Setup
+    Rust_Base_Setup
+    Rust_Integer_BigInt_Layer
+    Rust_BigInt_Setup
+    Rust_Integer_Hybrid128_Layer
+    Rust_Hybrid128_Setup
+    Rust_Checked128_Setup
+    Rust_BigInt_WordU128_Setup
+    Rust_Hybrid128_WordU128_Setup
+    Rust_Checked128_WordU128_Setup
 
 session "Rust-HOL-Codegenerator_Test" in "test/HOL_Codegenerator" = "HOL-Library" +
   description "Rust stress test session for a broad HOL code-generator export"

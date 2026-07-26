@@ -1,5 +1,5 @@
 theory Copy_Nat_NonCopy_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* ── Unit test: nat fields block Copy inference ──────────────────────────────

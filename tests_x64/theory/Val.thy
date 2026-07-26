@@ -391,9 +391,10 @@ definition mulhu64 :: "val \<Rightarrow> val \<Rightarrow> val" where
 "mulhu64 v1 v2 = (
   case v1 of Vlong w1 \<Rightarrow> ( 
     case v2 of Vlong w2 \<Rightarrow> 
-      let prod128 = (uint w1) * (uint w2) in     
-      let  hi64    = prod128 div (2 ^ 64) in  
-      (Vlong (word_of_int hi64))|
+      let prod128 = ((ucast w1)::u128) * (ucast w2) in
+      let hi64_word128 = prod128 >> 64 in
+      let hi64 = ucast hi64_word128 :: u64 in
+      Vlong hi64 |
     _ \<Rightarrow> Vundef
     )
   | _ \<Rightarrow> Vundef

@@ -84,7 +84,11 @@ Isabelle2Rust/optimize/
 │   │   └── cargo-opt.rs         # cargo-opt command-line tool
 │   ├── lib.rs
 │   ├── rustlight_parser.rs      # Rust source code -> RustLightAST
-│   └── copy_analysis.rs         # Copy analysis and clone optimization
+│   ├── borrow_analysis.rs       # shared-borrow inference
+│   ├── last_use_analysis.rs     # last-use clone elimination
+│   ├── copy_analysis.rs         # Copyability recovery
+│   ├── mut_analysis.rs          # M-Shadow/M-Mut recovery
+│   └── *_cleanup.rs             # structural cleanup passes
 ├── scripts/
 │   └── setup-test-projects.sh
 └── tests/
@@ -102,8 +106,25 @@ RustLightAST/                    # external path dependency
     └── rustlight_print.rs       # RustLightAST -> Rust source code
 ```
 
-The optimization pipeline:
+The optimizer exposes five independent pass-level ablations: Copy, Borrow,
+Mut, Last-Use, and Closure. The paper-facing performance experiment reports
+only Borrow, Last-Use, and Closure. Copy and Mut remain enabled in every formal
+paper configuration; their switches are retained for diagnostic runs, rule-hit
+accounting, source-shape inspection, and artifact reproduction. Binding,
+match, Boolean, bound, and complex-type cleanup also remain enabled throughout
+the paper-facing Stage-2 matrix.
 
 ```
-Generated Rust source -> parser -> RustLightAST -> printer -> optimized Rust source
+Generated Rust source
+  -> Copyability
+  -> Borrow
+  -> Mutability
+  -> Last-Use
+  -> Closure cleanup
+  -> Remaining structural cleanup
+  -> optimized Rust source
 ```
+
+The standalone BigInt bit-operation lowering implementation and its unit tests remain
+available through the library API, but `cargo-opt` and the current evaluation
+pipeline do not invoke it.

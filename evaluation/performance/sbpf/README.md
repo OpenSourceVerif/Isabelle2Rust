@@ -6,25 +6,77 @@ Run the complete experiment from the repository root with:
 python3 evaluation/performance/sbpf/run.py
 ```
 
+For the grouped Stage-2 component experiment, which does not need the
+cross-language baselines, use:
+
+```sh
+python3 evaluation/performance/sbpf/run.py --rust-only
+```
+
+To rebuild and remeasure only the OCaml baseline while reusing an existing
+complete result matrix, use:
+
+```sh
+python3 evaluation/performance/sbpf/run.py \
+  --ocaml-only-from evaluation/performance/results/<timestamp>
+```
+
 The script generates the fixed 6,000-vector instruction corpus with seed
 `5984326`, regenerates the fixed default OCaml export, and derives every Rust
-configuration from Stage-1 exports that combine the Word adapter with the
-hybrid Native Int/Nat adapter. It builds with stable Rust in release mode,
+configuration from Stage-1 exports that combine the WordU128 layer with the
+Checked128 Int/Nat profile. It builds with stable Rust in release mode,
 builds the OCaml baseline with `ocamlopt`, validates all seven implementations,
 runs a one-traversal pilot, and then measures three round-robin process runs.
+For newly measured generated and OCaml configurations, the pilot selects a
+whole-suite repetition count targeting at least five seconds per process. If a
+formal runtime attempt is shorter than five seconds, it is discarded and
+rerun with more whole-suite repetitions. The prepared Solana baseline uses
+fixed preconstructed batches: 200 program-suite traversals and 10 independently
+prepared 6,000-vector instruction traversals per process. Reported runtime is
+normalized to one suite. Allocation uses one deterministic suite traversal.
 
 Runtime is measured inside each harness after JSON parsing and semantic input
-conversion. The Case-study baseline also constructs executables, VMs, and
-input state before the measurement region. Peak RSS is the whole-process
+conversion. For the case-study baseline, the `Executable`, input memory, stack,
+context, memory mapping, and `EbpfVm` are constructed before the timer and
+allocation counter are reset. The measured region calls `execute_program` or
+`execute_step` on this prepared state. Bytecode loading and assembly are
+therefore outside the measured region, while the generated semantic entry
+materializes its semantic machine state inside it. Peak RSS is the whole-process
 maximum reported by `/usr/bin/time -v`.
+OCaml runtime harnesses use `clock_gettime(CLOCK_MONOTONIC)` through a small C
+stub and honor the pilot-selected whole-suite repetition count.
 
 Rust allocation builds use the same counting global allocator. Successful
 `alloc` and `alloc_zeroed` calls add `layout.size()`; a successful `realloc`
 adds `new_size`; `dealloc` does not reduce the cumulative total. The counter is
 reset immediately before the measured workload. OCaml uses the difference of
 `Gc.allocated_bytes ()` around the same region. Allocation measurements run in
-separate processes from runtime measurements.
+separate processes from runtime measurements. The case-study baseline counter
+covers only allocation inside the prepared interpreter call; its allocation
+result is not comparable with the semantic-entry measurements and is omitted
+from the paper table.
+
+The generated-Rust matrix is a grouped leave-one-out ablation:
+
+- `Stage-1`: the original Rust export, copied without running `cargo-opt` or
+  the RustLightAST parser/printer;
+- `Stage-2 minus Borrow`;
+- `Stage-2 minus Last-Use`;
+- `Stage-2 minus Closure`;
+- `Stage-2 Full`.
+
+The optimizer exposes Copy, Borrow, Mut, Last-Use, and Closure as independent
+pass-level switches, but the paper-facing table ablates only Borrow, Last-Use,
+and Closure. Copy, Mut, and the remaining structural cleanup transformations
+are enabled in every formal Stage-2 configuration. `--diagnostic` explicitly
+runs the additional minus-Copy and minus-Mut checks; these rows are excluded
+from the default performance matrix.
+
+The BigInt bit-operation lowering implementation remains available as a standalone
+library optimization, but neither the current `cargo-opt` pipeline nor these
+evaluation configurations invoke it.
 
 Outputs are written to `evaluation/performance/results/<timestamp>/`, including
 the environment, configuration and executable hashes, commands, correctness
-logs, per-process stdout/stderr, `raw.csv`, and `summary.csv`.
+logs, per-process stdout/stderr, `raw.csv`, `summary.csv`, and
+`grouped_ablation.csv`.

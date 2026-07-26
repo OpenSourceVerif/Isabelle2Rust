@@ -1,5 +1,5 @@
 theory Curry_Class_Method_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Curry/uncurry consistency, facet 2 -- REGRESSION GUARD (now passes after the

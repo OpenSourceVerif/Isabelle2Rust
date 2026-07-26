@@ -1,5 +1,5 @@
 theory ArithmeticNative_Test
-  imports Main "Rust.Rust_Native_Nat_Setup"
+  imports Main "Rust.Rust_Hybrid128_Setup"
 begin
 
 unbundle bit_operations_syntax

@@ -1,1 +1,0 @@
-RESULT benchmark=SBPF-program metric=runtime process_id=131514 cases=146 suite_repetitions=143 logical_units=20878 elapsed_seconds=5.980506188 allocated_bytes=0

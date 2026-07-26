@@ -1,5 +1,5 @@
 theory Case_Option_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 fun get_or_zero :: "int option \<Rightarrow> int" where

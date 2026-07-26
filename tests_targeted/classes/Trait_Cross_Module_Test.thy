@@ -1,5 +1,5 @@
 theory Trait_Cross_Module_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Regression test for R1 (D.4 finish): cross-module trait-method dispatch with

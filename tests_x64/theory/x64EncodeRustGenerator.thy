@@ -2,8 +2,7 @@ theory x64EncodeRustGenerator
   imports
     Main
     x64Assembler
-    "Rust.Rust_Setup"
-    "Rust.Rust_U128_Word_Setup"
+    "Rust.Rust_BigInt_WordU128_Setup"
 begin
 
 text \<open>

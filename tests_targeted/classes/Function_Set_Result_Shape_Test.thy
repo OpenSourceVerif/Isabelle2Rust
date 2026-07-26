@@ -1,5 +1,5 @@
 theory Function_Set_Result_Shape_Test
-  imports "HOL.Enum" "Rust.Rust_Setup"
+  imports "HOL.Enum" "Rust.Rust_Base_Setup"
 begin
 
 (* A finite set comprehension over a three-argument function is implemented by

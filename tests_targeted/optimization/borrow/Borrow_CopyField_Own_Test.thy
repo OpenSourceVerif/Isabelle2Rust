@@ -1,5 +1,5 @@
 theory Borrow_CopyField_Own_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* ── Unit test: extracting Copy-typed fields does not block borrow inference ──

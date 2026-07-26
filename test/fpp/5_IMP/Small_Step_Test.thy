@@ -1,6 +1,6 @@
 section "Small-Step Semantics of Commands"
 
-theory Small_Step_Test imports Star_Test Big_Step_Test "Rust.Rust_Setup"
+theory Small_Step_Test imports Star_Test Big_Step_Test "Rust.Rust_Base_Setup"
 begin
 
 subsection "The transition relation"

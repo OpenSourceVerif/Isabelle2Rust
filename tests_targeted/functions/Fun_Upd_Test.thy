@@ -7,7 +7,7 @@
    so it both reproduces the original failure and produces compilable Rust. *)
 
 theory Fun_Upd_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 class my_cls =

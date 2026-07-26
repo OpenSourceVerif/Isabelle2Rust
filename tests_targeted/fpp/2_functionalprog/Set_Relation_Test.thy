@@ -1,6 +1,6 @@
 
 theory Set_Relation_Test
-imports Main HOL.Real "Rust.Rust_Setup"
+imports Main HOL.Real "Rust.Rust_Base_Setup"
 begin
 declare [[quick_and_dirty = true]]
 

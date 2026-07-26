@@ -15,7 +15,7 @@ use std::io::BufReader;
 use std::sync::Arc;
 use std::time::Instant;
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 struct RawCase {
     dis: String,
     lr_std: Vec<String>,
@@ -136,10 +136,24 @@ fn main() {
         6000,
         "SBPF-instruction input must contain 6,000 vectors"
     );
+    let case_count = raw.len();
+    let mode = env::var("SBPF_MEASURE").unwrap_or_else(|_| "correctness".to_owned());
+    let repetitions: usize = if mode == "correctness" {
+        1
+    } else {
+        env::var("SUITE_REPETITIONS")
+            .unwrap_or_else(|_| "1".to_owned())
+            .parse()
+            .expect("SUITE_REPETITIONS must be a positive integer")
+    };
+    assert!(repetitions > 0);
+
     // All executable, VM, and input-state construction finishes here, before
     // either the timer or allocation counter is reset.
-    let mut cases: Vec<Invocation> = raw.into_iter().map(prepare).collect();
-    let mode = env::var("SBPF_MEASURE").unwrap_or_else(|_| "correctness".to_owned());
+    let mut cases = Vec::with_capacity(case_count * repetitions);
+    for _ in 0..repetitions {
+        cases.extend(raw.iter().cloned().map(prepare));
+    }
 
     if mode == "correctness" {
         let mut failures = Vec::new();
@@ -150,7 +164,7 @@ fn main() {
         }
         println!(
             "RESULT benchmark=SBPF-instruction metric=correctness passed={} failed={}",
-            cases.len() - failures.len(),
+            case_count - failures.len(),
             failures.len()
         );
         for failure in &failures {
@@ -178,10 +192,11 @@ fn main() {
         "timed case-study SBPF-instruction validation failed"
     );
     println!(
-        "RESULT benchmark=SBPF-instruction metric={} process_id={} cases={} suite_repetitions=1 logical_units={} elapsed_seconds={:.9} allocated_bytes={}",
+        "RESULT benchmark=SBPF-instruction metric={} process_id={} cases={} suite_repetitions={} logical_units={} elapsed_seconds={:.9} allocated_bytes={}",
         mode,
         std::process::id(),
-        cases.len(),
+        case_count,
+        repetitions,
         cases.len(),
         elapsed,
         allocated

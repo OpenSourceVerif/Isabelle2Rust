@@ -1,5 +1,5 @@
 theory Option_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 datatype option = None | Some int | Rec option

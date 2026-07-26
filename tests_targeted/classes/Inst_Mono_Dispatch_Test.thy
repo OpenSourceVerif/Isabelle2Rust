@@ -1,5 +1,5 @@
 theory Inst_Mono_Dispatch_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Regression test for H3 (D.3) false negative: a MONOMORPHIC instance of a

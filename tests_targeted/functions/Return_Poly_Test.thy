@@ -1,5 +1,5 @@
 theory Return_Poly_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Return-type polymorphism: a class method / function whose type variable occurs

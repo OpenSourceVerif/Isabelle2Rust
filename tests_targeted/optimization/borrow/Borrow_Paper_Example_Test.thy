@@ -1,5 +1,5 @@
 theory Borrow_Paper_Example_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 datatype tree =

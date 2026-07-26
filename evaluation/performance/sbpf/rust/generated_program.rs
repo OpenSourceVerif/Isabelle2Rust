@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
 
 use isabelle_exported::Interp_test::{List, bpf_interp_test};
-use isabelle_exported::Rust_Native_Int::RustInt;
 use serde::Deserialize;
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::env;
@@ -66,20 +65,20 @@ struct RawCase {
 
 struct BenchCase {
     name: String,
-    lp: List<RustInt>,
-    lm: List<RustInt>,
-    lc: List<RustInt>,
-    v: RustInt,
-    fuel: RustInt,
-    expected: RustInt,
+    lp: List<i128>,
+    lm: List<i128>,
+    lc: List<i128>,
+    v: i128,
+    fuel: i128,
+    expected: i128,
     succeeds: bool,
 }
 
-fn int_of_i64(value: i64) -> RustInt {
-    RustInt::from_i128(i128::from(value))
+fn int_of_i64(value: i64) -> i128 {
+    i128::from(value)
 }
 
-fn list_of_i64s(values: &[i64]) -> List<RustInt> {
+fn list_of_i64s(values: &[i64]) -> List<i128> {
     values.iter().rev().fold(List::Nil, |tail, value| {
         List::Cons(int_of_i64(*value), Box::new(tail))
     })

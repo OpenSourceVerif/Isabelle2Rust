@@ -1,5 +1,5 @@
 theory Borrow_Move_Demand_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* ── Unit test: functions with Move demand must NOT get borrow variants ───────

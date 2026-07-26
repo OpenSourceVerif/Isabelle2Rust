@@ -3,7 +3,7 @@
 section \<open>Priority Queue Specifications\<close>
 
 theory Priority_Queue_Specs_Test
-imports "HOL-Library.Multiset" "Rust.Rust_Setup"
+imports "HOL-Library.Multiset" "Rust.Rust_Base_Setup"
 begin
 
 text \<open>Priority queue interface + specification:\<close>

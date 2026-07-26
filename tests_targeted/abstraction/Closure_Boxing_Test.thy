@@ -1,5 +1,5 @@
 theory Closure_Boxing_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* HOL treats functions as ordinary first-class values; Rust's `impl Fn` does

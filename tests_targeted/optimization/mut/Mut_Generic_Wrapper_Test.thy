@@ -1,5 +1,5 @@
 theory Mut_Generic_Wrapper_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Generic wrapper tests for mut-chain and last-use behavior.

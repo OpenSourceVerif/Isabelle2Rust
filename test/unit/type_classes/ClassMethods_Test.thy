@@ -1,5 +1,5 @@
 theory ClassMethods_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Class operations become receiver-free static trait functions. *)

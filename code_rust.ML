@@ -3138,7 +3138,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
     val rust_module = if rust_module = "" then "\"isabelle_exported\"" else rust_module;
     val rust_version = if rust_version = "" then "\"0.1.0\"" else rust_version;
     val rust_edition = if rust_edition = "" then "\"2024\"" else rust_edition;
-    val rust_dependencies = if rust_dependencies = "" then "num-bigint = \"0.4.6\"\nnum-traits = \"0.2.19\"" else rust_dependencies;
+    val rust_dependencies_override = rust_dependencies;
     val rust_lints = if rust_lints = "" then "unused = \"allow\"\nnonstandard_style = \"allow\"\nunreachable_patterns = \"allow\"" else rust_lints;
 
     val rust_includes = "num_bigint" :: "num_traits::sign" :: rust_includes
@@ -3995,6 +3995,18 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         (["src", x^rust_extension])
         (str "/*Empty module, added to pass compilition*/")))
       unused_modules
+    fun rendered_sources_contain needle =
+      exists (String.isSubstring needle o Pretty.string_of o snd)
+        (include_srcs @ generated_srcs)
+    val default_rust_dependencies =
+      if rendered_sources_contain "num_bigint" then
+        "num-bigint = \"0.4.6\"\nnum-traits = \"0.2.19\""
+      else if rendered_sources_contain "num_traits" then
+        "num-traits = \"0.2.19\""
+      else ""
+    val rust_dependencies =
+      if rust_dependencies_override = "" then default_rust_dependencies
+      else rust_dependencies_override
     val toml = pair
       (["Cargo.toml"])
       (Pretty.chunks2 ([

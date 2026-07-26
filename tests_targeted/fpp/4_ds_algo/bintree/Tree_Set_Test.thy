@@ -6,7 +6,7 @@ theory Tree_Set_Test
 imports
  Tree_Test
  Cmp_Test
- Set_Specs_Test "Rust.Rust_Setup"
+ Set_Specs_Test "Rust.Rust_Base_Setup"
 begin
 
 definition empty :: "'a tree" where

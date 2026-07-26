@@ -1,5 +1,5 @@
 theory Copy_Recursive_NonCopy_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* ── Unit test: non-Copy fields stop Copy propagation upward ─────────────────

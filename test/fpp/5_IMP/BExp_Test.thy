@@ -1,6 +1,6 @@
 subsection "Boolean Expressions"
 
-theory BExp_Test imports AExp_Test "Rust.Rust_Setup"
+theory BExp_Test imports AExp_Test "Rust.Rust_Base_Setup"
 begin
 
 datatype bexp = Bc bool | Not bexp | And bexp bexp | Less aexp aexp

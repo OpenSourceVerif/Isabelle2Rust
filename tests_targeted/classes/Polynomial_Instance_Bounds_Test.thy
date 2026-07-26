@@ -1,5 +1,5 @@
 theory Polynomial_Instance_Bounds_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* hol-stress guidance test (Generate.thy: Polynomial.rs -- E0277 missing

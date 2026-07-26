@@ -1,5 +1,5 @@
 theory Lazy_Thunk_Box_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* hol-stress guidance test (Generate.thy: Predicate.rs, Lazy_Sequence.rs,

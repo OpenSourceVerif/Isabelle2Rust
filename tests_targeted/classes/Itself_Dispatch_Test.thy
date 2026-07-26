@@ -1,5 +1,5 @@
 theory Itself_Dispatch_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* A class method taking ''a itself'' — the shape of Word_Lib's

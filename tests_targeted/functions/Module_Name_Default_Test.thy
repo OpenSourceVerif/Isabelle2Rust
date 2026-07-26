@@ -1,5 +1,5 @@
 theory Module_Name_Default_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* A Rust export without an explicit module_name must retain Code_Namespace's

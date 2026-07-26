@@ -1,5 +1,5 @@
 theory Highorder_Func
-  imports Main HOL.Real Rust.Rust_Setup Go.Go_Setup
+  imports Main HOL.Real Rust.Rust_Base_Setup Go.Go_Setup
 begin
 
 subsection \<open>first and high order functions\<close>

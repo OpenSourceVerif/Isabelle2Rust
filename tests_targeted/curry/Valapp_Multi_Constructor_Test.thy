@@ -1,5 +1,5 @@
 theory Valapp_Multi_Constructor_Test
-  imports "HOL.Code_Evaluation" "Rust.Rust_Setup"
+  imports "HOL.Code_Evaluation" "Rust.Rust_Base_Setup"
 begin
 
 (* Code_Evaluation.valapp applies one HOL argument together with its reflected

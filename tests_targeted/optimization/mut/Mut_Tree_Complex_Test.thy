@@ -1,5 +1,5 @@
 theory Mut_Tree_Complex_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Complex mut-chain tests inspired by the recursive tree cases in the

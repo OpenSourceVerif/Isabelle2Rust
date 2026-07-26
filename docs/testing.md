@@ -80,7 +80,7 @@ make build_silent TEST_DIR=tests_targeted/lists TEST_THEORY=List_Test
 make open_test TEST_DIR=tests_targeted/types TEST_THEORY=Type_Tuple_Test
 ```
 
-该命令使用 `-R Rust` 打开测试 session，使 `Rust_Setup` 和测试理论处于可编辑的当前 session 中。
+该命令使用 `-R Rust` 打开测试 session，使 `Rust_Base_Setup` 和测试理论处于可编辑的当前 session 中。
 
 ### 单个理论：生成并运行
 

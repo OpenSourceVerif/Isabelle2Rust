@@ -1,5 +1,5 @@
 theory Recursive_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Recursive constructor fields exercise Box unwrapping in function arms. *)

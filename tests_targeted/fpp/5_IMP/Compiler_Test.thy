@@ -2,7 +2,7 @@
 
 section "Compiler for IMP"
 
-theory Compiler_Test imports Big_Step_Test Star_Test "Rust.Rust_Setup"
+theory Compiler_Test imports Big_Step_Test Star_Test "Rust.Rust_Base_Setup"
 begin
 
 subsection "List setup"

@@ -6,7 +6,7 @@ theory Isin2_Test
 imports
  Tree2_Test
  Cmp_Test
- Set_Specs_Test "Rust.Rust_Setup"
+ Set_Specs_Test "Rust.Rust_Base_Setup"
 begin
 
 fun isin :: "('a::linorder*'b) tree \<Rightarrow> 'a \<Rightarrow> bool" where

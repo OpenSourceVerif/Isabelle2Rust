@@ -1,5 +1,5 @@
 theory No_Equation_Arity_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* An uninterpreted HOL constant has no executable code equation, so the Rust

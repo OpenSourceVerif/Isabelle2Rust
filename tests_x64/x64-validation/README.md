@@ -120,6 +120,46 @@ serialization, and correctness comparison are adapter costs and are excluded
 from the raw semantic timing.  End-to-end timings should be reported as a
 separate metric.
 
+The paper's RQ3 x64-stepper matrix is implemented in `5-exec-semantics/` and
+can be run from the repository root with:
+
+```bash
+make x64-performance
+```
+
+This target deliberately does not run the encoder. It takes the first 6,000
+vectors, in source order, from the existing native-CPU observations in
+`0-data/step4.json`, writes the fixed corpus to
+`5-exec-semantics/data/x64_step_6000.json`, and records both hashes. It then:
+
+1. exports only the Rust `x64_step_test` performance theory using the Word and
+   hybrid Native Int/Nat representations;
+2. copies the unoptimized Stage-1 export and builds Stage-2 minus Borrow,
+   Stage-2 minus Last-Use, Stage-2 minus Closure, and Stage-2 Full;
+3. builds the fixed OCaml export with `ocamlopt` and a native x64 ptrace
+   baseline;
+4. checks all seven implementations against all 6,000 recorded CPU results;
+5. runs one pilot and three independent, CPU-pinned runtime and allocation
+   measurements per implementation. The pilot chooses a whole-suite runtime
+   repetition count targeting at least five seconds per process, and timings
+   are normalized to 6,000 steps; allocation uses one deterministic traversal.
+
+Copy and Mut remain available as explicit diagnostic ablations, but they are
+not part of the default paper-facing matrix.
+
+JSON parsing and semantic input conversion finish before measurement. Rust and
+OCaml time only the raw `x64_step_test` call; state observation and correctness
+comparison occur only in the untimed validation pass. Results are written to
+`evaluation/performance/results/x64-<timestamp>/` as environment,
+configuration, executable-hash, command, correctness, pilot, raw CSV, summary
+CSV, derived comparison, and paper-ready Markdown artifacts.
+
+For a build-only pass, run:
+
+```bash
+python3 tests_x64/x64-validation/5-exec-semantics/run.py --prepare-only
+```
+
 ## Dependencies
 
 The pipeline needs:

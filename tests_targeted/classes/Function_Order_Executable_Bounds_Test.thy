@@ -1,5 +1,5 @@
 theory Function_Order_Executable_Bounds_Test
-  imports "HOL.Enum" "Rust.Rust_Setup"
+  imports "HOL.Enum" "Rust.Rust_Base_Setup"
 begin
 
 (* The executable strict-order equation for HOL functions enumerates the domain

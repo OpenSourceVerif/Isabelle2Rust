@@ -1,8 +1,0 @@
-{
-  "SBPF-instruction": {
-    "Stage-2 Full": 17,
-    "Stage-2 minus Borrow": 17,
-    "Stage-2 minus Copy": 17,
-    "Stage-2 minus Mut": 17
-  }
-}

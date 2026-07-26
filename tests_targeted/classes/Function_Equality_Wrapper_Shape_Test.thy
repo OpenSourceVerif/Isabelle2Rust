@@ -1,5 +1,5 @@
 theory Function_Equality_Wrapper_Shape_Test
-  imports "HOL.Transfer" "Rust.Rust_Setup"
+  imports "HOL.Transfer" "Rust.Rust_Base_Setup"
 begin
 
 (* Transfer's `is_equality` compares a binary relation with HOL equality through

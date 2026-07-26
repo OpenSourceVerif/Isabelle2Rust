@@ -1,8 +1,8 @@
 theory ArithmeticNat_Test
-  imports Main "Rust.Rust_BigInt_Nat_Setup"
+  imports Main "Rust.Rust_BigInt_Setup"
 begin
 
-(* Rust_BigInt_Nat_Setup maps nat and its conversions to BigInt. *)
+(* Rust_BigInt_Setup maps integer, int, and nat uniformly to BigInt. *)
 
 definition nat_zero :: nat where
   "nat_zero = 0"

@@ -1,8 +1,7 @@
 theory bpf_generator
   imports Main Interpreter rBPFSyntax vm_state rBPFCommType
   (*"HOL-Library.Code_Target_Numeral"*)
-  "Rust.Rust_Setup"
-  "Rust.Rust_BigInt_Nat_Setup"
+  "Rust.Rust_BigInt_Setup"
   (*"Go.Go_Setup"*)
 
 begin

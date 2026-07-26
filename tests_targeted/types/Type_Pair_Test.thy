@@ -1,5 +1,5 @@
 theory Type_Pair_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 definition int_pair :: "int \<Rightarrow> (int \<times> int)" where

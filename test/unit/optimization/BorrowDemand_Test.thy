@@ -1,5 +1,5 @@
 theory BorrowDemand_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Copy-valued fields remain compatible with borrowing a recursive value. *)

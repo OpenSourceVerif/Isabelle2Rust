@@ -5,10 +5,10 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use isabelle2rust_optimize::{
-    cleanup_booleans, cleanup_bounds, cleanup_complex_types, lower_bigint_shifts,
+    cleanup_bindings, cleanup_booleans, cleanup_bounds, cleanup_complex_types,
     optimize_borrow_modules_with_paths, optimize_closure, optimize_copy_modules_with_paths,
-    optimize_match_with_context, optimize_mut, parse_rust_source, parse_rust_type_facts,
-    CopyOptions, MatchTypeContext,
+    optimize_last_use, optimize_match_with_context, optimize_mut, parse_rust_source,
+    parse_rust_type_facts, CopyOptions, MatchTypeContext,
 };
 use rustlightast::{RustCodeGenerator, RustModule};
 
@@ -45,35 +45,68 @@ struct PipelineOptions {
     disable_copy: bool,
     disable_borrow: bool,
     disable_mut: bool,
+    disable_last_use: bool,
+    disable_closure: bool,
+    disable_binding_cleanup: bool,
+    disable_match_cleanup: bool,
 }
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum OwnershipPass {
+enum Stage2Pass {
     Copy,
     Borrow,
     Mut,
+    LastUse,
+    Closure,
 }
 
 impl PipelineOptions {
-    fn enables(self, pass: OwnershipPass) -> bool {
-        match pass {
-            OwnershipPass::Copy => !self.disable_copy,
-            OwnershipPass::Borrow => !self.disable_borrow,
-            OwnershipPass::Mut => !self.disable_mut,
-        }
+    fn enables_copy(self) -> bool {
+        !self.disable_copy
+    }
+
+    fn enables_borrow(self) -> bool {
+        !self.disable_borrow
+    }
+
+    fn enables_mut(self) -> bool {
+        !self.disable_mut
+    }
+
+    fn enables_last_use(self) -> bool {
+        !self.disable_last_use
+    }
+
+    fn enables_binding_cleanup(self) -> bool {
+        !self.disable_binding_cleanup
+    }
+
+    fn enables_closure(self) -> bool {
+        !self.disable_closure
+    }
+
+    fn enables_match_cleanup(self) -> bool {
+        !self.disable_match_cleanup
     }
 
     #[cfg(test)]
-    fn enabled_ownership_passes(self) -> Vec<OwnershipPass> {
-        let mut passes = Vec::with_capacity(3);
-        if self.enables(OwnershipPass::Copy) {
-            passes.push(OwnershipPass::Copy);
+    fn enabled_stage2_passes(self) -> Vec<Stage2Pass> {
+        let mut passes = Vec::with_capacity(5);
+        if self.enables_copy() {
+            passes.push(Stage2Pass::Copy);
         }
-        if self.enables(OwnershipPass::Borrow) {
-            passes.push(OwnershipPass::Borrow);
+        if self.enables_borrow() {
+            passes.push(Stage2Pass::Borrow);
         }
-        if self.enables(OwnershipPass::Mut) {
-            passes.push(OwnershipPass::Mut);
+        if self.enables_mut() {
+            passes.push(Stage2Pass::Mut);
+        }
+        if self.enables_last_use() {
+            passes.push(Stage2Pass::LastUse);
+        }
+        if self.enables_closure() {
+            passes.push(Stage2Pass::Closure);
         }
         passes
     }
@@ -175,13 +208,24 @@ fn parse_args() -> Result<Config, String> {
             pipeline.disable_borrow = true;
         } else if arg == "--disable-mut" {
             pipeline.disable_mut = true;
+        } else if arg == "--disable-last-use" {
+            pipeline.disable_last_use = true;
+        } else if arg == "--disable-closure" {
+            pipeline.disable_closure = true;
+        } else if arg == "--disable-binding-cleanup" {
+            pipeline.disable_binding_cleanup = true;
+        } else if arg == "--disable-closure-cleanup" {
+            // Retain the earlier fine-grained spelling as an alias.
+            pipeline.disable_closure = true;
+        } else if arg == "--disable-match-cleanup" {
+            pipeline.disable_match_cleanup = true;
         } else if arg == "-h" || arg == "--help" {
             return Err(help_text());
         } else if target.is_none() {
             target = Some(PathBuf::from(arg));
         } else {
             return Err(format!(
-                "unexpected argument {}; use: cargo opt [package-path] [--out-dir path] [--keep-unused-copy] [--disable-copy] [--disable-borrow] [--disable-mut]",
+                "unexpected argument {}; use: cargo opt [package-path] [--out-dir path] [--keep-unused-copy] [--disable-copy] [--disable-borrow] [--disable-mut] [--disable-last-use] [--disable-closure] [diagnostic options]",
                 PathBuf::from(arg).display()
             ));
         }
@@ -196,13 +240,18 @@ fn parse_args() -> Result<Config, String> {
 }
 
 fn help_text() -> String {
-    "usage: cargo opt [package-path] [--out-dir path] [--keep-unused-copy] [--disable-copy] [--disable-borrow] [--disable-mut]\n\
+    "usage: cargo opt [package-path] [--out-dir path] [--keep-unused-copy] [--disable-copy] [--disable-borrow] [--disable-mut] [--disable-last-use] [--disable-closure] [diagnostic options]\n\
      writes optimized Rust files to <package-path>/opt/src by default\n\
      and generates <package-path>/opt/Cargo.toml for cargo run-opt\n\
      --keep-unused-copy keeps generated _copy functions even when no call site uses them\n\
-     --disable-copy skips Copy inference and rewriting, and passes no inferred Copy facts to Borrow\n\
+     --disable-copy skips Copyability recovery\n\
      --disable-borrow skips Borrow analysis and rewriting\n\
-     --disable-mut skips mutability optimization"
+     --disable-mut skips M-Shadow/M-Mut recovery\n\
+     --disable-last-use skips last-use clone elimination\n\
+     --disable-closure skips closure cleanup\n\
+     --disable-binding-cleanup skips trailing-binding cleanup only (diagnostic option)\n\
+     --disable-closure-cleanup is an alias for --disable-closure\n\
+     --disable-match-cleanup skips both match-cleanup phases (diagnostic option)"
         .to_string()
 }
 
@@ -289,12 +338,13 @@ fn write_optimized_sources(
         }
 
         if let Some(module) = unit.parsed.as_mut() {
-            lower_bigint_shifts(module);
-            optimize_match_with_context(module, &match_context, &unit.module_path);
+            if pipeline.enables_match_cleanup() {
+                optimize_match_with_context(module, &match_context, &unit.module_path);
+            }
         }
     }
 
-    let package_copy_types = if pipeline.enables(OwnershipPass::Copy) {
+    let inferred_copy_types = if pipeline.enables_copy() {
         let mut modules: Vec<(Vec<String>, &mut RustModule)> = units
             .iter_mut()
             .filter_map(|unit| {
@@ -304,16 +354,15 @@ fn write_optimized_sources(
                     .map(|module| (unit.module_path.clone(), module))
             })
             .collect();
-        optimize_copy_modules_with_paths(&mut modules, CopyOptions { keep_unused_copy }).copy_types
+        optimize_copy_modules_with_paths(&mut modules, CopyOptions { keep_unused_copy })
+            .inferred_copy_types
     } else {
-        // A true pass ablation must not expose facts inferred by the disabled
-        // Copy analysis to downstream Borrow decisions. Borrow still discovers
-        // Rust's intrinsic Copy types and implementations already present in
-        // the input while collecting the unchanged modules.
+        // Disable only facts inferred and materialized by the Copy pass.
+        // Borrow still discovers source derives and explicit Copy impls.
         Default::default()
     };
 
-    if pipeline.enables(OwnershipPass::Borrow) {
+    if pipeline.enables_borrow() {
         let mut modules: Vec<(Vec<String>, &mut RustModule)> = units
             .iter_mut()
             .filter_map(|unit| {
@@ -323,7 +372,7 @@ fn write_optimized_sources(
                     .map(|module| (unit.module_path.clone(), module))
             })
             .collect();
-        optimize_borrow_modules_with_paths(&mut modules, &package_copy_types);
+        optimize_borrow_modules_with_paths(&mut modules, &inferred_copy_types);
     }
 
     let mut post_match_context = MatchTypeContext::default();
@@ -393,12 +442,22 @@ fn finish_source_module(
     // Isabelle code generator can emit (e.g. `trait` items pulled in as dead
     // code by the `nat`/`int` setup). Parse failures are handled before this
     // function, so every module here can share package-level match type context.
-    if pipeline.enables(OwnershipPass::Mut) {
+    if pipeline.enables_mut() {
         optimize_mut(module);
     }
-    optimize_closure(module);
-    // Post-clean any discard/fallback artifacts introduced by later passes.
-    optimize_match_with_context(module, match_context, module_path);
+    if pipeline.enables_last_use() {
+        optimize_last_use(module);
+    }
+    if pipeline.enables_binding_cleanup() {
+        cleanup_bindings(module);
+    }
+    if pipeline.enables_closure() {
+        optimize_closure(module);
+    }
+    if pipeline.enables_match_cleanup() {
+        // Post-clean any discard/fallback artifacts introduced by later passes.
+        optimize_match_with_context(module, match_context, module_path);
+    }
     cleanup_booleans(module);
     cleanup_bounds(module);
     cleanup_complex_types(module);
@@ -522,53 +581,37 @@ fn absolute_path_from(path: &Path, cwd: &Path) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::{OwnershipPass, PipelineOptions};
+    use super::{PipelineOptions, Stage2Pass};
 
     #[test]
-    fn full_pipeline_enables_all_ownership_passes() {
+    fn full_pipeline_enables_all_available_stage2_passes() {
         assert_eq!(
-            PipelineOptions::default().enabled_ownership_passes(),
+            PipelineOptions::default().enabled_stage2_passes(),
             vec![
-                OwnershipPass::Copy,
-                OwnershipPass::Borrow,
-                OwnershipPass::Mut
+                Stage2Pass::Copy,
+                Stage2Pass::Borrow,
+                Stage2Pass::Mut,
+                Stage2Pass::LastUse,
+                Stage2Pass::Closure,
             ]
         );
     }
 
     #[test]
-    fn disable_copy_only_removes_copy() {
+    fn pass_level_switches_are_independent() {
         let options = PipelineOptions {
             disable_copy: true,
-            ..PipelineOptions::default()
-        };
-        assert_eq!(
-            options.enabled_ownership_passes(),
-            vec![OwnershipPass::Borrow, OwnershipPass::Mut]
-        );
-    }
-
-    #[test]
-    fn disable_borrow_only_removes_borrow() {
-        let options = PipelineOptions {
             disable_borrow: true,
-            ..PipelineOptions::default()
-        };
-        assert_eq!(
-            options.enabled_ownership_passes(),
-            vec![OwnershipPass::Copy, OwnershipPass::Mut]
-        );
-    }
-
-    #[test]
-    fn disable_mut_only_removes_mut() {
-        let options = PipelineOptions {
             disable_mut: true,
+            disable_last_use: true,
+            disable_closure: true,
             ..PipelineOptions::default()
         };
-        assert_eq!(
-            options.enabled_ownership_passes(),
-            vec![OwnershipPass::Copy, OwnershipPass::Borrow]
-        );
+        assert!(options.enabled_stage2_passes().is_empty());
+        assert!(!options.enables_copy());
+        assert!(!options.enables_borrow());
+        assert!(!options.enables_mut());
+        assert!(!options.enables_last_use());
+        assert!(!options.enables_closure());
     }
 }

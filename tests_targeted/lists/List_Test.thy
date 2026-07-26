@@ -1,6 +1,6 @@
 theory List_Test
   imports Main
-    Main "Rust.Rust_Setup"
+    Main "Rust.Rust_Base_Setup"
 begin
 
 (* A polymorphic list type and its length function*)

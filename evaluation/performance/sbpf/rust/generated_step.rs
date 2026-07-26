@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
 
-use isabelle_exported::Rust_Native_Int::RustInt;
 use isabelle_exported::Step_test::{List, step_test};
 use serde::Deserialize;
 use std::alloc::{GlobalAlloc, Layout, System};
@@ -68,15 +67,15 @@ struct RawCase {
 
 struct BenchCase {
     name: String,
-    lp: List<RustInt>,
-    lr: List<RustInt>,
-    lm: List<RustInt>,
-    lc: List<RustInt>,
-    v: RustInt,
-    fuel: RustInt,
-    ipc: RustInt,
-    index: RustInt,
-    expected: RustInt,
+    lp: List<i128>,
+    lr: List<i128>,
+    lm: List<i128>,
+    lc: List<i128>,
+    v: i128,
+    fuel: i128,
+    ipc: i128,
+    index: i128,
+    expected: i128,
 }
 
 fn hex_i64(value: &str) -> i64 {
@@ -88,11 +87,11 @@ fn hex_i64(value: &str) -> i64 {
         as i64
 }
 
-fn int_of_i64(value: i64) -> RustInt {
-    RustInt::from_i128(i128::from(value))
+fn int_of_i64(value: i64) -> i128 {
+    i128::from(value)
 }
 
-fn list_of_hex(values: &[String]) -> List<RustInt> {
+fn list_of_hex(values: &[String]) -> List<i128> {
     values.iter().rev().fold(List::Nil, |tail, value| {
         List::Cons(int_of_i64(hex_i64(value)), Box::new(tail))
     })
@@ -138,7 +137,7 @@ fn run(case: &BenchCase) -> bool {
         case.lm.clone(),
         &case.lc,
         case.v.clone(),
-        &case.fuel,
+        case.fuel,
         case.ipc.clone(),
         case.index.clone(),
         case.expected.clone(),

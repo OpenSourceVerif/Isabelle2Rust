@@ -7,7 +7,7 @@ imports
  "HOL-Library.Pattern_Aliases"
  Tree2_Test
  Priority_Queue_Specs_Test
- Complex_Main "Rust.Rust_Setup"
+ Complex_Main "Rust.Rust_Base_Setup"
 begin
 
 fun mset_tree :: "('a*'b) tree \<Rightarrow> 'a multiset" where

@@ -1,5 +1,5 @@
 theory Set_Pair_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* REGRESSION — finite *set of pairs* (now FIXED, exports + compiles).

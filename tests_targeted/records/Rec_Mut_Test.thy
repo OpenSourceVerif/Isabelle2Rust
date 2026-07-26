@@ -1,6 +1,6 @@
 theory Rec_Mut_Test
   imports   
-    Main "Rust.Rust_Setup"
+    Main "Rust.Rust_Base_Setup"
 begin
 
 (* Mutually recursive functions over two user-defined option datatypes *)

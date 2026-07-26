@@ -1,5 +1,5 @@
 theory Set_Complete_Lattice_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* hol-stress guidance test (Generate.thy: Complete_Lattices.rs,

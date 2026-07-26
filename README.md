@@ -13,10 +13,26 @@ The most recent updates can be found at:
 The repository consists of these major components:
 
 - **`code_rust.ML`** : the core of the Isabelle2Rust backend, implemented in Poly/ML. Link to paper‘s Section3.
-- **`Rust_Setup.thy`** : the base Rust adaptation layer with lightweight mapping rules.
-- **`Rust_BigInt_Int_Setup.thy`** and **`Rust_BigInt_Nat_Setup.thy`** : optional BigInt-backed mappings for `integer`/`int` and `nat`; import them explicitly when that representation is intended.
+- **`Rust_Base_Setup.thy`**: representation-independent Rust mappings.
+- **Numeric profiles**: import exactly one complete profile for `integer`,
+  `int`, and `nat`:
+  - `Rust_BigInt_Setup.thy`: all three numeric types use arbitrary precision.
+  - `Rust_Hybrid128_Setup.thy`: `i128`/`u128` fast paths with BigInt/BigUint
+    overflow variants.
+  - `Rust_Checked128_Setup.thy`: raw `i128`/`u128` values with checked
+    overflow.
+- **Word profiles**: when Isabelle words are required, select the matching
+  `Rust_BigInt_WordU128_Setup.thy`,
+  `Rust_Hybrid128_WordU128_Setup.thy`, or
+  `Rust_Checked128_WordU128_Setup.thy` entry point.
+- **Internal layers**: `Rust_Integer_BigInt_Layer.thy` and
+  `Rust_Integer_Hybrid128_Layer.thy` are reserved for tests that intentionally
+  keep Isabelle's binary-natural representation. The former setup names remain
+  as compatibility wrappers.
 - **`tests_HOL/`** : a collection of 7 official `HOL codegenerator_tests`, evaluates to a Boolean result. Link to paper's Section 4.
 - **`tests_targeted/`** : a suite of 41 targeted test cases designed to exercise representative translation scenarios. All tests compile and execute successfully via Cargo. Link to paper's Section 4.
+- **`test/eval/`**: the frozen, paper-facing RQ3 performance data included in
+  the review artifact. Exploratory measurement logs are intentionally excluded.
 
 ## 2. Hardware Dependencies
 

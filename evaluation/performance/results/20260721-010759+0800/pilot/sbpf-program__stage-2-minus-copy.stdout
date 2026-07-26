@@ -1,1 +1,0 @@
-RESULT benchmark=SBPF-program metric=pilot process_id=145594 cases=146 suite_repetitions=1 logical_units=146 elapsed_seconds=0.038717908 allocated_bytes=0

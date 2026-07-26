@@ -1,6 +1,6 @@
 theory Type_Func_Mono_Test
   imports   
-    Main "Rust.Rust_Setup"
+    Main "Rust.Rust_Base_Setup"
 begin
 
 fun apply_twice2 :: "(int \<Rightarrow> int) \<Rightarrow> int \<Rightarrow> int" where

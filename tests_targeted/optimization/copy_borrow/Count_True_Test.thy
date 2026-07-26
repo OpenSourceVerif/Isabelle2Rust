@@ -1,5 +1,5 @@
 theory Count_True_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Overview running example: bool-labelled binary tree, count the true leaves.

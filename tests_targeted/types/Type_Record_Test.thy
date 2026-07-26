@@ -1,5 +1,5 @@
 theory Type_Record_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 record point = 

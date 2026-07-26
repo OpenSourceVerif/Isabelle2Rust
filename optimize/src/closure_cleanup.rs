@@ -15,7 +15,7 @@ pub struct ClosureOptAnalysis {
 
 /// Remove generated capture aliases and redundant forwarding closures.
 ///
-/// M-LastUse may turn a generated capture preparation
+/// Last-Use Clone Elimination may turn a generated capture preparation
 /// `let x_cap = x.clone();` into the pure move `let x_cap = x;`.  When that
 /// binding is the final statement before a directly returned `Rc::new(move
 /// |...| ...)` closure, this pass removes the alias and makes the closure
@@ -922,7 +922,7 @@ fn pattern_binding_tokens(pattern: &str) -> impl Iterator<Item = &str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{optimize_mut, parse_rust_source};
+    use crate::{optimize_last_use, optimize_mut, parse_rust_source};
 
     fn optimize_and_print(source: &str) -> (ClosureOptAnalysis, String) {
         let mut module = parse_rust_source(source, "Test").expect("parse source");
@@ -934,6 +934,7 @@ mod tests {
     fn optimize_stage2_and_print(source: &str) -> (ClosureOptAnalysis, String) {
         let mut module = parse_rust_source(source, "Test").expect("parse source");
         optimize_mut(&mut module);
+        optimize_last_use(&mut module);
         let analysis = optimize_closure(&mut module);
         let mut generator = RustCodeGenerator::new();
         (analysis, generator.generate_module_code(&module))

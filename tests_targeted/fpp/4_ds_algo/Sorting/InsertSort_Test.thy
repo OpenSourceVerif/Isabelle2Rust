@@ -2,7 +2,7 @@
 theory InsertSort_Test
 imports
  Complex_Main
- "HOL-Library.Multiset" "Rust.Rust_Setup"
+ "HOL-Library.Multiset" "Rust.Rust_Base_Setup"
 begin
 
 

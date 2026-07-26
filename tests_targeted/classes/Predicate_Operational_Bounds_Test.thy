@@ -1,5 +1,5 @@
 theory Predicate_Operational_Bounds_Test
-  imports "HOL.Predicate" "HOL.Enum" "Rust.Rust_Setup"
+  imports "HOL.Predicate" "HOL.Enum" "Rust.Rust_Base_Setup"
 begin
 
 (* Predicate equality is executable through the predicate order: `HOL.equal P Q`

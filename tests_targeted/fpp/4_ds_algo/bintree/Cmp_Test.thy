@@ -3,7 +3,7 @@
 section \<open>Three-Way Comparison\<close>
 
 theory Cmp_Test
-imports Main "Rust.Rust_Setup"
+imports Main "Rust.Rust_Base_Setup"
 begin
 
 datatype cmp_val = LT | EQ | GT

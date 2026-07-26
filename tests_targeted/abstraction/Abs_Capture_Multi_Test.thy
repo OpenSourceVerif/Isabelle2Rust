@@ -1,5 +1,5 @@
 theory Abs_Capture_Multi_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Regression test for closure capture handling.

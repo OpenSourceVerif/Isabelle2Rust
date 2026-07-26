@@ -1,5 +1,5 @@
 theory search_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Cleaned for the Rust export suite: the original `search.thy` carried an

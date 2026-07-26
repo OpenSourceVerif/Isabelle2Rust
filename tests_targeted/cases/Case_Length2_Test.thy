@@ -1,5 +1,5 @@
 theory Case_Length2_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 fun length2 :: "int list \<Rightarrow> int" where

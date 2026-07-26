@@ -1,5 +1,5 @@
 theory MutTrees_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Tree rebuilds exercise non-trivial right-hand sides in mut chains. *)

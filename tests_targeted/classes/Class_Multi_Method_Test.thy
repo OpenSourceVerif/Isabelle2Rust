@@ -1,5 +1,5 @@
 theory Class_Multi_Method_Test
-  imports Main "Rust.Rust_Setup"
+  imports Main "Rust.Rust_Base_Setup"
 begin
 
 (* Regression test: a type class with TWO methods, instantiated for a

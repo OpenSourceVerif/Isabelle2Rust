@@ -2,7 +2,7 @@
 section\<open>Merge Sort\<close>
 
 theory MergeSort_Test
-imports "HOL-Library.Multiset" "Rust.Rust_Setup"
+imports "HOL-Library.Multiset" "Rust.Rust_Base_Setup"
 begin
 
 context linorder

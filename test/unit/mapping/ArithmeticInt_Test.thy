@@ -1,8 +1,8 @@
 theory ArithmeticInt_Test
-  imports Main "Rust.Rust_BigInt_Int_Setup"
+  imports Main "Rust.Rust_BigInt_Setup"
 begin
 
-(* Rust_BigInt_Int_Setup maps int/integer arithmetic and bit operations to BigInt. *)
+(* Rust_BigInt_Setup maps integer, int, and nat uniformly to BigInt. *)
 
 unbundle bit_operations_syntax
 
