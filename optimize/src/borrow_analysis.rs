@@ -33,6 +33,7 @@ type FunctionId = Vec<String>;
 struct ModuleScope {
     module_path: Vec<String>,
     imports: HashMap<String, Vec<String>>,
+    current_function: Option<FunctionId>,
 }
 
 #[derive(Debug, Clone)]
@@ -133,6 +134,10 @@ enum TypeDefKind {
 #[derive(Debug, Clone)]
 struct TypeDef {
     generics: Vec<String>,
+    /// Scope in which field types were written.  A field such as `Payload`
+    /// must keep referring to the declaration module even when the datatype is
+    /// matched from a module that defines another `Payload`.
+    scope: ModuleScope,
     kind: TypeDefKind,
 }
 
@@ -143,8 +148,8 @@ struct TypeDef {
 /// Borrow safety and ownership preference are deliberately separate. `Dup`
 /// records an owned value that the original source already materializes by
 /// clone/copy, whereas `Move` records a genuine transfer in the analyzed view.
-/// The original body decides `BorrowSafe`; a Last-Use preview supplies the
-/// `Move` provenance used by `PreferOwned`.
+/// The original body and the materialization facts in Γ decide `BorrowSafe`;
+/// a Last-Use preview supplies the `Move` provenance used by `PreferOwned`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum Demand {
     /// Purely observational (match scrutinee, boolean predicate).
@@ -153,8 +158,14 @@ enum Demand {
     Bor,
     /// Local duplication already explicit in the original source.
     Dup(DupUse),
-    /// Genuine ownership transfer in the analyzed view.
-    Move(MoveUse),
+    /// Genuine ownership transfer in the analyzed view.  The accompanying
+    /// fact records whether the owned value can be reconstructed locally once
+    /// the origin is shared.
+    Move(MoveUse, Materialization),
+    /// Preference-only marker: several payloads are transferred into one
+    /// returned aggregate.  The constituent `Move` demands carry the actual
+    /// materialization obligations.
+    AggregatePayloadReturn,
     /// Borrow escape – blocks borrow inference.
     Esc,
     /// Unknown or unsupported ownership form.
@@ -169,37 +180,155 @@ enum DupUse {
     CopyUse,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum MoveUse {
-    /// The function returns this derived binding directly. Returning the root
-    /// parameter preserves whole-value ownership; returning a strict
-    /// projection (as in `nth`) is handled separately.
-    Return(String),
-    /// A value flows into an aggregate, binding, constructor, or owned callee.
-    OwnedSink,
-    /// A value is captured by an ownership-taking closure.
-    ClosureCapture,
+/// Whether the current global context can satisfy a move from a shared origin
+/// by copying or cloning the required value locally.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Materialization {
+    Available,
+    Unavailable,
 }
 
-/// Semantic/lifetime condition for replacing an owned origin by a shared one.
-fn borrow_safe(demands: &HashSet<Demand>) -> bool {
+/// Provenance of a value projected from the parameter under analysis.
+///
+/// `Structural` denotes the root owner or a field that carries the same
+/// recursive datatype family. `Payload` denotes a selected non-recursive
+/// field. This distinction lets `PreferOwned` protect reusable structure
+/// without suppressing observers such as `nth`, which materialize only one
+/// selected element.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Origin {
+    Structural,
+    Payload,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum MoveUse {
+    /// The function returns a derived binding directly.
+    Return(Origin, String),
+    /// A value flows into an aggregate, binding, constructor, or owned callee.
+    OwnedSink(Origin, String),
+    /// A value is captured by an ownership-taking closure.
+    ClosureCapture(Origin, String),
+}
+
+/// Variables whose values originate at the parameter currently being
+/// analysed. `all` preserves the existing safety taint exactly, while
+/// `structural` is the subset relevant to `PreferOwned`.
+#[derive(Debug, Clone)]
+struct DerivedOrigins {
+    all: HashSet<String>,
+    structural: HashSet<String>,
+    root_family: Option<String>,
+}
+
+impl DerivedOrigins {
+    fn for_parameter(name: &str, ty: &Type, scope: &ModuleScope) -> Self {
+        Self {
+            all: [name.to_string()].into_iter().collect(),
+            structural: [name.to_string()].into_iter().collect(),
+            root_family: outer_nominal_family_in_scope(ty, scope),
+        }
+    }
+
+    fn contains(&self, name: &str) -> bool {
+        self.all.contains(name)
+    }
+
+    fn is_empty(&self) -> bool {
+        self.all.is_empty()
+    }
+
+    fn names(&self) -> &HashSet<String> {
+        &self.all
+    }
+
+    fn origin(&self, name: &str) -> Option<Origin> {
+        self.all.contains(name).then(|| {
+            if self.structural.contains(name) {
+                Origin::Structural
+            } else {
+                Origin::Payload
+            }
+        })
+    }
+
+    fn insert(&mut self, name: String, origin: Origin) {
+        self.all.insert(name.clone());
+        if origin == Origin::Structural {
+            self.structural.insert(name);
+        } else {
+            self.structural.remove(&name);
+        }
+    }
+
+    fn remove(&mut self, name: &str) {
+        self.all.remove(name);
+        self.structural.remove(name);
+    }
+
+    fn without(&self, names: &HashSet<String>) -> Self {
+        let mut result = self.clone();
+        for name in names {
+            result.remove(name);
+        }
+        result
+    }
+}
+
+/// Conservative safety condition used by local rewrites.  Unlike an interface
+/// rewrite, B-Match and B-Closure do not in general insert a fresh clone at
+/// every newly exposed move, so they retain the original strict gate.
+fn local_rewrite_safe(demands: &HashSet<Demand>) -> bool {
     demands
         .iter()
         .all(|demand| matches!(demand, Demand::Obs | Demand::Bor | Demand::Dup(_)))
 }
 
+/// Semantic/lifetime condition for replacing an owned parameter by a shared
+/// one.  A genuine move is safe exactly when the current global context proves
+/// that the rewriter can materialize the required owned value locally.
+fn interface_borrow_safe(demands: &HashSet<Demand>) -> bool {
+    demands.iter().all(|demand| {
+        matches!(
+            demand,
+            Demand::Obs
+                | Demand::Bor
+                | Demand::Dup(_)
+                | Demand::Move(_, Materialization::Available)
+                | Demand::AggregatePayloadReturn
+        )
+    })
+}
+
 /// Profitability condition for retaining the original owned interface.
 ///
-/// A last-use move into an owned sink retains structural ownership and should
-/// survive. A direct return prefers ownership only for the parameter root. A
-/// strict projection returned by an observer such as `nth` may still be cloned
-/// from a shared input, avoiding a clone of the complete container at callers.
-fn prefer_owned(demands: &HashSet<Demand>, root: &str) -> bool {
-    demands.iter().any(|demand| match demand {
-        Demand::Move(MoveUse::Return(name)) => name == root,
-        Demand::Move(MoveUse::OwnedSink | MoveUse::ClosureCapture) => true,
-        _ => false,
-    })
+/// A last-use move of the root or recursive structure should survive. A
+/// selected payload may instead be materialized from a borrow when it only
+/// contributes to the result, as in `nth`. Ownership remains preferable when
+/// that payload is consumed by another owned operation or is used to rebuild
+/// the same nominal datatype family as the input.
+fn prefer_owned(demands: &HashSet<Demand>, rebuilds_input_family: bool) -> bool {
+    for demand in demands {
+        match demand {
+            Demand::Move(
+                MoveUse::Return(Origin::Structural, _)
+                | MoveUse::OwnedSink(Origin::Structural, _)
+                | MoveUse::ClosureCapture(Origin::Structural, _),
+                _,
+            ) => return true,
+            Demand::AggregatePayloadReturn => return true,
+            Demand::Move(
+                MoveUse::OwnedSink(Origin::Payload, _)
+                | MoveUse::ClosureCapture(Origin::Payload, _),
+                _,
+            ) => return true,
+            Demand::Move(MoveUse::Return(Origin::Payload, _), _) if rebuilds_input_family => {
+                return true;
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 // ── Main context ──────────────────────────────────────────────────────────────
@@ -212,16 +341,31 @@ struct BorrowContext {
     /// facts remain available under `-Copy` because the Copy pass did not
     /// create them.
     source_copy_types: HashSet<String>,
-    /// Types with a materialized `Copy` implementation in the rewritten AST,
-    /// whether source-provided or inferred. Only these may license `*shared`
-    /// rewrites in emitted Rust.
-    materialized_copy_types: HashSet<String>,
+    /// Canonical identities of types with a materialized `Copy`
+    /// implementation in the rewritten AST. Only these may license
+    /// `*shared` rewrites in emitted Rust.
+    materialized_copy_type_ids: HashSet<FunctionId>,
     /// Generic types with an explicit unconditional `impl Copy`, such as the
     /// native `RustWord<W>` adapter whose marker parameter does not constrain
     /// copyability.
     unconditional_copy_types: HashSet<String>,
-    materialized_unconditional_copy_types: HashSet<String>,
+    materialized_unconditional_copy_type_ids: HashSet<FunctionId>,
+    /// Canonical identities of types with a materialized derived Clone
+    /// implementation. Generic instances additionally require cloneable
+    /// arguments.
+    derived_clone_types: HashSet<FunctionId>,
+    /// Canonical identities of generic types with an explicit unconditional
+    /// `impl Clone`.
+    unconditional_clone_types: HashSet<FunctionId>,
+    /// Canonical identities of package-local nominal types, used to prevent a
+    /// local `Box`, `Rc`, `String`, etc. from inheriting runtime type facts by
+    /// name alone.
+    local_type_ids: HashSet<FunctionId>,
     type_defs: HashMap<String, TypeDef>,
+    /// Leaf names with more than one package-local definition. Field-sensitive
+    /// queries reject these names instead of consulting whichever definition
+    /// happened to be collected last.
+    ambiguous_type_names: HashSet<String>,
     variant_owners: HashMap<String, Option<String>>,
     /// `fully_qualified_fn_id → (generics, param_types, return_type)`
     fn_sigs: HashMap<FunctionId, (Vec<GenericParam>, Vec<Type>, Type)>,
@@ -230,6 +374,11 @@ struct BorrowContext {
     borrow_positions: HashMap<FunctionId, Vec<usize>>,
     /// Fully qualified identities of functions whose signatures were rewritten.
     borrow_fns: HashSet<FunctionId>,
+    /// Parameters retained by value specifically to preserve a profitable
+    /// ownership move discovered in the Last-Use preview.
+    // TODO: Replace this parameter-level B-Match policy with occurrence-local
+    // decisions derived from the whole-function Last-Use preview.
+    prefer_owned_params: HashMap<FunctionId, HashSet<String>>,
 }
 
 /// Infer borrowed parameter interfaces for functions in `module`.
@@ -335,6 +484,14 @@ impl BorrowContext {
         positions
     }
 
+    fn is_preferred_owned_param(&self, scope: &ModuleScope, name: &str) -> bool {
+        scope
+            .current_function
+            .as_ref()
+            .and_then(|id| self.prefer_owned_params.get(id))
+            .is_some_and(|params| params.contains(name))
+    }
+
     fn from_modules(
         modules: &[(Vec<String>, &mut RustModule)],
         inferred_copy_types: &HashSet<String>,
@@ -351,14 +508,19 @@ impl BorrowContext {
         Self {
             inferred_copy_types: inferred_copy_types.clone(),
             source_copy_types: HashSet::new(),
-            materialized_copy_types: HashSet::new(),
+            materialized_copy_type_ids: HashSet::new(),
             unconditional_copy_types: HashSet::new(),
-            materialized_unconditional_copy_types: HashSet::new(),
+            materialized_unconditional_copy_type_ids: HashSet::new(),
+            derived_clone_types: HashSet::new(),
+            unconditional_clone_types: HashSet::new(),
+            local_type_ids: HashSet::new(),
             type_defs: HashMap::new(),
+            ambiguous_type_names: HashSet::new(),
             variant_owners: HashMap::new(),
             fn_sigs: HashMap::new(),
             borrow_positions: HashMap::new(),
             borrow_fns: HashSet::new(),
+            prefer_owned_params: HashMap::new(),
         }
     }
 
@@ -371,6 +533,7 @@ impl BorrowContext {
         let scope = ModuleScope {
             module_path: module_path.to_vec(),
             imports: collect_imports(items),
+            current_function: None,
         };
         for item in items {
             self.collect_item(item, &scope, functions);
@@ -385,16 +548,25 @@ impl BorrowContext {
     ) {
         match item {
             Item::Struct(def) => {
+                let type_id = scope.resolve_name_path(&def.name);
+                self.local_type_ids.insert(type_id.clone());
+                if def.derives.iter().any(|derive| derive == "Clone") {
+                    self.derived_clone_types.insert(type_id.clone());
+                }
                 if def.derives.iter().any(|derive| derive == "Copy") {
                     if !self.inferred_copy_types.contains(&def.name) {
                         self.source_copy_types.insert(def.name.clone());
                     }
-                    self.materialized_copy_types.insert(def.name.clone());
+                    self.materialized_copy_type_ids.insert(type_id);
+                }
+                if self.type_defs.contains_key(&def.name) {
+                    self.ambiguous_type_names.insert(def.name.clone());
                 }
                 self.type_defs.insert(
                     def.name.clone(),
                     TypeDef {
                         generics: def.generics.iter().map(|g| g.name.clone()).collect(),
+                        scope: scope.clone(),
                         kind: TypeDefKind::Struct(
                             def.fields
                                 .iter()
@@ -408,19 +580,28 @@ impl BorrowContext {
                 );
             }
             Item::Enum(def) => {
+                let type_id = scope.resolve_name_path(&def.name);
+                self.local_type_ids.insert(type_id.clone());
+                if def.derives.iter().any(|derive| derive == "Clone") {
+                    self.derived_clone_types.insert(type_id.clone());
+                }
                 if def.derives.iter().any(|derive| derive == "Copy") {
                     if !self.inferred_copy_types.contains(&def.name) {
                         self.source_copy_types.insert(def.name.clone());
                     }
-                    self.materialized_copy_types.insert(def.name.clone());
+                    self.materialized_copy_type_ids.insert(type_id);
                 }
                 for v in &def.variants {
                     self.insert_variant_owner(&v.name, &def.name);
+                }
+                if self.type_defs.contains_key(&def.name) {
+                    self.ambiguous_type_names.insert(def.name.clone());
                 }
                 self.type_defs.insert(
                     def.name.clone(),
                     TypeDef {
                         generics: def.generics.iter().map(|g| g.name.clone()).collect(),
+                        scope: scope.clone(),
                         kind: TypeDefKind::Enum(
                             def.variants
                                 .iter()
@@ -446,27 +627,29 @@ impl BorrowContext {
                     ),
                 );
                 if !f.docs.iter().any(|doc| doc == TYPE_FACT_ONLY_DOC) {
+                    let mut function_scope = scope.clone();
+                    function_scope.current_function = Some(id.clone());
                     functions.push(LocatedFunction {
                         id,
-                        scope: scope.clone(),
+                        scope: function_scope,
                         function: f.clone(),
                     });
                 }
             }
-            Item::Impl(impl_block)
-                if impl_block
-                    .trait_impl
-                    .as_ref()
-                    .is_some_and(type_is_copy_trait)
-                    && impl_block
-                        .generics
-                        .iter()
-                        .all(|generic| generic.bounds.is_empty()) =>
-            {
-                if let Some(name) = local_type_name(&impl_block.target) {
-                    self.unconditional_copy_types.insert(name.to_string());
-                    self.materialized_unconditional_copy_types
-                        .insert(name.to_string());
+            Item::Impl(impl_block) => {
+                if let (Some(trait_impl), Some(type_id)) = (
+                    impl_block.trait_impl.as_ref(),
+                    unconditional_impl_target_id(impl_block, scope),
+                ) {
+                    let name = type_id.last().cloned().unwrap_or_default();
+                    if type_is_copy_trait(trait_impl) {
+                        self.unconditional_copy_types.insert(name.clone());
+                        self.materialized_unconditional_copy_type_ids
+                            .insert(type_id.clone());
+                    }
+                    if type_is_clone_trait(trait_impl) {
+                        self.unconditional_clone_types.insert(type_id);
+                    }
                 }
             }
             Item::Mod(m) => {
@@ -531,6 +714,7 @@ impl BorrowContext {
 
         self.borrow_positions
             .retain(|_, positions| !positions.is_empty());
+        self.record_preferred_owned_params(functions);
     }
 
     fn candidate_borrow_positions(&self, f: &FunctionDef) -> Vec<usize> {
@@ -605,14 +789,71 @@ impl BorrowContext {
         scope: &ModuleScope,
     ) -> bool {
         let original_demands = self.collect_param_demands(f, param, base_env, copy_generics, scope);
-        if !borrow_safe(&original_demands) {
+        if !interface_borrow_safe(&original_demands) {
             return false;
         }
 
+        !self.param_prefers_owned(f, last_use_view, param, base_env, copy_generics, scope)
+    }
+
+    fn param_prefers_owned(
+        &self,
+        f: &FunctionDef,
+        last_use_view: &FunctionDef,
+        param: &Param,
+        base_env: &TypeEnv,
+        copy_generics: &HashSet<String>,
+        scope: &ModuleScope,
+    ) -> bool {
         let preview_demands =
             self.collect_param_demands(last_use_view, param, base_env, copy_generics, scope);
-        !prefer_owned(&preview_demands, &param.name)
-            && !self.prefer_by_value(&param.ty, copy_generics, scope)
+        let rebuilds_input_family =
+            same_outer_nominal_family_in_scope(&param.ty, &f.return_type, scope);
+        prefer_owned(&preview_demands, rebuilds_input_family)
+            || self.prefer_by_value(&param.ty, copy_generics, scope)
+    }
+
+    fn record_preferred_owned_params(&mut self, functions: &[LocatedFunction]) {
+        let mut preferred = HashMap::new();
+        for located in functions {
+            let f = &located.function;
+            let mut last_use_view = f.clone();
+            rewrite_last_use_clones_in_function(&mut last_use_view);
+            let copy_generics = generic_names_with_bound(f, "Copy");
+            let base_env = function_type_env(f);
+            let names = f
+                .params
+                .iter()
+                .filter(|param| self.is_borrow_candidate_type(&param.ty, &copy_generics))
+                .filter(|param| {
+                    let original_demands = self.collect_param_demands(
+                        f,
+                        param,
+                        &base_env,
+                        &copy_generics,
+                        &located.scope,
+                    );
+                    // This map controls a local B-Match rewrite, whose body
+                    // rewriter cannot satisfy every newly exposed move.  Keep
+                    // the local gate strict even though interface Safe accepts
+                    // moves backed by materialization evidence.
+                    local_rewrite_safe(&original_demands)
+                        && self.param_prefers_owned(
+                            f,
+                            &last_use_view,
+                            param,
+                            &base_env,
+                            &copy_generics,
+                            &located.scope,
+                        )
+                })
+                .map(|param| param.name.clone())
+                .collect::<HashSet<_>>();
+            if !names.is_empty() {
+                preferred.insert(located.id.clone(), names);
+            }
+        }
+        self.prefer_owned_params = preferred;
     }
 
     fn collect_param_demands(
@@ -623,8 +864,7 @@ impl BorrowContext {
         copy_generics: &HashSet<String>,
         scope: &ModuleScope,
     ) -> HashSet<Demand> {
-        let mut derived: HashSet<String> = HashSet::new();
-        derived.insert(param.name.clone());
+        let derived = DerivedOrigins::for_parameter(&param.name, &param.ty, scope);
 
         let mut demands: HashSet<Demand> = HashSet::new();
         let mut env = base_env.clone();
@@ -644,7 +884,7 @@ impl BorrowContext {
     fn collect_demands_block(
         &self,
         block: &Block,
-        derived: &HashSet<String>,
+        derived: &DerivedOrigins,
         env: &mut TypeEnv,
         copy_generics: &HashSet<String>,
         demands: &mut HashSet<Demand>,
@@ -659,20 +899,45 @@ impl BorrowContext {
         for stmt in &block.stmts {
             match stmt {
                 Statement::Let(let_stmt) => {
-                    let derived_alias = let_stmt
-                        .init
-                        .as_ref()
-                        .is_some_and(|init| is_derived_borrow_alias(init, &local_derived));
+                    let derived_alias = if let_stmt.ty.is_none() {
+                        let_stmt
+                            .init
+                            .as_ref()
+                            .and_then(|init| supported_let_alias_origin(init, &local_derived, env))
+                    } else {
+                        None
+                    };
                     if let Some(init) = &let_stmt.init {
-                        // The init expression is in own context (assigned to a binding).
-                        self.collect_demands_for_own_arg(
-                            init,
-                            &local_derived,
-                            env,
-                            copy_generics,
-                            demands,
-                            scope,
-                        );
+                        let unsupported_borrow_alias = match strip_parens(init) {
+                            Expr::MethodCall(_, method, args) => {
+                                method == "as_ref" && args.is_empty()
+                            }
+                            Expr::Reference(_, true, false) => true,
+                            _ => false,
+                        };
+                        if derived_alias.is_none()
+                            && unsupported_borrow_alias
+                            && derived_borrow_alias_origin(init, &local_derived).is_some()
+                        {
+                            // The current body rewriter does not maintain a
+                            // complete alias type environment for these forms.
+                            // Reject the interface rewrite rather than risk a
+                            // borrowed temporary or an escaping reference.
+                            demands.insert(Demand::Unk);
+                        }
+                        if derived_alias.is_none() || !is_binding_ident(&let_stmt.name) {
+                            // General initializers materialize an owned binding.
+                            // Supported untyped aliases are preserved as shared
+                            // values; other initializers materialize ownership.
+                            self.collect_demands_for_own_arg(
+                                init,
+                                &local_derived,
+                                env,
+                                copy_generics,
+                                demands,
+                                scope,
+                            );
+                        }
                     }
                     // Update env for subsequent statements.
                     let inferred_ty = let_stmt.ty.clone().or_else(|| {
@@ -683,10 +948,8 @@ impl BorrowContext {
                     });
                     if let Some(ty) = inferred_ty {
                         if is_binding_ident(&let_stmt.name) {
-                            // A direct `let y = x` is an owned use.  The demand was already
-                            // recorded above. Borrow-preserving aliases such as
-                            // `let y = *boxed_field` still propagate the origin so
-                            // later owned uses of `y` are attributed to the parameter.
+                            // Supported aliases propagate the origin so their
+                            // eventual use determines the demand.
                             env.insert(let_stmt.name.clone(), ty);
                         } else {
                             self.bind_pattern_env(&let_stmt.name, &ty, env);
@@ -694,8 +957,8 @@ impl BorrowContext {
                     }
                     if is_binding_ident(&let_stmt.name) {
                         local_derived.remove(&let_stmt.name);
-                        if derived_alias {
-                            local_derived.insert(let_stmt.name.clone());
+                        if let Some(origin) = derived_alias {
+                            local_derived.insert(let_stmt.name.clone(), origin);
                         }
                     }
                 }
@@ -732,7 +995,7 @@ impl BorrowContext {
     fn collect_demands_expr(
         &self,
         expr: &Expr,
-        derived: &HashSet<String>,
+        derived: &DerivedOrigins,
         env: &mut TypeEnv,
         copy_generics: &HashSet<String>,
         demands: &mut HashSet<Demand>,
@@ -749,12 +1012,19 @@ impl BorrowContext {
                     let ty = env.get(name);
                     if in_return_ctx {
                         // Returning a derived value directly.
-                        if ty.map(|t| self.is_copy(t, copy_generics)).unwrap_or(false) {
+                        if ty.is_some_and(|ty| self.is_materialized_copy(ty, copy_generics, scope))
+                        {
                             // Copy types can be implicitly copied.
                             demands.insert(Demand::Dup(DupUse::CopyUse));
                         } else {
                             // Non-Copy direct return lacks clone/copy evidence.
-                            demands.insert(Demand::Move(MoveUse::Return(name.clone())));
+                            demands.insert(Demand::Move(
+                                MoveUse::Return(
+                                    derived.origin(name).unwrap_or(Origin::Structural),
+                                    name.clone(),
+                                ),
+                                self.move_materialization(ty, copy_generics, scope),
+                            ));
                         }
                     }
                     // In non-return context an Ident on its own may just be
@@ -801,8 +1071,10 @@ impl BorrowContext {
                         );
                     }
                     _ => {
-                        let uses_derived = expr_has_free_var_from(receiver, derived)
-                            || args.iter().any(|arg| expr_has_free_var_from(arg, derived));
+                        let uses_derived = expr_has_free_var_from(receiver, derived.names())
+                            || args
+                                .iter()
+                                .any(|arg| expr_has_free_var_from(arg, derived.names()));
                         self.collect_demands_expr(
                             receiver,
                             derived,
@@ -842,8 +1114,38 @@ impl BorrowContext {
                 );
 
                 let callee_id = self.resolve_callee_id(callee, scope, env);
+                let returns_constructor =
+                    in_return_ctx && self.is_constructor_callee(callee.as_ref());
+                if returns_constructor
+                    && args
+                        .iter()
+                        .map(|arg| {
+                            self.count_direct_payload_returns(
+                                arg,
+                                derived,
+                                env,
+                                copy_generics,
+                                scope,
+                            )
+                        })
+                        .sum::<usize>()
+                        > 1
+                {
+                    demands.insert(Demand::AggregatePayloadReturn);
+                }
 
                 for (j, arg) in args.iter().enumerate() {
+                    if returns_constructor {
+                        self.collect_demands_for_return_arg(
+                            arg,
+                            derived,
+                            env,
+                            copy_generics,
+                            demands,
+                            scope,
+                        );
+                        continue;
+                    }
                     // Determine whether position j takes an owned or borrowed arg.
                     let borrow_pos = callee_id
                         .as_ref()
@@ -948,43 +1250,51 @@ impl BorrowContext {
                         // Variables bound in the pattern are derived if the
                         // scrutinee expression is derived.
                         if let Expr::Ident(sname) = scrutinee.as_ref() {
-                            if derived.contains(sname) {
+                            if let Some(origin) = derived.origin(sname) {
                                 self.collect_derived_from_pattern(
                                     &arm.pattern,
                                     ty,
-                                    &mut arm_derived,
-                                );
-                            }
-                            if derived.contains(sname) {
-                                collect_deref_box_binding_names_from_body(
-                                    &arm.pattern,
-                                    &arm.body,
+                                    origin,
                                     &mut arm_derived,
                                 );
                             }
                         } else if let Some(sname) = &deref_box_scrutinee {
-                            if derived.contains(sname) {
-                                collect_deref_box_binding_names_from_body(
+                            if let Some(origin) = derived.origin(sname) {
+                                self.collect_derived_from_pattern(
                                     &arm.pattern,
-                                    &arm.body,
+                                    ty,
+                                    origin,
                                     &mut arm_derived,
                                 );
                             }
                         } else if is_tuple_scrutinee {
-                            // Propagate derived set through tuple positions.
-                            // collect_derived_from_pattern handles tuple patterns
-                            // when ty is Type::Tuple — we always invoke it here
-                            // (it is a no-op when the pattern has no ident bindings).
-                            self.collect_derived_from_pattern(&arm.pattern, ty, &mut arm_derived);
-                        }
-                    } else if let Some(sname) = &deref_box_scrutinee {
-                        if derived.contains(sname) {
-                            collect_deref_box_binding_names_from_body(
+                            self.collect_tuple_derived_from_pattern(
+                                scrutinee,
                                 &arm.pattern,
-                                &arm.body,
+                                ty,
+                                derived,
                                 &mut arm_derived,
                             );
                         }
+                    } else if let Some(sname) = &deref_box_scrutinee {
+                        if let Some(origin) = derived.origin(sname) {
+                            let mut bindings = HashSet::new();
+                            collect_deref_box_binding_names_from_body(
+                                &arm.pattern,
+                                &arm.body,
+                                &mut bindings,
+                            );
+                            for binding in bindings {
+                                arm_derived.insert(binding, origin);
+                            }
+                        }
+                    } else if is_tuple_scrutinee {
+                        self.collect_untyped_tuple_derived_from_pattern(
+                            scrutinee,
+                            &arm.pattern,
+                            derived,
+                            &mut arm_derived,
+                        );
                     }
 
                     if let Some(guard) = &arm.guard {
@@ -1029,23 +1339,51 @@ impl BorrowContext {
 
             // ── &mut: outside the current Isabelle2Rust borrow model ───────────
             Expr::Reference(inner, true, true) => {
-                if expr_has_free_var_from(inner, derived) {
+                if expr_has_free_var_from(inner, derived.names()) {
                     demands.insert(Demand::Unk);
                 }
             }
 
             // ── Aggregate expressions ────────────────────────────────────────
             Expr::Array(elems) | Expr::Tuple(elems) => {
+                if in_return_ctx
+                    && elems
+                        .iter()
+                        .map(|elem| {
+                            self.count_direct_payload_returns(
+                                elem,
+                                derived,
+                                env,
+                                copy_generics,
+                                scope,
+                            )
+                        })
+                        .sum::<usize>()
+                        > 1
+                {
+                    demands.insert(Demand::AggregatePayloadReturn);
+                }
                 for e in elems {
-                    // Aggregate elements are own positions (ownership is bundled).
-                    self.collect_demands_for_own_arg(
-                        e,
-                        derived,
-                        env,
-                        copy_generics,
-                        demands,
-                        scope,
-                    );
+                    if in_return_ctx {
+                        self.collect_demands_for_return_arg(
+                            e,
+                            derived,
+                            env,
+                            copy_generics,
+                            demands,
+                            scope,
+                        );
+                    } else {
+                        // Non-return aggregates materialize an owned local value.
+                        self.collect_demands_for_own_arg(
+                            e,
+                            derived,
+                            env,
+                            copy_generics,
+                            demands,
+                            scope,
+                        );
+                    }
                 }
             }
 
@@ -1103,6 +1441,12 @@ impl BorrowContext {
                 then_branch,
                 else_branch,
             } => {
+                // Phase 2 does not yet rewrite pattern bindings introduced by
+                // `if let` from an inferred shared scrutinee.  Keep such a
+                // parameter owned instead of losing projection provenance.
+                if expr_has_free_var_from(value, derived.names()) {
+                    demands.insert(Demand::Unk);
+                }
                 self.collect_demands_expr(
                     value,
                     derived,
@@ -1185,11 +1529,34 @@ impl BorrowContext {
             Expr::Closure(params, body, is_move) | Expr::TypedClosure(params, _, body, is_move) => {
                 let shadowed: HashSet<String> =
                     params.iter().map(|p| closure_param_name(p)).collect();
-                let outer_derived: HashSet<String> =
-                    derived.difference(&shadowed).cloned().collect();
-                if !outer_derived.is_empty() && expr_has_free_var_from(body, &outer_derived) {
+                let outer_derived = derived.without(&shadowed);
+                if !outer_derived.is_empty() && expr_has_free_var_from(body, outer_derived.names())
+                {
                     if *is_move {
-                        demands.insert(Demand::Move(MoveUse::ClosureCapture));
+                        for name in outer_derived.names() {
+                            let singleton = [name.clone()].into_iter().collect();
+                            if expr_has_free_var_from(body, &singleton) {
+                                if env.get(name).is_some_and(|ty| {
+                                    self.is_materialized_copy(ty, copy_generics, scope)
+                                }) {
+                                    demands.insert(Demand::Dup(DupUse::CopyUse));
+                                } else {
+                                    demands.insert(Demand::Move(
+                                        MoveUse::ClosureCapture(
+                                            outer_derived
+                                                .origin(name)
+                                                .unwrap_or(Origin::Structural),
+                                            name.clone(),
+                                        ),
+                                        self.move_materialization(
+                                            env.get(name),
+                                            copy_generics,
+                                            scope,
+                                        ),
+                                    ));
+                                }
+                            }
+                        }
                     } else {
                         demands.insert(Demand::Esc);
                     }
@@ -1197,31 +1564,120 @@ impl BorrowContext {
             }
             Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) => {}
             Expr::Loop(block) | Expr::Unsafe(block) => {
-                if block_has_free_var_from(block, derived) {
+                if block_has_free_var_from(block, derived.names()) {
                     demands.insert(Demand::Unk);
                 }
             }
             Expr::Await(inner) => {
-                if expr_has_free_var_from(inner, derived) {
+                if expr_has_free_var_from(inner, derived.names()) {
                     demands.insert(Demand::Unk);
                 }
             }
             Expr::BuilderChain(methods) => {
-                if builder_chain_has_free_var_from(methods, derived) {
+                if builder_chain_has_free_var_from(methods, derived.names()) {
                     demands.insert(Demand::Unk);
                 }
             }
             Expr::Index(base, index) | Expr::Assign(base, index) => {
-                if expr_has_free_var_from(base, derived) || expr_has_free_var_from(index, derived) {
+                if expr_has_free_var_from(base, derived.names())
+                    || expr_has_free_var_from(index, derived.names())
+                {
                     demands.insert(Demand::Unk);
                 }
             }
             Expr::Reference(inner, _, _) => {
-                if expr_has_free_var_from(inner, derived) {
+                if expr_has_free_var_from(inner, derived.names()) {
                     demands.insert(Demand::Unk);
                 }
             }
         }
+    }
+
+    /// Track a value that contributes directly to the function result.  This
+    /// preserves return provenance through tuples and datatype constructors,
+    /// while ordinary function calls inside the expression still impose their
+    /// own parameter modes.
+    fn collect_demands_for_return_arg(
+        &self,
+        arg: &Expr,
+        derived: &DerivedOrigins,
+        env: &mut TypeEnv,
+        copy_generics: &HashSet<String>,
+        demands: &mut HashSet<Demand>,
+        scope: &ModuleScope,
+    ) {
+        self.collect_demands_expr(
+            arg,
+            derived,
+            env,
+            copy_generics,
+            demands,
+            DemandSite::new(true, scope),
+        );
+    }
+
+    fn count_direct_payload_returns(
+        &self,
+        expr: &Expr,
+        derived: &DerivedOrigins,
+        env: &TypeEnv,
+        copy_generics: &HashSet<String>,
+        scope: &ModuleScope,
+    ) -> usize {
+        match strip_parens(expr) {
+            Expr::Ident(name)
+                if derived.origin(name) == Some(Origin::Payload)
+                    && !env
+                        .get(name)
+                        .is_some_and(|ty| self.is_materialized_copy(ty, copy_generics, scope)) =>
+            {
+                1
+            }
+            Expr::Tuple(elems) | Expr::Array(elems) => elems
+                .iter()
+                .map(|elem| {
+                    self.count_direct_payload_returns(elem, derived, env, copy_generics, scope)
+                })
+                .sum(),
+            Expr::Call(callee, args) if self.is_constructor_callee(callee) => args
+                .iter()
+                .map(|arg| {
+                    self.count_direct_payload_returns(arg, derived, env, copy_generics, scope)
+                })
+                .sum(),
+            Expr::Cast(inner, _) => {
+                self.count_direct_payload_returns(inner, derived, env, copy_generics, scope)
+            }
+            Expr::Block(block) => block.expr.as_deref().map_or(0, |tail| {
+                self.count_direct_payload_returns(tail, derived, env, copy_generics, scope)
+            }),
+            _ => 0,
+        }
+    }
+
+    fn is_constructor_callee(&self, callee: &Expr) -> bool {
+        let path = match strip_parens(callee) {
+            Expr::Ident(name) => name.clone(),
+            Expr::Path(segments, PathType::Namespace) => segments.join("::"),
+            _ => return false,
+        };
+        if self.owner_for_constructor(&path).is_some() {
+            return true;
+        }
+
+        if matches!(path.as_str(), "Some" | "Ok" | "Err") {
+            return true;
+        }
+
+        matches!(
+            path.as_str(),
+            "Box::new"
+                | "std::boxed::Box::new"
+                | "Rc::new"
+                | "std::rc::Rc::new"
+                | "Arc::new"
+                | "std::sync::Arc::new"
+        )
     }
 
     /// Collect demands for an expression used in an *own* (ownership-consuming)
@@ -1229,7 +1685,7 @@ impl BorrowContext {
     fn collect_demands_for_own_arg(
         &self,
         arg: &Expr,
-        derived: &HashSet<String>,
+        derived: &DerivedOrigins,
         env: &mut TypeEnv,
         copy_generics: &HashSet<String>,
         demands: &mut HashSet<Demand>,
@@ -1239,9 +1695,21 @@ impl BorrowContext {
             Expr::UnaryOp(op, inner) if op == "*" => {
                 if let Expr::Ident(name) = inner.as_ref() {
                     if derived.contains(name) {
-                        // Stable lowering of `box y`: a borrowed origin
-                        // materializes the inner value with a clone.
-                        demands.insert(Demand::Dup(DupUse::ExplicitClone));
+                        let moved_ty = self.infer_type(arg, env, scope);
+                        if moved_ty
+                            .as_ref()
+                            .is_some_and(|ty| self.is_materialized_copy(ty, copy_generics, scope))
+                        {
+                            demands.insert(Demand::Dup(DupUse::CopyUse));
+                        } else {
+                            demands.insert(Demand::Move(
+                                MoveUse::OwnedSink(
+                                    derived.origin(name).unwrap_or(Origin::Structural),
+                                    name.clone(),
+                                ),
+                                self.move_materialization(moved_ty.as_ref(), copy_generics, scope),
+                            ));
+                        }
                         return;
                     }
                 }
@@ -1274,13 +1742,19 @@ impl BorrowContext {
             Expr::Ident(name) => {
                 if derived.contains(name) {
                     let ty = env.get(name);
-                    if ty.map(|t| self.is_copy(t, copy_generics)).unwrap_or(false) {
+                    if ty.is_some_and(|ty| self.is_materialized_copy(ty, copy_generics, scope)) {
                         // Copy type: direct use is an implicit copy – Own demand.
                         demands.insert(Demand::Dup(DupUse::CopyUse));
                     } else {
                         // Non-Copy type passed directly without clone lacks
                         // clone/copy evidence.
-                        demands.insert(Demand::Move(MoveUse::OwnedSink));
+                        demands.insert(Demand::Move(
+                            MoveUse::OwnedSink(
+                                derived.origin(name).unwrap_or(Origin::Structural),
+                                name.clone(),
+                            ),
+                            self.move_materialization(ty, copy_generics, scope),
+                        ));
                     }
                 } else {
                     self.collect_demands_expr(
@@ -1311,7 +1785,7 @@ impl BorrowContext {
     fn collect_demands_for_bor_arg(
         &self,
         arg: &Expr,
-        derived: &HashSet<String>,
+        derived: &DerivedOrigins,
         env: &mut TypeEnv,
         copy_generics: &HashSet<String>,
         demands: &mut HashSet<Demand>,
@@ -1357,16 +1831,19 @@ impl BorrowContext {
         &self,
         pattern: &str,
         ty: &Type,
-        derived: &mut HashSet<String>,
+        source: Origin,
+        derived: &mut DerivedOrigins,
     ) {
         let pattern = pattern.trim();
         if pattern.is_empty() || pattern == "_" || pattern == ".." {
             return;
         }
 
-        // Strip `box` prefix – both the binding and its inner content are derived.
+        // A `box` pattern projects through the owning wrapper without changing
+        // whether the selected field is structural or payload.
         if let Some(inner) = strip_prefix_word(pattern, "box") {
-            self.collect_derived_from_pattern(inner, ty, derived);
+            let inner_ty = box_inner_type(ty).unwrap_or(ty);
+            self.collect_derived_from_pattern(inner, inner_ty, source, derived);
             return;
         }
 
@@ -1378,8 +1855,11 @@ impl BorrowContext {
             if parts.len() > 1 {
                 if let Type::Tuple(types) = ty {
                     for (p, t) in parts.iter().zip(types) {
-                        self.collect_derived_from_pattern(p, t, derived);
+                        let origin = self.projected_origin(source, t, derived);
+                        self.collect_derived_from_pattern(p, t, origin, derived);
                     }
+                } else {
+                    self.collect_pattern_bindings_with_origin(pattern, source, derived);
                 }
                 return;
             }
@@ -1389,8 +1869,11 @@ impl BorrowContext {
         if let Some((constructor, args)) = split_constructor_pattern(pattern) {
             if let Some(field_types) = self.pattern_field_types(constructor, ty) {
                 for (arg, fty) in args.iter().zip(field_types.iter()) {
-                    self.collect_derived_from_pattern(arg, fty, derived);
+                    let origin = self.projected_origin(source, fty, derived);
+                    self.collect_derived_from_pattern(arg, fty, origin, derived);
                 }
+            } else {
+                self.collect_pattern_bindings_with_origin(pattern, source, derived);
             }
             return;
         }
@@ -1400,7 +1883,83 @@ impl BorrowContext {
         }
 
         if is_binding_ident(pattern) {
-            derived.insert(pattern.to_string());
+            derived.insert(pattern.to_string(), source);
+        }
+    }
+
+    fn collect_tuple_derived_from_pattern(
+        &self,
+        scrutinee: &Expr,
+        pattern: &str,
+        ty: &Type,
+        derived: &DerivedOrigins,
+        out: &mut DerivedOrigins,
+    ) {
+        let (Expr::Tuple(elems), Type::Tuple(types)) = (scrutinee, ty) else {
+            return;
+        };
+        let Some(inner) = outer_parens_inner(pattern.trim()) else {
+            return;
+        };
+        let parts = split_top_level_commas(inner);
+        for ((elem, subpattern), field_ty) in elems.iter().zip(parts).zip(types) {
+            if let Some(origin) = derived_borrow_alias_origin(elem, derived) {
+                self.collect_derived_from_pattern(&subpattern, field_ty, origin, out);
+            }
+        }
+    }
+
+    fn collect_untyped_tuple_derived_from_pattern(
+        &self,
+        scrutinee: &Expr,
+        pattern: &str,
+        derived: &DerivedOrigins,
+        out: &mut DerivedOrigins,
+    ) {
+        let Expr::Tuple(elems) = scrutinee else {
+            return;
+        };
+        let Some(inner) = outer_parens_inner(pattern.trim()) else {
+            return;
+        };
+        let parts = split_top_level_commas(inner);
+        for (elem, subpattern) in elems.iter().zip(parts) {
+            if let Some(origin) = derived_borrow_alias_origin(elem, derived) {
+                // Without the field type we cannot safely distinguish a
+                // recursive projection from a payload projection.
+                self.collect_pattern_bindings_with_origin(&subpattern, origin, out);
+            }
+        }
+    }
+
+    fn collect_pattern_bindings_with_origin(
+        &self,
+        pattern: &str,
+        origin: Origin,
+        derived: &mut DerivedOrigins,
+    ) {
+        let mut bindings = HashSet::new();
+        collect_pattern_binding_names(pattern, &mut bindings);
+        for binding in bindings {
+            derived.insert(binding, origin);
+        }
+    }
+
+    fn projected_origin(
+        &self,
+        source: Origin,
+        field_ty: &Type,
+        derived: &DerivedOrigins,
+    ) -> Origin {
+        if source == Origin::Payload {
+            return Origin::Payload;
+        }
+        match derived.root_family.as_deref() {
+            Some(root_family) if type_carries_nominal_family(field_ty, root_family) => {
+                Origin::Structural
+            }
+            Some(_) => Origin::Payload,
+            None => Origin::Payload,
         }
     }
 }
@@ -1448,6 +2007,7 @@ impl BorrowContext {
         let scope = ModuleScope {
             module_path: module_path.to_vec(),
             imports: collect_imports(items),
+            current_function: None,
         };
         for item in items {
             match item {
@@ -1482,8 +2042,15 @@ impl BorrowContext {
         let mut borrow_env = function_type_env(f);
         let orig_env = self.original_function_type_env(f, id);
         let copy_generics = generic_names_with_bound(f, "Copy");
-        f.body =
-            self.rewrite_block_borrow(&f.body, &mut borrow_env, &orig_env, &copy_generics, scope);
+        let mut function_scope = scope.clone();
+        function_scope.current_function = Some(id.clone());
+        f.body = self.rewrite_block_borrow(
+            &f.body,
+            &mut borrow_env,
+            &orig_env,
+            &copy_generics,
+            &function_scope,
+        );
     }
 
     fn rewrite_impl_method_body_in_place(&self, method: &mut FunctionDef, scope: &ModuleScope) {
@@ -1541,20 +2108,25 @@ impl BorrowContext {
                     } else {
                         None
                     };
-                    let borrowed_box_alias = if bclosure.is_none()
+                    let borrowed_alias = if bclosure.is_none()
                         && let_stmt.ty.is_none()
                         && is_binding_ident(&let_stmt.name)
+                        // Generated `_cap` bindings feed `move` closures that
+                        // may escape the current function.  Keep the capture
+                        // value owned; otherwise a borrowed pattern field can
+                        // be stored in the required `'static` closure object.
+                        && !let_stmt.name.ends_with("_cap")
                     {
                         let_stmt
                             .init
                             .as_ref()
-                            .and_then(|init| borrowed_box_deref_alias(init, borrow_env))
+                            .and_then(|init| borrowed_local_alias(init, borrow_env))
                     } else {
                         None
                     };
                     let new_init = if let Some(closure_expr) = bclosure {
                         Some(closure_expr)
-                    } else if let Some((alias_expr, _)) = &borrowed_box_alias {
+                    } else if let Some((alias_expr, _)) = &borrowed_alias {
                         Some(alias_expr.clone())
                     } else {
                         let_stmt.init.as_ref().map(|init| {
@@ -1576,7 +2148,7 @@ impl BorrowContext {
                     }) {
                         if is_binding_ident(&let_stmt.name) {
                             local_orig.insert(let_stmt.name.clone(), ty.clone());
-                            if let Some((_, borrow_ty)) = &borrowed_box_alias {
+                            if let Some((_, borrow_ty)) = &borrowed_alias {
                                 borrow_env.insert(let_stmt.name.clone(), borrow_ty.clone());
                             } else {
                                 borrow_env.insert(let_stmt.name.clone(), ty);
@@ -1639,7 +2211,16 @@ impl BorrowContext {
                         }
                         // &T in own context: deref-copy if Copy, else clone.
                         let inner = ref_inner(bty);
-                        if self.is_materialized_copy(inner.unwrap_or(bty), copy_generics) {
+                        if stripped_box_binding(name, bty, orig_env) {
+                            // A stripped `box y` pattern binds `y` as
+                            // `&Box<T>` although the original owned binding was
+                            // `T`; materialize that inner value, not the box.
+                            return clone_borrowed_box_inner(name);
+                        } else if self.is_materialized_copy(
+                            inner.unwrap_or(bty),
+                            copy_generics,
+                            scope,
+                        ) {
                             return Expr::UnaryOp(
                                 "*".to_string(),
                                 Box::new(Expr::Ident(name.clone())),
@@ -1662,21 +2243,20 @@ impl BorrowContext {
                     if let Some(bty) = borrow_env.get(name) {
                         if is_reference_type(bty) {
                             let inner = ref_inner(bty);
-                            return if is_box_type(inner.unwrap_or(bty)) {
-                                // &Box<T>.clone() in own context: produce Box<T> via
-                                // `v.as_ref().clone()` which gives T is NOT right…
-                                // Actually we want Box<T>: just v.clone() is fine.
-                                // But in generated code the original `xs` was the inner T
-                                // after box pattern, so `xs.clone()` was T.
-                                // In the rewritten body xs: &Box<T>, own needs T → as_ref().clone()
+                            return if stripped_box_binding(name, bty, orig_env) {
+                                // A stripped `box v` binding was originally T,
+                                // but is represented as &Box<T> after B-Match.
                                 let as_ref_call = Expr::MethodCall(
                                     Box::new(Expr::Ident(name.clone())),
                                     "as_ref".to_string(),
                                     vec![],
                                 );
                                 Expr::MethodCall(Box::new(as_ref_call), "clone".to_string(), vec![])
-                            } else if self.is_materialized_copy(inner.unwrap_or(bty), copy_generics)
-                            {
+                            } else if self.is_materialized_copy(
+                                inner.unwrap_or(bty),
+                                copy_generics,
+                                scope,
+                            ) {
                                 // Method resolution on `v: &T` may select
                                 // `Clone for T` and produce an owned `T`.  Once
                                 // the preceding Copy analysis has proved `T:
@@ -1789,16 +2369,21 @@ impl BorrowContext {
                                 borrow_env.get(name).is_some_and(is_reference_type);
                             self.infer_type(receiver, orig_env, scope).and_then(|ty| {
                                 local_type_name(&ty)
-                                    .is_some_and(|name| self.type_defs.contains_key(name))
+                                    .is_some_and(|name| self.unambiguous_type_def(name).is_some())
                                     .then(|| {
-                                        let materialize_by_value = self
-                                            .is_materialized_copy(&ty, copy_generics)
-                                            && self.prefer_copy_match_by_value(&ty, copy_generics);
+                                        let materialize_by_value =
+                                            self.is_materialized_copy(&ty, copy_generics, scope)
+                                                && self
+                                                    .prefer_copy_match_by_value(&ty, copy_generics);
+                                        let preserve_owned_clone = !receiver_is_borrowed
+                                            && !materialize_by_value
+                                            && self.is_preferred_owned_param(scope, name);
                                         (
                                             receiver.as_ref().clone(),
                                             ty,
                                             receiver_is_borrowed,
                                             materialize_by_value,
+                                            preserve_owned_clone,
                                         )
                                     })
                             })
@@ -1823,11 +2408,12 @@ impl BorrowContext {
                                 .map(|(_, inner_ty)| inner_ty.clone())
                         })
                         .or_else(|| {
-                            clone_match
-                                .as_ref()
-                                .and_then(|(_, ty, _, materialize_by_value)| {
-                                    (!materialize_by_value).then(|| ty.clone())
-                                })
+                            clone_match.as_ref().and_then(
+                                |(_, ty, _, materialize_by_value, preserve_owned_clone)| {
+                                    (!materialize_by_value && !preserve_owned_clone)
+                                        .then(|| ty.clone())
+                                },
+                            )
                         }),
                 };
                 // Copy runs before Borrow.  It can therefore turn
@@ -1845,16 +2431,24 @@ impl BorrowContext {
                         Expr::Ident(name)
                             if orig_env.get(name).is_some_and(|ty| !is_reference_type(ty))
                     ) && borrow_match_inner_type.as_ref().is_some_and(|ty| {
-                        self.is_materialized_copy(ty, copy_generics)
+                        self.is_materialized_copy(ty, copy_generics, scope)
                             && self.prefer_copy_match_by_value(ty, copy_generics)
                     });
                 let materialize_clone_match = clone_match
                     .as_ref()
-                    .is_some_and(|(_, _, _, materialize_by_value)| *materialize_by_value);
+                    .is_some_and(|(_, _, _, materialize_by_value, _)| *materialize_by_value);
                 let scrutinee_is_borrowed =
                     borrow_match_inner_type.is_some() && !materialize_direct_small_copy_match;
 
-                let new_scrutinee = if let Some((receiver, _, receiver_is_borrowed, _)) =
+                let new_scrutinee = if clone_match
+                    .as_ref()
+                    .is_some_and(|(_, _, _, _, preserve_owned_clone)| *preserve_owned_clone)
+                {
+                    // PreferOwned protects the original ownership path. Keep
+                    // the clone until the dedicated Last-Use pass proves that
+                    // this occurrence can become a move.
+                    self.rewrite_expr_own(scrutinee, borrow_env, orig_env, copy_generics, scope)
+                } else if let Some((receiver, _, receiver_is_borrowed, _, _)) =
                     clone_match.as_ref().filter(|_| materialize_clone_match)
                 {
                     if *receiver_is_borrowed {
@@ -1862,7 +2456,7 @@ impl BorrowContext {
                     } else {
                         receiver.clone()
                     }
-                } else if let Some((receiver, _, receiver_is_borrowed, _)) = &clone_match {
+                } else if let Some((receiver, _, receiver_is_borrowed, _, _)) = &clone_match {
                     if *receiver_is_borrowed {
                         receiver.clone()
                     } else {
@@ -2194,8 +2788,7 @@ impl BorrowContext {
                 if let Expr::Ident(name) = receiver.as_ref() {
                     if let Some(bty) = borrow_env.get(name) {
                         if is_reference_type(bty) {
-                            let inner = ref_inner(bty);
-                            return if is_box_type(inner.unwrap_or(bty)) {
+                            return if stripped_box_binding(name, bty, orig_env) {
                                 // v: &Box<T> → v.as_ref() gives &T
                                 Expr::MethodCall(
                                     Box::new(Expr::Ident(name.clone())),
@@ -2208,12 +2801,11 @@ impl BorrowContext {
                             };
                         }
                     }
-                    if borrow_env.contains_key(name) || orig_env.contains_key(name) {
-                        // v: T in a borrowed call position:
-                        // the original explicit clone existed only to satisfy
-                        // owned calling convention, so B-Call can pass &v.
-                        return Expr::Reference(Box::new(Expr::Ident(name.clone())), true, false);
-                    }
+                    // The explicit clone existed only to satisfy the original
+                    // owned calling convention.  This remains true when the
+                    // local binding's type could not be reconstructed, so the
+                    // borrowed interface can always use the source binding.
+                    return Expr::Reference(Box::new(Expr::Ident(name.clone())), true, false);
                 }
                 // Recurse and wrap in &.
                 let inner = self.rewrite_expr_own(arg, borrow_env, orig_env, copy_generics, scope);
@@ -2453,7 +3045,7 @@ impl BorrowContext {
             .trim();
 
         if let Some(type_name) = local_type_name(ty) {
-            if let Some(def) = self.type_defs.get(type_name) {
+            if let Some(def) = self.unambiguous_type_def(type_name) {
                 let subst = type_substitution(def, ty);
                 match &def.kind {
                     TypeDefKind::Enum(variants) => {
@@ -2461,7 +3053,7 @@ impl BorrowContext {
                             return Some(
                                 v.fields
                                     .iter()
-                                    .map(|f| apply_type_subst(f, &subst))
+                                    .map(|field| self.instantiate_declared_type(def, field, &subst))
                                     .collect(),
                             );
                         }
@@ -2472,7 +3064,7 @@ impl BorrowContext {
                         return Some(
                             fields
                                 .iter()
-                                .map(|f| apply_type_subst(&f.ty, &subst))
+                                .map(|field| self.instantiate_declared_type(def, &field.ty, &subst))
                                 .collect(),
                         );
                     }
@@ -2483,14 +3075,40 @@ impl BorrowContext {
 
         // Try via variant owner map.
         let owner = self.owner_for_constructor(constructor)?;
-        let def = self.type_defs.get(&owner)?;
+        let def = self.unambiguous_type_def(&owner)?;
         match &def.kind {
-            TypeDefKind::Enum(variants) => variants
-                .iter()
-                .find(|v| v.name == variant_name)
-                .map(|v| v.fields.clone()),
-            TypeDefKind::Struct(fields) => Some(fields.iter().map(|f| f.ty.clone()).collect()),
+            TypeDefKind::Enum(variants) => {
+                variants
+                    .iter()
+                    .find(|v| v.name == variant_name)
+                    .map(|variant| {
+                        variant
+                            .fields
+                            .iter()
+                            .map(|field| {
+                                self.instantiate_declared_type(def, field, &HashMap::new())
+                            })
+                            .collect()
+                    })
+            }
+            TypeDefKind::Struct(fields) => Some(
+                fields
+                    .iter()
+                    .map(|field| self.instantiate_declared_type(def, &field.ty, &HashMap::new()))
+                    .collect(),
+            ),
         }
+    }
+
+    fn instantiate_declared_type(
+        &self,
+        def: &TypeDef,
+        ty: &Type,
+        subst: &HashMap<String, Type>,
+    ) -> Type {
+        let declared =
+            canonicalize_declared_type(ty, &def.generics, &def.scope, &self.local_type_ids);
+        apply_type_subst(&declared, subst)
     }
 
     fn owner_for_constructor(&self, constructor: &str) -> Option<String> {
@@ -2502,7 +3120,7 @@ impl BorrowContext {
 
         if parts.len() >= 2 {
             let owner = parts[parts.len() - 2];
-            if self.type_defs.contains_key(owner) {
+            if self.unambiguous_type_def(owner).is_some() {
                 return Some(owner.to_string());
             }
         }
@@ -2511,6 +3129,132 @@ impl BorrowContext {
 
     fn owner_for_variant_name(&self, variant_name: &str) -> Option<String> {
         self.variant_owners.get(variant_name).cloned().flatten()
+    }
+
+    fn unambiguous_type_def(&self, name: &str) -> Option<&TypeDef> {
+        (!self.ambiguous_type_names.contains(name))
+            .then(|| self.type_defs.get(name))
+            .flatten()
+    }
+
+    fn move_materialization(
+        &self,
+        ty: Option<&Type>,
+        copy_generics: &HashSet<String>,
+        scope: &ModuleScope,
+    ) -> Materialization {
+        if ty.is_some_and(|ty| self.can_materialize_owned(ty, copy_generics, scope)) {
+            Materialization::Available
+        } else {
+            Materialization::Unavailable
+        }
+    }
+
+    /// Whether an owned value of `ty` can be produced from `&ty` in emitted
+    /// Rust. Copy evidence must be present in the emitted program (as a
+    /// builtin, bound, derive, or explicit implementation), rather than merely
+    /// inferred for a policy decision. Clone evidence comes from the current
+    /// function bounds, source derives or explicit implementations, and
+    /// supported runtime/container types.
+    fn can_materialize_owned(
+        &self,
+        ty: &Type,
+        copy_generics: &HashSet<String>,
+        scope: &ModuleScope,
+    ) -> bool {
+        self.is_materialized_copy(ty, copy_generics, scope)
+            || self.is_clone(ty, copy_generics, scope)
+    }
+
+    fn is_clone(&self, ty: &Type, copy_generics: &HashSet<String>, scope: &ModuleScope) -> bool {
+        if self.is_materialized_copy(ty, copy_generics, scope) {
+            return true;
+        }
+
+        match ty {
+            Type::Named(name) => {
+                if let Some(generic) = self.current_generic(scope, name) {
+                    return generic_has_bound(generic, "Clone")
+                        || generic_has_bound(generic, "Copy");
+                }
+
+                let type_id = nominal_type_id(ty, scope);
+                type_id.as_ref().is_some_and(|id| {
+                    self.derived_clone_types.contains(id)
+                        || self.unconditional_clone_types.contains(id)
+                        || (!self.local_type_ids.contains(id)
+                            && known_unconditional_clone_type(name, scope))
+                })
+            }
+            Type::Path(path) => nominal_type_id(ty, scope).is_some_and(|id| {
+                let name = path.join("::");
+                self.derived_clone_types.contains(&id)
+                    || self.unconditional_clone_types.contains(&id)
+                    || (!self.local_type_ids.contains(&id)
+                        && known_unconditional_clone_type(&name, scope))
+            }),
+            Type::Generic(name, params) => {
+                let leaf = type_name_leaf(name);
+                let Some(type_id) = nominal_type_id(ty, scope) else {
+                    return false;
+                };
+                if self.unconditional_clone_types.contains(&type_id) {
+                    return true;
+                }
+                let is_local = self.local_type_ids.contains(&type_id);
+                let builtin = !is_local && builtin_type_name_is_unshadowed(name, scope);
+                if builtin && matches!(leaf, "Rc" | "Arc" | "Weak" | "PhantomData") {
+                    return true;
+                }
+                if !is_local && known_unconditional_clone_type(name, scope) {
+                    return true;
+                }
+
+                let clone_requires_clone_params = (builtin
+                    && matches!(
+                        leaf,
+                        "Box"
+                            | "Vec"
+                            | "Option"
+                            | "Result"
+                            | "HashMap"
+                            | "BTreeMap"
+                            | "HashSet"
+                            | "BTreeSet"
+                            | "VecDeque"
+                            | "LinkedList"
+                            | "BinaryHeap"
+                            | "Range"
+                            | "RangeInclusive"
+                    ))
+                    || self.derived_clone_types.contains(&type_id);
+
+                clone_requires_clone_params
+                    && params
+                        .iter()
+                        .all(|param| self.is_clone(param, copy_generics, scope))
+            }
+            Type::Tuple(types) => types
+                .iter()
+                .all(|ty| self.is_clone(ty, copy_generics, scope)),
+            Type::Array(inner, _) => self.is_clone(inner, copy_generics, scope),
+            Type::Reference(_, true, false) | Type::Unit | Type::Never => true,
+            Type::Reference(_, _, _) | Type::Slice(_) | Type::CallableTrait(_) => false,
+        }
+    }
+
+    fn current_generic<'a>(
+        &'a self,
+        scope: &ModuleScope,
+        generic_name: &str,
+    ) -> Option<&'a GenericParam> {
+        scope
+            .current_function
+            .as_ref()
+            .and_then(|id| self.fn_sigs.get(id))
+            .and_then(|(generics, _, _)| {
+                generics.iter().find(|generic| generic.name == generic_name)
+            })
     }
 
     fn is_copy(&self, ty: &Type, copy_generics: &HashSet<String>) -> bool {
@@ -2540,7 +3284,7 @@ impl BorrowContext {
             }
             Type::Generic(name, params) => {
                 let leaf = type_name_leaf(name);
-                leaf == "PhantomData"
+                (leaf == "PhantomData" && !self.type_defs.contains_key(leaf))
                     || self.unconditional_copy_types.contains(leaf)
                     || ((self.inferred_copy_types.contains(leaf)
                         || self.source_copy_types.contains(leaf))
@@ -2558,42 +3302,48 @@ impl BorrowContext {
     /// Whether Rust can perform an implicit copy in the emitted program. This
     /// remains distinct from `is_copy` so only implementations materialized in
     /// the AST can license `*shared_ref` rewrites.
-    fn is_materialized_copy(&self, ty: &Type, copy_generics: &HashSet<String>) -> bool {
+    fn is_materialized_copy(
+        &self,
+        ty: &Type,
+        copy_generics: &HashSet<String>,
+        scope: &ModuleScope,
+    ) -> bool {
         match ty {
             Type::Named(name) => {
-                matches!(
-                    name.as_str(),
-                    "bool"
-                        | "char"
-                        | "i8"
-                        | "i16"
-                        | "i32"
-                        | "i64"
-                        | "i128"
-                        | "isize"
-                        | "u8"
-                        | "u16"
-                        | "u32"
-                        | "u64"
-                        | "u128"
-                        | "usize"
-                        | "f32"
-                        | "f64"
-                ) || self.materialized_copy_types.contains(name)
+                primitive_size_words(name).is_some()
                     || copy_generics.contains(name)
+                    || self
+                        .current_generic(scope, name)
+                        .is_some_and(|generic| generic_has_bound(generic, "Copy"))
+                    || nominal_type_id(ty, scope)
+                        .is_some_and(|id| self.materialized_copy_type_ids.contains(&id))
+            }
+            Type::Path(path) => {
+                path.last()
+                    .is_some_and(|name| primitive_size_words(name).is_some())
+                    || nominal_type_id(ty, scope)
+                        .is_some_and(|id| self.materialized_copy_type_ids.contains(&id))
             }
             Type::Generic(name, params) => {
                 let leaf = type_name_leaf(name);
-                leaf == "PhantomData"
-                    || self.materialized_unconditional_copy_types.contains(leaf)
-                    || (self.materialized_copy_types.contains(leaf)
+                let Some(type_id) = nominal_type_id(ty, scope) else {
+                    return false;
+                };
+                let builtin = !self.local_type_ids.contains(&type_id)
+                    && builtin_type_name_is_unshadowed(name, scope);
+                (leaf == "PhantomData" && builtin)
+                    || self
+                        .materialized_unconditional_copy_type_ids
+                        .contains(&type_id)
+                    || (self.materialized_copy_type_ids.contains(&type_id)
                         && params
                             .iter()
-                            .all(|param| self.is_materialized_copy(param, copy_generics)))
+                            .all(|param| self.is_materialized_copy(param, copy_generics, scope)))
             }
             Type::Tuple(types) => types
                 .iter()
-                .all(|ty| self.is_materialized_copy(ty, copy_generics)),
+                .all(|ty| self.is_materialized_copy(ty, copy_generics, scope)),
+            Type::Array(inner, _) => self.is_materialized_copy(inner, copy_generics, scope),
             Type::Reference(_, true, false) => true,
             Type::Reference(_, _, _) => false,
             Type::Unit | Type::Never => true,
@@ -2667,7 +3417,7 @@ impl BorrowContext {
         if !visiting.insert(name.to_string()) {
             return None;
         }
-        let result = self.type_defs.get(name).and_then(|def| {
+        let result = self.unambiguous_type_def(name).and_then(|def| {
             let subst = type_substitution(def, instantiated);
             match &def.kind {
                 TypeDefKind::Struct(fields) => sum_estimated_words(fields.iter().map(|field| {
@@ -2705,8 +3455,8 @@ impl BorrowContext {
     /// }
     /// ```
     /// When *all* `_cap`-captured variables are borrowable within `clo_cap`
-    /// (`BorrowSafe` and not `PreferOwned`), the whole block is replaced with a plain
-    /// non-`move` closure `|x̄| { clo_bor }` where each `yj_cap` is
+    /// (the strict local safety gate and not `PreferOwned`), the whole block is
+    /// replaced with a plain non-`move` closure `|x̄| { clo_bor }` where each `yj_cap` is
     /// substituted back to `yj`.
     ///
     /// NonEscAbs is conservatively ensured by the caller: this method is only
@@ -2769,7 +3519,11 @@ impl BorrowContext {
         // Use `in_return_ctx = true` because the closure body's tail expression
         // is the closure's return value.
         for (cap_name, _) in &captures {
-            let derived: HashSet<String> = [cap_name.clone()].into_iter().collect();
+            let cap_ty = env_with_caps
+                .get(cap_name)
+                .cloned()
+                .unwrap_or_else(|| Type::Named("__unknown_capture".to_string()));
+            let derived = DerivedOrigins::for_parameter(cap_name, &cap_ty, scope);
             let mut demands = HashSet::new();
             let mut env_copy = env_with_caps.clone();
             self.collect_demands_expr(
@@ -2780,7 +3534,7 @@ impl BorrowContext {
                 &mut demands,
                 DemandSite::new(true, scope), // closure-body tail is return context
             );
-            if !borrow_safe(&demands) || prefer_owned(&demands, cap_name) {
+            if !local_rewrite_safe(&demands) || prefer_owned(&demands, false) {
                 return None;
             }
         }
@@ -3304,6 +4058,63 @@ fn borrowed_box_inner_type(ty: &Type) -> Option<&Type> {
     ref_inner(ty).and_then(box_inner_type)
 }
 
+fn stripped_box_binding(name: &str, borrow_ty: &Type, orig_env: &TypeEnv) -> bool {
+    let Some(projected_inner) = borrowed_box_inner_type(borrow_ty) else {
+        return false;
+    };
+    orig_env
+        .get(name)
+        .is_some_and(|original| same_type(original, projected_inner))
+}
+
+fn same_type(left: &Type, right: &Type) -> bool {
+    match (left, right) {
+        (Type::Path(left), Type::Path(right)) => left == right,
+        (Type::Named(left), Type::Named(right)) => left == right,
+        (Type::Generic(left_name, left_args), Type::Generic(right_name, right_args)) => {
+            left_name == right_name
+                && left_args.len() == right_args.len()
+                && left_args
+                    .iter()
+                    .zip(right_args)
+                    .all(|(left, right)| same_type(left, right))
+        }
+        (Type::CallableTrait(left), Type::CallableTrait(right)) => {
+            let same_qualifier = matches!(
+                (&left.qualifier, &right.qualifier),
+                (CallableTraitQualifier::Dyn, CallableTraitQualifier::Dyn)
+                    | (CallableTraitQualifier::Impl, CallableTraitQualifier::Impl)
+            );
+            same_qualifier
+                && left.trait_name == right.trait_name
+                && left.args.len() == right.args.len()
+                && left
+                    .args
+                    .iter()
+                    .zip(&right.args)
+                    .all(|(left, right)| same_type(left, right))
+                && same_type(&left.return_type, &right.return_type)
+        }
+        (
+            Type::Reference(left, left_ref, left_mut),
+            Type::Reference(right, right_ref, right_mut),
+        ) => left_ref == right_ref && left_mut == right_mut && same_type(left, right),
+        (Type::Tuple(left), Type::Tuple(right)) => {
+            left.len() == right.len()
+                && left
+                    .iter()
+                    .zip(right)
+                    .all(|(left, right)| same_type(left, right))
+        }
+        (Type::Slice(left), Type::Slice(right)) => same_type(left, right),
+        (Type::Array(left, left_len), Type::Array(right, right_len)) => {
+            left_len == right_len && same_type(left, right)
+        }
+        (Type::Unit, Type::Unit) | (Type::Never, Type::Never) => true,
+        _ => false,
+    }
+}
+
 fn is_box_type(ty: &Type) -> bool {
     box_inner_type(ty).is_some()
 }
@@ -3329,6 +4140,16 @@ fn borrowed_box_as_ref(name: &str) -> Expr {
 fn clone_borrowed_box_inner(name: &str) -> Expr {
     let as_ref_call = borrowed_box_as_ref(name);
     Expr::MethodCall(Box::new(as_ref_call), "clone".to_string(), vec![])
+}
+
+fn borrowed_local_alias(expr: &Expr, env: &BorrowEnv) -> Option<(Expr, Type)> {
+    match strip_parens(expr) {
+        Expr::Ident(name) => env
+            .get(name)
+            .filter(|ty| is_reference_type(ty))
+            .map(|ty| (Expr::Ident(name.clone()), ty.clone())),
+        deref => borrowed_box_deref_alias(deref, env),
+    }
 }
 
 fn borrowed_box_deref_alias(expr: &Expr, env: &BorrowEnv) -> Option<(Expr, Type)> {
@@ -3365,14 +4186,183 @@ fn local_type_name(ty: &Type) -> Option<&str> {
     }
 }
 
+fn nominal_type_id(ty: &Type, scope: &ModuleScope) -> Option<FunctionId> {
+    match ty {
+        Type::Named(name) | Type::Generic(name, _) => {
+            let segments = name
+                .split("::")
+                .map(str::trim)
+                .filter(|segment| !segment.is_empty())
+                .map(str::to_string)
+                .collect::<Vec<_>>();
+            if segments.len() == 1 {
+                Some(scope.resolve_name_path(strip_path_segment_generics(&segments[0])))
+            } else if segments.is_empty() {
+                None
+            } else {
+                Some(scope.resolve_segments(&segments))
+            }
+        }
+        Type::Path(path) => Some(scope.resolve_segments(path)),
+        _ => None,
+    }
+}
+
+fn unconditional_impl_target_id(impl_block: &ImplBlock, scope: &ModuleScope) -> Option<FunctionId> {
+    if impl_block
+        .generics
+        .iter()
+        .any(|generic| !generic.bounds.is_empty())
+    {
+        return None;
+    }
+
+    match &impl_block.target {
+        Type::Named(_) | Type::Path(_) if impl_block.generics.is_empty() => {
+            nominal_type_id(&impl_block.target, scope)
+        }
+        Type::Generic(_, args) if args.len() == impl_block.generics.len() => {
+            let impl_generics = impl_block
+                .generics
+                .iter()
+                .map(|generic| generic.name.as_str())
+                .collect::<HashSet<_>>();
+            let target_generics = args
+                .iter()
+                .map(|arg| match arg {
+                    Type::Named(name) => Some(name.as_str()),
+                    _ => None,
+                })
+                .collect::<Option<HashSet<_>>>()?;
+            (impl_generics == target_generics)
+                .then(|| nominal_type_id(&impl_block.target, scope))?
+        }
+        _ => None,
+    }
+}
+
 fn type_name_leaf(name: &str) -> &str {
     name.rsplit("::").next().unwrap_or(name)
+}
+
+/// Canonical outer nominal constructor, without generic arguments.
+fn outer_nominal_family(ty: &Type) -> Option<String> {
+    match ty {
+        Type::Named(name) | Type::Generic(name, _) => {
+            Some(strip_path_segment_generics(name).to_string())
+        }
+        Type::Path(path) => Some(
+            path.iter()
+                .map(|segment| strip_path_segment_generics(segment))
+                .collect::<Vec<_>>()
+                .join("::"),
+        ),
+        _ => None,
+    }
+}
+
+fn outer_nominal_family_in_scope(ty: &Type, scope: &ModuleScope) -> Option<String> {
+    nominal_type_id(ty, scope)
+        .map(|id| id.join("::"))
+        .or_else(|| outer_nominal_family(ty))
+}
+
+fn same_outer_nominal_family_in_scope(left: &Type, right: &Type, scope: &ModuleScope) -> bool {
+    outer_nominal_family_in_scope(left, scope)
+        .zip(outer_nominal_family_in_scope(right, scope))
+        .is_some_and(|(left, right)| left == right)
+}
+
+/// Whether an owned field carries the root nominal family through an owning
+/// aggregate. References and callable signatures only mention a type and do
+/// not transfer its ownership.
+fn type_carries_nominal_family(ty: &Type, family: &str) -> bool {
+    if outer_nominal_family(ty).as_deref() == Some(family) {
+        return true;
+    }
+    match ty {
+        Type::Generic(_, params) | Type::Tuple(params) => params
+            .iter()
+            .any(|param| type_carries_nominal_family(param, family)),
+        Type::Array(inner, _) => type_carries_nominal_family(inner, family),
+        Type::Named(_)
+        | Type::Path(_)
+        | Type::Slice(_)
+        | Type::Reference(_, _, _)
+        | Type::CallableTrait(_)
+        | Type::Unit
+        | Type::Never => false,
+    }
 }
 
 fn type_is_copy_trait(ty: &Type) -> bool {
     match ty {
         Type::Named(name) => name == "Copy",
         Type::Path(path) => path.last().is_some_and(|name| name == "Copy"),
+        _ => false,
+    }
+}
+
+fn type_is_clone_trait(ty: &Type) -> bool {
+    match ty {
+        Type::Named(name) => name == "Clone",
+        Type::Path(path) => path.last().is_some_and(|name| name == "Clone"),
+        _ => false,
+    }
+}
+
+fn generic_has_bound(generic: &GenericParam, wanted_bound: &str) -> bool {
+    generic
+        .bounds
+        .iter()
+        .any(|bound| type_name_leaf(bound.trim()) == wanted_bound)
+}
+
+fn written_or_imported_path_has_root(
+    written_name: &str,
+    scope: &ModuleScope,
+    wanted_root: &str,
+) -> bool {
+    if written_name.contains("::") {
+        return written_name
+            .split("::")
+            .map(str::trim)
+            .find(|segment| !segment.is_empty())
+            .is_some_and(|root| strip_path_segment_generics(root) == wanted_root);
+    }
+
+    let leaf = type_name_leaf(written_name);
+    scope
+        .imports
+        .get(leaf)
+        .and_then(|path| path.first())
+        .is_some_and(|root| strip_path_segment_generics(root) == wanted_root)
+}
+
+fn builtin_type_name_is_unshadowed(written_name: &str, scope: &ModuleScope) -> bool {
+    let leaf = type_name_leaf(written_name);
+    if scope.imports.contains_key(leaf) || written_name.contains("::") {
+        return ["std", "core", "alloc"]
+            .iter()
+            .any(|root| written_or_imported_path_has_root(written_name, scope, root));
+    }
+
+    // Unqualified built-in/prelude spellings are valid unless a package-local
+    // nominal type with the resolved identity was collected; the caller checks
+    // that condition before consulting this helper.
+    true
+}
+
+/// Clone implementations supplied by Rust's prelude or the fixed runtime used
+/// by generated Isabelle code.  Local derived/explicit implementations are
+/// recorded separately in `BorrowContext`.
+fn known_unconditional_clone_type(written_name: &str, scope: &ModuleScope) -> bool {
+    match type_name_leaf(written_name) {
+        "String" => builtin_type_name_is_unshadowed(written_name, scope),
+        "BigInt" | "BigUint" => {
+            written_or_imported_path_has_root(written_name, scope, "num_bigint")
+        }
+        "BigRational" => written_or_imported_path_has_root(written_name, scope, "num_rational"),
         _ => false,
     }
 }
@@ -3400,6 +4390,145 @@ fn contains_callable_trait(ty: &Type) -> bool {
             contains_callable_trait(inner)
         }
         Type::Path(_) | Type::Named(_) | Type::Unit | Type::Never => false,
+    }
+}
+
+/// Resolve nominal field types in the scope where their datatype was
+/// declared.  Pattern bindings are later analysed in the caller's scope; if
+/// the spelling were left unqualified, a same-named caller-local type could
+/// incorrectly provide (or hide) Copy/Clone evidence.
+fn canonicalize_declared_type(
+    ty: &Type,
+    generics: &[String],
+    scope: &ModuleScope,
+    local_type_ids: &HashSet<FunctionId>,
+) -> Type {
+    match ty {
+        Type::Named(name) => {
+            let canonical =
+                canonicalize_declared_nominal_name(name, generics, scope, local_type_ids);
+            if canonical == *name {
+                ty.clone()
+            } else {
+                Type::Path(canonical.split("::").map(str::to_string).collect())
+            }
+        }
+        Type::Path(path) => {
+            let written = path.join("::");
+            let canonical =
+                canonicalize_declared_nominal_name(&written, generics, scope, local_type_ids);
+            Type::Path(canonical.split("::").map(str::to_string).collect())
+        }
+        Type::Generic(name, params) => Type::Generic(
+            canonicalize_declared_nominal_name(name, generics, scope, local_type_ids),
+            params
+                .iter()
+                .map(|param| canonicalize_declared_type(param, generics, scope, local_type_ids))
+                .collect(),
+        ),
+        Type::Tuple(types) => Type::Tuple(
+            types
+                .iter()
+                .map(|ty| canonicalize_declared_type(ty, generics, scope, local_type_ids))
+                .collect(),
+        ),
+        Type::Array(inner, len) => Type::Array(
+            Box::new(canonicalize_declared_type(
+                inner,
+                generics,
+                scope,
+                local_type_ids,
+            )),
+            *len,
+        ),
+        Type::Reference(inner, is_ref, mutable) => Type::Reference(
+            Box::new(canonicalize_declared_type(
+                inner,
+                generics,
+                scope,
+                local_type_ids,
+            )),
+            *is_ref,
+            *mutable,
+        ),
+        Type::Slice(inner) => Type::Slice(Box::new(canonicalize_declared_type(
+            inner,
+            generics,
+            scope,
+            local_type_ids,
+        ))),
+        Type::CallableTrait(callable) => Type::CallableTrait(CallableTraitType {
+            qualifier: callable.qualifier.clone(),
+            trait_name: callable.trait_name.clone(),
+            args: callable
+                .args
+                .iter()
+                .map(|arg| canonicalize_declared_type(arg, generics, scope, local_type_ids))
+                .collect(),
+            return_type: Box::new(canonicalize_declared_type(
+                &callable.return_type,
+                generics,
+                scope,
+                local_type_ids,
+            )),
+        }),
+        Type::Unit | Type::Never => ty.clone(),
+    }
+}
+
+fn canonicalize_declared_nominal_name(
+    name: &str,
+    generics: &[String],
+    scope: &ModuleScope,
+    local_type_ids: &HashSet<FunctionId>,
+) -> String {
+    let segments = name
+        .split("::")
+        .map(str::trim)
+        .filter(|segment| !segment.is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    let Some(leaf) = segments.last().map(String::as_str) else {
+        return name.to_string();
+    };
+
+    if segments.len() == 1 {
+        if generics.iter().any(|generic| generic == leaf) || primitive_size_words(leaf).is_some() {
+            return name.to_string();
+        }
+        if let Some(imported) = scope.imports.get(leaf) {
+            let resolved = scope.resolve_segments(imported);
+            let explicitly_relative = matches!(
+                imported.first().map(String::as_str),
+                Some("crate" | "self" | "super")
+            );
+            return if explicitly_relative || local_type_ids.contains(&resolved) {
+                resolved.join("::")
+            } else {
+                imported.join("::")
+            };
+        }
+
+        let local_id = scope.resolve_name_path(leaf);
+        if local_type_ids.contains(&local_id) {
+            return local_id.join("::");
+        }
+
+        return match leaf {
+            "String" => "std::string::String".to_string(),
+            "Box" => "std::boxed::Box".to_string(),
+            "Vec" => "std::vec::Vec".to_string(),
+            "Option" => "std::option::Option".to_string(),
+            "Result" => "std::result::Result".to_string(),
+            _ => name.to_string(),
+        };
+    }
+
+    let resolved = scope.resolve_segments(&segments);
+    if local_type_ids.contains(&resolved) {
+        resolved.join("::")
+    } else {
+        name.to_string()
     }
 }
 
@@ -3549,19 +4678,42 @@ fn generic_names_with_bound(f: &FunctionDef, bound: &str) -> HashSet<String> {
 /// These are precisely the alias shapes that remain references when B-Match
 /// rewrites an owned datatype traversal to a shared one. Owned materializations
 /// such as `.clone()` deliberately do not propagate derivedness.
-fn is_derived_borrow_alias(expr: &Expr, derived: &HashSet<String>) -> bool {
+fn derived_borrow_alias_origin(expr: &Expr, derived: &DerivedOrigins) -> Option<Origin> {
     match strip_parens(expr) {
-        Expr::Ident(name) => derived.contains(name),
-        Expr::UnaryOp(op, inner) if op == "*" => {
-            matches!(strip_parens(inner), Expr::Ident(name) if derived.contains(name))
-        }
+        Expr::Ident(name) => derived.origin(name),
+        Expr::UnaryOp(op, inner) if op == "*" => match strip_parens(inner) {
+            Expr::Ident(name) => derived.origin(name),
+            _ => None,
+        },
         Expr::MethodCall(receiver, method, args) if method == "as_ref" && args.is_empty() => {
-            matches!(strip_parens(receiver), Expr::Ident(name) if derived.contains(name))
+            match strip_parens(receiver) {
+                Expr::Ident(name) => derived.origin(name),
+                _ => None,
+            }
         }
-        Expr::Reference(inner, true, false) => {
-            matches!(strip_parens(inner), Expr::Ident(name) if derived.contains(name))
-        }
-        _ => false,
+        Expr::Reference(inner, true, false) => match strip_parens(inner) {
+            Expr::Ident(name) => derived.origin(name),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Untyped local aliases that the body rewriter can keep as shared values.
+/// Besides a direct `let y = x`, the generator's `let y = *boxed` traversal
+/// becomes `let y = boxed.as_ref()` after B-Match.
+fn supported_let_alias_origin(
+    expr: &Expr,
+    derived: &DerivedOrigins,
+    env: &TypeEnv,
+) -> Option<Origin> {
+    match strip_parens(expr) {
+        Expr::Ident(name) => derived.origin(name),
+        Expr::UnaryOp(op, inner) if op == "*" => match strip_parens(inner) {
+            Expr::Ident(name) if env.get(name).is_some_and(is_box_type) => derived.origin(name),
+            _ => None,
+        },
+        _ => None,
     }
 }
 
@@ -3948,6 +5100,7 @@ mod tests {
         ModuleScope {
             module_path: vec!["crate".to_string(), "Test".to_string()],
             imports: HashMap::new(),
+            current_function: None,
         }
     }
 
@@ -4016,14 +5169,19 @@ mod tests {
         BorrowContext {
             inferred_copy_types: HashSet::new(),
             source_copy_types: HashSet::new(),
-            materialized_copy_types: HashSet::new(),
+            materialized_copy_type_ids: HashSet::new(),
             unconditional_copy_types: HashSet::new(),
-            materialized_unconditional_copy_types: HashSet::new(),
+            materialized_unconditional_copy_type_ids: HashSet::new(),
+            derived_clone_types: HashSet::new(),
+            unconditional_clone_types: HashSet::new(),
+            local_type_ids: HashSet::new(),
             type_defs: HashMap::new(),
+            ambiguous_type_names: HashSet::new(),
             variant_owners: HashMap::new(),
             fn_sigs: HashMap::new(),
             borrow_positions: HashMap::new(),
             borrow_fns: HashSet::new(),
+            prefer_owned_params: HashMap::new(),
         }
     }
 
@@ -4200,6 +5358,84 @@ where
     }
 
     #[test]
+    fn rebuilding_recursive_family_with_payload_transfer_keeps_parameter_owned() {
+        let source = r#"
+#[derive(Clone)]
+pub enum List<A> {
+    Nil,
+    Cons(A, Box<List<A>>),
+}
+
+pub fn mapa<B, A>(f: Rc<dyn Fn(A) -> B>, x0: List<A>) -> List<B>
+where
+    A: Clone + 'static,
+    B: Clone + 'static,
+{
+    match x0 {
+        List::Nil => List::Nil,
+        List::Cons(x, p0a) => {
+            let xs = *p0a;
+            List::Cons((*f)(x.clone()), Box::new(mapa(f.clone(), xs.clone())))
+        }
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Map_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(!analysis.borrow_fns.contains("crate::Map_Test::mapa"));
+        optimize_last_use(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(
+            printed.contains("pub fn mapa<B, A>(f: Rc<dyn Fn(A) -> B>, x0: List<A>) -> List<B>")
+        );
+        assert!(printed.contains("List::Cons((*f)(x), Box::new(mapa(f, xs)))"));
+        assert!(!printed.contains("x.clone()"));
+        assert!(!printed.contains("xs.clone()"));
+    }
+
+    #[test]
+    fn preferred_owned_clone_match_survives_until_last_use_move() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub Box<u64>);
+
+#[derive(Clone)]
+pub enum Outcome {
+    Stuck,
+    Next(Blob, Blob),
+}
+
+pub fn consume(left: Blob, right: Blob) -> Outcome {
+    Outcome::Next(left, right)
+}
+
+pub fn step(st: Outcome) -> Outcome {
+    match st.clone() {
+        Outcome::Stuck => Outcome::Stuck,
+        Outcome::Next(left, right) => consume(left.clone(), right.clone()),
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Step_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(!analysis.borrow_fns.contains("crate::Step_Test::step"));
+        optimize_last_use(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn step(st: Outcome) -> Outcome"));
+        assert!(printed.contains("match st {"));
+        assert!(printed.contains("consume(left, right)"));
+        assert!(!printed.contains("match &st"));
+        assert!(!printed.contains("left.clone()"));
+        assert!(!printed.contains("right.clone()"));
+    }
+
+    #[test]
     fn nth_borrows_recursive_list_but_clones_selected_element() {
         let source = r#"
 #[derive(Clone)]
@@ -4253,6 +5489,505 @@ where
         assert!(printed.contains("nth(xs, n - 1)"));
         assert!(printed.contains("x.clone()"));
         assert!(!printed.contains("nth(xs.clone()"));
+    }
+
+    #[test]
+    fn raw_payload_move_requires_materialization_evidence() {
+        let source = r#"
+#[derive(Clone)]
+pub struct A;
+
+pub enum Holder<A> {
+    One(A),
+}
+
+pub fn take_cloneable<A>(x: Holder<A>) -> A
+where
+    A: Clone + 'static,
+{
+    match x {
+        Holder::One(value) => value,
+    }
+}
+
+pub fn take_opaque<A>(x: Holder<A>) -> A {
+    match x {
+        Holder::One(value) => value,
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("crate::Test::take_cloneable"));
+        assert!(!analysis.borrow_fns.contains("crate::Test::take_opaque"));
+
+        // Last-Use runs after Borrow and must keep the clone that now
+        // materializes an owned payload from a pattern-bound reference.
+        optimize_last_use(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn take_cloneable<A>(x: &Holder<A>) -> A"));
+        assert!(printed.contains("value.clone()"));
+        assert!(printed.contains("pub fn take_opaque<A>(x: Holder<A>) -> A"));
+    }
+
+    #[test]
+    fn untyped_aliases_remain_borrowed_but_typed_aliases_demand_ownership() {
+        let source = r#"
+pub enum Opaque {
+    No,
+    Yes,
+}
+
+#[derive(Clone)]
+pub enum Cloneable {
+    No,
+    Yes,
+}
+
+pub fn inspect_opaque(x: Opaque) -> bool {
+    let y = x;
+    match y {
+        Opaque::No => false,
+        Opaque::Yes => true,
+    }
+}
+
+pub fn inspect_typed(x: Cloneable) -> bool {
+    let y: Cloneable = x;
+    match y {
+        Cloneable::No => false,
+        Cloneable::Yes => true,
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("crate::Test::inspect_opaque"));
+        assert!(!analysis.borrow_fns.contains("crate::Test::inspect_typed"));
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn inspect_opaque(x: &Opaque) -> bool"));
+        assert!(printed.contains("pub fn inspect_typed(x: Cloneable) -> bool"));
+        assert!(printed.contains("let y = x;"));
+        assert!(!printed.contains("let y = x.clone();"));
+    }
+
+    #[test]
+    fn local_builtin_names_do_not_inherit_standard_clone_facts() {
+        let source = r#"
+pub struct Option<A>(pub A);
+
+pub enum Holder<A> {
+    One(Option<A>),
+}
+
+pub fn take<A>(x: Holder<A>) -> Option<A>
+where
+    A: Clone + 'static,
+{
+    match x {
+        Holder::One(value) => value,
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(!analysis.borrow_fns.contains("crate::Test::take"));
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn take<A>(x: Holder<A>) -> Option<A>"));
+    }
+
+    #[test]
+    fn raw_box_pattern_payload_materializes_the_inner_value() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub u64);
+
+pub enum Holder {
+    One(Box<Blob>),
+}
+
+pub fn take_boxed(x: Holder) -> Blob {
+    match x {
+        Holder::One(box value) => value,
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("crate::Test::take_boxed"));
+        optimize_last_use(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn take_boxed(x: &Holder) -> Blob"));
+        assert!(printed.contains("value.as_ref().clone()"));
+    }
+
+    #[test]
+    fn ordinary_box_payload_materializes_and_borrows_at_the_box_level() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub u64);
+
+pub enum Holder {
+    One(Box<Blob>),
+}
+
+pub fn take_box(x: Holder) -> Box<Blob> {
+    match x {
+        Holder::One(value) => value,
+    }
+}
+
+pub fn observe_box(value: &Box<Blob>) -> bool {
+    true
+}
+
+pub fn forward_box(x: Holder) -> bool {
+    match x {
+        Holder::One(value) => observe_box(value.clone()),
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("crate::Test::take_box"));
+        assert!(analysis.borrow_fns.contains("crate::Test::forward_box"));
+        optimize_last_use(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn take_box(x: &Holder) -> Box<Blob>"));
+        assert!(printed.contains("value.clone()"));
+        assert!(printed.contains("observe_box(value)"));
+        assert!(!printed.contains("observe_box(value.as_ref())"));
+    }
+
+    #[test]
+    fn bigint_root_move_is_safe_but_still_prefers_ownership() {
+        let source = r#"
+use num_bigint::BigInt;
+
+pub fn identity(x: BigInt) -> BigInt {
+    x
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        let (ctx, functions) = {
+            let modules = [(vec!["crate".to_string(), "Test".to_string()], &mut module)];
+            BorrowContext::from_modules(&modules, &HashSet::new())
+        };
+        let located = functions
+            .iter()
+            .find(|located| located.function.name == "identity")
+            .expect("identity function");
+        let function = &located.function;
+        let copy_generics = generic_names_with_bound(function, "Copy");
+        let demands = ctx.collect_param_demands(
+            function,
+            &function.params[0],
+            &function_type_env(function),
+            &copy_generics,
+            &located.scope,
+        );
+
+        assert!(demands.contains(&Demand::Move(
+            MoveUse::Return(Origin::Structural, "x".to_string()),
+            Materialization::Available,
+        )));
+        assert!(interface_borrow_safe(&demands));
+        assert!(prefer_owned(&demands, true));
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+        assert!(!analysis.borrow_fns.contains("crate::Test::identity"));
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn identity(x: BigInt) -> BigInt"));
+        assert!(!printed.contains("x.clone()"));
+    }
+
+    #[test]
+    fn bclosure_keeps_materializable_raw_move_under_local_strict_gate() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub Box<u64>);
+
+#[derive(Clone)]
+pub enum Holder {
+    One(Blob),
+}
+
+pub fn run(x: Holder) -> Blob {
+    ({
+        let x_cap = x.clone();
+        move || match x_cap {
+            Holder::One(value) => value,
+        }
+    })()
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("crate::Test::run"));
+        let Item::Function(run) = module
+            .items
+            .iter()
+            .find(|item| matches!(item, Item::Function(function) if function.name == "run"))
+            .expect("run function")
+        else {
+            unreachable!()
+        };
+        assert!(is_reference_type(&run.params[0].ty));
+        let Expr::Call(callee, args) = run.body.expr.as_deref().expect("run tail") else {
+            panic!("expected direct closure call");
+        };
+        assert!(args.is_empty());
+        assert!(is_move_owncap_block(callee));
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("let x_cap = x.clone();"));
+        assert!(printed.contains("move ||"));
+    }
+
+    #[test]
+    fn nth_payload_alias_does_not_create_a_second_transfer() {
+        let source = r#"
+#[derive(Clone)]
+pub enum List<A> {
+    Nil,
+    Cons(A, Box<List<A>>),
+}
+
+pub fn nth_alias<A>(x0: List<A>, n: usize) -> A
+where
+    A: Clone + 'static,
+{
+    match x0 {
+        List::Cons(x, p0a) => {
+            let xs = *p0a;
+            if n == 0 {
+                let selected = x.clone();
+                selected
+            } else {
+                nth_alias(xs.clone(), n - 1)
+            }
+        }
+        _ => panic!("non-exhaustive match"),
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Nth_Alias_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis
+            .borrow_fns
+            .contains("crate::Nth_Alias_Test::nth_alias"));
+        optimize_last_use(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn nth_alias<A>(x0: &List<A>, n: usize) -> A"));
+        assert!(printed.contains("let selected = x.clone();"));
+        assert!(printed.contains("nth_alias(xs, n - 1)"));
+    }
+
+    #[test]
+    fn recursive_subvalue_transfer_keeps_parameter_owned() {
+        let source = r#"
+#[derive(Clone)]
+pub enum List<A> {
+    Nil,
+    Cons(A, Box<List<A>>),
+}
+
+pub fn take_tail<A>(x0: List<A>) -> List<A>
+where
+    A: Clone + 'static,
+{
+    match x0 {
+        List::Cons(_, p0a) => {
+            let xs = *p0a;
+            xs.clone()
+        }
+        List::Nil => List::Nil,
+    }
+}
+
+pub fn wrap_tail<A>(x0: List<A>) -> Option<List<A>>
+where
+    A: Clone + 'static,
+{
+    match x0 {
+        List::Cons(_, p0a) => {
+            let xs = *p0a;
+            Some(xs.clone())
+        }
+        List::Nil => None,
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Tail_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(!analysis.borrow_fns.contains("crate::Tail_Test::take_tail"));
+        assert!(!analysis.borrow_fns.contains("crate::Tail_Test::wrap_tail"));
+        optimize_last_use(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn take_tail<A>(x0: List<A>) -> List<A>"));
+        assert!(printed.contains("pub fn wrap_tail<A>(x0: List<A>) -> Option<List<A>>"));
+        assert!(printed.contains("Some(xs)"));
+        assert!(!printed.contains("xs.clone()"));
+    }
+
+    #[test]
+    fn wrapped_selected_payload_allows_borrowing() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub Box<u64>);
+
+#[derive(Clone)]
+pub enum List<A> {
+    Nil,
+    Cons(A, Box<List<A>>),
+}
+
+pub fn first(x0: List<Blob>) -> Option<Blob> {
+    match x0 {
+        List::Cons(x, _) => Some(x.clone()),
+        List::Nil => None,
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Payload_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("crate::Payload_Test::first"));
+        optimize_last_use(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn first(x0: &List<Blob>) -> Option<Blob>"));
+        assert!(printed.contains("Some(x.clone())"));
+    }
+
+    #[test]
+    fn transferring_multiple_payload_fields_keeps_parameter_owned() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub Box<u64>);
+
+#[derive(Clone)]
+pub enum Pair {
+    Both(Blob, Blob),
+}
+
+pub fn split(x0: Pair) -> (Blob, Blob) {
+    match x0 {
+        Pair::Both(left, right) => (left.clone(), right.clone()),
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Pair_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(!analysis.borrow_fns.contains("crate::Pair_Test::split"));
+        optimize_last_use(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn split(x0: Pair) -> (Blob, Blob)"));
+        assert!(printed.contains("(left, right)"));
+        assert!(!printed.contains("left.clone()"));
+        assert!(!printed.contains("right.clone()"));
+    }
+
+    #[test]
+    fn mutually_exclusive_payload_selection_allows_borrowing() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub Box<u64>);
+
+#[derive(Clone)]
+pub enum Pair {
+    Both(Blob, Blob),
+}
+
+pub fn choose(x0: Pair, left: bool) -> Blob {
+    match x0 {
+        Pair::Both(x, y) => {
+            if left { x.clone() } else { y.clone() }
+        }
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Choice_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("crate::Choice_Test::choose"));
+    }
+
+    #[test]
+    fn tuple_parameter_projection_is_payload_not_recursive_structure() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub Box<u64>);
+
+pub fn first(x0: (Blob, Blob)) -> Blob {
+    match x0 {
+        (x, _) => x.clone(),
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Tuple_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("crate::Tuple_Test::first"));
+    }
+
+    #[test]
+    fn derived_if_let_remains_owned_until_pattern_rewrite_is_supported() {
+        let function = function(
+            "is_leaf_if_let",
+            "x",
+            named("Tree"),
+            block_tail(Expr::IfLet {
+                pattern: "Tree::Leaf".to_string(),
+                value: Box::new(Expr::Ident("x".to_string())),
+                then_branch: block_tail(Expr::Literal(Literal::Bool(true))),
+                else_branch: Some(block_tail(Expr::Literal(Literal::Bool(false)))),
+            }),
+        );
+        let mut module = RustModule {
+            name: "If_Let_Test".to_string(),
+            docs: vec![],
+            items: vec![tree_enum(), Item::Function(function)],
+            attrs: vec![],
+            vis: Visibility::Public,
+        };
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(!analysis
+            .borrow_fns
+            .contains("crate::If_Let_Test::is_leaf_if_let"));
     }
 
     #[test]
@@ -4409,6 +6144,154 @@ where
             panic!("expected call tail");
         };
         assert!(matches!(&args[0], Expr::Ident(name) if name == "x"));
+    }
+
+    #[test]
+    fn package_materialization_facts_keep_same_named_types_scoped() {
+        let left_source = r#"
+#[derive(Clone, Copy)]
+pub struct Blob(pub u64);
+
+pub enum HolderLeft {
+    LeftOne(Blob),
+}
+
+pub fn take_left(x: HolderLeft) -> Blob {
+    match x { HolderLeft::LeftOne(value) => value }
+}
+"#;
+        let right_source = r#"
+pub struct Blob(pub u64);
+
+pub enum HolderRight {
+    RightOne(Blob),
+}
+
+pub fn take_right(x: HolderRight) -> Blob {
+    match x { HolderRight::RightOne(value) => value }
+}
+"#;
+        let mut left = parse_rust_source(left_source, "Left").expect("left source parses");
+        let mut right = parse_rust_source(right_source, "Right").expect("right source parses");
+        let mut modules = vec![&mut left, &mut right];
+
+        let analysis = optimize_borrow_modules(&mut modules, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("crate::Left::take_left"));
+        assert!(!analysis.borrow_fns.contains("crate::Right::take_right"));
+    }
+
+    #[test]
+    fn imported_datatype_fields_keep_their_declaration_scope() {
+        let left_source = r#"
+pub struct Payload(pub Box<u64>);
+
+pub enum Holder {
+    One(Payload),
+}
+"#;
+        let right_source = r#"
+use crate::Left::Holder;
+
+#[derive(Clone)]
+pub struct Payload(pub u64);
+
+pub fn take(x: Holder) -> crate::Left::Payload {
+    match x { Holder::One(value) => value }
+}
+"#;
+        let mut left = parse_rust_source(left_source, "Left").expect("left source parses");
+        let mut right = parse_rust_source(right_source, "Right").expect("right source parses");
+        let mut modules = vec![&mut left, &mut right];
+
+        let analysis = optimize_borrow_modules(&mut modules, &HashSet::new());
+
+        assert!(!analysis.borrow_fns.contains("crate::Right::take"));
+    }
+
+    #[test]
+    fn concrete_clone_impl_does_not_apply_to_other_instantiations() {
+        let source = r#"
+pub struct Foo<A>(pub A);
+
+impl Clone for Foo<u8> {
+    fn clone(&self) -> Self { Foo(self.0) }
+}
+
+pub enum Holder {
+    One(Foo<String>),
+}
+
+pub fn take(x: Holder) -> Foo<String> {
+    match x { Holder::One(value) => value }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(!analysis.borrow_fns.contains("crate::Test::take"));
+    }
+
+    #[test]
+    fn runtime_clone_facts_require_an_external_path_root() {
+        let scope = test_scope();
+
+        assert!(known_unconditional_clone_type("num_bigint::BigInt", &scope));
+        assert!(!known_unconditional_clone_type(
+            "crate::wrapper::num_bigint::BigInt",
+            &scope
+        ));
+    }
+
+    #[test]
+    fn borrowed_call_drops_clone_for_untyped_pattern_binding() {
+        let callee = function("is_leaf", "x", named("Tree"), leaf_match_body("x"));
+        let caller = FunctionDef {
+            name: "caller".to_string(),
+            params: vec![],
+            return_type: named("bool"),
+            generics: vec![],
+            body: block_tail(Expr::Match {
+                expr: Box::new(Expr::Ident("unknown_value".to_string())),
+                arms: vec![MatchArm {
+                    pattern: "tmp".to_string(),
+                    guard: None,
+                    body: block_tail(Expr::Call(
+                        Box::new(Expr::Ident("is_leaf".to_string())),
+                        vec![clone_call("tmp")],
+                    )),
+                }],
+            }),
+            asyncness: false,
+            vis: Visibility::Public,
+            docs: vec![],
+            attrs: vec![],
+        };
+        let mut module = RustModule {
+            name: "Test".to_string(),
+            docs: vec![],
+            items: vec![tree_enum(), Item::Function(callee), Item::Function(caller)],
+            attrs: vec![],
+            vis: Visibility::Public,
+        };
+
+        optimize_borrow(&mut module, &HashSet::new());
+
+        let Item::Function(caller) = &module.items[2] else {
+            panic!("expected caller");
+        };
+        let Some(Expr::Match { arms, .. }) = caller.body.expr.as_deref() else {
+            panic!("expected match tail");
+        };
+        let Some(Expr::Call(_, args)) = arms[0].body.expr.as_deref() else {
+            panic!("expected call in match arm");
+        };
+        assert!(matches!(
+            &args[0],
+            Expr::Reference(inner, true, false)
+                if matches!(inner.as_ref(), Expr::Ident(name) if name == "tmp")
+        ));
     }
 
     #[test]
@@ -4671,6 +6554,48 @@ where
         let rewritten = rewrite_test_block(&block);
 
         assert!(is_move_owncap_block(first_let_init(&rewritten)));
+    }
+
+    #[test]
+    fn escaping_copy_capture_materializes_borrowed_value() {
+        let block = Block {
+            stmts: vec![Statement::Let(LetStmt {
+                ifmut: false,
+                name: "y_cap".to_string(),
+                ty: None,
+                init: Some(Expr::Ident("y".to_string())),
+            })],
+            expr: Some(Box::new(Expr::Closure(
+                vec![ClosureParam::typed("x", named("i32"))],
+                Box::new(Expr::Ident("y_cap".to_string())),
+                true,
+            ))),
+        };
+        let ctx = empty_ctx();
+        let orig_env = HashMap::from([("y".to_string(), named("i32"))]);
+        let mut borrow_env = HashMap::from([("y".to_string(), make_ref_type(&named("i32")))]);
+
+        let rewritten = ctx.rewrite_block_borrow(
+            &block,
+            &mut borrow_env,
+            &orig_env,
+            &HashSet::new(),
+            &test_scope(),
+        );
+
+        let Statement::Let(capture) = &rewritten.stmts[0] else {
+            panic!("expected capture binding");
+        };
+        assert!(matches!(
+            capture.init.as_ref(),
+            Some(Expr::UnaryOp(op, inner))
+                if op == "*"
+                    && matches!(inner.as_ref(), Expr::Ident(name) if name == "y")
+        ));
+        assert!(matches!(
+            rewritten.expr.as_deref(),
+            Some(Expr::Closure(_, _, true))
+        ));
     }
 
     #[test]
@@ -5017,9 +6942,9 @@ impl<W> Clone for Word<W> {
         let shared = Type::Reference(Box::new(named("bool")), true, false);
         let mutable = Type::Reference(Box::new(named("bool")), true, true);
         assert!(ctx.is_copy(&shared, &HashSet::new()));
-        assert!(ctx.is_materialized_copy(&shared, &HashSet::new()));
+        assert!(ctx.is_materialized_copy(&shared, &HashSet::new(), &test_scope()));
         assert!(!ctx.is_copy(&mutable, &HashSet::new()));
-        assert!(!ctx.is_materialized_copy(&mutable, &HashSet::new()));
+        assert!(!ctx.is_materialized_copy(&mutable, &HashSet::new(), &test_scope()));
         let borrow_env = HashMap::from([("word".to_string(), make_ref_type(&word_ty))]);
         let rewritten = ctx.rewrite_expr_own(
             &clone_call("word"),

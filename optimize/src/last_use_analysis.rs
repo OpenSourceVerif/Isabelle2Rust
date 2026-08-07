@@ -36,6 +36,8 @@ pub(crate) fn rewrite_last_use_clones_in_function(function: &mut FunctionDef) {
     // generated clone calls as ownership adaptations that preserve the
     // represented Isabelle value, so an available last-use move can replace
     // the clone. The rewrite only changes variables whose old binding is dead.
+    // TODO: Replace name-keyed `owned` and `live` sets with resolved lexical
+    // binding IDs so shadowed bindings and their ownership modes are distinct.
     let owned = function
         .params
         .iter()
@@ -51,6 +53,8 @@ pub(crate) fn rewrite_last_use_clones_in_function(function: &mut FunctionDef) {
 /// Whether evaluating `expr` yields an owned (non-reference) value.  Used only
 /// as a conservative heuristic for the `owned` set, so unknown shapes return
 /// `false`.
+// TODO: Replace this syntax heuristic with type-environment lookup when the
+// pass is extended to reference-returning calls and richer Rust types.
 fn produces_owned_value(expr: &Expr, owned: &HashSet<String>) -> bool {
     match expr {
         Expr::Ident(name) => owned.contains(name),
@@ -152,6 +156,8 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
                 live.insert(head.clone());
             }
         }
+        // TODO: Track free local reads of opaque macros, or treat such macros
+        // as conservative liveness barriers when supporting general Rust.
         Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) => {}
 
         // `v.clone()` → `v` when `v` is owned and dead afterwards.
@@ -205,6 +211,9 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
                 live.remove(target);
                 rewrite_lastuse_expr(right, live, owned);
             } else {
+                // TODO: Model complex assignees precisely. Rust evaluates the
+                // RHS before the assignee, so backward liveness must visit the
+                // assignee first and account for the overwritten place.
                 rewrite_lastuse_expr(right, live, owned);
                 rewrite_lastuse_expr(left, live, owned);
             }
@@ -261,6 +270,8 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
         Expr::Match { expr, arms } => {
             let mut merged = HashSet::new();
             let scrutinee_is_owned = produces_owned_value(expr, owned);
+            // TODO: Model guard-failure edges to later candidate arms so a
+            // guard sees values read by arms that may run when it fails.
             for arm in arms.iter_mut() {
                 let mut arm_live = live.clone();
                 let mut arm_owned = owned.clone();
@@ -331,6 +342,9 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
 /// sibling argument must not move their origins. The traversal is conservative
 /// for nested expressions: retaining a clone is preferable to emitting a move
 /// that overlaps a borrow.
+// TODO: Track borrow aliases across statements and propagate liveness from a
+// live derived reference back to its origin. This helper currently covers only
+// borrows syntactically contained in the surrounding call.
 fn collect_call_borrow_sources(expr: &Expr, live: &mut HashSet<String>) {
     match expr {
         Expr::Reference(inner, _, _) => collect_live_expr(inner, live),
