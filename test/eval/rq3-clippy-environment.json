@@ -1,0 +1,17 @@
+{
+  "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+  "clippy": "clippy 0.1.94 (4a4ef493e3 2026-03-02)",
+  "corpus_csv_sha256": "c61f00df0ec68b4e78269391814c50cae5d55307eff903eec3669dd8eb351e77",
+  "excluded_untracked_scope": "test/unit/example",
+  "expected_suite_counts": {
+    "FPP": 36,
+    "HOL": 1,
+    "Unit": 55
+  },
+  "git_commit": "3b7a138b1b74f2fbd84af2ed259428fc6baa6776",
+  "git_status_sha256": "3ea8e947fdda51e598a6a720ca411a3a71fc1252d751907fc21c2cbde3381fa4",
+  "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: x86_64-unknown-linux-gnu\nrelease: 1.94.0\nLLVM version: 21.1.8",
+  "selection": "tracked export_code theories only; HOL Generate plus Unit and FPP",
+  "stage1_policy": "not executed; the accepted Stage-1 baseline is reused",
+  "timestamp": "2026-08-06T17:50:34+08:00"
+}

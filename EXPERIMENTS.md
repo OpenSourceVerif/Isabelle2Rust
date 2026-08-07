@@ -15,6 +15,55 @@ the recorded generated artifacts and measurements.  Rerun the generation and
 optimization only after this fingerprint changes.  Read-only recounting of an
 unchanged artifact does not require a rerun.
 
+## 2026-08-06: Eta-reduction removal and Stage-2-only RQ3 rerun
+
+The closure-cleanup pass no longer rewrites
+`Rc::new(move |x| (*f(v))(x))` to `f(v)`.  The rewrite can move evaluation of
+`f(v)` from closure invocation to closure construction and therefore does not
+preserve divergence in general.  Closure cleanup is now restricted to removing
+generated owned-capture aliases.
+
+Stage-1, OCaml, and original-system artifacts and measurements remained
+frozen.  Only the four Stage-2 configurations were regenerated, validated, and
+remeasured from the accepted Stage-1 artifacts.  The resulting snapshots are:
+
+- SBPF: `evaluation/performance/results/20260806-173656+0800`, reusing the
+  accepted baseline rows from `20260801-063556+0800`;
+- x64: `evaluation/performance/results/x64-20260806-174144+0800`, reusing the
+  accepted baseline rows from `x64-20260801-063336+0800`.
+
+The first SBPF attempt exposed a latent ownership issue: without eta-reduction,
+generated `_cap` values can remain inside escaping `move` closures, but borrow
+analysis had converted some of those bindings into aliases of borrowed pattern
+fields.  The final optimizer keeps generated `_cap` bindings owned and includes
+a regression test for this case.  The complete optimizer suite then passed
+(163 library tests and 2 CLI tests), and `cargo fmt --check` succeeded.
+
+All final Stage-2 configurations passed differential validation: 146/146
+SBPF-program cases, 6,000/6,000 SBPF-instruction vectors, and 6,000/6,000
+x64-stepper vectors.  Relative to the previously accepted full Stage-2
+measurements, the eta-reduction-free full configuration changed as follows:
+
+| Workload | Old runtime (s) | New runtime (s) | Runtime change | Old allocation | New allocation | Allocation change |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| SBPF-program | 0.006857078 | 0.010580467 | +54.3% | 0.044833980 MiB/case | 0.096717416 MiB/case | +115.7% |
+| SBPF-instruction | 0.053390560 | 0.079076947 | +48.1% | 15.784656250 KiB/vector | 22.234416667 KiB/vector | +40.9% |
+| x64-stepper | 0.009731201 | 0.010296761 | +5.8% | 2.490575521 KiB/step | 2.742649740 KiB/step | +10.1% |
+
+Despite this cost, final Stage-2 remains approximately 7,727x, 66.9x, and
+3.00x faster than frozen Stage-1 on SBPF-program, SBPF-instruction, and
+x64-stepper, respectively.  The remaining closure cleanup has no measurable
+performance contribution on these workloads: full and minus-Closure have
+identical allocation counts, and their paired median runtime ratios differ by
+less than 1%.
+
+For code quality, all 92 tracked Stage-2 crates were regenerated from frozen
+Stage-1 and compiled successfully before running the Stage-2-only Clippy audit.
+The result remains 16 diagnostics with no failed crates: 1
+`overly_complex_bool_expr`, 2 `too_many_arguments`, 4 `type_complexity`, and 9
+`unconditional_recursion`.  Thus removing eta-reduction changes neither the
+paper's Stage-2 Clippy total nor its lint distribution.
+
 ## 2026-07-16: HOL-Codegenerator Stage-1 and Stage-2
 
 ### Reproduction key
