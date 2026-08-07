@@ -1,4 +1,4 @@
-.PHONY: open open_test build build_silent code gen opt test targeted hol-gcd hol-stress kloc clippy macro_sbpf micro_sbpf micro_sbpf_gen x64 x64-rust-export x64-gen x64-test x64-performance x64_gen x64_test clean help
+.PHONY: open open_test build build_silent code gen opt test targeted hol-gcd hol-stress loc kloc clippy macro_sbpf micro_sbpf micro_sbpf_gen x64 x64-rust-export x64-gen x64-test x64-performance x64_gen x64_test clean help
 
 #### Configuration ####
 
@@ -22,6 +22,7 @@ OPTIMIZE_DIR           := $(CURDIR)/optimize
 OPT_STACK_KB            ?= 65536
 EXPORT_ITEM_COUNTER    := $(CURDIR)/scripts/count-rust-export-items.pl
 TEST_RUST_METRICS      := $(CURDIR)/scripts/test-rust-metrics.py
+IMPLEMENTATION_LOC     := $(CURDIR)/scripts/count-implementation-loc.py
 CLIPPY_PROCESSES       ?= 4
 CLIPPY_CARGO_JOBS      ?= 1
 ISABELLE_BUILD_LOCK    := $(CURDIR)/.isabelle-build.lock
@@ -406,6 +407,10 @@ hol-stress:
 kloc:
 	@python3 "$(TEST_RUST_METRICS)" kloc
 
+# Count implementation lines for the architecture description.
+loc:
+	@python3 "$(IMPLEMENTATION_LOC)"
+
 # Aggregate warning types across Stage 1 and Stage 2 generated Rust crates.
 # Generate_Binary_Nat is intentionally excluded because it duplicates the
 # Generate lint profile.
@@ -565,6 +570,8 @@ help:
 	@echo "      Run the Rust HOL-Codegenerator pressure test session."
 	@echo "  kloc"
 	@echo "      Count generated Rust LOC for HOL, unit, and FPP at both stages."
+	@echo "  loc"
+	@echo "      Count Stage-1, Stage-2, and RustLight LOC, excluding comments and tests."
 	@echo "  clippy [CLIPPY_PROCESSES=4] [CLIPPY_CARGO_JOBS=1]"
 	@echo "      Aggregate warning types from generated Stage 1 and Stage 2 crates."
 	@echo "  macro_sbpf [REBUILD=1]"
