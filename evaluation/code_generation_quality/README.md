@@ -1,5 +1,20 @@
 # Code-generation quality experiments
 
+## Final RQ3 Stage-2 Clippy audit
+
+`rq3-stage2-clippy-final/` records the accepted final Clippy audit for RQ3.
+It contains the tracked 92-crate Stage-2 corpus, source and manifest hashes,
+all 16 residual diagnostics, the exact commands, and the toolchain and
+worktree metadata.  Stage-1 was not executed for this audit; its accepted
+baseline is reused.  Reproduce the Stage-2 audit with:
+
+```sh
+python3 evaluation/code_generation_quality/run-rq3-stage2-clippy.py
+```
+
+The runner selects tracked theories only.  Untracked development examples
+under `test/unit/example` are deliberately outside the frozen RQ3 corpus.
+
 `Cross_Target_Smoke.thy` reuses four existing Unit/FPP theories and exports the
 same definitions to SML, OCaml, Haskell, Scala, Go, and Rust. It is intended to
 check the cross-target harness before scaling the experiment to the complete
