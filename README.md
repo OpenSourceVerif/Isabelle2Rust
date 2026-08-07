@@ -13,6 +13,8 @@ The most recent updates can be found at:
 The repository consists of these major components:
 
 - **`code_rust.ML`** : the core of the Isabelle2Rust backend, implemented in Poly/ML. Link to paper‘s Section3.
+- **`Rust_Target.thy`**: Rust target registration and serialization support
+  without code adaptations.
 - **`Rust_Base_Setup.thy`**: representation-independent Rust mappings.
 - **Numeric profiles**: import exactly one complete profile for `integer`,
   `int`, and `nat`:

@@ -3,6 +3,7 @@ session Rust = Main +
   sessions
     "HOL-Library"
   theories
+    Rust_Target
     Rust_Base_Setup
     Rust_Integer_BigInt_Layer
     Rust_BigInt_Setup

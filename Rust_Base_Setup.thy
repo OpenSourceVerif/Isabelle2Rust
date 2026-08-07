@@ -1,5 +1,5 @@
 theory Rust_Base_Setup
-  imports "Main"
+  imports Rust_Target
 begin
 
 text \<open>
@@ -9,11 +9,6 @@ text \<open>
   or \<^theory_text>\<open>Rust_Checked128_Setup\<close>.  A corresponding
   \<^verbatim>\<open>WordU128\<close> setup adds the optional fixed-width word mapping.
 \<close>
-
-ML_file \<open>code_debug_info.ML\<close>
-ML_file \<open>code_rust.ML\<close>
-
-
 
 (** module remapping to prevent module dependency problem **)
 
