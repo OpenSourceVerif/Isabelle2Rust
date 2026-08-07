@@ -1076,7 +1076,7 @@ def write_record(
             if reused_from
             else "- Reuse: no performance rows were reused."
         ),
-        f"- Timing: JSON parsing, input conversion, observation, and per-case comparison are outside the timed region. A one-traversal pilot selects a whole-suite repetition count for each newly measured implementation targeting at least {RUNTIME_TARGET_SECONDS:.0f} seconds per independent CPU-pinned runtime process. Full and minus Closure use the larger of their two pilot repetition counts and run adjacently with alternating order. Each ablation effect is the median of the three within-round minus-pass/Full ratios. Results are normalized to one 6,000-vector traversal.",
+        f"- Timing: JSON parsing, input conversion, observation, and per-case comparison are outside the timed region. A one-traversal pilot selects a whole-suite repetition count for each newly measured implementation targeting approximately {RUNTIME_TARGET_SECONDS:.0f} seconds per independent CPU-pinned runtime process. Full and minus Closure use the larger of their two pilot repetition counts and run adjacently with alternating order. Each ablation effect is the median of the three within-round minus-pass/Full ratios. Results are normalized to one 6,000-vector traversal.",
         f"- Runtime suite repetitions: {json.dumps(repetitions, sort_keys=True)}.",
         "- OCaml runtime uses `clock_gettime(CLOCK_MONOTONIC)` through a C stub.",
         "- Rust allocation uses the same cumulative allocation counter as the SBPF experiment. OCaml uses `Gc.allocated_bytes`. The native C baseline uses linker-wrapped allocation functions and resets its cumulative counter immediately before the prepared ptrace step loop.",

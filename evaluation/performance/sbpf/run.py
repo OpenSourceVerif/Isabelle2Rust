@@ -51,8 +51,8 @@ TIME = Path("/usr/bin/time")
 CPU = "0"
 RUNTIME_TARGET_SECONDS = 5.0
 CASE_STUDY_REPETITIONS = {
-    "SBPF-program": 200,
-    "SBPF-instruction": 10,
+    "SBPF-program": 20,
+    "SBPF-instruction": 1,
 }
 
 STAGES = {
@@ -525,7 +525,6 @@ def build_ocaml(configurations: dict[str, Any], binaries: dict[str, Any]) -> Non
 
 
 def build_case_study(configurations: dict[str, Any], binaries: dict[str, Any]) -> None:
-    execute(["cargo", "+stable", "generate-lockfile"], cwd=BASELINE)
     binaries["Case-study baseline"] = {}
     for metric, allocation in (("runtime", False), ("allocation", True)):
         target = BASELINE / "target" / metric
@@ -549,19 +548,26 @@ def build_case_study(configurations: dict[str, Any], binaries: dict[str, Any]) -
             "SBPF-instruction": "execute_step",
         },
         "measurement_boundary": (
-            "Executable, input memory, stack, context, memory mapping, and EbpfVm "
-            "are prepared before the timer and allocation counter are reset; the "
-            "measured region invokes execute_program or execute_step and checks its result"
+            "Executable, input memory, stack, context, memory mapping, and every EbpfVm "
+            "are prepared before the timer and allocation counter are reset; each VM is "
+            "executed exactly once by execute_program or execute_step"
         ),
         "excluded_front_end": (
-            "SBPF-program bytecode loading and SBPF-instruction assembly are outside "
-            "the measured region"
+            "JSON parsing, SBPF-program bytecode loading, and SBPF-instruction assembly "
+            "are outside the measured region"
         ),
         "allocation_scope": (
-            "cumulative allocation within the prepared interpreter call only; "
-            "not comparable with semantic-entry allocation"
+            "cumulative allocation within the prepared interpreter calls only; "
+            "VM construction is excluded"
         ),
         "runtime_suite_repetitions": CASE_STUDY_REPETITIONS,
+        "source_sha256": {
+            "Cargo.lock": sha256(BASELINE / "Cargo.lock"),
+            "Cargo.toml": sha256(BASELINE / "Cargo.toml"),
+            "src/instruction.rs": sha256(BASELINE / "src" / "instruction.rs"),
+            "src/metrics.rs": sha256(BASELINE / "src" / "metrics.rs"),
+            "src/program.rs": sha256(BASELINE / "src" / "program.rs"),
+        },
         "executables": binaries["Case-study baseline"],
     }
 
@@ -755,16 +761,14 @@ def pilot_benchmarks(
                     f"non-positive pilot time for {benchmark}/{implementation}: {elapsed}"
                 )
             if implementation == "Case-study baseline":
-                # The prepared Solana baseline uses one-use VM state. Use fixed
-                # preconstructed batches instead of moving VM construction into
-                # the measured region to satisfy the generic time target.
+                # Preserve the historical single-use-VM configuration. Every
+                # repetition is prepared independently before measurement.
                 repetitions[benchmark][implementation] = CASE_STUDY_REPETITIONS[
                     benchmark
                 ]
                 continue
             # Repeat only complete suites, preserving equal input weight while
-            # giving every independently pinned runtime process a sufficiently
-            # long timed region for the small Stage-2 configurations.
+            # targeting a seconds-scale aggregate.
             repetitions[benchmark][implementation] = max(
                 1, math.ceil(RUNTIME_TARGET_SECONDS / elapsed)
             )
@@ -837,46 +841,20 @@ def measure_all(
                         else 1
                     )
                     binary_info = binaries[implementation][benchmark][metric]
-                    attempt = 1
-                    while True:
-                        retry_suffix = "" if attempt == 1 else f"__retry-{attempt}"
-                        result, rss, exit_status, _, _ = run_binary(
-                            Path(binary_info["path"]),
-                            benchmark,
-                            metric,
-                            reps,
-                            RESULT_DIR
-                            / "runs"
-                            / f"run-{run_id}"
-                            / (
-                                f"{benchmark}__{metric}__{slug(implementation)}"
-                                f"{retry_suffix}"
-                            ),
-                        )
-                        elapsed = float(result["elapsed_seconds"])
-                        actual_repetitions = int(
-                            result.get("suite_repetitions", "1")
-                        )
-                        if (
-                            metric != "runtime"
-                            or implementation == "Case-study baseline"
-                            or elapsed >= RUNTIME_TARGET_SECONDS
-                        ):
-                            break
-                        # A pilot-based estimate can fall below the threshold
-                        # when a formal run happens to be faster. Discard that
-                        # short attempt, increase the number of whole-suite
-                        # repetitions with a small guard margin, and rerun.
-                        reps = max(
-                            actual_repetitions + 1,
-                            math.ceil(
-                                actual_repetitions
-                                * RUNTIME_TARGET_SECONDS
-                                / elapsed
-                                * 1.05
-                            ),
-                        )
-                        attempt += 1
+                    result, rss, exit_status, _, _ = run_binary(
+                        Path(binary_info["path"]),
+                        benchmark,
+                        metric,
+                        reps,
+                        RESULT_DIR
+                        / "runs"
+                        / f"run-{run_id}"
+                        / f"{benchmark}__{metric}__{slug(implementation)}",
+                    )
+                    elapsed = float(result["elapsed_seconds"])
+                    actual_repetitions = int(
+                        result.get("suite_repetitions", "1")
+                    )
                     rows.append(
                         {
                             "benchmark": benchmark,
@@ -1113,7 +1091,7 @@ def write_experiment_record(
             else "- Correctness: all seven SBPF-program implementations passed 146/146 cases; "
             "all seven SBPF-instruction implementations passed 6000/6000 vectors."
         ),
-        f"- Each value below is from an independent pinned process. For newly measured generated and OCaml runtime rows, a one-suite pilot selects a whole-suite repetition count targeting at least {RUNTIME_TARGET_SECONDS:.0f} seconds per process. If a formal runtime attempt is shorter than the threshold, it is discarded and rerun with more whole-suite repetitions. The prepared case-study baseline uses {CASE_STUDY_REPETITIONS['SBPF-program']} SBPF-program traversals and {CASE_STUDY_REPETITIONS['SBPF-instruction']} independently prepared SBPF-instruction traversals per process. Full and minus Closure use the larger of their two pilot repetition counts and run adjacently with alternating order. Every ablation effect is the median of the three within-round minus-pass/Full ratios. Reused rows retain their recorded protocol. Each allocation round uses one complete suite. Runtime results are normalized per suite.",
+        f"- Each value below is from an independent pinned process. Generated and OCaml pilots select whole-suite repetition counts targeting approximately {RUNTIME_TARGET_SECONDS:.0f} seconds. The prepared Solana baseline retains its historical configuration of {CASE_STUDY_REPETITIONS['SBPF-program']} SBPF-program suites and {CASE_STUDY_REPETITIONS['SBPF-instruction']} SBPF-instruction suite per process; every VM is independently constructed before measurement and executed once. Full and minus Closure use the larger of their two pilot repetition counts and run adjacently with alternating order. Every ablation effect is the median of the three within-round minus-pass/Full ratios. Reused rows retain their recorded protocol. Each allocation round uses one complete suite. Runtime results are normalized per suite.",
         "- OCaml runtime uses `clock_gettime(CLOCK_MONOTONIC)` through a C stub.",
         "",
     ]

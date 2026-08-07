@@ -149,7 +149,8 @@ fn main() {
     assert!(repetitions > 0);
 
     // All executable, VM, and input-state construction finishes here, before
-    // either the timer or allocation counter is reset.
+    // either the timer or allocation counter is reset. Every prepared VM is
+    // executed exactly once.
     let mut cases = Vec::with_capacity(case_count * repetitions);
     for _ in 0..repetitions {
         cases.extend(raw.iter().cloned().map(prepare));

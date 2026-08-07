@@ -28,21 +28,21 @@ Checked128 Int/Nat profile. It builds with stable Rust in release mode,
 builds the OCaml baseline with `ocamlopt`, validates all seven implementations,
 runs a one-traversal pilot, and then measures three round-robin process runs.
 For newly measured generated and OCaml configurations, the pilot selects a
-whole-suite repetition count targeting at least five seconds per process. If a
-formal runtime attempt is shorter than five seconds, it is discarded and
-rerun with more whole-suite repetitions. The prepared Solana baseline uses
-fixed preconstructed batches: 200 program-suite traversals and 10 independently
-prepared 6,000-vector instruction traversals per process. Reported runtime is
-normalized to one suite. Allocation uses one deterministic suite traversal.
+whole-suite repetition count targeting approximately five seconds per process.
+The prepared Solana baseline retains the historical configuration: 20
+`SBPF-program` suites and one `SBPF-instruction` suite per process. Reported
+runtime is normalized to one suite. Allocation uses one deterministic suite
+traversal.
 
 Runtime is measured inside each harness after JSON parsing and semantic input
 conversion. For the case-study baseline, the `Executable`, input memory, stack,
-context, memory mapping, and `EbpfVm` are constructed before the timer and
-allocation counter are reset. The measured region calls `execute_program` or
-`execute_step` on this prepared state. Bytecode loading and assembly are
-therefore outside the measured region, while the generated semantic entry
-materializes its semantic machine state inside it. Peak RSS is the whole-process
-maximum reported by `/usr/bin/time -v`.
+context, memory mapping, and `EbpfVm` are constructed before measurement. One
+independent VM is prepared for every timed execution, and each VM is executed
+once. The timed interval only calls `execute_program` or `execute_step` and
+checks its result. Bytecode loading and assembly are therefore outside the
+measured region, while the generated semantic entry materializes its semantic
+machine state inside it. Peak RSS is the whole-process maximum reported by
+`/usr/bin/time -v`.
 OCaml runtime harnesses use `clock_gettime(CLOCK_MONOTONIC)` through a small C
 stub and honor the pilot-selected whole-suite repetition count.
 
@@ -52,9 +52,8 @@ adds `new_size`; `dealloc` does not reduce the cumulative total. The counter is
 reset immediately before the measured workload. OCaml uses the difference of
 `Gc.allocated_bytes ()` around the same region. Allocation measurements run in
 separate processes from runtime measurements. The case-study baseline counter
-covers only allocation inside the prepared interpreter call; its allocation
-result is not comparable with the semantic-entry measurements and is omitted
-from the paper table.
+covers only allocation inside the prepared interpreter calls; VM construction
+is excluded.
 
 The generated-Rust matrix is a grouped leave-one-out ablation:
 
