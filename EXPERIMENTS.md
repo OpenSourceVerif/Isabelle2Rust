@@ -15,6 +15,44 @@ the recorded generated artifacts and measurements.  Rerun the generation and
 optimization only after this fingerprint changes.  Read-only recounting of an
 unchanged artifact does not require a rerun.
 
+## 2026-08-12: Stable Clippy extension to SBPF and x64
+
+The RQ3 code-quality audit was extended from the frozen 92-crate test-suite
+corpus to the pure generated crates for `SBPF-program`, `SBPF-instruction`, and
+`X64-stepper`. Benchmark drivers and validation glue were excluded. Both
+stages of all three crates passed Clippy 0.1.94 with `clippy::all` under Rust
+1.94.0 stable; the six commands reported:
+
+| Clippy diagnostic | Stage-1 | Stage-2 |
+| --- | ---: | ---: |
+| `clone_on_copy` | 3,324 | 0 |
+| `double_parens` | 118 | 0 |
+| `nonminimal_bool` | 9 | 0 |
+| `too_many_arguments` | 11 | 11 |
+| `type_complexity` | 543 | 0 |
+| **Total** | **4,005** | **11** |
+
+The Stage-2 workload totals were 4, 5, and 2 for `SBPF-program`,
+`SBPF-instruction`, and `X64-stepper`, respectively; every residual was
+`too_many_arguments`. Explicit `.clone()` sites fell from 7,231 to 468.
+
+The generator was updated so public generated functions no longer expose
+private generated nominal types. Copy inference now resolves the local types
+needed by these crates before Borrow, and B-Match applies occurrence-local
+`Safe`/`PreferOwned` decisions to the resulting direct matches. The optimizer
+suite passed 171 library and four `cargo-opt` tests. `make
+clippy-case-studies` reproduced the final six-crate result.
+
+The paper combines this disjoint audit with the accepted 2026-08-11 test-suite
+component, which used the same Rust and Clippy versions. The combined totals
+are 5,989 Stage-1 diagnostics and 27 Stage-2 diagnostics, a 99.5% reduction;
+explicit clone sites fall from 31,088 to 6,198, an 80.1% reduction. A
+subsequent `make clippy-all` attempt successfully regenerated the three case
+studies but stopped before Clippy because the checkout did not contain all 92
+frozen test-suite artifact directories. No source file was changed by that
+failed aggregation attempt; the combined figures are the sum of the two
+successful, nonoverlapping audits rather than a claimed new 190-command run.
+
 ## 2026-08-11: Stable-only compiler and Clippy audit
 
 The active artifact no longer enables nightly Rust or `RUSTC_BOOTSTRAP`.

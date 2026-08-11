@@ -13,6 +13,12 @@ contained 92 crates per stage (one HCT-standard, 55 Unit, and 36 FPP).  All 184
 Clippy commands succeeded, reporting 1,984 Stage-1 diagnostics and 16 Stage-2
 diagnostics.  The reproducible runner selects only tracked evaluation theories.
 
+The 2026-08-12 case-study extension separately checked the generated
+`SBPF-program`, `SBPF-instruction`, and `X64-stepper` crates.  Its six commands
+reported 4,005 Stage-1 and 11 Stage-2 diagnostics; every case-study Stage-2
+residual was `clippy::too_many_arguments`.  The paper combines these disjoint
+audits as 5,989 Stage-1 versus 27 Stage-2 diagnostics, a 99.5% reduction.
+
 ## Audited snapshot
 
 - Date: 2026-07-13

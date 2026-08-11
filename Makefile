@@ -1,4 +1,4 @@
-.PHONY: open open_test build build_silent code gen opt test targeted hol-gcd hol-stress loc kloc clippy macro_sbpf micro_sbpf micro_sbpf_gen x64 x64-rust-export x64-gen x64-test x64-performance x64_gen x64_test clean help
+.PHONY: open open_test build build_silent code gen opt test targeted hol-gcd hol-stress loc kloc clippy clippy-case-studies-prepare clippy-case-studies clippy-all macro_sbpf micro_sbpf micro_sbpf_gen x64 x64-rust-export x64-gen x64-test x64-performance x64_gen x64_test clean help
 
 #### Configuration ####
 
@@ -25,6 +25,12 @@ TEST_RUST_METRICS      := $(CURDIR)/scripts/test-rust-metrics.py
 IMPLEMENTATION_LOC     := $(CURDIR)/scripts/count-implementation-loc.py
 CLIPPY_PROCESSES       ?= 4
 CLIPPY_CARGO_JOBS      ?= 1
+SBPF_CLIPPY_PROGRAM_S1 := tests_sbpf/theory/stage1/bpf_generator_word_checked_interp/interp_test
+SBPF_CLIPPY_PROGRAM_S2 := tests_sbpf/theory/stage2/bpf_generator_word_checked_interp/interp_test
+SBPF_CLIPPY_STEP_S1    := tests_sbpf/theory/stage1/bpf_generator_word_checked/step_test
+SBPF_CLIPPY_STEP_S2    := tests_sbpf/theory/stage2/bpf_generator_word_checked/step_test
+X64_CLIPPY_STEPPER_S1  := tests_x64/theory/stage1/x64StepRustPerformanceGenerator/x64_step_test
+X64_CLIPPY_STEPPER_S2  := tests_x64/theory/stage2/x64StepRustPerformanceGenerator/x64_step_test
 ISABELLE_BUILD_LOCK    := $(CURDIR)/.isabelle-build.lock
 ISABELLE_PROJECT_BUILD := isabelle build -v -e -d . $(PROJECT_SESSION)
 ISABELLE_TEST_VERBOSE  := isabelle build -v -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
@@ -439,6 +445,40 @@ clippy:
 	@CARGO="$(CARGO)" python3 "$(TEST_RUST_METRICS)" clippy \
 	  --processes "$(CLIPPY_PROCESSES)" --cargo-jobs "$(CLIPPY_CARGO_JOBS)"
 
+# Generate the pure Rust crates used by the SBPF and X64 case studies, then
+# apply the same complete Stage-2 optimizer used by the test-suite workflow.
+# REBUILD=1 forces all three Isabelle exports to be refreshed.
+clippy-case-studies-prepare:
+	@if [ "$(REBUILD)" = "1" ] || [ ! -f "$(SBPF_CLIPPY_PROGRAM_S1)/Cargo.toml" ]; then \
+	  $(MAKE) -s build_silent TEST_DIR=tests_sbpf/theory TEST_THEORY=bpf_generator_word_checked_interp; \
+	fi
+	@if [ "$(REBUILD)" = "1" ] || [ ! -f "$(SBPF_CLIPPY_STEP_S1)/Cargo.toml" ]; then \
+	  $(MAKE) -s build_silent TEST_DIR=tests_sbpf/theory TEST_THEORY=bpf_generator_word_checked; \
+	fi
+	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" \
+	  RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" python3 "$(X64_RUST_EXPORT)" performance
+	@_opt_case_study() { \
+	  local label="$$1" source="$$2" output="$$3"; \
+	  echo ">>> [clippy] optimizing $$label"; \
+	  (ulimit -s "$(OPT_STACK_KB)"; \
+	    env -u RUSTC_BOOTSTRAP $(CARGO) run -q --release \
+	      --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
+	      "$$source" --out-dir "$$output") || return 1; \
+	  CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$output/Cargo.toml" \
+	    "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
+	}; \
+	_opt_case_study SBPF-program "$(SBPF_CLIPPY_PROGRAM_S1)" "$(SBPF_CLIPPY_PROGRAM_S2)" && \
+	_opt_case_study SBPF-instruction "$(SBPF_CLIPPY_STEP_S1)" "$(SBPF_CLIPPY_STEP_S2)" && \
+	_opt_case_study X64-stepper "$(X64_CLIPPY_STEPPER_S1)" "$(X64_CLIPPY_STEPPER_S2)"
+
+clippy-case-studies: clippy-case-studies-prepare
+	@CARGO="$(CARGO)" python3 "$(TEST_RUST_METRICS)" clippy --scope case-studies \
+	  --processes "$(CLIPPY_PROCESSES)" --cargo-jobs "$(CLIPPY_CARGO_JOBS)"
+
+clippy-all: clippy-case-studies-prepare
+	@CARGO="$(CARGO)" python3 "$(TEST_RUST_METRICS)" clippy --scope all \
+	  --processes "$(CLIPPY_PROCESSES)" --cargo-jobs "$(CLIPPY_CARGO_JOBS)"
+
 
 # sbpf macro validation:
 #   shared orchestration lives under tests_sbpf/tests/exec_semantics;
@@ -596,7 +636,12 @@ help:
 	@echo "  loc"
 	@echo "      Count Stage-1, Stage-2, and RustLight LOC, excluding comments and tests."
 	@echo "  clippy [CLIPPY_PROCESSES=4] [CLIPPY_CARGO_JOBS=1]"
-	@echo "      Aggregate warning types from generated Stage 1 and Stage 2 crates."
+	@echo "      Aggregate warning types from the HOL, Unit, and FPP Stage 1/2 crates."
+	@echo "  clippy-case-studies [REBUILD=1]"
+	@echo "      Generate, optimize, and audit the SBPF program/instruction and X64"
+	@echo "      stepper crates. REBUILD=1 refreshes the Isabelle exports first."
+	@echo "  clippy-all [REBUILD=1]"
+	@echo "      Audit both the three test suites and the three case-study workloads."
 	@echo "  macro_sbpf [REBUILD=1]"
 	@echo "      Run program-level sBPF validation over the Solana official macro cases"
 	@echo "      from Isabelle-generated OCaml and Rust exports. REBUILD=1 regenerates"
