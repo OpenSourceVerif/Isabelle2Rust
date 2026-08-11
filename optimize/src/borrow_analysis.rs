@@ -4,7 +4,9 @@ use rustlightast::*;
 
 use crate::rustlight_parser::TYPE_FACT_ONLY_DOC;
 
-use crate::last_use_analysis::rewrite_last_use_clones_in_function;
+use crate::last_use_analysis::{
+    rewrite_last_use_clones_in_function, rewrite_last_use_clones_in_owned_expr,
+};
 
 /// Result of the borrow-analysis pass.
 #[derive(Debug, Clone, Default)]
@@ -275,9 +277,10 @@ impl DerivedOrigins {
     }
 }
 
-/// Conservative safety condition used by local rewrites.  Unlike an interface
-/// rewrite, B-Match and B-Closure do not in general insert a fresh clone at
-/// every newly exposed move, so they retain the original strict gate.
+/// Conservative safety condition used by B-Closure. Its substitution rewriter
+/// does not materialize every newly exposed move, so it retains the strict
+/// gate. B-Match instead uses `interface_borrow_safe` on occurrence-local
+/// demands and materializes supported field moves in its arm rewriter.
 fn local_rewrite_safe(demands: &HashSet<Demand>) -> bool {
     demands
         .iter()
@@ -374,11 +377,6 @@ struct BorrowContext {
     borrow_positions: HashMap<FunctionId, Vec<usize>>,
     /// Fully qualified identities of functions whose signatures were rewritten.
     borrow_fns: HashSet<FunctionId>,
-    /// Parameters retained by value specifically to preserve a profitable
-    /// ownership move discovered in the Last-Use preview.
-    // TODO: Replace this parameter-level B-Match policy with occurrence-local
-    // decisions derived from the whole-function Last-Use preview.
-    prefer_owned_params: HashMap<FunctionId, HashSet<String>>,
 }
 
 /// Infer borrowed parameter interfaces for functions in `module`.
@@ -484,14 +482,6 @@ impl BorrowContext {
         positions
     }
 
-    fn is_preferred_owned_param(&self, scope: &ModuleScope, name: &str) -> bool {
-        scope
-            .current_function
-            .as_ref()
-            .and_then(|id| self.prefer_owned_params.get(id))
-            .is_some_and(|params| params.contains(name))
-    }
-
     fn from_modules(
         modules: &[(Vec<String>, &mut RustModule)],
         inferred_copy_types: &HashSet<String>,
@@ -519,7 +509,6 @@ impl BorrowContext {
             fn_sigs: HashMap::new(),
             borrow_positions: HashMap::new(),
             borrow_fns: HashSet::new(),
-            prefer_owned_params: HashMap::new(),
         }
     }
 
@@ -709,7 +698,6 @@ impl BorrowContext {
 
         self.borrow_positions
             .retain(|_, positions| !positions.is_empty());
-        self.record_preferred_owned_params(functions);
     }
 
     fn candidate_borrow_positions(&self, f: &FunctionDef) -> Vec<usize> {
@@ -806,49 +794,6 @@ impl BorrowContext {
             same_outer_nominal_family_in_scope(&param.ty, &f.return_type, scope);
         prefer_owned(&preview_demands, rebuilds_input_family)
             || self.prefer_by_value(&param.ty, copy_generics, scope)
-    }
-
-    fn record_preferred_owned_params(&mut self, functions: &[LocatedFunction]) {
-        let mut preferred = HashMap::new();
-        for located in functions {
-            let f = &located.function;
-            let mut last_use_view = f.clone();
-            rewrite_last_use_clones_in_function(&mut last_use_view);
-            let copy_generics = generic_names_with_bound(f, "Copy");
-            let base_env = function_type_env(f);
-            let names = f
-                .params
-                .iter()
-                .filter(|param| self.is_borrow_candidate_type(&param.ty, &copy_generics))
-                .filter(|param| {
-                    let original_demands = self.collect_param_demands(
-                        f,
-                        param,
-                        &base_env,
-                        &copy_generics,
-                        &located.scope,
-                    );
-                    // This map controls a local B-Match rewrite, whose body
-                    // rewriter cannot satisfy every newly exposed move.  Keep
-                    // the local gate strict even though interface Safe accepts
-                    // moves backed by materialization evidence.
-                    local_rewrite_safe(&original_demands)
-                        && self.param_prefers_owned(
-                            f,
-                            &last_use_view,
-                            param,
-                            &base_env,
-                            &copy_generics,
-                            &located.scope,
-                        )
-                })
-                .map(|param| param.name.clone())
-                .collect::<HashSet<_>>();
-            if !names.is_empty() {
-                preferred.insert(located.id.clone(), names);
-            }
-        }
-        self.prefer_owned_params = preferred;
     }
 
     fn collect_param_demands(
@@ -2044,12 +1989,13 @@ impl BorrowContext {
         let copy_generics = generic_names_with_bound(f, "Copy");
         let mut function_scope = scope.clone();
         function_scope.current_function = Some(id.clone());
-        f.body = self.rewrite_block_borrow(
+        f.body = self.rewrite_block_borrow_at(
             &f.body,
             &mut borrow_env,
             &orig_env,
             &copy_generics,
             &function_scope,
+            true,
         );
     }
 
@@ -2057,12 +2003,13 @@ impl BorrowContext {
         let mut borrow_env = function_type_env(method);
         let orig_env = borrow_env.clone();
         let copy_generics = generic_names_with_bound(method, "Copy");
-        method.body = self.rewrite_block_borrow(
+        method.body = self.rewrite_block_borrow_at(
             &method.body,
             &mut borrow_env,
             &orig_env,
             &copy_generics,
             scope,
+            true,
         );
     }
 
@@ -2079,8 +2026,91 @@ impl BorrowContext {
             .collect()
     }
 
+    /// Decide the second case of R-Match for one owned scrutinee occurrence.
+    ///
+    /// Safety is computed from the original match after normalizing either
+    /// `match x` or `match x.clone()` to the same provenance root. Profitability
+    /// is computed from an analysis-only Last-Use view of this occurrence, so
+    /// removable field clones remain visible as ownership moves to
+    /// `PreferOwned`. No function-level parameter flag is reused here: two
+    /// matches over the same owner may make different decisions.
+    fn local_match_borrowable(
+        &self,
+        match_expr: &Expr,
+        root: &str,
+        orig_env: &TypeEnv,
+        copy_generics: &HashSet<String>,
+        scope: &ModuleScope,
+        in_return_ctx: bool,
+    ) -> bool {
+        let Some(root_ty) = orig_env.get(root) else {
+            return false;
+        };
+        if is_reference_type(root_ty)
+            || (self.is_materialized_copy(root_ty, copy_generics, scope)
+                && self.prefer_copy_match_by_value(root_ty, copy_generics, scope))
+        {
+            return false;
+        }
+
+        let Some(original_view) = normalize_match_scrutinee(match_expr, root) else {
+            return false;
+        };
+        let derived = DerivedOrigins::for_parameter(root, root_ty, scope);
+        let mut original_demands = HashSet::new();
+        let mut original_env = orig_env.clone();
+        self.collect_demands_expr(
+            &original_view,
+            &derived,
+            &mut original_env,
+            copy_generics,
+            &mut original_demands,
+            DemandSite::new(in_return_ctx, scope),
+        );
+        if !interface_borrow_safe(&original_demands) {
+            return false;
+        }
+
+        let mut last_use_view = match_expr.clone();
+        let owned = [root.to_string()].into_iter().collect();
+        rewrite_last_use_clones_in_owned_expr(&mut last_use_view, &owned);
+        let Some(last_use_view) = normalize_match_scrutinee(&last_use_view, root) else {
+            return false;
+        };
+        let mut preview_demands = HashSet::new();
+        let mut preview_env = orig_env.clone();
+        self.collect_demands_expr(
+            &last_use_view,
+            &derived,
+            &mut preview_env,
+            copy_generics,
+            &mut preview_demands,
+            DemandSite::new(in_return_ctx, scope),
+        );
+
+        let function_rebuilds_root = in_return_ctx
+            && scope
+                .current_function
+                .as_ref()
+                .and_then(|id| self.fn_sigs.get(id))
+                .is_some_and(|(_, _, return_ty)| {
+                    same_outer_nominal_family_in_scope(root_ty, return_ty, scope)
+                });
+        let match_rebuilds_root = self
+            .infer_type(&last_use_view, orig_env, scope)
+            .is_some_and(|result_ty| {
+                same_outer_nominal_family_in_scope(root_ty, &result_ty, scope)
+            });
+
+        !prefer_owned(
+            &preview_demands,
+            function_rebuilds_root || match_rebuilds_root,
+        )
+    }
+
     // ── Body rewriter ─────────────────────────────────────────────────────────
 
+    #[cfg(test)]
     fn rewrite_block_borrow(
         &self,
         block: &Block,
@@ -2088,6 +2118,18 @@ impl BorrowContext {
         orig_env: &TypeEnv,
         copy_generics: &HashSet<String>,
         scope: &ModuleScope,
+    ) -> Block {
+        self.rewrite_block_borrow_at(block, borrow_env, orig_env, copy_generics, scope, false)
+    }
+
+    fn rewrite_block_borrow_at(
+        &self,
+        block: &Block,
+        borrow_env: &mut BorrowEnv,
+        orig_env: &TypeEnv,
+        copy_generics: &HashSet<String>,
+        scope: &ModuleScope,
+        in_return_ctx: bool,
     ) -> Block {
         let mut stmts = Vec::new();
         let mut local_orig = orig_env.clone();
@@ -2187,7 +2229,14 @@ impl BorrowContext {
         }
 
         let tail = block.expr.as_ref().map(|e| {
-            Box::new(self.rewrite_expr_own(e, borrow_env, &local_orig, copy_generics, scope))
+            Box::new(self.rewrite_expr_own_at(
+                e,
+                borrow_env,
+                &local_orig,
+                copy_generics,
+                scope,
+                in_return_ctx,
+            ))
         });
 
         Block { stmts, expr: tail }
@@ -2201,6 +2250,18 @@ impl BorrowContext {
         orig_env: &TypeEnv,
         copy_generics: &HashSet<String>,
         scope: &ModuleScope,
+    ) -> Expr {
+        self.rewrite_expr_own_at(expr, borrow_env, orig_env, copy_generics, scope, false)
+    }
+
+    fn rewrite_expr_own_at(
+        &self,
+        expr: &Expr,
+        borrow_env: &BorrowEnv,
+        orig_env: &TypeEnv,
+        copy_generics: &HashSet<String>,
+        scope: &ModuleScope,
+        in_return_ctx: bool,
     ) -> Expr {
         match expr {
             // ── Direct use of a borrowed variable in own context ──────────────
@@ -2337,9 +2398,20 @@ impl BorrowContext {
                     .unwrap_or_else(|| {
                         self.rewrite_expr_own(callee, borrow_env, orig_env, copy_generics, scope)
                     });
+                let returns_constructor =
+                    in_return_ctx && self.is_constructor_callee(callee.as_ref(), scope);
                 let new_args = args
                     .iter()
-                    .map(|a| self.rewrite_expr_own(a, borrow_env, orig_env, copy_generics, scope))
+                    .map(|a| {
+                        self.rewrite_expr_own_at(
+                            a,
+                            borrow_env,
+                            orig_env,
+                            copy_generics,
+                            scope,
+                            returns_constructor,
+                        )
+                    })
                     .collect();
                 Expr::Call(Box::new(new_callee), new_args)
             }
@@ -2361,10 +2433,9 @@ impl BorrowContext {
                     });
                 let borrowed_tuple_scrutinee =
                     borrowed_tuple_scrutinee(scrutinee.as_ref(), borrow_env);
-                // A clone-marked match records a non-consuming inspection.
-                // Copy deliberately preserves this outer clone until here so
-                // the size-aware policy can either materialise a small Copy
-                // value or borrow a large outer object.
+                // A clone-marked match can still arise for a non-Copy type or
+                // when Copy is disabled. Apply the same occurrence-local rule
+                // used for a direct `match x` below.
                 let clone_match = match scrutinee.as_ref() {
                     Expr::MethodCall(receiver, method, args)
                         if method == "clone" && args.is_empty() =>
@@ -2383,7 +2454,14 @@ impl BorrowContext {
                                             );
                                     let preserve_owned_clone = !receiver_is_borrowed
                                         && !materialize_by_value
-                                        && self.is_preferred_owned_param(scope, name);
+                                        && !self.local_match_borrowable(
+                                            expr,
+                                            name,
+                                            orig_env,
+                                            copy_generics,
+                                            scope,
+                                            in_return_ctx,
+                                        );
                                     (
                                         receiver.as_ref().clone(),
                                         ty,
@@ -2399,12 +2477,31 @@ impl BorrowContext {
                     }
                     _ => None,
                 };
+                let local_direct_match = match scrutinee.as_ref() {
+                    Expr::Ident(name) if !borrow_env.get(name).is_some_and(is_reference_type) => {
+                        orig_env.get(name).and_then(|ty| {
+                            (!is_reference_type(ty)
+                                && self.type_def_for_type(ty, scope).is_some()
+                                && self.local_match_borrowable(
+                                    expr,
+                                    name,
+                                    orig_env,
+                                    copy_generics,
+                                    scope,
+                                    in_return_ctx,
+                                ))
+                            .then(|| ty.clone())
+                        })
+                    }
+                    _ => None,
+                };
                 let borrow_match_inner_type = match scrutinee.as_ref() {
                     Expr::Ident(name) => borrow_env
                         .get(name)
                         .filter(|ty| is_reference_type(ty))
                         .and_then(ref_inner)
-                        .cloned(),
+                        .cloned()
+                        .or_else(|| local_direct_match.clone()),
                     _ => deref_borrowed_box_scrutinee
                         .as_ref()
                         .map(|(_, inner)| inner.clone())
@@ -2422,15 +2519,13 @@ impl BorrowContext {
                             )
                         }),
                 };
-                // Copy runs before Borrow.  It can therefore turn
-                // `match x.clone()` into `match x` while `x` is still owned;
-                // after B-Sig changes `x` to `&T`, blindly retaining that
-                // scrutinee would switch a small by-value match into a
-                // reference match.  Besides changing the generated access
-                // pattern, that proved measurably slower for word-sized SBPF
-                // tags.  Preserve the original by-value shape for Copy values
-                // of at most two machine words, and reserve non-consuming
-                // field-sensitive matching for larger outer objects.
+                // Copy runs before Borrow and can turn `match x.clone()` into
+                // direct `match x` while `x` is still owned. After B-Sig
+                // changes `x` to `&T`, blindly retaining that scrutinee would
+                // switch a small by-value match into a reference match.
+                // Preserve the by-value shape for Copy values of at most two
+                // machine words, and reserve field-sensitive borrowing for
+                // larger outer objects.
                 let materialize_direct_small_copy_match =
                     matches!(
                         scrutinee.as_ref(),
@@ -2474,6 +2569,8 @@ impl BorrowContext {
                     borrowed_box_as_ref(name)
                 } else if let Some((tuple_expr, _)) = &borrowed_tuple_scrutinee {
                     tuple_expr.clone()
+                } else if local_direct_match.is_some() {
+                    Expr::Reference(Box::new(scrutinee.as_ref().clone()), true, false)
                 } else if scrutinee_is_borrowed {
                     scrutinee.as_ref().clone()
                 } else {
@@ -2526,12 +2623,13 @@ impl BorrowContext {
                         let new_guard = arm.guard.as_ref().map(|g| {
                             self.rewrite_expr_own(g, &arm_borrow, &arm_orig, copy_generics, scope)
                         });
-                        let new_body = self.rewrite_block_borrow(
+                        let new_body = self.rewrite_block_borrow_at(
                             &arm.body,
                             &mut arm_borrow,
                             &arm_orig,
                             copy_generics,
                             scope,
+                            in_return_ctx,
                         );
 
                         MatchArm {
@@ -2551,12 +2649,13 @@ impl BorrowContext {
             // ── Block ─────────────────────────────────────────────────────────
             Expr::Block(block) => {
                 let mut inner_borrow = borrow_env.clone();
-                Expr::Block(self.rewrite_block_borrow(
+                Expr::Block(self.rewrite_block_borrow_at(
                     block,
                     &mut inner_borrow,
                     orig_env,
                     copy_generics,
                     scope,
+                    in_return_ctx,
                 ))
             }
 
@@ -2564,13 +2663,31 @@ impl BorrowContext {
             Expr::Array(elems) => Expr::Array(
                 elems
                     .iter()
-                    .map(|e| self.rewrite_expr_own(e, borrow_env, orig_env, copy_generics, scope))
+                    .map(|e| {
+                        self.rewrite_expr_own_at(
+                            e,
+                            borrow_env,
+                            orig_env,
+                            copy_generics,
+                            scope,
+                            in_return_ctx,
+                        )
+                    })
                     .collect(),
             ),
             Expr::Tuple(elems) => Expr::Tuple(
                 elems
                     .iter()
-                    .map(|e| self.rewrite_expr_own(e, borrow_env, orig_env, copy_generics, scope))
+                    .map(|e| {
+                        self.rewrite_expr_own_at(
+                            e,
+                            borrow_env,
+                            orig_env,
+                            copy_generics,
+                            scope,
+                            in_return_ctx,
+                        )
+                    })
                     .collect(),
             ),
 
@@ -2609,16 +2726,24 @@ impl BorrowContext {
                 let new_cond =
                     self.rewrite_expr_own(condition, borrow_env, orig_env, copy_generics, scope);
                 let mut then_borrow = borrow_env.clone();
-                let new_then = self.rewrite_block_borrow(
+                let new_then = self.rewrite_block_borrow_at(
                     then_branch,
                     &mut then_borrow,
                     orig_env,
                     copy_generics,
                     scope,
+                    in_return_ctx,
                 );
                 let new_else = else_branch.as_ref().map(|eb| {
                     let mut else_borrow = borrow_env.clone();
-                    self.rewrite_block_borrow(eb, &mut else_borrow, orig_env, copy_generics, scope)
+                    self.rewrite_block_borrow_at(
+                        eb,
+                        &mut else_borrow,
+                        orig_env,
+                        copy_generics,
+                        scope,
+                        in_return_ctx,
+                    )
                 });
                 Expr::If {
                     condition: Box::new(new_cond),
@@ -2636,16 +2761,24 @@ impl BorrowContext {
                 let new_value =
                     self.rewrite_expr_own(value, borrow_env, orig_env, copy_generics, scope);
                 let mut then_borrow = borrow_env.clone();
-                let new_then = self.rewrite_block_borrow(
+                let new_then = self.rewrite_block_borrow_at(
                     then_branch,
                     &mut then_borrow,
                     orig_env,
                     copy_generics,
                     scope,
+                    in_return_ctx,
                 );
                 let new_else = else_branch.as_ref().map(|eb| {
                     let mut else_borrow = borrow_env.clone();
-                    self.rewrite_block_borrow(eb, &mut else_borrow, orig_env, copy_generics, scope)
+                    self.rewrite_block_borrow_at(
+                        eb,
+                        &mut else_borrow,
+                        orig_env,
+                        copy_generics,
+                        scope,
+                        in_return_ctx,
+                    )
                 });
                 Expr::IfLet {
                     pattern: pattern.clone(),
@@ -2655,15 +2788,23 @@ impl BorrowContext {
                 }
             }
 
-            Expr::Parenthesized(inner) => Expr::Parenthesized(Box::new(self.rewrite_expr_own(
+            Expr::Parenthesized(inner) => Expr::Parenthesized(Box::new(self.rewrite_expr_own_at(
                 inner,
                 borrow_env,
                 orig_env,
                 copy_generics,
                 scope,
+                in_return_ctx,
             ))),
             Expr::Cast(inner, ty) => Expr::Cast(
-                Box::new(self.rewrite_expr_own(inner, borrow_env, orig_env, copy_generics, scope)),
+                Box::new(self.rewrite_expr_own_at(
+                    inner,
+                    borrow_env,
+                    orig_env,
+                    copy_generics,
+                    scope,
+                    in_return_ctx,
+                )),
                 ty.clone(),
             ),
             Expr::BinaryOp(l, op, r) => Expr::BinaryOp(
@@ -2723,12 +2864,13 @@ impl BorrowContext {
                 }
                 Expr::Closure(
                     params.clone(),
-                    Box::new(self.rewrite_expr_own(
+                    Box::new(self.rewrite_expr_own_at(
                         body,
-                        &mut inner_borrow,
+                        &inner_borrow,
                         &inner_orig,
                         copy_generics,
                         scope,
+                        true,
                     )),
                     *is_move,
                 )
@@ -2749,12 +2891,13 @@ impl BorrowContext {
                 Expr::TypedClosure(
                     params.clone(),
                     return_type.clone(),
-                    Box::new(self.rewrite_expr_own(
+                    Box::new(self.rewrite_expr_own_at(
                         body,
-                        &mut inner_borrow,
+                        &inner_borrow,
                         &inner_orig,
                         copy_generics,
                         scope,
+                        true,
                     )),
                     *is_move,
                 )
@@ -2998,6 +3141,9 @@ impl BorrowContext {
     fn infer_type(&self, expr: &Expr, env: &TypeEnv, scope: &ModuleScope) -> Option<Type> {
         match expr {
             Expr::Ident(name) => env.get(name).cloned(),
+            Expr::Path(path, PathType::Namespace) => {
+                self.owner_for_variant_path(path, scope).map(Type::Path)
+            }
             Expr::Literal(Literal::Bool(_)) => Some(Type::Named("bool".to_string())),
             Expr::Array(elems) => {
                 let first = elems.first()?;
@@ -3017,7 +3163,10 @@ impl BorrowContext {
                     }
                 })
             }
-            Expr::Call(callee, _) => explicit_identity_return_type(callee)
+            Expr::Call(callee, _) => self
+                .infer_type(callee, env, scope)
+                .and_then(|ty| self.callable_return_type(&ty))
+                .or_else(|| explicit_identity_return_type(callee))
                 .or_else(|| {
                     match callee.as_ref() {
                         Expr::Ident(name) => self.owner_for_variant_name(name, scope),
@@ -3045,7 +3194,8 @@ impl BorrowContext {
             Expr::UnaryOp(op, inner) if op == "*" => {
                 self.infer_type(inner, env, scope).and_then(|ty| match ty {
                     Type::Generic(name, params)
-                        if type_name_leaf(&name) == "Box" && params.len() == 1 =>
+                        if matches!(type_name_leaf(&name), "Rc" | "Arc" | "Box")
+                            && params.len() == 1 =>
                     {
                         params.into_iter().next()
                     }
@@ -3055,10 +3205,73 @@ impl BorrowContext {
             }
             Expr::Parenthesized(inner) => self.infer_type(inner, env, scope),
             Expr::Cast(_, ty) => Some(ty.clone()),
-            Expr::Block(block) => block
-                .expr
-                .as_ref()
-                .and_then(|e| self.infer_type(e, env, scope)),
+            Expr::Block(block) => self.infer_block_type(block, env, scope),
+            Expr::If {
+                then_branch,
+                else_branch: Some(else_branch),
+                ..
+            } => {
+                let then_ty = self.infer_block_type(then_branch, env, scope)?;
+                let else_ty = self.infer_block_type(else_branch, env, scope)?;
+                same_type(&then_ty, &else_ty).then_some(then_ty)
+            }
+            Expr::Match {
+                expr: scrutinee,
+                arms,
+            } => {
+                let scrutinee_ty = self.infer_type(scrutinee, env, scope);
+                let mut arm_types = arms.iter().map(|arm| {
+                    let mut arm_env = env.clone();
+                    if let Some(ty) = &scrutinee_ty {
+                        self.bind_pattern_env(&arm.pattern, ty, &mut arm_env, scope);
+                    }
+                    self.infer_block_type(&arm.body, &arm_env, scope)
+                });
+                let first = arm_types.next()??;
+                arm_types.try_fold(first, |expected, actual| {
+                    let actual = actual?;
+                    same_type(&expected, &actual).then_some(expected)
+                })
+            }
+            _ => None,
+        }
+    }
+
+    fn infer_block_type(&self, block: &Block, env: &TypeEnv, scope: &ModuleScope) -> Option<Type> {
+        let mut block_env = env.clone();
+        for stmt in &block.stmts {
+            let Statement::Let(let_stmt) = stmt else {
+                continue;
+            };
+            let inferred_ty = let_stmt.ty.clone().or_else(|| {
+                let_stmt
+                    .init
+                    .as_ref()
+                    .and_then(|init| self.infer_type(init, &block_env, scope))
+            });
+            if let Some(ty) = inferred_ty {
+                if is_binding_ident(&let_stmt.name) {
+                    block_env.insert(let_stmt.name.clone(), ty);
+                } else {
+                    self.bind_pattern_env(&let_stmt.name, &ty, &mut block_env, scope);
+                }
+            }
+        }
+        block
+            .expr
+            .as_ref()
+            .and_then(|expr| self.infer_type(expr, &block_env, scope))
+    }
+
+    fn callable_return_type(&self, ty: &Type) -> Option<Type> {
+        match ty {
+            Type::CallableTrait(callable) => Some(callable.return_type.as_ref().clone()),
+            Type::Generic(name, params)
+                if matches!(type_name_leaf(name), "Rc" | "Arc" | "Box") && params.len() == 1 =>
+            {
+                self.callable_return_type(&params[0])
+            }
+            Type::Reference(inner, _, _) => self.callable_return_type(inner),
             _ => None,
         }
     }
@@ -3664,6 +3877,20 @@ impl BorrowContext {
 }
 
 // ── Pattern utilities ─────────────────────────────────────────────────────────
+
+/// Give direct and clone-marked matches the same ownership provenance for
+/// occurrence-local demand analysis. The clone itself is an implementation
+/// adaptation of the scrutinee; demands of the pattern-bound fields decide
+/// whether shared decomposition is safe and profitable.
+fn normalize_match_scrutinee(expr: &Expr, root: &str) -> Option<Expr> {
+    let Expr::Match { arms, .. } = expr else {
+        return None;
+    };
+    Some(Expr::Match {
+        expr: Box::new(Expr::Ident(root.to_string())),
+        arms: arms.clone(),
+    })
+}
 
 /// Remove all `box` keywords from a pattern string so it can be used against
 /// a `&D<T>` scrutinee.
@@ -5267,7 +5494,6 @@ mod tests {
             fn_sigs: HashMap::new(),
             borrow_positions: HashMap::new(),
             borrow_fns: HashSet::new(),
-            prefer_owned_params: HashMap::new(),
         }
     }
 
@@ -6833,7 +7059,7 @@ pub fn take(x: Holder) -> Foo<String> {
             ),
         );
 
-        let mut borrow_env = HashMap::from([
+        let borrow_env = HashMap::from([
             ("x_cap".to_string(), named("bool")),
             ("a".to_string(), make_ref_type(&named("bool"))),
         ]);
@@ -6852,7 +7078,7 @@ pub fn take(x: Holder) -> Foo<String> {
 
         let rewritten = ctx.rewrite_expr_own(
             &expr,
-            &mut borrow_env,
+            &borrow_env,
             &orig_env,
             &HashSet::new(),
             &test_scope(),
@@ -7001,7 +7227,7 @@ pub fn present(x: Medium) -> bool {
     }
 
     #[test]
-    fn copy_preserves_large_clone_match_provenance_for_borrow() {
+    fn front_copy_removes_large_match_clone_before_borrow() {
         let source = r#"
 #[derive(Clone)]
 pub enum Large { Empty, Value([u128; 3]) }
@@ -7016,6 +7242,12 @@ pub fn keep(x: Large) -> Large {
 "#;
         let mut module = parse_rust_source(source, "Test").expect("source parses");
         let inferred_copy_types = optimize_copy(&mut module).inferred_copy_types;
+
+        let mut generator = RustCodeGenerator::new();
+        let after_copy = generator.generate_module_code(&module);
+        assert!(after_copy.contains("match x"));
+        assert!(!after_copy.contains("match x.clone()"));
+
         optimize_borrow(&mut module, &inferred_copy_types);
 
         let Item::Function(keep) = module
@@ -7028,7 +7260,6 @@ pub fn keep(x: Large) -> Large {
         };
         assert!(is_reference_type(&keep.params[0].ty));
 
-        let mut generator = RustCodeGenerator::new();
         let printed = generator.generate_module_code(&module);
         assert!(printed.contains("match x"));
         assert!(!printed.contains("match x.clone()"));
@@ -7093,6 +7324,168 @@ pub fn keep(x: State) -> State {
         let printed = generator.generate_module_code(&module);
         assert!(printed.contains("match &x"));
         assert!(!printed.contains("match x.clone()"));
+    }
+
+    #[test]
+    fn local_match_borrows_a_direct_scrutinee_while_preserving_later_owner_move() {
+        let source = r#"
+#[derive(Clone)]
+pub enum State {
+    Ready(bool, Box<bool>),
+    Halted,
+}
+
+pub fn keep(x: State) -> State {
+    let _seen = match x {
+        State::Ready(flag, _) => flag,
+        State::Halted => false,
+    };
+    x
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        optimize_borrow(&mut module, &HashSet::new());
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn keep(x: State) -> State"));
+        assert!(printed.contains("match &x"));
+        assert!(printed.contains("State::Ready(flag, _) =>"));
+        assert!(printed.contains("*flag"));
+    }
+
+    #[test]
+    fn local_matches_over_one_owner_make_independent_prefer_owned_decisions() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub Box<u64>);
+
+#[derive(Clone)]
+pub enum Outcome {
+    Stuck,
+    Next(Blob, Blob),
+}
+
+pub fn consume(left: Blob, right: Blob) -> Outcome {
+    Outcome::Next(left, right)
+}
+
+pub fn step(st: Outcome) -> Outcome {
+    let _seen = match st.clone() {
+        Outcome::Stuck => true,
+        Outcome::Next(_, _) => false,
+    };
+    match st.clone() {
+        Outcome::Stuck => Outcome::Stuck,
+        Outcome::Next(left, right) => consume(left.clone(), right.clone()),
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        optimize_borrow(&mut module, &HashSet::new());
+        optimize_last_use(&mut module);
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn step(st: Outcome) -> Outcome"));
+        assert!(printed.contains("match &st"));
+        assert!(printed.contains("match st"));
+        assert!(printed.contains("consume(left, right)"));
+        assert!(!printed.contains("st.clone()"));
+        assert!(!printed.contains("left.clone()"));
+        assert!(!printed.contains("right.clone()"));
+    }
+
+    #[test]
+    fn local_match_materializes_one_cloneable_payload_from_a_borrow() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub Box<u64>);
+
+pub enum Holder {
+    One(Blob),
+}
+
+pub fn take_local() -> Blob {
+    let holder = Holder::One(Blob(Box::new(0)));
+    match holder {
+        Holder::One(value) => value,
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        optimize_borrow(&mut module, &HashSet::new());
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("match &holder"));
+        assert!(printed.contains("value.clone()"));
+    }
+
+    #[test]
+    fn local_match_keeps_owned_decomposition_without_materialization_evidence() {
+        let source = r#"
+pub struct Opaque;
+
+pub enum Holder {
+    One(Opaque),
+}
+
+pub fn take_local() -> Opaque {
+    let holder = Holder::One(Opaque);
+    match holder {
+        Holder::One(value) => value,
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        optimize_borrow(&mut module, &HashSet::new());
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("match holder"));
+        assert!(!printed.contains("match &holder"));
+        assert!(!printed.contains("value.clone()"));
+    }
+
+    #[test]
+    fn local_match_uses_an_inferred_match_result_type() {
+        let source = r#"
+#[derive(Clone, Copy)]
+pub enum Val {
+    Undef,
+    Long(u128),
+}
+
+pub enum MaybeBool {
+    None,
+    Some(bool),
+}
+
+pub fn eval() -> MaybeBool {
+    MaybeBool::None
+}
+
+pub fn test() -> Val {
+    let value = match eval() {
+        MaybeBool::None => Val::Undef,
+        MaybeBool::Some(true) => Val::Long(1u128),
+        MaybeBool::Some(false) => Val::Long(0u128),
+    };
+    match value.clone() {
+        Val::Undef => Val::Undef,
+        Val::Long(word) => Val::Long(word.clone()),
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("source parses");
+        let copy = crate::copy_analysis::optimize_copy(&mut module);
+        optimize_borrow(&mut module, &copy.inferred_copy_types);
+
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(!printed.contains("value.clone()"), "{printed}");
+        assert!(!printed.contains("word.clone()"), "{printed}");
     }
 
     #[test]

@@ -48,6 +48,16 @@ pub(crate) fn rewrite_last_use_clones_in_function(function: &mut FunctionDef) {
     rewrite_lastuse_block(&mut function.body, &mut live, &owned);
 }
 
+/// Build an analysis-only Last-Use view of one owned expression.
+///
+/// B-Match uses this occurrence-local preview to distinguish clones that only
+/// adapt an owned pattern binding from clones that must remain materialized.
+/// The emitted expression is never passed here.
+pub(crate) fn rewrite_last_use_clones_in_owned_expr(expr: &mut Expr, owned: &HashSet<String>) {
+    let mut live = HashSet::new();
+    rewrite_lastuse_expr(expr, &mut live, owned);
+}
+
 // ── Last-Use Clone Elimination ───────────────────────────────────────────────
 
 /// Whether evaluating `expr` yields an owned (non-reference) value.  Used only

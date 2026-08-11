@@ -684,9 +684,8 @@ impl CopyContext {
     }
 
     /// Discard a candidate unless strengthening its bounds has an observable
-    /// effect in the generated program.  A leaf specialization must either
-    /// remove a clone or preserve a Copy-sensitive match clone for the Borrow
-    /// pass.  Wrapper specializations are retained only when their rewritten
+    /// effect in the generated program. A leaf specialization must remove a
+    /// clone; wrapper specializations are retained only when their rewritten
     /// body actually calls another effective specialization.
     fn retain_effective_copy_specializations_in_modules(
         &mut self,
@@ -702,7 +701,7 @@ impl CopyContext {
         let mut specialization_calls = HashMap::<ItemId, HashSet<ItemId>>::new();
 
         for (original_id, specialization) in &self.copy_specializations {
-            let Some((original, original_scope)) = functions.get(original_id) else {
+            let Some((original, _)) = functions.get(original_id) else {
                 continue;
             };
             let Some((specialized, specialized_scope)) = functions.get(&specialization.id) else {
@@ -711,14 +710,7 @@ impl CopyContext {
 
             let original_clones = count_clone_calls_in_block(&original.body);
             let specialized_clones = count_clone_calls_in_block(&specialized.body);
-            if specialized_clones < original_clones
-                || self.specialization_preserves_borrow_effect(
-                    original_id,
-                    original,
-                    original_scope,
-                    specialized_clones,
-                )
-            {
+            if specialized_clones < original_clones {
                 direct_effects.insert(specialization.id.clone());
             }
 
@@ -759,47 +751,6 @@ impl CopyContext {
         if !invalid.is_empty() {
             self.apply_specialization_decisions(modules, &HashSet::new(), &invalid);
         }
-    }
-
-    fn specialization_preserves_borrow_effect(
-        &self,
-        function_id: &ItemId,
-        function: &FunctionDef,
-        scope: &ModuleScope,
-        remaining_clones: usize,
-    ) -> bool {
-        if remaining_clones == 0 {
-            return false;
-        }
-
-        let clone_generics = function
-            .generics
-            .iter()
-            .filter(|generic| has_bound(generic, "Clone") && !has_bound(generic, "Copy"))
-            .map(|generic| generic.name.clone())
-            .collect::<HashSet<_>>();
-        let Some(upgraded) = self.copy_upgrade_requirements.get(function_id) else {
-            return false;
-        };
-        if clone_generics.is_empty() || upgraded.is_empty() {
-            return false;
-        }
-
-        // Recompute direct demands without transitive callee requirements.  If
-        // a tracked clone remains after Copy rewriting, it is the match clone
-        // deliberately preserved for B-Match rather than an inert wrapper.
-        let mut direct = HashSet::new();
-        self.collect_copy_bound_candidates(
-            &function.body,
-            &function_type_env(function),
-            scope,
-            &clone_generics,
-            &generic_names_with_bound(function, "Copy"),
-            None,
-            &mut direct,
-        );
-        direct.retain(|generic| upgraded.contains(generic));
-        !direct.is_empty()
     }
 
     /// Classify each effective candidate by reachability.  If only its Copy
@@ -1158,25 +1109,13 @@ impl CopyContext {
                 }
             }
             Expr::Match { expr, arms } => {
-                // Preserve a top-level `x.clone()` until B-Match runs.  Its
-                // presence records that the generated program copied the
-                // outer object only to inspect it; erasing it here would make
-                // the later Borrow pass mistake a large, non-consuming match
-                // for an intentional move.  B-Match applies the size-aware
-                // profitability rule and removes the clone in either the
-                // by-value or by-reference form.
-                let preserved_clone = match expr.as_mut() {
-                    Expr::MethodCall(receiver, method, args)
-                        if method == "clone" && args.is_empty() =>
-                    {
-                        self.rewrite_expr(receiver, env, scope, copy_generics);
-                        true
-                    }
-                    _ => false,
-                };
-                if !preserved_clone {
-                    self.rewrite_expr(expr, env, scope, copy_generics);
-                }
+                // Copy is fully front-loaded: remove every redundant Copy
+                // clone here, including the outer clone of a match. B-Match
+                // analyses the resulting direct `match x` occurrence using
+                // the same local Safe/PreferOwned decision as `match
+                // x.clone()`, so it no longer needs a syntactic marker from
+                // this pass.
+                self.rewrite_expr(expr, env, scope, copy_generics);
                 let scrutinee_ty = self.infer_expr_type(expr, env, scope);
 
                 for arm in arms {
@@ -1755,6 +1694,7 @@ impl CopyContext {
                 .or_else(|| self.functions.get(&scope.resolve_segments(path)).cloned()),
             Expr::Path(path, PathType::Member) => self.infer_member_path_type(path, env, scope),
             Expr::Literal(Literal::Bool(_)) => Some(Type::Named("bool".to_string())),
+            Expr::Literal(Literal::Raw(source)) => rust_numeric_literal_type(source),
             Expr::Literal(_) => None,
             Expr::Array(items) => {
                 let first = items.first()?;
@@ -1785,18 +1725,23 @@ impl CopyContext {
                 else_branch: Some(else_branch),
                 ..
             } => {
-                let then_ty = self.expand_alias_type(
-                    &self.infer_block_type(then_branch, env, scope)?,
-                    scope,
-                    &mut HashSet::new(),
-                );
-                let else_ty = self.expand_alias_type(
-                    &self.infer_block_type(else_branch, env, scope)?,
-                    scope,
-                    &mut HashSet::new(),
-                );
-                self.types_equal_in_scope(&then_ty, &else_ty, scope)
-                    .then_some(then_ty)
+                let then_ty = self.infer_block_type(then_branch, env, scope);
+                let else_ty = self.infer_block_type(else_branch, env, scope);
+                match (then_ty, else_ty) {
+                    (Some(then_ty), Some(else_ty)) => {
+                        let then_ty = self.expand_alias_type(&then_ty, scope, &mut HashSet::new());
+                        let else_ty = self.expand_alias_type(&else_ty, scope, &mut HashSet::new());
+                        self.types_equal_in_scope(&then_ty, &else_ty, scope)
+                            .then_some(then_ty)
+                    }
+                    (Some(then_ty), None) if block_is_unsuffixed_integer(else_branch) => {
+                        Some(then_ty)
+                    }
+                    (None, Some(else_ty)) if block_is_unsuffixed_integer(then_branch) => {
+                        Some(else_ty)
+                    }
+                    _ => None,
+                }
             }
             Expr::Match { arms, .. } => {
                 let mut arm_types = arms
@@ -1817,7 +1762,8 @@ impl CopyContext {
             Expr::UnaryOp(op, inner) if op == "*" => {
                 match self.infer_expr_type(inner, env, scope)? {
                     Type::Generic(name, mut params)
-                        if type_name_leaf(&name) == "Box" && params.len() == 1 =>
+                        if matches!(type_name_leaf(&name), "Rc" | "Arc" | "Box")
+                            && params.len() == 1 =>
                     {
                         params.pop()
                     }
@@ -1869,6 +1815,11 @@ impl CopyContext {
         env: &TypeEnv,
         scope: &ModuleScope,
     ) -> Option<Type> {
+        if let Some(callee_ty) = self.infer_expr_type(callee, env, scope) {
+            if let Some(return_type) = self.callable_return_type(&callee_ty, scope) {
+                return Some(return_type);
+            }
+        }
         if let Some(ty) = explicit_identity_return_type(callee) {
             return Some(ty);
         }
@@ -1903,6 +1854,20 @@ impl CopyContext {
         Some(apply_type_subst(&return_type, &subst))
     }
 
+    fn callable_return_type(&self, ty: &Type, scope: &ModuleScope) -> Option<Type> {
+        let ty = self.expand_alias_type(ty, scope, &mut HashSet::new());
+        match ty {
+            Type::CallableTrait(callable) => Some(*callable.return_type),
+            Type::Generic(name, mut params)
+                if matches!(type_name_leaf(&name), "Rc" | "Arc" | "Box") && params.len() == 1 =>
+            {
+                self.callable_return_type(&params.remove(0), scope)
+            }
+            Type::Reference(inner, _, _) => self.callable_return_type(&inner, scope),
+            _ => None,
+        }
+    }
+
     fn infer_constructor_call_type(
         &self,
         callee: &Expr,
@@ -1925,6 +1890,9 @@ impl CopyContext {
             _ => return None,
         };
         let def = self.type_defs.get(&owner)?;
+        if def.generics.is_empty() {
+            return Some(Type::Path(owner));
+        }
         let fields = match &def.kind {
             TypeDefKind::Enum(variants) => variants
                 .iter()
@@ -1965,16 +1933,12 @@ impl CopyContext {
                 return None;
             }
         }
-        if def.generics.is_empty() {
-            Some(Type::Path(owner.clone()))
-        } else {
-            let params = def
-                .generics
-                .iter()
-                .map(|generic| subst.get(generic).cloned())
-                .collect::<Option<Vec<_>>>()?;
-            Some(Type::Generic(owner.join("::"), params))
-        }
+        let params = def
+            .generics
+            .iter()
+            .map(|generic| subst.get(generic).cloned())
+            .collect::<Option<Vec<_>>>()?;
+        Some(Type::Generic(owner.join("::"), params))
     }
 
     fn infer_member_path_type(
@@ -3198,6 +3162,35 @@ fn is_reserved_pattern_word(input: &str) -> bool {
     matches!(input, "box" | "false" | "mut" | "ref" | "self" | "true")
 }
 
+fn block_is_unsuffixed_integer(block: &Block) -> bool {
+    block
+        .expr
+        .as_deref()
+        .is_some_and(expr_is_unsuffixed_integer)
+}
+
+fn rust_numeric_literal_type(source: &str) -> Option<Type> {
+    const SUFFIXES: [&str; 12] = [
+        "usize", "isize", "u128", "i128", "u64", "i64", "u32", "i32", "u16", "i16", "u8", "i8",
+    ];
+    SUFFIXES
+        .iter()
+        .find(|suffix| source.ends_with(**suffix))
+        .map(|suffix| Type::Named((*suffix).to_string()))
+}
+
+fn expr_is_unsuffixed_integer(expr: &Expr) -> bool {
+    match expr {
+        Expr::Literal(Literal::Int(_)) => true,
+        Expr::Literal(Literal::Raw(source)) => source
+            .chars()
+            .all(|character| character.is_ascii_digit() || character == '_'),
+        Expr::Parenthesized(inner) => expr_is_unsuffixed_integer(inner),
+        Expr::UnaryOp(operator, inner) if operator == "-" => expr_is_unsuffixed_integer(inner),
+        _ => false,
+    }
+}
+
 fn binary_op_returns_bool(op: &str) -> bool {
     matches!(op, "==" | "!=" | "<" | "<=" | ">" | ">=" | "&&" | "||")
 }
@@ -3405,6 +3398,55 @@ mod tests {
     }
 
     #[test]
+    fn front_copy_removes_clones_with_inferred_local_types() {
+        let source = r#"
+use std::rc::Rc;
+
+#[derive(Clone, Copy)]
+pub enum Val {
+    Num(u128),
+    Undef,
+}
+
+pub fn choose(flag: bool, f: Rc<dyn Fn(Val) -> Val>, x: Val) -> Val {
+    let n = if flag { 4u128 } else { 0u128 };
+    let v = (*f)(x);
+    match v.clone() {
+        Val::Num(_) => Val::Num(n.clone()),
+        Val::Undef => Val::Undef,
+    }
+}
+
+pub fn capture(f: Rc<dyn Fn(Val) -> Val>, x: Val) -> Rc<dyn Fn(Val) -> Val> {
+    let tmp = (*f)(x);
+    Rc::new(move |_arg: Val| -> Val {
+        let tmp_copy = tmp.clone();
+        tmp_copy
+    }) as Rc<dyn Fn(Val) -> Val>
+}
+"#;
+        let mut module = parse_rust_source(source, "Test").expect("parse source");
+        let copy = optimize_copy(&mut module);
+
+        let mut generator = RustCodeGenerator::new();
+        let after_copy = generator.generate_module_code(&module);
+        // The single front-loaded Copy pass removes every redundant Copy
+        // clone, including the match scrutinee and locals whose type comes
+        // from an if-expression or an Rc<dyn Fn> call.
+        assert!(!after_copy.contains("v.clone()"));
+        assert!(!after_copy.contains("n.clone()"));
+        assert!(!after_copy.contains("tmp.clone()"));
+
+        crate::borrow_analysis::optimize_borrow(&mut module, &copy.inferred_copy_types);
+
+        let printed = generator.generate_module_code(&module);
+        assert!(!printed.contains(".clone()"), "{printed}");
+        assert!(printed.contains("match &v"));
+        assert!(printed.contains("Val::Num(n)"));
+        assert!(printed.contains("let tmp_copy = tmp;"));
+    }
+
+    #[test]
     fn prunes_unused_copy_specializations_by_default() {
         let source = r#"
 pub fn dup<A>(x: A) -> (A, A)
@@ -3593,7 +3635,7 @@ where A: Clone + Zero + 'static
     }
 
     #[test]
-    fn keeps_copy_bound_when_borrow_will_decide_a_preserved_match_clone() {
+    fn keeps_copy_bound_when_front_copy_removes_a_match_clone() {
         let source = r#"
 pub fn observe<A>(x: A) -> bool
 where A: Clone + 'static
@@ -3622,7 +3664,8 @@ pub fn observe_clone(x: String) -> bool {
             .expect("following caller")
             .0;
         assert!(specialization.contains("Copy"));
-        assert!(specialization.contains("match x.clone()"));
+        assert!(specialization.contains("match x"));
+        assert!(!specialization.contains("match x.clone()"));
     }
 
     #[test]
