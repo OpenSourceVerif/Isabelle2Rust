@@ -53,6 +53,6 @@ export_code
   Type_Nested_Rec_Test.is_leaf
   Class_Superclass_Test.add12
   Quicksort_Test.quicksort
-checking SML OCaml? Haskell? Scala? Go
+checking Rust SML OCaml? Haskell? Scala? Go
 
 end

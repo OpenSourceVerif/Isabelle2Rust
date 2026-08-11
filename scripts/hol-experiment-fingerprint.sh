@@ -6,10 +6,12 @@ workspace_root=$(cd -- "$repo_root/.." && pwd)
 
 cd "$workspace_root"
 
+unset RUSTC_BOOTSTRAP
+
 {
   printf 'tool:isabelle=%s\0' "$(isabelle version)"
-  printf 'tool:rustc=%s\0' "$(rustc --version)"
-  printf 'tool:cargo=%s\0' "$(cargo --version)"
+  printf 'tool:rustc=%s\0' "$(rustc +stable --version)"
+  printf 'tool:cargo=%s\0' "$(cargo +stable --version)"
 
   find Isabelle2Rust -type f \
     \( -path 'Isabelle2Rust/code_rust.ML' \
@@ -23,6 +25,7 @@ cd "$workspace_root"
        -o -path 'Isabelle2Rust/Rust_Hybrid128_WordU128_Setup.thy' \
        -o -path 'Isabelle2Rust/Rust_Checked128_WordU128_Setup.thy' \
        -o -path 'Isabelle2Rust/Makefile' \
+       -o -path 'Isabelle2Rust/rust-toolchain.toml' \
        -o -path 'Isabelle2Rust/ROOT' \
        -o -path 'Isabelle2Rust/scripts/isabelle-exported.Cargo.lock' \
        -o -path 'Isabelle2Rust/scripts/hol-experiment-fingerprint.sh' \

@@ -34,9 +34,21 @@ def natural_key(path: Path):
 
 
 def current_theories(suite: str):
+    suite_root = SUITE_ROOTS[suite]
+    tracked = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "ls-files", "--", str(suite_root.relative_to(REPO_ROOT))],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        check=False,
+    )
+    if tracked.returncode == 0:
+        candidates = (REPO_ROOT / relative for relative in tracked.stdout.splitlines())
+    else:
+        candidates = suite_root.rglob("*_Test.thy")
     theories = []
-    for theory in sorted(SUITE_ROOTS[suite].rglob("*_Test.thy")):
-        if EXPORT_CODE.search(theory.read_text(encoding="utf-8")):
+    for theory in sorted(path for path in candidates if path.name.endswith("_Test.thy")):
+        if theory.is_file() and EXPORT_CODE.search(theory.read_text(encoding="utf-8")):
             theories.append(theory)
     return theories
 
@@ -173,7 +185,7 @@ def parse_warning_counts(output: str):
 
 def clippy_one(manifest: Path, cargo_command, cargo_jobs: int):
     environment = os.environ.copy()
-    environment["RUSTC_BOOTSTRAP"] = "1"
+    environment.pop("RUSTC_BOOTSTRAP", None)
     lock_result = subprocess.run(
         [
             sys.executable,
@@ -221,7 +233,7 @@ def clippy_one(manifest: Path, cargo_command, cargo_jobs: int):
 
 
 def run_clippy(processes: int, cargo_jobs: int):
-    cargo_command = shlex.split(os.environ.get("CARGO", "cargo"))
+    cargo_command = shlex.split(os.environ.get("CARGO", "cargo +stable"))
     suite_manifests = {
         (stage, suite): manifests_for(suite, stage, "clippy")
         for stage in ("stage1", "stage2")

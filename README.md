@@ -59,15 +59,15 @@ plus `CPU: Intel(R) Core(TM) Ultra 7 155H   2.50 GHz` + `RAM 32G` + `Core: 16`
 rustup --version
 #rustup 1.28.2 (e4f3ad6f8 2025-04-28)
 
-#install nightly
-rustup toolchain install nightly-2025-12-01
-#go to our repo folder
+# install the stable toolchain used by the artifact
+rustup toolchain install stable
+# go to our repo folder
 cd /OUR-REPO
-rustup override set nightly-2025-12-01
-#check version
+# rust-toolchain.toml selects stable in this repository
+# check version
 cargo --version && rustc --version
-#expected：cargo 1.93.0-nightly (2a7c49606 2025-11-25)
-#expected：rustc 1.93.0-nightly (b84478a1c 2025-11-30)
+# expected: cargo 1.94.0 (85eff7c80 2026-01-15)
+# expected: rustc 1.94.0 (4a4ef493e 2026-03-02)
 ```
 
 - **[Isabelle/HOL 2025](https://isabelle.in.tum.de/)**
@@ -106,19 +106,18 @@ ocamlc -version
 ocamlfind query zarith
 ```
 
-The Rust side is fixed to the same nightly toolchain used by the rest of this
-artifact:
+The Rust side uses the same stable toolchain as the rest of this artifact:
 
 ```bash
-rustup toolchain install nightly-2025-12-01
-cargo +nightly-2025-12-01 --version
-rustc +nightly-2025-12-01 --version
+rustup toolchain install stable
+cargo +stable --version
+rustc +stable --version
 ```
 
-`make macro_sbpf` passes these fixed versions as
-`OCAML_VERSION=4.11.2` and `RUST_TOOLCHAIN=nightly-2025-12-01` by default. The
-Rust runner invokes Cargo with `--locked` and sets `RUSTC_BOOTSTRAP=1` and
-`RUSTFLAGS=-Awarnings` internally.
+`make macro_sbpf` passes `OCAML_VERSION=4.11.2` and
+`RUST_TOOLCHAIN=stable` by default. The Rust runner invokes Cargo with
+`--locked`, removes `RUSTC_BOOTSTRAP` from the child environment, and sets
+`RUSTFLAGS=-Awarnings`.
 
 ### 3.2 Quick start
 
@@ -274,8 +273,8 @@ ocamlc -version
 ocamlfind query zarith
 
 # Rust execution path
-cargo +nightly-2025-12-01 --version
-rustc +nightly-2025-12-01 --version
+cargo +stable --version
+rustc +stable --version
 
 # Isabelle generation path
 isabelle version
@@ -316,7 +315,7 @@ Useful options:
 make macro_sbpf REBUILD=1
 
 # Override the fixed versions only when intentionally changing the test setup
-make macro_sbpf OCAML_VERSION=4.11.2 RUST_TOOLCHAIN=nightly-2025-12-01
+make macro_sbpf OCAML_VERSION=4.11.2 RUST_TOOLCHAIN=stable
 
 # Rebuild only the cached shared JSON data
 make macro_sbpf DATA_REBUILD=1

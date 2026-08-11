@@ -26,7 +26,7 @@ VALIDATION = ROOT / "tests_x64" / "x64-validation"
 THEORY_STAGE1 = ROOT / "tests_x64" / "theory" / "stage1"
 HARNESS = VALIDATION / "rust_harness"
 BUILD = VALIDATION / "_build"
-RUST_TOOLCHAIN = os.environ.get("RUST_TOOLCHAIN", "nightly-2025-12-01")
+RUST_TOOLCHAIN = os.environ.get("RUST_TOOLCHAIN", "stable")
 CACHE_VERSION = "x64-raw-cross-v1"
 
 
@@ -227,7 +227,7 @@ def main() -> int:
     if run(cargo + ["--version"]) != 0:
         return 2
     env = os.environ.copy()
-    env["RUSTC_BOOTSTRAP"] = "1"
+    env.pop("RUSTC_BOOTSTRAP", None)
     env["RUSTFLAGS"] = "-Awarnings"
     env[adapter.input_env] = str(adapter.input_path)
     binary = prepare(adapter, cargo, env)

@@ -138,7 +138,7 @@ def normalize_span_path(name: str, manifest: Path) -> str:
 
 def audit_one(suite: str, theory: Path, manifest: Path) -> dict[str, object]:
     environment = os.environ.copy()
-    environment["RUSTC_BOOTSTRAP"] = "1"
+    environment.pop("RUSTC_BOOTSTRAP", None)
     locked = run(
         [sys.executable, str(LOCK_HELPER), str(manifest), str(SHARED_LOCK)],
         env=environment,

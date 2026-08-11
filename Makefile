@@ -12,7 +12,7 @@ HOL_DIR         ?= test/HOL_Codegenerator
 HOL_GCD_THEORY ?= Code_Test_Rust
 HOL_STRESS_SESSION ?= Rust-HOL-Codegenerator_Test
 
-CARGO                  ?= cargo
+CARGO                  ?= cargo +stable
 ISABELLE_CARGO         ?= $(HOME)/.cargo/bin/cargo
 OCAMLC                 ?= ocamlc
 OCAMLFIND              ?= ocamlfind
@@ -31,6 +31,7 @@ ISABELLE_TEST_VERBOSE  := isabelle build -v -e -d $(TEST_ROOT_DIR) $(TEST_SESSIO
 ISABELLE_TEST_SILENT   := isabelle build -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
 
 export ISABELLE_CARGO
+unexport RUSTC_BOOTSTRAP
 
 WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = $(TEST_TIMEOUT)]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "$(TEST_DIR)"' '  theories [document = false]' '    Rust_Base_Setup' '    Rust_Integer_BigInt_Layer' '    Rust_BigInt_Setup' '    Rust_Integer_Hybrid128_Layer' '    Rust_Hybrid128_Setup' '    Rust_Checked128_Setup' '    Rust_BigInt_WordU128_Setup' '    Rust_Hybrid128_WordU128_Setup' '    Rust_Checked128_WordU128_Setup' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
 
@@ -57,6 +58,7 @@ build:
 	fi
 	@{ \
 	  flock 9; \
+	  rm -rf "$(TEST_DIR)/stage1/$(TEST_THEORY)"; \
 	  echo ">> $(TEST_ROOT_FILE) for $(TEST_DIR)/$(TEST_THEORY).thy"; \
 	  $(WRITE_TEST_ROOT); \
 	  echo ">> isabelle build (verbose)..."; \
@@ -71,6 +73,7 @@ build_silent:
 	fi
 	@{ \
 	  flock 9; \
+	  rm -rf "$(TEST_DIR)/stage1/$(TEST_THEORY)"; \
 	  $(WRITE_TEST_ROOT); \
 	  $(ISABELLE_TEST_SILENT); \
 	} 9>$(ISABELLE_BUILD_LOCK)
@@ -91,7 +94,7 @@ gen:
 	  if [ -z "$$manifests" ]; then echo "No Cargo.toml under $$out"; return 1; fi; \
 	  for m in $$manifests; do \
 	    CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$m" "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
-	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked --manifest-path "$$m" || return 1; \
+	    env -u RUSTC_BOOTSTRAP RUSTFLAGS="-Awarnings" $(CARGO) build --locked --manifest-path "$$m" || return 1; \
 	  done; \
 	}; \
 	if [ -n "$(DIR)" ] && [ -n "$(Name)" ]; then \
@@ -104,7 +107,11 @@ gen:
 	  if [ "$(DIR)" = "$(HOL_DIR)" ]; then \
 	    FILES="$$HOL_FILE"; \
 	  else \
-	    FILES=$$(find "$(DIR)" -name '*_Test.thy' -type f | sort); \
+	    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+	      FILES=$$(git ls-files -- "$(DIR)" | sed -n '/_Test\.thy$$/p' | sort); \
+	    else \
+	      FILES=$$(find "$(DIR)" -name '*_Test.thy' -type f | sort); \
+	    fi; \
 	    case "$$HOL_FILE" in "$(DIR)"/*) FILES=$$(printf '%s\n%s\n' "$$FILES" "$$HOL_FILE" | sed '/^$$/d' | sort -u);; esac; \
 	  fi; \
 	  if [ -z "$$FILES" ]; then \
@@ -178,12 +185,12 @@ opt:
 	    local s2="$$s2_root/$$export_name"; \
 	    echo ">>> [opt] optimizing Rust export: $$export_name"; \
 	    (ulimit -s "$(OPT_STACK_KB)"; \
-	      $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
+	      env -u RUSTC_BOOTSTRAP $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
 	        "$$s1" --out-dir "$$s2") || return 1; \
 	    CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$s2/Cargo.toml" \
 	      "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
 	    echo ">>> [opt] cargo build stage2: $$name/$$export_name"; \
-	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
+	    env -u RUSTC_BOOTSTRAP RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
 	      --manifest-path "$$s2/Cargo.toml" || return 1; \
 	  done; \
 	}; \
@@ -231,7 +238,7 @@ opt:
 	  exit 1; \
 	fi
 
-# test: full two-phase pipeline — stage1 (no cargo build) → "stage1 done" →
+# test: full two-phase pipeline — stage1 + cargo build → "stage1 done" →
 # stage2/<theory>/<export>/ + cargo build
 # Usage: make test DIR=<dir> Name=<theory>   (single)
 #        make test DIR=<dir>                 (all *_Test.thy under dir)
@@ -253,13 +260,18 @@ test:
 	    local s1=$$(dirname "$$manifest"); \
 	    local export_name=$$(basename "$$s1"); \
 	    local s2="$$s2_root/$$export_name"; \
+	    CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$manifest" \
+	      "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
+	    echo ">>> [test] cargo build stage1: $$name/$$export_name"; \
+	    env -u RUSTC_BOOTSTRAP RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
+	      --manifest-path "$$manifest" || return 1; \
 	    echo ">>> [test] optimizing Rust export: $$export_name"; \
 	    (ulimit -s "$(OPT_STACK_KB)"; \
-	      $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
+	      env -u RUSTC_BOOTSTRAP $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
 	        "$$s1" --out-dir "$$s2") || return 1; \
 	    CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$s2/Cargo.toml" \
 	      "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
-	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
+	    env -u RUSTC_BOOTSTRAP RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
 	      --manifest-path "$$s2/Cargo.toml" || return 1; \
 	  done; \
 	}; \
@@ -274,7 +286,11 @@ test:
 	  if [ "$(DIR)" = "$(HOL_DIR)" ]; then \
 	    FILES="$$HOL_FILE"; \
 	  else \
-	    FILES=$$(find "$(DIR)" -name '*_Test.thy' -type f | sort); \
+	    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+	      FILES=$$(git ls-files -- "$(DIR)" | sed -n '/_Test\.thy$$/p' | sort); \
+	    else \
+	      FILES=$$(find "$(DIR)" -name '*_Test.thy' -type f | sort); \
+	    fi; \
 	    case "$$HOL_FILE" in "$(DIR)"/*) FILES=$$(printf '%s\n%s\n' "$$FILES" "$$HOL_FILE" | sed '/^$$/d' | sort -u);; esac; \
 	  fi; \
 	  if [ -z "$$FILES" ]; then \
@@ -330,11 +346,15 @@ targeted:
 	  if [ -z "$$manifests" ]; then echo "No Cargo.toml under $$out"; return 1; fi; \
 	  for m in $$manifests; do \
 	    CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$m" "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
-	    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked --manifest-path "$$m" || return 1; \
+	    env -u RUSTC_BOOTSTRAP RUSTFLAGS="-Awarnings" $(CARGO) build --locked --manifest-path "$$m" || return 1; \
 	  done; \
 	}; \
 	TD="tests_targeted"; \
-	FILES=$$(find "$$TD" -name '*_Test.thy' -type f | sort); \
+	if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+	  FILES=$$(git ls-files -- "$$TD" | sed -n '/_Test\.thy$$/p' | sort); \
+	else \
+	  FILES=$$(find "$$TD" -name '*_Test.thy' -type f | sort); \
+	fi; \
 	if [ -z "$$FILES" ]; then echo "No *_Test.thy under $$TD"; exit 0; fi; \
 	SUCCESS=0; FAIL=0; TOTAL=0; SKIPPED=0; FAILED=""; \
 	for f in $$FILES; do \
@@ -381,11 +401,11 @@ hol-gcd:
 	  exit 1; \
 	fi; \
 	CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$CARGO_TOML" "$(ISABELLE_EXPORTED_LOCK)" || exit 1; \
-	RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) run --locked --manifest-path "$$CARGO_TOML"
+	env -u RUSTC_BOOTSTRAP RUSTFLAGS="-Awarnings" $(CARGO) run --locked --manifest-path "$$CARGO_TOML"
 
 # Both stress theories use `export_code _ in Rust`.  The session exports the
 # generated crates into persistent stage1 directories, after which this target
-# compiles each crate with Cargo.  A clean build is required because an
+# compiles both stages with Cargo.  A clean build is required because an
 # up-to-date session would otherwise bypass both wildcard exports.
 hol-stress:
 	@echo ">>> Building HOL stress export ($(HOL_STRESS_SESSION))..."
@@ -400,7 +420,8 @@ hol-stress:
 	  fi; \
 	  CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$MANIFEST" "$(ISABELLE_EXPORTED_LOCK)" || exit 1; \
 	  echo ">>> Cargo-checking HOL stress export: $$THEORY"; \
-	  RUSTC_BOOTSTRAP=1 RUSTFLAGS="-Awarnings" $(CARGO) build --locked --manifest-path "$$MANIFEST" || exit 1; \
+	  env -u RUSTC_BOOTSTRAP RUSTFLAGS="-Awarnings" $(CARGO) build --locked --manifest-path "$$MANIFEST" || exit 1; \
+	  $(MAKE) -s opt DIR="$(HOL_DIR)" Name="$$THEORY" || exit 1; \
 	done
 
 # Count physical lines in the current HOL, unit, and FPP generated Rust crates.
@@ -468,13 +489,13 @@ x64-rust-export:
 # against the fixed OCaml encoder output.
 x64-gen: x64-rust-export
 	@echo ">>> [x64_gen] generating $(X64_COUNT) random x64 instructions"
-	@$(CARGO) run --quiet --manifest-path $(X64_INS_GEN)/Cargo.toml -- $(X64_COUNT)
+	@env -u RUSTC_BOOTSTRAP $(CARGO) run --quiet --manifest-path $(X64_INS_GEN)/Cargo.toml -- $(X64_COUNT)
 	@echo ">>> [x64_gen] encoding instructions with the existing OCaml x64 encoder"
 	@cd "$(X64_ASSEMBLER)" && $(OCAMLC) -o exec x64_encode.ml && ./exec
 	@echo ">>> [x64_gen] cross-checking the raw Rust x64 encoder against OCaml"
 	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" python3 $(X64_RUST_VALIDATION) encoder
 	@echo ">>> [x64_gen] generating register and memory maps"
-	@$(CARGO) run --quiet --manifest-path $(X64_MAP_GEN)/Cargo.toml
+	@env -u RUSTC_BOOTSTRAP $(CARGO) run --quiet --manifest-path $(X64_MAP_GEN)/Cargo.toml
 
 # Stage 2 retains the established CPU and fixed OCaml checks, then observes the
 # raw Rust x64_step_test through glue installed only in an _build crate copy.
@@ -510,9 +531,11 @@ clean:
 	find test -path "*/stage2" -type d -prune -exec rm -rf {} +
 	find tests_targeted -path "*/stage1" -type d -prune -exec rm -rf {} +
 	find tests_targeted -path "*/stage2" -type d -prune -exec rm -rf {} +
+	find tests_targeted -path "*/Rust_Out" -type d -prune -exec rm -rf {} +
 	find tests_HOL -path "*/stage1" -type d -prune -exec rm -rf {} + 2>/dev/null || true
 	find $(HOL_DIR) -path "*/stage1" -type d -prune -exec rm -rf {} + 2>/dev/null || true
-	find tests_sbpf/theory/stage1 -name target -type d -prune -exec rm -rf {} + 2>/dev/null || true
+	rm -rf tests_sbpf/theory/stage1 tests_sbpf/theory/stage2
+	rm -rf evaluation/code_generation_quality/export
 	rm -rf tests_sbpf/tests/exec_semantics/_build
 	rm -rf tests_sbpf/tests/exec_semantics/sbpf_ocaml/_build
 	rm -rf tests_sbpf/tests/exec_semantics/sbpf_rust/_build

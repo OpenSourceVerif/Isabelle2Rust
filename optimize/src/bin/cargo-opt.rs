@@ -116,7 +116,6 @@ struct Summary {
     output_root: PathBuf,
     opt_manifest: PathBuf,
     optimized: usize,
-    needs_nightly: bool,
 }
 
 struct SourceUnit {
@@ -126,7 +125,6 @@ struct SourceUnit {
     source: String,
     parsed: Option<RustModule>,
     analysis_facts: Option<RustModule>,
-    needs_nightly: bool,
 }
 
 fn run() -> Result<Summary, String> {
@@ -156,7 +154,6 @@ fn run() -> Result<Summary, String> {
         output_root,
         opt_manifest,
         optimized: 0,
-        needs_nightly: false,
     };
     write_optimized_sources(
         &source_root,
@@ -165,11 +162,6 @@ fn run() -> Result<Summary, String> {
         &mut summary,
     )?;
     write_opt_manifest(&package_root, &summary)?;
-
-    if summary.needs_nightly {
-        write_nightly_toolchain_file(&package_root)?;
-        write_nightly_toolchain_file(&summary.output_root)?;
-    }
 
     if summary.optimized == 0 {
         return Err(format!(
@@ -296,9 +288,9 @@ fn write_optimized_sources(
         let output_path = summary.output_root.join("src").join(&relative_path);
         let source = fs::read_to_string(&source_path)
             .map_err(|err| format!("failed to read {}: {err}", source_path.display()))?;
+        ensure_stable_source(&source_path, &source)?;
         let module_name = module_name_from_path(&source_path);
         let module_path = module_path_from_relative(&relative_path);
-        let needs_nightly = source.contains("#![feature(");
 
         let (parsed, analysis_facts) = match parse_rust_source(&source, module_name.clone()) {
             Ok(module) => (Some(module), None),
@@ -321,7 +313,6 @@ fn write_optimized_sources(
             source,
             parsed,
             analysis_facts,
-            needs_nightly,
         });
     }
 
@@ -333,10 +324,6 @@ fn write_optimized_sources(
     }
 
     for unit in &mut units {
-        if unit.needs_nightly {
-            summary.needs_nightly = true;
-        }
-
         if let Some(module) = unit.parsed.as_mut() {
             if pipeline.enables_match_cleanup() {
                 optimize_match_with_context(module, &match_context, &unit.module_path);
@@ -492,13 +479,21 @@ fn write_file(output_path: &Path, contents: &[u8]) -> Result<(), String> {
         .map_err(|err| format!("failed to write {}: {err}", output_path.display()))
 }
 
-fn write_nightly_toolchain_file(package_root: &Path) -> Result<(), String> {
-    let toolchain_path = package_root.join("rust-toolchain.toml");
-    if toolchain_path.exists() {
-        return Ok(());
+fn ensure_stable_source(source_path: &Path, source: &str) -> Result<(), String> {
+    for (index, line) in source.lines().enumerate() {
+        let compact = line
+            .chars()
+            .filter(|character| !character.is_whitespace())
+            .collect::<String>();
+        if compact.starts_with("#![feature(") {
+            return Err(format!(
+                "{}:{} enables an unstable Rust feature; Stage 2 accepts stable Rust sources only",
+                source_path.display(),
+                index + 1
+            ));
+        }
     }
-
-    write_file(&toolchain_path, b"[toolchain]\nchannel = \"nightly\"\n")
+    Ok(())
 }
 
 fn is_input_rust_file(path: &Path) -> bool {
@@ -581,7 +576,9 @@ fn absolute_path_from(path: &Path, cwd: &Path) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::{PipelineOptions, Stage2Pass};
+    use std::path::Path;
+
+    use super::{ensure_stable_source, PipelineOptions, Stage2Pass};
 
     #[test]
     fn full_pipeline_enables_all_available_stage2_passes() {
@@ -613,5 +610,23 @@ mod tests {
         assert!(!options.enables_mut());
         assert!(!options.enables_last_use());
         assert!(!options.enables_closure());
+    }
+
+    #[test]
+    fn accepts_stable_source_without_feature_gates() {
+        assert!(
+            ensure_stable_source(Path::new("src/lib.rs"), "pub fn id(x: u64) -> u64 { x }").is_ok()
+        );
+    }
+
+    #[test]
+    fn rejects_unstable_feature_gates() {
+        let error = ensure_stable_source(
+            Path::new("src/lib.rs"),
+            "  #! [ feature(box_patterns) ]\npub fn id(x: u64) -> u64 { x }",
+        )
+        .unwrap_err();
+        assert!(error.contains("src/lib.rs:1"));
+        assert!(error.contains("stable Rust sources only"));
     }
 }

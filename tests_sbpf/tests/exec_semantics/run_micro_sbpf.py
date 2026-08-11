@@ -150,15 +150,19 @@ def generate_step_json() -> int:
         f"generating {count} random step cases with seed {seed} into {rel(STEP_JSON)}",
     )
     rust_toolchain = os.environ.get("RUST_TOOLCHAIN") or "stable"
+    env = os.environ.copy()
+    env.pop("RUSTC_BOOTSTRAP", None)
     rc, _ = run_command(
         ["cargo", f"+{rust_toolchain}", "run", "--locked", "--", count, str(STEP_JSON), seed],
         cwd=GENERATOR_DIR,
+        env=env,
     )
     return rc
 
 
 def run_stage(name: str, script: Path, export_dir: Path) -> StageResult:
     env = os.environ.copy()
+    env.pop("RUSTC_BOOTSTRAP", None)
     env["SBPF_ROOT"] = str(ROOT)
     env["SBPF_EXEC_DIR"] = str(EXEC_DIR)
     env["SBPF_DATA_DIR"] = str(DATA_DIR)

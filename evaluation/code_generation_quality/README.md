@@ -1,6 +1,28 @@
 # Code-generation quality experiments
 
+## RQ1 stable compiler acceptance
+
+`run-rq1-stable-builds.py` selects the frozen tracked corpus (two HCT
+configurations, 55 Unit theories, and 36 FPP theories), rejects unstable
+feature gates and non-stable nested toolchain files, and builds both generated
+stages with Rust 1.94.0 stable while removing `RUSTC_BOOTSTRAP`:
+
+```sh
+python3 evaluation/code_generation_quality/run-rq1-stable-builds.py
+```
+
 ## Final RQ3 Stage-2 Clippy audit
+
+The current stable-only protocol checks both stages of the same tracked
+92-crate corpus:
+
+```sh
+make clippy
+```
+
+With Rust 1.94.0, Clippy 0.1.94, and `RUSTC_BOOTSTRAP` unset, the 2026-08-11 audit
+completed all 184 commands and reported 1,984 Stage-1 diagnostics and 16
+Stage-2 diagnostics.
 
 `rq3-stage2-clippy-final/` records the accepted final Clippy audit for RQ3.
 It contains the tracked 92-crate Stage-2 corpus, source and manifest hashes,

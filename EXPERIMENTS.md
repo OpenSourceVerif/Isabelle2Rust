@@ -15,6 +15,31 @@ the recorded generated artifacts and measurements.  Rerun the generation and
 optimization only after this fingerprint changes.  Read-only recounting of an
 unchanged artifact does not require a rerun.
 
+## 2026-08-11: Stable-only compiler and Clippy audit
+
+The active artifact no longer enables nightly Rust or `RUSTC_BOOTSTRAP`.
+All commands in this audit explicitly selected stable Rust and removed an
+inherited `RUSTC_BOOTSTRAP` value from child environments.  The resolved
+toolchain was `rustc 1.94.0 (4a4ef493e 2026-03-02)`, `cargo 1.94.0
+(85eff7c80 2026-01-15)`, and Clippy 0.1.94.
+
+- The optimizer test suite passed 169/169 tests on stable Rust: 165 library
+  tests and four `cargo-opt` tests, including a new gate that rejects unstable
+  input source.
+- The Isabelle `Code_Generation_Quality` session passed with Rust included as
+  a required `checking` target, exercising the backend's stable Cargo checker.
+- `evaluation/code_generation_quality/run-rq1-stable-builds.py` selected the
+  frozen two-HCT, 55-Unit, and 36-FPP corpus.  Both stages built successfully
+  for all 93 pairs (186/186 crates), with no crate-level feature gate or nested
+  non-stable toolchain file.
+- Clippy completed successfully on the corresponding HCT-standard, Unit, and
+  FPP outputs at both stages (184/184 commands).  It reported 1,984 Stage-1
+  diagnostics and 16 Stage-2 diagnostics, a 99.2% reduction.
+
+This entry supersedes earlier compiler-acceptance and Clippy protocols that
+used bootstrap or nightly Rust.  Historical timing records below retain their
+original toolchains; they are not rewritten as stable measurements.
+
 ## 2026-08-06: Eta-reduction removal and Stage-2-only RQ3 rerun
 
 The closure-cleanup pass no longer rewrites

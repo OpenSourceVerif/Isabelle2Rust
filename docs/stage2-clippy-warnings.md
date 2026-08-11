@@ -5,6 +5,14 @@ Stage 2 unit-test crates after the closure-cast parenthesis cleanup.  It does
 not track warnings in the optimizer or RustLightAST implementation crates, and
 it does not require Stage 1 output to be Clippy-clean.
 
+## Current stable-only audit
+
+On 2026-08-11, Clippy 0.1.94 was rerun under Rust 1.94.0 stable with
+`RUSTC_BOOTSTRAP` removed from the child environment.  The frozen corpus
+contained 92 crates per stage (one HCT-standard, 55 Unit, and 36 FPP).  All 184
+Clippy commands succeeded, reporting 1,984 Stage-1 diagnostics and 16 Stage-2
+diagnostics.  The reproducible runner selects only tracked evaluation theories.
+
 ## Audited snapshot
 
 - Date: 2026-07-13
@@ -12,11 +20,15 @@ it does not require Stage 1 output to be Clippy-clean.
 - Regenerated before the audit: `Abstractions_Test`, `Applications_Test`,
   `ArithmeticInt_Test`, `ArithmeticNat_Test`, `BuiltinInstances_Test`,
   `Recursive_Test`, and `Semigroup_Test`
-- Command run in each Stage 2 crate:
+- Historical command run in each Stage 2 crate:
 
   ```sh
   RUSTC_BOOTSTRAP=1 cargo clippy --quiet --locked --message-format=short
   ```
+
+This 2026-07-13 snapshot is retained only as historical provenance and is
+superseded by the stable-only evaluation protocol. Current Clippy runners
+select `cargo +stable` and remove `RUSTC_BOOTSTRAP` from the child environment.
 
 The audit reports 9 warnings in four crates.  No generated Stage 2 unit-test
 crate currently reports `clippy::double_parens`.

@@ -1,5 +1,10 @@
 # sBPF performance experiments
 
+This file preserves early performance-draft provenance, including its original
+nightly toolchains.  The final paper-facing stable-Rust performance records are
+listed in the 2026-08 entries of `../EXPERIMENTS.md` and under
+`evaluation/performance/results/`.
+
 Date: 2026-07-19
 
 This note records the experiments used for the RQ3 performance draft. The

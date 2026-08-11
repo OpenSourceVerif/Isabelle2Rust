@@ -188,6 +188,7 @@ def refresh_interp_json() -> bool:
 
 def run_stage(name: str, script: Path, export_dir: Path) -> StageResult:
     env = os.environ.copy()
+    env.pop("RUSTC_BOOTSTRAP", None)
     env["SBPF_ROOT"] = str(ROOT)
     env["SBPF_EXEC_DIR"] = str(EXEC_DIR)
     env["SBPF_DATA_DIR"] = str(DATA_DIR)

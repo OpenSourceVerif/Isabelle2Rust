@@ -183,6 +183,7 @@ def main() -> int:
     key = cache_key(export_rs, main_rs)
 
     env = os.environ.copy()
+    env.pop("RUSTC_BOOTSTRAP", None)
     env["CROSS_JSON"] = str(DATA_DIR / "interp_in.json")
     env["RUSTFLAGS"] = "-Awarnings"
     if os.environ.get("SBPF_STAGE") == "2":

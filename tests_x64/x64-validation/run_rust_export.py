@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 THEORY_DIR = ROOT / "tests_x64" / "theory"
 LOCK_SOURCE = ROOT / "scripts" / "isabelle-exported.Cargo.lock"
-RUST_TOOLCHAIN = os.environ.get("RUST_TOOLCHAIN", "nightly-2025-12-01")
+RUST_TOOLCHAIN = os.environ.get("RUST_TOOLCHAIN", "stable")
 ISABELLE_THREADS = os.environ.get("X64_ISABELLE_THREADS", "1")
 ISABELLE_TIMEOUT = os.environ.get("X64_ISABELLE_TIMEOUT", "1200")
 ISABELLE_MAX_HEAP = os.environ.get("X64_ISABELLE_MAX_HEAP", "3200")
@@ -80,7 +80,7 @@ def run(cmd: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> int:
 
 
 def cargo_command() -> list[str]:
-    """Honor CARGO overrides while selecting the fixed nightly by default."""
+    """Honor CARGO overrides while selecting stable Rust by default."""
 
     command = shlex.split(os.environ.get("CARGO", "cargo"))
     if command == ["cargo"] and RUST_TOOLCHAIN:
@@ -126,6 +126,7 @@ def isabelle_environment() -> dict[str, str]:
     )
     ISABELLE_LAUNCHER.chmod(0o755)
     env = os.environ.copy()
+    env.pop("RUSTC_BOOTSTRAP", None)
     # The launcher must perform the first settings load itself.
     env.pop("ISABELLE_SETTINGS_PRESENT", None)
     return env
@@ -220,7 +221,7 @@ def compile_export(spec: ExportSpec, cargo: list[str]) -> bool:
     if not install_lockfile(spec):
         return False
     env = os.environ.copy()
-    env["RUSTC_BOOTSTRAP"] = "1"
+    env.pop("RUSTC_BOOTSTRAP", None)
     env["RUSTFLAGS"] = "-Awarnings"
     manifest = spec.crate_dir / "Cargo.toml"
     # The shared lockfile pins every optional generated-code dependency.  Trim

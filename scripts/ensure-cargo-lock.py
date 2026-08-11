@@ -9,7 +9,13 @@ import sys
 
 
 def cargo_command():
-    return shlex.split(os.environ.get("CARGO", "cargo"))
+    return shlex.split(os.environ.get("CARGO", "cargo +stable"))
+
+
+def stable_environment():
+    environment = os.environ.copy()
+    environment.pop("RUSTC_BOOTSTRAP", None)
+    return environment
 
 
 def lock_is_current(manifest: Path):
@@ -26,6 +32,7 @@ def lock_is_current(manifest: Path):
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        env=stable_environment(),
         check=False,
     )
     return result.returncode == 0
@@ -61,6 +68,7 @@ def main():
             "--manifest-path",
             str(manifest),
         ],
+        env=stable_environment(),
         check=False,
     )
     if result.returncode == 0:

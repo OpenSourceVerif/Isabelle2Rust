@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+unset RUSTC_BOOTSTRAP
+
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 targeted="$repo_root/tests_targeted"
 toolchain="${RUST_TOOLCHAIN:-stable}"

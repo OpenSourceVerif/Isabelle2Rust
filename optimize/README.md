@@ -8,15 +8,14 @@ dependency.
 ### 1. Environment setup
 
 ```shell
-# install Rust nightly
-rustup install nightly
-rustup default nightly
-rustc --version
-# rustc 1.91.0-nightly (c8ca44c98 2025-08-10)
+# install stable Rust
+rustup toolchain install stable
+rustc +stable --version
+# rustc 1.94.0 (4a4ef493e 2026-03-02)
 
 # build the optimizer
 cd /YOUR-PATH/Isabelle2Rust/optimize
-cargo build --bin cargo-opt
+cargo +stable build --bin cargo-opt
 # Compiling isabelle2rust-optimize v0.1.0
 # Finished ... in 0.75s
 ```

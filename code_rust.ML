@@ -4054,13 +4054,14 @@ val _ = Theory.setup
       (* `export_code ... checking Rust` exports the generated hierarchy as a
          complete Cargo crate directly into Isabelle's temporary check directory
          (Cargo.toml plus src/*.rs).  The check command therefore only has to
-         run Cargo in that directory.  The Rust backend emits `box_patterns` and
-         large HOL stress exports routinely contain unused support items, so the
-         same environment used by the existing stage1 Cargo tests is applied. *)
+         run Cargo in that directory.  Select the stable toolchain explicitly
+         and remove RUSTC_BOOTSTRAP so this check cannot accept unstable
+         language features.  Large HOL stress exports routinely contain unused
+         support items, so warnings remain suppressed. *)
       check = {env_var = "ISABELLE_CARGO",
         make_destination = I,
         make_command = fn _ =>
-          "RUSTC_BOOTSTRAP=1 RUSTFLAGS=\"-Awarnings\" \"$ISABELLE_CARGO\" build"},
+          "env -u RUSTC_BOOTSTRAP RUSTFLAGS=\"-Awarnings\" \"$ISABELLE_CARGO\" +stable build"},
       evaluation_args = []})
   #> Code_Target.set_printings (Type_Constructor ("fun",
     [(target, SOME (2, fn_trait_impl_syntax))]))
