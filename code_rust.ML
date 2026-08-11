@@ -2742,7 +2742,11 @@ fun print_rust_stmt class_syntax tyco_syntax const_syntax reserved is_constr der
              `type _ = EMPTY__` alias would be an undefined-type parse error, and a
              plain generic struct would trip E0392 on the unused params. *)
           let
-            val head = if Code_Namespace.not_private export then "pub struct" else "struct";
+            (* Top-level generated functions are public so definitions can call
+               across Rust modules. Keep every generated nominal type equally
+               visible: otherwise a public function or datatype can expose a
+               private dependency and rustc reports `private_interfaces`. *)
+            val head = "pub struct";
             val ty_p = print_tyco_expr (Type_Constructor tyco, map ITyVar vs);
             val phantom_fields = map (fn v => str ("PhantomData<" ^ to_upper v ^ ">")) vs;
             val decl =
@@ -2758,7 +2762,10 @@ fun print_rust_stmt class_syntax tyco_syntax const_syntax reserved is_constr der
           end
      | print_stmt export (Datas (datas)) = 
           let
-            val head = (if Code_Namespace.not_private export then "pub enum" else "enum");
+            (* As above, generated datatypes form part of the crate-wide public
+               code-generation interface even when Isabelle does not list the
+               datatype itself as an export root. *)
+            val head = "pub enum";
             val decl_ps = map (print_datatype_decl head) datas;
             val (ps, p) = split_last decl_ps;
           in pair
