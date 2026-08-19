@@ -1,4 +1,4 @@
-theory Peano_Grow_Test
+theory Mutability_Test
   imports Main "Rust.Rust_Base_Setup"
 begin
 

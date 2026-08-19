@@ -1,4 +1,4 @@
-theory Color_Dup_Test
+theory Copy_Test
   imports Main "Rust.Rust_Base_Setup"
 begin
 

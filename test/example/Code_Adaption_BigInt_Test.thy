@@ -1,4 +1,4 @@
-theory High_Level_Mapping_BigInt_Test
+theory Code_Adaption_BigInt_Test
   imports Main "Rust.Rust_BigInt_Setup"
 begin
 

@@ -1,4 +1,4 @@
-theory High_Level_Mapping_Raw_Test
+theory Code_Adaption_Raw_Test
   imports Main "Rust.Rust_Target"
 begin
 

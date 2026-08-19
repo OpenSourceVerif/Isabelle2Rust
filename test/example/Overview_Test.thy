@@ -1,4 +1,4 @@
-theory RBT_Overview_Test
+theory Overview_Test
   imports "HOL-Library.RBT_Impl" "Rust.Rust_Base_Setup"
 begin
 
