@@ -341,53 +341,6 @@ test:
 	  exit 1; \
 	fi
 
-# targeted: build + cargo build stage1 for all *_Test.thy under tests_targeted
-targeted:
-	@_cargo_run_stage1() { \
-	  local dir="$$1" name="$$2"; \
-	  local out="$$dir/stage1/$$name"; \
-	  if [ ! -d "$$out" ]; then echo "No stage1 dir: $$out"; return 1; fi; \
-	  local manifests; \
-	  manifests=$$(find "$$out" -maxdepth 2 -type f -name Cargo.toml | sort); \
-	  if [ -z "$$manifests" ]; then echo "No Cargo.toml under $$out"; return 1; fi; \
-	  for m in $$manifests; do \
-	    CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$m" "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
-	    env -u RUSTC_BOOTSTRAP RUSTFLAGS="-Awarnings" $(CARGO) build --locked --manifest-path "$$m" || return 1; \
-	  done; \
-	}; \
-	TD="tests_targeted"; \
-	if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
-	  FILES=$$(git ls-files -- "$$TD" | sed -n '/_Test\.thy$$/p' | sort); \
-	else \
-	  FILES=$$(find "$$TD" -name '*_Test.thy' -type f | sort); \
-	fi; \
-	if [ -z "$$FILES" ]; then echo "No *_Test.thy under $$TD"; exit 0; fi; \
-	SUCCESS=0; FAIL=0; TOTAL=0; SKIPPED=0; FAILED=""; \
-	for f in $$FILES; do \
-	  D=$$(dirname "$$f"); T=$${f##*/}; T=$${T%.thy}; \
-	  if ! grep -Eq '^[[:space:]]*export_code([[:space:]]|$$)' "$$f"; then \
-	    SKIPPED=$$((SKIPPED+1)); \
-	    echo ">>> [skip: no export_code] $$D/$$T"; \
-	    continue; \
-	  fi; \
-	  TOTAL=$$((TOTAL+1)); \
-	  echo ">>> [$$TOTAL] $$D/$$T"; \
-	  if $(MAKE) -s build_silent TEST_DIR="$$D" TEST_THEORY="$$T" && \
-	     _cargo_run_stage1 "$$D" "$$T"; then \
-	    SUCCESS=$$((SUCCESS+1)); \
-	  else \
-	    FAIL=$$((FAIL+1)); FAILED="$$FAILED $$D/$$T"; \
-	  fi; \
-	done; \
-	echo "================================"; \
-	echo "Targeted summary:"; \
-	echo "  Passed: $$SUCCESS / Failed: $$FAIL / Skipped (no export_code): $$SKIPPED / Total: $$TOTAL"; \
-	if [ -n "$$FAILED" ]; then \
-	  echo "  Failed tests:"; \
-	  for T in $$FAILED; do echo "    - $$T"; done; \
-	  exit 1; \
-	fi
-
 hol-gcd:
 	@echo ">>> Building HOL gcd smoke test ($(HOL_GCD_THEORY))..."
 	$(MAKE) build TEST_DIR=$(HOL_DIR) TEST_THEORY=$(HOL_GCD_THEORY)
