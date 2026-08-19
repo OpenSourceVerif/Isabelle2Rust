@@ -80,6 +80,10 @@ def tracked_theories() -> list[tuple[str, Path]]:
         ("HCT", REPO / "test" / "HOL_Codegenerator" / "Generate_Binary_Nat.thy"),
     ]
     for relative in tracked.stdout.splitlines():
+        # Development examples are tracked for convenience but are not part of
+        # the frozen RQ1 Unit corpus documented in this directory's README.
+        if relative.startswith("test/unit/example/"):
+            continue
         theory = REPO / relative
         if theory.name.endswith("_Test.thy") and EXPORT_CODE.search(
             theory.read_text(encoding="utf-8")
