@@ -27,9 +27,9 @@ fun first_some :: "'a option \<Rightarrow> 'a \<Rightarrow> 'a" where
   "first_some (Some x) _ = x"
 | "first_some None y = y"
 
-(* A wildcard row following a boxed constructor row must remain reachable in
-   every constructor branch.  The row also uses the whole wildcard-bound value,
-   so the Rust match compiler must preserve it before destructuring [Join]. *)
+(* A wildcard row following a boxed constructor row must remain reachable.
+   Since these Box fields contain only wildcards, stable Rust can preserve the
+   original tuple match without staged destructuring. *)
 fun boxed_wildcard_fallback :: "token \<Rightarrow> token \<Rightarrow> nat" where
   "boxed_wildcard_fallback (Join _ _) (Push n) = n"
 | "boxed_wildcard_fallback t Stop = token_size t"

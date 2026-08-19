@@ -4,12 +4,19 @@ begin
 
 (* Irrefutable patterns exercise the direct-binding case of pattern matching. *)
 datatype 'a single = Single 'a
+datatype chain = End | Link chain
 
 definition case_id :: "'a \<Rightarrow> 'a" where
   "case_id x = (case x of y \<Rightarrow> y)"
 
 definition unbox_single :: "'a single \<Rightarrow> 'a" where
   "unbox_single x = (case x of Single y \<Rightarrow> y)"
+
+definition wrap_unbox_single :: "'a single \<Rightarrow> 'a option" where
+  "wrap_unbox_single x = Some (case x of Single y \<Rightarrow> y)"
+
+definition link_unbox_single :: "chain single \<Rightarrow> chain" where
+  "link_unbox_single x = Link (case x of Single y \<Rightarrow> y)"
 
 definition let_pair1 :: "'a \<times> 'b \<Rightarrow> 'a" where
   "let_pair1 p = (let (x, _) = p in x)"
@@ -40,7 +47,8 @@ definition let_shadow :: "'a \<Rightarrow> 'a \<times> 'a" where
       in (x, y))"
 
 export_code
-  case_id unbox_single let_pair1 let_pair2 let_1 let_case let_chain let_shadow
+  case_id unbox_single wrap_unbox_single link_unbox_single let_pair1 let_pair2
+  let_1 let_case let_chain let_shadow
   in Rust
 
 

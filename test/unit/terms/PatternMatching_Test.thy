@@ -30,6 +30,11 @@ definition first_or_chain :: "nat list \<Rightarrow> nat list \<Rightarrow> nat"
 
 datatype ilist = INil | ICons int ilist
 
+datatype 'a wrapper = Wrapper 'a
+
+fun unwrap_wrapper :: "'a wrapper \<Rightarrow> 'a" where
+  "unwrap_wrapper (Wrapper x) = x"
+
 fun second_or_zero :: "ilist \<Rightarrow> int" where
   "second_or_zero (ICons _ (ICons y _)) = y"
 | "second_or_zero _ = 0"
@@ -38,9 +43,14 @@ fun first_and_tail :: "'a list \<Rightarrow> ('a \<times> 'a list) option" where
   "first_and_tail [] = None"
 | "first_and_tail (x # xs) = Some (x, xs)"
 
+fun nested_or_whole :: "ilist \<Rightarrow> ilist \<Rightarrow> ilist" where
+  "nested_or_whole xs INil = xs"
+| "nested_or_whole (ICons _ (ICons _ ys)) (ICons _ _) = ys"
+| "nested_or_whole _ _ = INil"
+
 export_code
   neg is_primary case_list1 case_list2 get_or_zero head_nat first_or_chain
-  second_or_zero first_and_tail
+  unwrap_wrapper second_or_zero first_and_tail nested_or_whole
   in Rust
 
 end

@@ -30,11 +30,11 @@ stage1 global summary:
   Theories:             Passed: 76 / Failed: 4 / Total: 80
 ```
 
-An additional scan found no remaining nightly box-pattern syntax in fresh
+An additional scan found no remaining nightly feature gates in fresh
 `test/**/stage1` Rust sources:
 
 ```sh
-rg -n '#!\[feature\(box_patterns\)\]|\bbox\s+[A-Za-z_(]' test \
+rg -n '#!\s*\[\s*feature\s*\(' test \
   --glob 'stage1/**/src/**/*.rs' --glob 'stage1/**/src/*.rs'
 ```
 
