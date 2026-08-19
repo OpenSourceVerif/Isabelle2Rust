@@ -632,11 +632,6 @@ fn collect_pattern_binding_names(pattern: &str, out: &mut HashSet<String>, inclu
         collect_pattern_binding_names(inner, out, include_ref);
         return;
     }
-    if let Some(inner) = strip_prefix_word(pattern, "box") {
-        collect_pattern_binding_names(inner, out, include_ref);
-        return;
-    }
-
     if let Some(inner) = outer_parens_inner(pattern) {
         for part in split_top_level_commas(inner) {
             collect_pattern_binding_names(&part, out, include_ref);

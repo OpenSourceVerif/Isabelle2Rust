@@ -280,7 +280,7 @@ fn detect_chains(block: &Block) -> Vec<Vec<usize>> {
         {
             continue;
         }
-        // Stable box-pattern lowering introduces bindings such as
+        // Stable boxed-field lowering introduces bindings such as
         // `let uv = *p0a` or, after borrow rewriting,
         // `let uv = p0a.as_ref().clone()`.  These are destructuring artifacts,
         // not shadow updates of the predecessor name.

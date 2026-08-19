@@ -1032,7 +1032,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{parse_and_print_rust_source, parse_rust_source, parse_rust_type_facts};
-    use rustlightast::{Expr, Item, RustCodeGenerator, Type};
+    use rustlightast::{Expr, Item, RustCodeGenerator, Statement, Type};
 
     #[test]
     fn parses_rec_get_sample_and_prints_it() {
@@ -1064,7 +1064,10 @@ pub fn get(x0: Option) -> Int {
     match x0 {
         Option::Some(x) => x.clone(),
         Option::None => Int::ZeroInt,
-        Option::Rec(box op) => get(op.clone()),
+        Option::Rec(p0) => {
+            let op = *p0;
+            get(op.clone())
+        },
     }
 }
 "#;
@@ -1098,7 +1101,20 @@ pub fn get(x0: Option) -> Int {
                         Expr::Match { expr, arms } => {
                             assert!(matches!(expr.as_ref(), Expr::Ident(name) if name == "x0"));
                             assert_eq!(arms.len(), 3);
-                            assert_eq!(arms[2].pattern, "Option::Rec(box op)");
+                            assert_eq!(arms[2].pattern, "Option::Rec(p0)");
+                            assert_eq!(arms[2].body.stmts.len(), 1);
+                            match &arms[2].body.stmts[0] {
+                                Statement::Let(let_stmt) => {
+                                    assert_eq!(let_stmt.name, "op");
+                                    assert!(matches!(
+                                        let_stmt.init.as_ref(),
+                                        Some(Expr::UnaryOp(op, inner))
+                                            if op == "*"
+                                                && matches!(inner.as_ref(), Expr::Ident(name) if name == "p0")
+                                    ));
+                                }
+                                other => panic!("unexpected extraction statement: {other:?}"),
+                            }
                             match arms[2].body.expr.as_ref().expect("arm expr").as_ref() {
                                 Expr::Call(callee, args) => {
                                     assert!(matches!(
@@ -1128,7 +1144,8 @@ pub fn get(x0: Option) -> Int {
         let printed = generator.generate_module_code(&module);
         assert!(printed.contains("enum Num"));
         assert!(printed.contains("pub fn get(x0: Option) -> Int"));
-        assert!(printed.contains("Option::Rec(box op) => {"));
+        assert!(printed.contains("Option::Rec(p0) => {"));
+        assert!(printed.contains("let op = *p0;"));
         assert!(printed.contains("get(op.clone())"));
         assert!(!printed.is_empty());
     }

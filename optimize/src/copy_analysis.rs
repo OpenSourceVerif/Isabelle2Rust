@@ -1988,19 +1988,6 @@ impl CopyContext {
 
         // Pattern strings are kept lightweight in RustLightAST, so this routine
         // recovers just enough structure to bind identifiers to payload types.
-        if let Some(inner) = strip_prefix_word(pattern, "box") {
-            let inner_ty = match expected {
-                Type::Generic(name, params)
-                    if type_name_leaf(name) == "Box" && params.len() == 1 =>
-                {
-                    &params[0]
-                }
-                _ => expected,
-            };
-            self.bind_pattern_types(inner, inner_ty, env, scope);
-            return;
-        }
-
         let pattern = strip_binding_modifiers(pattern);
 
         if let Some(inner) = outer_parens_inner(pattern) {

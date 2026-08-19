@@ -22,10 +22,48 @@ type TypeEnv = HashMap<String, Type>;
 /// Type of a variable after in-place borrow rewriting.
 ///
 /// After B-Match rewrites a match on `v: &D<T>`, every pattern-bound variable
-/// `y_j` gets type `&F_j` (where `F_j` is the j-th field type).  For fields
-/// that had a `box y_j` pattern (stripped during rewriting) the stored type is
-/// still `&Box<F_inner>` – i.e., a reference to the original field type.
+/// `y_j` gets type `&F_j` (where `F_j` is the j-th field type). A boxed field
+/// therefore binds as `&Box<F_inner>` until an explicit `let y = *y_j`
+/// extraction is rewritten to `y_j.as_ref()`.
 type BorrowEnv = HashMap<String, Type>;
+
+/// Ownership mode of the bindings introduced by one match-pattern component.
+///
+/// A generated function equation may match all source parameters at once, for
+/// example `match (xs, n)`.  Borrow inference is nevertheless decided per
+/// parameter, so the corresponding pattern tuple may contain both borrowed and
+/// owned components.  Keeping that distinction structurally avoids cloning a
+/// borrowed component merely to reconstruct an entirely owned tuple.
+#[derive(Debug, Clone)]
+enum MatchBindingMode {
+    Owned(Type),
+    Borrowed(Type),
+    Tuple(Vec<MatchBindingMode>),
+}
+
+impl MatchBindingMode {
+    fn has_borrowed_component(&self) -> bool {
+        match self {
+            Self::Owned(_) => false,
+            Self::Borrowed(_) => true,
+            Self::Tuple(modes) => modes.iter().any(Self::has_borrowed_component),
+        }
+    }
+
+    fn runtime_type(&self) -> Type {
+        match self {
+            Self::Owned(ty) => ty.clone(),
+            Self::Borrowed(inner) => make_ref_type(inner),
+            Self::Tuple(modes) => Type::Tuple(modes.iter().map(Self::runtime_type).collect()),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct BorrowedTupleScrutinee {
+    expr: Expr,
+    binding_mode: MatchBindingMode,
+}
 
 /// Canonical package-local function identity: `crate`, zero or more module
 /// segments, then the function name.
@@ -1783,14 +1821,6 @@ impl BorrowContext {
             return;
         }
 
-        // A `box` pattern projects through the owning wrapper without changing
-        // whether the selected field is structural or payload.
-        if let Some(inner) = strip_prefix_word(pattern, "box") {
-            let inner_ty = box_inner_type(ty).unwrap_or(ty);
-            self.collect_derived_from_pattern(inner, inner_ty, source, derived, scope);
-            return;
-        }
-
         let pattern = strip_binding_modifiers(pattern);
 
         // Tuple pattern: (p1, p2, …)
@@ -2108,6 +2138,85 @@ impl BorrowContext {
         )
     }
 
+    /// Rewrite a generated tuple-match scrutinee component by component.
+    ///
+    /// Function equations preserve their complete source parameter vector as
+    /// one Rust tuple match.  B-Sig may still borrow only a subset of those
+    /// parameters.  The returned mode tree records that subset without
+    /// deleting or rearranging any tuple component or materializing a borrowed
+    /// recursive value with `.clone()`.
+    fn rewrite_borrowed_tuple_scrutinee(
+        &self,
+        scrutinee: &Expr,
+        borrow_env: &BorrowEnv,
+        orig_env: &TypeEnv,
+        copy_generics: &HashSet<String>,
+        scope: &ModuleScope,
+    ) -> Option<BorrowedTupleScrutinee> {
+        let Expr::Tuple(elems) = scrutinee else {
+            return None;
+        };
+
+        let mut rewritten = Vec::with_capacity(elems.len());
+        let mut modes = Vec::with_capacity(elems.len());
+        for elem in elems {
+            let (new_elem, mode) = self.rewrite_tuple_match_component(
+                elem,
+                borrow_env,
+                orig_env,
+                copy_generics,
+                scope,
+            )?;
+            rewritten.push(new_elem);
+            modes.push(mode);
+        }
+
+        let binding_mode = MatchBindingMode::Tuple(modes);
+        binding_mode
+            .has_borrowed_component()
+            .then_some(BorrowedTupleScrutinee {
+                expr: Expr::Tuple(rewritten),
+                binding_mode,
+            })
+    }
+
+    fn rewrite_tuple_match_component(
+        &self,
+        expr: &Expr,
+        borrow_env: &BorrowEnv,
+        orig_env: &TypeEnv,
+        copy_generics: &HashSet<String>,
+        scope: &ModuleScope,
+    ) -> Option<(Expr, MatchBindingMode)> {
+        if let Some((borrowed_expr, borrow_ty)) = borrowed_local_alias(expr, borrow_env) {
+            let inner_ty = ref_inner(&borrow_ty)?.clone();
+            return Some((borrowed_expr, MatchBindingMode::Borrowed(inner_ty)));
+        }
+
+        if let Expr::Tuple(elems) = strip_parens(expr) {
+            let mut rewritten = Vec::with_capacity(elems.len());
+            let mut modes = Vec::with_capacity(elems.len());
+            for elem in elems {
+                let (new_elem, mode) = self.rewrite_tuple_match_component(
+                    elem,
+                    borrow_env,
+                    orig_env,
+                    copy_generics,
+                    scope,
+                )?;
+                rewritten.push(new_elem);
+                modes.push(mode);
+            }
+            return Some((Expr::Tuple(rewritten), MatchBindingMode::Tuple(modes)));
+        }
+
+        let ty = self.infer_type(expr, orig_env, scope)?;
+        Some((
+            self.rewrite_expr_own(expr, borrow_env, orig_env, copy_generics, scope),
+            MatchBindingMode::Owned(ty),
+        ))
+    }
+
     // ── Body rewriter ─────────────────────────────────────────────────────────
 
     #[cfg(test)]
@@ -2277,16 +2386,7 @@ impl BorrowContext {
                         }
                         // &T in own context: deref-copy if Copy, else clone.
                         let inner = ref_inner(bty);
-                        if stripped_box_binding(name, bty, orig_env) {
-                            // A stripped `box y` pattern binds `y` as
-                            // `&Box<T>` although the original owned binding was
-                            // `T`; materialize that inner value, not the box.
-                            return clone_borrowed_box_inner(name);
-                        } else if self.is_materialized_copy(
-                            inner.unwrap_or(bty),
-                            copy_generics,
-                            scope,
-                        ) {
+                        if self.is_materialized_copy(inner.unwrap_or(bty), copy_generics, scope) {
                             return Expr::UnaryOp(
                                 "*".to_string(),
                                 Box::new(Expr::Ident(name.clone())),
@@ -2309,16 +2409,7 @@ impl BorrowContext {
                     if let Some(bty) = borrow_env.get(name) {
                         if is_reference_type(bty) {
                             let inner = ref_inner(bty);
-                            return if stripped_box_binding(name, bty, orig_env) {
-                                // A stripped `box v` binding was originally T,
-                                // but is represented as &Box<T> after B-Match.
-                                let as_ref_call = Expr::MethodCall(
-                                    Box::new(Expr::Ident(name.clone())),
-                                    "as_ref".to_string(),
-                                    vec![],
-                                );
-                                Expr::MethodCall(Box::new(as_ref_call), "clone".to_string(), vec![])
-                            } else if self.is_materialized_copy(
+                            return if self.is_materialized_copy(
                                 inner.unwrap_or(bty),
                                 copy_generics,
                                 scope,
@@ -2431,8 +2522,13 @@ impl BorrowContext {
                             .and_then(borrowed_box_inner_type)
                             .map(|inner| (name.to_string(), inner.clone()))
                     });
-                let borrowed_tuple_scrutinee =
-                    borrowed_tuple_scrutinee(scrutinee.as_ref(), borrow_env);
+                let borrowed_tuple_scrutinee = self.rewrite_borrowed_tuple_scrutinee(
+                    scrutinee.as_ref(),
+                    borrow_env,
+                    orig_env,
+                    copy_generics,
+                    scope,
+                );
                 // A clone-marked match can still arise for a non-Copy type or
                 // when Copy is disabled. Apply the same occurrence-local rule
                 // used for a direct `match x` below.
@@ -2506,11 +2602,6 @@ impl BorrowContext {
                         .as_ref()
                         .map(|(_, inner)| inner.clone())
                         .or_else(|| {
-                            borrowed_tuple_scrutinee
-                                .as_ref()
-                                .map(|(_, inner_ty)| inner_ty.clone())
-                        })
-                        .or_else(|| {
                             clone_match.as_ref().and_then(
                                 |(_, ty, _, materialize_by_value, preserve_owned_clone)| {
                                     (!materialize_by_value && !preserve_owned_clone)
@@ -2538,8 +2629,9 @@ impl BorrowContext {
                 let materialize_clone_match = clone_match
                     .as_ref()
                     .is_some_and(|(_, _, _, materialize_by_value, _)| *materialize_by_value);
-                let scrutinee_is_borrowed =
-                    borrow_match_inner_type.is_some() && !materialize_direct_small_copy_match;
+                let scrutinee_is_borrowed = (borrow_match_inner_type.is_some()
+                    || borrowed_tuple_scrutinee.is_some())
+                    && !materialize_direct_small_copy_match;
 
                 let new_scrutinee = if clone_match
                     .as_ref()
@@ -2567,8 +2659,8 @@ impl BorrowContext {
                     Expr::UnaryOp("*".to_string(), Box::new(scrutinee.as_ref().clone()))
                 } else if let Some((name, _)) = &deref_borrowed_box_scrutinee {
                     borrowed_box_as_ref(name)
-                } else if let Some((tuple_expr, _)) = &borrowed_tuple_scrutinee {
-                    tuple_expr.clone()
+                } else if let Some(tuple) = &borrowed_tuple_scrutinee {
+                    tuple.expr.clone()
                 } else if local_direct_match.is_some() {
                     Expr::Reference(Box::new(scrutinee.as_ref().clone()), true, false)
                 } else if scrutinee_is_borrowed {
@@ -2584,9 +2676,29 @@ impl BorrowContext {
                         let mut arm_orig = orig_env.clone();
                         let new_pattern;
 
-                        if scrutinee_is_borrowed {
-                            // B-Match: strip `box` from patterns; field variables
-                            // get type `&F_j` (reference to the original field type).
+                        if let Some(tuple) = &borrowed_tuple_scrutinee {
+                            // A generated tuple match preserves the complete
+                            // source parameter vector.  Bind each component in
+                            // its independently inferred ownership mode.
+                            self.bind_pattern_env_for_match_mode(
+                                &arm.pattern,
+                                &tuple.binding_mode,
+                                &mut arm_borrow,
+                                scope,
+                            );
+                            if let Some(ty) = self.infer_type(scrutinee, orig_env, scope) {
+                                self.bind_pattern_env(&arm.pattern, &ty, &mut arm_orig, scope);
+                            }
+                            mark_deref_box_bindings_from_body(
+                                &arm.pattern,
+                                &arm.body,
+                                &mut arm_borrow,
+                            );
+                            new_pattern = arm.pattern.clone();
+                        } else if scrutinee_is_borrowed {
+                            // B-Match keeps the stable pattern unchanged; field
+                            // variables get type `&F_j` (a reference to the
+                            // original field type).
                             let inner_ty = borrow_match_inner_type.as_ref().unwrap();
 
                             // Compute field types for this constructor from the
@@ -2603,9 +2715,7 @@ impl BorrowContext {
                                 &arm.body,
                                 &mut arm_borrow,
                             );
-
-                            // Strip `box` from the pattern string.
-                            new_pattern = strip_box_from_pattern(&arm.pattern);
+                            new_pattern = arm.pattern.clone();
                         } else {
                             // Non-borrowed scrutinee: pattern unchanged.
                             if let Some(ty) = self.infer_type(scrutinee, orig_env, scope) {
@@ -2920,7 +3030,6 @@ impl BorrowContext {
     /// borrow-positioned call argument (paper §4, B-Call).
     ///
     /// ```text
-    /// bor(v.clone())  where v: &Box<T>  →  v.as_ref()
     /// bor(v.clone())  where v: &T       →  v
     /// bor(v)          where v: &T       →  v
     /// bor(v)          where v: T (Copy) →  &v
@@ -2939,17 +3048,8 @@ impl BorrowContext {
                 if let Expr::Ident(name) = receiver.as_ref() {
                     if let Some(bty) = borrow_env.get(name) {
                         if is_reference_type(bty) {
-                            return if stripped_box_binding(name, bty, orig_env) {
-                                // v: &Box<T> → v.as_ref() gives &T
-                                Expr::MethodCall(
-                                    Box::new(Expr::Ident(name.clone())),
-                                    "as_ref".to_string(),
-                                    vec![],
-                                )
-                            } else {
-                                // v: &T → v (drop clone)
-                                Expr::Ident(name.clone())
-                            };
+                            // v: &T → v (drop clone)
+                            return Expr::Ident(name.clone());
                         }
                     }
                     // The explicit clone existed only to satisfy the original
@@ -2999,19 +3099,6 @@ impl BorrowContext {
             return;
         }
 
-        if let Some(inner) = strip_prefix_word(pattern, "box") {
-            let inner_ty = match expected {
-                Type::Generic(name, params)
-                    if type_name_leaf(name) == "Box" && params.len() == 1 =>
-                {
-                    &params[0]
-                }
-                _ => expected,
-            };
-            self.bind_pattern_env(inner, inner_ty, env, scope);
-            return;
-        }
-
         let pattern = strip_binding_modifiers(pattern);
 
         if let Some(inner) = outer_parens_inner(pattern) {
@@ -3057,11 +3144,49 @@ impl BorrowContext {
         self.bind_pattern_env(pattern, expected, env, scope);
     }
 
+    /// Bind one pattern using the component-wise modes selected for a tuple
+    /// scrutinee.  Tuple structure is preserved exactly; only the types of
+    /// bindings originating from borrowed components are changed to shared
+    /// references.
+    fn bind_pattern_env_for_match_mode(
+        &self,
+        pattern: &str,
+        mode: &MatchBindingMode,
+        env: &mut BorrowEnv,
+        scope: &ModuleScope,
+    ) {
+        match mode {
+            MatchBindingMode::Owned(ty) => {
+                self.bind_pattern_env_for_borrow(pattern, ty, env, scope);
+            }
+            MatchBindingMode::Borrowed(inner_ty) => {
+                self.bind_pattern_env_for_borrow_match(pattern, inner_ty, env, scope);
+            }
+            MatchBindingMode::Tuple(modes) => {
+                let pattern = strip_binding_modifiers(pattern.trim());
+                if let Some(inner) = outer_parens_inner(pattern) {
+                    let parts = split_top_level_commas(inner);
+                    if parts.len() == modes.len() {
+                        for (part, component_mode) in parts.iter().zip(modes) {
+                            self.bind_pattern_env_for_match_mode(part, component_mode, env, scope);
+                        }
+                        return;
+                    }
+                }
+
+                // A whole-tuple variable is unusual for generated function
+                // equations, but its actual Rust value contains references in
+                // exactly the borrowed positions recorded by `runtime_type`.
+                self.bind_pattern_env(pattern, &mode.runtime_type(), env, scope);
+            }
+        }
+    }
+
     /// B-Match rule: bind pattern variables when the scrutinee has type `&D<T>`.
     ///
     /// Each field variable `y_j` gets type `&F_j` (a shared reference to the
-    /// field type).  `box y_j` patterns have already been stripped; the stored
-    /// type is `&Box<F_inner>` (the original field type wrapped in `&`).
+    /// field type). A boxed field is therefore represented as
+    /// `&Box<F_inner>` until its explicit dereference binding is rewritten.
     fn bind_pattern_env_for_borrow_match(
         &self,
         pattern: &str,
@@ -3071,17 +3196,6 @@ impl BorrowContext {
     ) {
         let pattern = pattern.trim();
         if pattern.is_empty() || pattern == "_" || pattern == ".." {
-            return;
-        }
-
-        // Peel `box` – the variable binds to &Box<T_inner>, not &T_inner.
-        // The box is stripped from the pattern string elsewhere; here we just
-        // need the correct type.
-        if let Some(inner_p) = strip_prefix_word(pattern, "box") {
-            // Field type is Box<F>; after stripping box in the pattern the
-            // variable binds to &Box<F>.
-            let box_ty = inner_ty.clone(); // already Box<F> at this point if called correctly
-            env.insert(inner_p.trim().to_string(), make_ref_type(&box_ty));
             return;
         }
 
@@ -3105,22 +3219,14 @@ impl BorrowContext {
                     // Each field variable gets type &F_j (reference to field type).
                     let ref_ty = make_ref_type(fty);
                     let sub_pattern = arg.trim();
-                    if let Some(box_inner) = strip_prefix_word(sub_pattern, "box") {
-                        // `box y` in the sub-pattern: field is Box<T>, var → &Box<T>
-                        let var = strip_binding_modifiers(box_inner.trim());
-                        if is_binding_ident(var) {
-                            env.insert(var.to_string(), ref_ty);
-                        }
+                    let var = strip_binding_modifiers(sub_pattern);
+                    if var.is_empty() || var == "_" || var == ".." {
+                        // nothing
+                    } else if is_binding_ident(var) {
+                        env.insert(var.to_string(), ref_ty);
                     } else {
-                        let var = strip_binding_modifiers(sub_pattern);
-                        if var.is_empty() || var == "_" || var == ".." {
-                            // nothing
-                        } else if is_binding_ident(var) {
-                            env.insert(var.to_string(), ref_ty);
-                        } else {
-                            // Nested constructor pattern: recurse.
-                            self.bind_pattern_env_for_borrow_match(var, fty, env, scope);
-                        }
+                        // Nested constructor pattern: recurse.
+                        self.bind_pattern_env_for_borrow_match(var, fty, env, scope);
                     }
                 }
             }
@@ -3892,31 +3998,6 @@ fn normalize_match_scrutinee(expr: &Expr, root: &str) -> Option<Expr> {
     })
 }
 
-/// Remove all `box` keywords from a pattern string so it can be used against
-/// a `&D<T>` scrutinee.
-fn strip_box_from_pattern(pattern: &str) -> String {
-    let mut result = String::new();
-    let mut remaining = pattern;
-
-    while !remaining.is_empty() {
-        if let Some(rest) = remaining.strip_prefix("box ") {
-            let rest = rest.trim_start();
-            // Take only the identifier characters (stop at punctuation).
-            let ident_end = rest
-                .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')
-                .unwrap_or(rest.len());
-            result.push_str(&rest[..ident_end]);
-            remaining = &rest[ident_end..];
-        } else {
-            let next = remaining.find("box ").unwrap_or(remaining.len());
-            result.push_str(&remaining[..next]);
-            remaining = &remaining[next..];
-        }
-    }
-
-    result
-}
-
 // ── B-Closure helpers ────────────────────────────────────────────────────────
 
 /// Extract the bare parameter name from a possibly-typed closure param string.
@@ -4392,15 +4473,6 @@ fn borrowed_box_inner_type(ty: &Type) -> Option<&Type> {
     ref_inner(ty).and_then(box_inner_type)
 }
 
-fn stripped_box_binding(name: &str, borrow_ty: &Type, orig_env: &TypeEnv) -> bool {
-    let Some(projected_inner) = borrowed_box_inner_type(borrow_ty) else {
-        return false;
-    };
-    orig_env
-        .get(name)
-        .is_some_and(|original| same_type(original, projected_inner))
-}
-
 fn same_type(left: &Type, right: &Type) -> bool {
     match (left, right) {
         (Type::Path(left), Type::Path(right)) => left == right,
@@ -4490,25 +4562,6 @@ fn borrowed_box_deref_alias(expr: &Expr, env: &BorrowEnv) -> Option<(Expr, Type)
     let name = deref_ident_name(expr)?;
     let inner_ty = env.get(name).and_then(borrowed_box_inner_type)?;
     Some((borrowed_box_as_ref(name), make_ref_type(inner_ty)))
-}
-
-fn borrowed_tuple_scrutinee(expr: &Expr, env: &BorrowEnv) -> Option<(Expr, Type)> {
-    let Expr::Tuple(elems) = expr else {
-        return None;
-    };
-
-    let mut rewritten = Vec::with_capacity(elems.len());
-    let mut inner_types = Vec::with_capacity(elems.len());
-    for elem in elems {
-        let Expr::Ident(name) = elem else {
-            return None;
-        };
-        let inner_ty = env.get(name).filter(|ty| is_reference_type(ty))?;
-        inner_types.push(ref_inner(inner_ty)?.clone());
-        rewritten.push(Expr::Ident(name.clone()));
-    }
-
-    Some((Expr::Tuple(rewritten), Type::Tuple(inner_types)))
 }
 
 fn nominal_type_id(ty: &Type, scope: &ModuleScope) -> Option<FunctionId> {
@@ -5065,11 +5118,6 @@ fn synthetic_borrowed_box_type() -> Type {
 fn collect_pattern_binding_names(pattern: &str, out: &mut HashSet<String>) {
     let pattern = pattern.trim();
     if pattern.is_empty() || pattern == "_" || pattern == ".." {
-        return;
-    }
-
-    if let Some(inner) = strip_prefix_word(pattern, "box") {
-        collect_pattern_binding_names(inner, out);
         return;
     }
 
@@ -5918,34 +5966,6 @@ where
     }
 
     #[test]
-    fn raw_box_pattern_payload_materializes_the_inner_value() {
-        let source = r#"
-#[derive(Clone)]
-pub struct Blob(pub u64);
-
-pub enum Holder {
-    One(Box<Blob>),
-}
-
-pub fn take_boxed(x: Holder) -> Blob {
-    match x {
-        Holder::One(box value) => value,
-    }
-}
-"#;
-        let mut module = parse_rust_source(source, "Test").expect("source parses");
-
-        let analysis = optimize_borrow(&mut module, &HashSet::new());
-
-        assert!(analysis.borrow_fns.contains("crate::Test::take_boxed"));
-        optimize_last_use(&mut module);
-        let mut generator = RustCodeGenerator::new();
-        let printed = generator.generate_module_code(&module);
-        assert!(printed.contains("pub fn take_boxed(x: &Holder) -> Blob"));
-        assert!(printed.contains("value.as_ref().clone()"));
-    }
-
-    #[test]
     fn ordinary_box_payload_materializes_and_borrows_at_the_box_level() {
         let source = r#"
 #[derive(Clone)]
@@ -6397,6 +6417,94 @@ pub fn first(x0: (Blob, Blob)) -> Blob {
                 if matches!(&elems[0], Expr::Ident(name) if name == "x")
                     && matches!(&elems[1], Expr::Ident(name) if name == "y")
         ));
+    }
+
+    #[test]
+    fn mixed_tuple_match_borrows_recursive_component_and_preserves_all_columns() {
+        let source = r#"
+#[derive(Clone)]
+pub enum List<A> {
+    Nil,
+    Cons(A, Box<List<A>>),
+}
+
+pub fn nth<A>(x0: List<A>, n: usize) -> A
+where
+    A: Clone + 'static,
+{
+    match (x0, n) {
+        (List::Cons(x, p0), n) => {
+            let xs = *p0;
+            if n == 0 {
+                x.clone()
+            } else {
+                nth(xs.clone(), n - 1)
+            }
+        }
+        _ => panic!("non-exhaustive match"),
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Mixed_Tuple_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("crate::Mixed_Tuple_Test::nth"));
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn nth<A>(x0: &List<A>, n: usize) -> A"));
+        assert!(printed.contains("match (x0, n)"));
+        assert!(printed.contains("(List::Cons(x, p0), n)"));
+        assert!(printed.contains("let xs = p0.as_ref();"));
+        assert!(printed.contains("nth(xs, n - 1)"));
+        assert!(!printed.contains("x0.clone()"));
+    }
+
+    #[test]
+    fn mixed_tuple_match_keeps_owned_columns_before_and_after_borrowed_column() {
+        let source = r#"
+#[derive(Clone)]
+pub enum List<A> {
+    Nil,
+    Cons(A, Box<List<A>>),
+}
+
+pub fn walk<A>(before: bool, xs: List<A>, after: usize) -> bool
+where
+    A: Clone + 'static,
+{
+    match (before, xs, after) {
+        (false, List::Nil, 0) => false,
+        (before, List::Nil, _) => before,
+        (before, List::Cons(_, p0), after) => {
+            let tail = *p0;
+            if after == 0 {
+                before
+            } else {
+                walk(before, tail.clone(), after - 1)
+            }
+        }
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "Mixed_Order_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis
+            .borrow_fns
+            .contains("crate::Mixed_Order_Test::walk"));
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(
+            printed.contains("pub fn walk<A>(before: bool, xs: &List<A>, after: usize) -> bool")
+        );
+        assert!(printed.contains("match (before, xs, after)"));
+        assert!(printed.contains("(false, List::Nil, 0)"));
+        assert!(printed.contains("(before, List::Cons(_, p0), after)"));
+        assert!(printed.contains("let tail = p0.as_ref();"));
+        assert!(printed.contains("walk(before, tail, after - 1)"));
+        assert!(!printed.contains("xs.clone()"));
     }
 
     #[test]

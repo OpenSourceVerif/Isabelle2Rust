@@ -1433,9 +1433,7 @@ fn is_binding_ident(pattern: &str) -> bool {
 fn strip_pattern_modifiers(mut pattern: &str) -> &str {
     loop {
         let trimmed = pattern.trim();
-        if let Some(rest) = strip_prefix_word(trimmed, "box") {
-            pattern = rest;
-        } else if let Some(rest) = strip_prefix_word(trimmed, "ref") {
+        if let Some(rest) = strip_prefix_word(trimmed, "ref") {
             pattern = rest;
         } else if let Some(rest) = strip_prefix_word(trimmed, "mut") {
             pattern = rest;

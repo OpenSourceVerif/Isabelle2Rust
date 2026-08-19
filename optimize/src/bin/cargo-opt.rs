@@ -623,7 +623,7 @@ mod tests {
     fn rejects_unstable_feature_gates() {
         let error = ensure_stable_source(
             Path::new("src/lib.rs"),
-            "  #! [ feature(box_patterns) ]\npub fn id(x: u64) -> u64 { x }",
+            "  #! [ feature(let_chains) ]\npub fn id(x: u64) -> u64 { x }",
         )
         .unwrap_err();
         assert!(error.contains("src/lib.rs:1"));
