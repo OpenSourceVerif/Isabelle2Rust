@@ -1,38 +1,23 @@
- M Makefile
- M README.md
- M ROOT
- M Rust_Base_Setup.thy
- M Rust_BigInt_WordU128_Setup.thy
- M Rust_Hybrid128_Setup.thy
- M Rust_Hybrid128_WordU128_Setup.thy
- M Rust_Integer_Hybrid128_Layer.thy
- M evaluation/code_generation_quality/README.md
+ M code_rust.ML
+ M evaluation/code_generation_quality/rq3-stage2-clippy-final/commands.txt
+ M evaluation/code_generation_quality/rq3-stage2-clippy-final/environment.json
+ M evaluation/code_generation_quality/rq3-stage2-clippy-final/git-status.txt
+ M evaluation/code_generation_quality/rq3-stage2-clippy-final/rq3-stage2-clippy-corpus.csv
+ M evaluation/code_generation_quality/rq3-stage2-clippy-final/rq3-stage2-clippy-diagnostics.csv
  M evaluation/performance/sbpf/README.md
- M evaluation/performance/sbpf/case-study-baseline/src/instruction.rs
  M evaluation/performance/sbpf/run.py
+ M optimize/README.md
+ D optimize/src/bigint_bit_operations.rs
+ M optimize/src/binding_cleanup.rs
  M optimize/src/borrow_analysis.rs
  M optimize/src/closure_cleanup.rs
+ M optimize/src/copy_analysis.rs
  M optimize/src/last_use_analysis.rs
- M test/eval/README.md
- M test/eval/rq3-performance-runs.csv
- M test/eval/rq3-performance.csv
- D test/unit/MIGRATION.md
- D test/unit/paper_example.thy
+ M optimize/src/lib.rs
+ M optimize/src/match_cleanup.rs
+ M optimize/src/mut_analysis.rs
+ M optimize/src/rustlight_parser.rs
+ M tests_sbpf/PERFORMANCE_EXPERIMENTS.md
+ M tests_x64/x64-validation/5-exec-semantics/README.md
  M tests_x64/x64-validation/5-exec-semantics/run.py
-?? Rust_Target.thy
-?? evaluation/code_generation_quality/rq3-stage2-clippy-final/
-?? evaluation/code_generation_quality/run-rq3-stage2-clippy.py
-?? scripts/count-implementation-loc.py
-?? test/eval/rq3-clippy-commands.txt
-?? test/eval/rq3-clippy-corpus.csv
-?? test/eval/rq3-clippy-diagnostics.csv
-?? test/eval/rq3-clippy-environment.json
-?? test/eval/rq3-clippy-record.md
-?? test/eval/rq3-clippy-summary.csv
-?? test/eval/rq3-correctness.csv
-?? test/eval/rq3-provenance.csv
-?? test/eval/rq3-sbpf-raw.csv
-?? test/eval/rq3-stage2-ablation.csv
-?? test/eval/rq3-x64-raw.csv
-?? test/eval/verify.py
-?? test/unit/example/
+?? optimize/src/utils/
