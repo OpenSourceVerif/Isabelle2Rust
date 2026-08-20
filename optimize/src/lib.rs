@@ -13,7 +13,10 @@ mod utils;
 
 pub use binding_cleanup::cleanup_bindings;
 pub use boolean_cleanup::{cleanup_booleans, BooleanCleanupAnalysis};
-pub use borrow_analysis::{optimize_borrow_modules_with_paths, BorrowAnalysis};
+pub use borrow_analysis::{
+    optimize_borrow_modules_with_paths, optimize_borrow_modules_with_paths_and_options,
+    BorrowAnalysis, BorrowOptions,
+};
 pub use bound_cleanup::{cleanup_bounds, BoundCleanupAnalysis};
 pub use closure_cleanup::{optimize_closure, ClosureOptAnalysis};
 pub use complex_type_cleanup::{cleanup_complex_types, ComplexTypeCleanupAnalysis};

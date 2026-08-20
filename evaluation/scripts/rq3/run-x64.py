@@ -37,6 +37,7 @@ RAW_EXPORT = (
 )
 GENERATED_ROOT = ROOT / "tests_x64" / "theory" / "performance" / "x64"
 OPTIMIZER = ROOT / "optimize" / "target" / "release" / "cargo-opt"
+RUSTLIGHTAST = ROOT.parent / "RustLightAST"
 BUILD = WORK / "build"
 RESULTS = WORK / "runs"
 EXPORTER = VALIDATION / "run_rust_export.py"
@@ -61,6 +62,11 @@ STAGES = {
     "Stage-2 Full": ("stage2-full", [], False),
     "Stage-2 minus Copy": ("stage2-no-copy", ["--disable-copy"], False),
     "Stage-2 minus Mut": ("stage2-no-mut", ["--disable-mut"], False),
+    "Stage-2 minus PreferOwned": (
+        "stage2-no-prefer-owned",
+        ["--disable-prefer-owned"],
+        False,
+    ),
 }
 
 STAGE2_IMPLEMENTATIONS = [
@@ -91,6 +97,9 @@ DIAGNOSTIC_ABLATIONS = {
     "Copy": "Stage-2 minus Copy",
     "Mut": "Stage-2 minus Mut",
 }
+
+PREFER_OWNED_IMPLEMENTATIONS = ["Stage-2 minus PreferOwned", "Stage-2 Full"]
+PREFER_OWNED_ABLATIONS = {"PreferOwned": "Stage-2 minus PreferOwned"}
 
 STRUCTURAL_TRANSFORMATIONS = [
     "binding cleanup",
@@ -316,6 +325,11 @@ def write_stage_manifest(
             "mut": optimized and "--disable-mut" not in optimizer_flags,
             "last_use": optimized and "--disable-last-use" not in optimizer_flags,
             "closure": optimized and "--disable-closure" not in optimizer_flags,
+        },
+        "borrow_policy": {
+            "prefer_owned": optimized
+            and "--disable-borrow" not in optimizer_flags
+            and "--disable-prefer-owned" not in optimizer_flags,
         },
         "structural_transformations": {
             "enabled": optimized,
@@ -627,6 +641,11 @@ def record_environment() -> dict[str, Any]:
         "timestamp": datetime.now().astimezone().isoformat(),
         "git_commit": output(["git", "rev-parse", "HEAD"]),
         "git_status": output(["git", "status", "--short"]),
+        "rustlightast": {
+            "path": str(RUSTLIGHTAST),
+            "git_commit": output(["git", "-C", str(RUSTLIGHTAST), "rev-parse", "HEAD"]),
+            "git_status": output(["git", "-C", str(RUSTLIGHTAST), "status", "--short"]),
+        },
         "uname": output(["uname", "-a"]),
         "lscpu": output(["lscpu"]),
         "free_h": output(["free", "-h"]),
@@ -746,6 +765,16 @@ def pilot_all(
         )
         repetitions["Stage-2 minus Closure"] = paired_repetitions
         repetitions["Stage-2 Full"] = paired_repetitions
+    if all(
+        implementation in repetitions
+        for implementation in PREFER_OWNED_IMPLEMENTATIONS
+    ):
+        paired_repetitions = max(
+            repetitions[implementation]
+            for implementation in PREFER_OWNED_IMPLEMENTATIONS
+        )
+        for implementation in PREFER_OWNED_IMPLEMENTATIONS:
+            repetitions[implementation] = paired_repetitions
     (RESULT_DIR / "suite_repetitions.json").write_text(
         json.dumps(repetitions, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -1064,6 +1093,7 @@ def write_record(
     implementations: list[str] | None = None,
     reused_from: Path | None = None,
     diagnostic: bool = False,
+    prefer_owned_ablation: bool = False,
     rust_refresh: bool = False,
     ocaml_refresh: bool = False,
 ) -> None:
@@ -1072,6 +1102,8 @@ def write_record(
     allocation = {row["implementation"]: row for row in summary if row["metric"] == "Heap allocation"}
     derived_by_name = {row["implementation"]: row for row in derived}
     git_dirty = bool(environment["git_status"].strip())
+    paired_ablation = "PreferOwned" if prefer_owned_ablation else "Closure"
+    ablation_kind = "policy" if prefer_owned_ablation else "pass"
     lines = [
         "# RQ3 x64-stepper experiment record",
         "",
@@ -1098,6 +1130,9 @@ def write_record(
             "all generated-Rust and native baseline rows retain their earlier "
             "correctness validation."
             if ocaml_refresh
+            else "- Correctness: both PreferOwned configurations passed "
+            "6000/6000 vectors against the recorded native x64 observations."
+            if prefer_owned_ablation
             else f"- Correctness: all {len(selected)} measured implementations passed "
             "6000/6000 vectors against the recorded native x64 observations."
         ),
@@ -1113,7 +1148,7 @@ def write_record(
             if reused_from
             else "- Reuse: no performance rows were reused."
         ),
-        f"- Timing: JSON parsing, input conversion, observation, and per-case comparison are outside the timed region. A one-traversal pilot selects a whole-suite repetition count for each newly measured implementation targeting approximately {RUNTIME_TARGET_SECONDS:.0f} seconds per independent CPU-pinned runtime process. Full and minus Closure use the larger of their two pilot repetition counts and run adjacently with alternating order. Each ablation effect is the median of the three within-round minus-pass/Full ratios. Results are normalized to one 6,000-vector traversal.",
+        f"- Timing: JSON parsing, input conversion, observation, and per-case comparison are outside the timed region. A one-traversal pilot selects a whole-suite repetition count for each newly measured implementation targeting approximately {RUNTIME_TARGET_SECONDS:.0f} seconds per independent CPU-pinned runtime process. Full and minus {paired_ablation} use the larger of their two pilot repetition counts and run adjacently with alternating order. Each ablation effect is the median of the three within-round minus-{ablation_kind}/Full ratios. Results are normalized to one 6,000-vector traversal.",
         f"- Runtime suite repetitions: {json.dumps(repetitions, sort_keys=True)}.",
         "- OCaml runtime uses `clock_gettime(CLOCK_MONOTONIC)` through a C stub.",
         "- Rust allocation uses the same cumulative allocation counter as the SBPF experiment. OCaml uses `Gc.allocated_bytes`. The native C baseline uses linker-wrapped allocation functions and resets its cumulative counter immediately before the prepared ptrace step loop.",
@@ -1121,6 +1156,8 @@ def write_record(
         (
             "## Diagnostic Stage-2 pass ablations"
             if diagnostic
+            else "## PreferOwned ablation"
+            if prefer_owned_ablation
             else "## Paper-facing Stage-2 ablations"
         ),
         "",
@@ -1206,6 +1243,11 @@ def main() -> int:
         help="explicitly run only Stage-2 minus Copy, minus Mut, and Full",
     )
     parser.add_argument(
+        "--prefer-owned-ablation",
+        action="store_true",
+        help="measure only Stage-2 minus PreferOwned and Stage-2 Full",
+    )
+    parser.add_argument(
         "--reuse-stage1-export",
         action="store_true",
         help="use the existing raw Stage-1 export instead of regenerating it",
@@ -1221,20 +1263,33 @@ def main() -> int:
         or args.ocaml_only_from
         or args.rust_only
         or args.diagnostic
+        or args.prefer_owned_ablation
     ):
         parser.error("--resume cannot be combined with another experiment mode")
     if args.stage2_only_from and (
-        args.rust_from or args.ocaml_only_from or args.rust_only or args.diagnostic
+        args.rust_from
+        or args.ocaml_only_from
+        or args.rust_only
+        or args.diagnostic
+        or args.prefer_owned_ablation
     ):
         parser.error("--stage2-only-from cannot be combined with another experiment mode")
     if args.rust_from and (
-        args.ocaml_only_from or args.rust_only or args.diagnostic
+        args.ocaml_only_from
+        or args.rust_only
+        or args.diagnostic
+        or args.prefer_owned_ablation
     ):
         parser.error("--rust-from cannot be combined with another experiment mode")
-    if args.ocaml_only_from and (args.rust_only or args.diagnostic):
-        parser.error("--ocaml-only-from cannot be combined with --rust-only or --diagnostic")
-    if args.rust_only and args.diagnostic:
-        parser.error("--rust-only and --diagnostic are mutually exclusive")
+    if args.ocaml_only_from and (
+        args.rust_only or args.diagnostic or args.prefer_owned_ablation
+    ):
+        parser.error("--ocaml-only-from cannot be combined with a targeted mode")
+    if sum(
+        bool(mode)
+        for mode in (args.rust_only, args.diagnostic, args.prefer_owned_ablation)
+    ) > 1:
+        parser.error("--rust-only and targeted ablation modes are mutually exclusive")
 
     reused_from: Path | None = None
     rust_refresh = args.rust_from is not None
@@ -1316,11 +1371,17 @@ def main() -> int:
             if not args.reuse_stage1_export:
                 generate_rust_export()
             selected_rust = (
-                DIAGNOSTIC_IMPLEMENTATIONS if args.diagnostic else RUST_IMPLEMENTATIONS
+                PREFER_OWNED_IMPLEMENTATIONS
+                if args.prefer_owned_ablation
+                else DIAGNOSTIC_IMPLEMENTATIONS
+                if args.diagnostic
+                else RUST_IMPLEMENTATIONS
             )
             configurations = {
                 "matrix_order": (
-                    DIAGNOSTIC_IMPLEMENTATIONS
+                    PREFER_OWNED_IMPLEMENTATIONS
+                    if args.prefer_owned_ablation
+                    else DIAGNOSTIC_IMPLEMENTATIONS
                     if args.diagnostic
                     else RUST_IMPLEMENTATIONS
                     if args.rust_only
@@ -1335,8 +1396,10 @@ def main() -> int:
                     "Last-Use",
                     "Closure",
                 ],
+                "available_policy_ablations": ["PreferOwned"],
                 "paper_facing_ablations": ["Borrow", "Last-Use", "Closure"],
                 "diagnostic_mode": args.diagnostic,
+                "prefer_owned_ablation": args.prefer_owned_ablation,
                 "numeric_representation": (
                     "Rust WordU128 layer plus Checked128 Int/Nat profile for Stage-1 and every Stage-2 configuration; fixed default OCaml export for the OCaml baseline"
                 ),
@@ -1349,7 +1412,7 @@ def main() -> int:
             binaries = {}
             prepare_generated(configurations, selected_rust)
             build_generated(configurations, binaries, selected_rust)
-            if not args.rust_only and not args.diagnostic:
+            if not args.rust_only and not args.diagnostic and not args.prefer_owned_ablation:
                 build_ocaml(configurations, binaries)
                 build_native(configurations, binaries)
         (RESULT_DIR / "configurations.json").write_text(
@@ -1369,6 +1432,8 @@ def main() -> int:
         if rust_refresh
         else STAGE2_IMPLEMENTATIONS
         if reused_from
+        else PREFER_OWNED_IMPLEMENTATIONS
+        if args.prefer_owned_ablation
         else DIAGNOSTIC_IMPLEMENTATIONS
         if args.diagnostic
         else RUST_IMPLEMENTATIONS
@@ -1398,7 +1463,11 @@ def main() -> int:
     derived = write_derived(summary, report_implementations)
     grouped_ablation = write_grouped_ablation_summary(
         rows,
-        DIAGNOSTIC_ABLATIONS if args.diagnostic else ABLATION_GROUPS,
+        PREFER_OWNED_ABLATIONS
+        if args.prefer_owned_ablation
+        else DIAGNOSTIC_ABLATIONS
+        if args.diagnostic
+        else ABLATION_GROUPS,
     )
     write_record(
         summary,
@@ -1409,6 +1478,7 @@ def main() -> int:
         report_implementations,
         reused_from,
         args.diagnostic,
+        args.prefer_owned_ablation,
         rust_refresh,
         ocaml_refresh,
     )
