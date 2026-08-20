@@ -1,0 +1,13 @@
+group,stage,crates,failed_crates,diagnostics
+HOL,stage1,1,0,1496
+HOL,stage2,1,0,15
+Unit,stage1,53,0,271
+Unit,stage2,53,0,0
+FPP,stage1,36,0,128
+FPP,stage2,36,0,1
+SBPF-program,stage1,1,0,1152
+SBPF-program,stage2,1,0,4
+SBPF-instruction,stage1,1,0,1139
+SBPF-instruction,stage2,1,0,5
+X64-stepper,stage1,1,0,1714
+X64-stepper,stage2,1,0,2

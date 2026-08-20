@@ -1,11 +1,12 @@
-kind,name,count
-corpus,HOL crates,1
-corpus,Unit crates,55
-corpus,FPP crates,36
-corpus,Stage-2 crates,92
-run,failed crates,0
-diagnostic,clippy::overly_complex_bool_expr,1
-diagnostic,clippy::too_many_arguments,2
-diagnostic,clippy::type_complexity,4
-diagnostic,unconditional_recursion,9
-diagnostic,Total,16
+lint,stage1,stage2,reduction_percent
+clippy::clone_on_copy,3960,0,100.0
+clippy::collapsible_match,122,0,100.0
+clippy::double_parens,413,0,100.0
+clippy::match_single_binding,219,0,100.0
+clippy::needless_bool,2,0,100.0
+clippy::nonminimal_bool,19,0,100.0
+clippy::overly_complex_bool_expr,1,1,0.0
+clippy::too_many_arguments,13,13,0.0
+clippy::type_complexity,1142,4,99.6
+unconditional_recursion,9,9,0.0
+Total,5900,27,99.5
