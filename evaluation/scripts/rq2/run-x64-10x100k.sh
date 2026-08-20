@@ -11,7 +11,7 @@ set -euo pipefail
 #   ROUNDS=10
 #   CASES_PER_ROUND=100000
 #   PREPARE_EXPORTS=1      # 1 (force), auto (if missing), or 0 (reuse only)
-#   ARCHIVE_CORPUS=1       # archive each batch's step1--step4 files
+#   ARCHIVE_CORPUS=0       # archive each batch's step1--step4 files when 1
 #   RESULT_DIR=/path/to/results
 
 if [[ ${1:-} == "--help" ]]; then
@@ -31,7 +31,7 @@ stepper_export="$repo_root/tests_x64/theory/stage1/x64StepRustGenerator/x64_step
 rounds=${ROUNDS:-10}
 cases_per_round=${CASES_PER_ROUND:-100000}
 prepare_exports=${PREPARE_EXPORTS:-1}
-archive_corpus=${ARCHIVE_CORPUS:-1}
+archive_corpus=${ARCHIVE_CORPUS:-0}
 timestamp=$(date +%Y%m%d-%H%M%S)
 result_dir=${RESULT_DIR:-$repo_root/evaluation/.work/rq2/x64-${rounds}x${cases_per_round}-${timestamp}}
 if [[ $result_dir != /* ]]; then

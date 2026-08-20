@@ -5,14 +5,15 @@ set -euo pipefail
 #
 # Default campaign: 10 batches * 100,000 vectors = 1,000,000 vectors.
 # Each batch uses a distinct recorded seed and checks the OCaml, Stage-1 Rust,
-# and full Stage-2 Rust exports. The generated corpus is retained and compressed.
+# and full Stage-2 Rust exports. By default only the per-batch seed, counts,
+# result status, and corpus hash are retained; the generated vectors are not.
 #
 # Optional environment overrides:
 #   ROUNDS=10
 #   CASES_PER_ROUND=100000
 #   SEED_BASE=5984326
 #   PREPARE_EXPORTS=1      # 1 (force), auto (if missing), or 0 (reuse only)
-#   COMPRESS_CORPUS=1
+#   ARCHIVE_CORPUS=0       # retain each generated corpus as .json.gz when 1
 #   RESULT_DIR=/path/to/results
 
 if [[ ${1:-} == "--help" ]]; then
@@ -34,7 +35,7 @@ rounds=${ROUNDS:-10}
 cases_per_round=${CASES_PER_ROUND:-100000}
 seed_base=${SEED_BASE:-5984326}
 prepare_exports=${PREPARE_EXPORTS:-1}
-compress_corpus=${COMPRESS_CORPUS:-1}
+archive_corpus=${ARCHIVE_CORPUS:-0}
 timestamp=$(date +%Y%m%d-%H%M%S)
 result_dir=${RESULT_DIR:-$repo_root/evaluation/.work/rq2/sbpf-${rounds}x${cases_per_round}-${timestamp}}
 if [[ $result_dir != /* ]]; then
@@ -59,8 +60,8 @@ if [[ $prepare_exports != auto && $prepare_exports != 0 && $prepare_exports != 1
   printf 'ERROR: PREPARE_EXPORTS must be auto, 0, or 1, got %q\n' "$prepare_exports" >&2
   exit 2
 fi
-if [[ $compress_corpus != 0 && $compress_corpus != 1 ]]; then
-  printf 'ERROR: COMPRESS_CORPUS must be 0 or 1, got %q\n' "$compress_corpus" >&2
+if [[ $archive_corpus != 0 && $archive_corpus != 1 ]]; then
+  printf 'ERROR: ARCHIVE_CORPUS must be 0 or 1, got %q\n' "$archive_corpus" >&2
   exit 2
 fi
 for tool in awk find flock git grep make python3 sha256sum sort tee; do
@@ -69,8 +70,8 @@ for tool in awk find flock git grep make python3 sha256sum sort tee; do
     exit 2
   fi
 done
-if [[ $compress_corpus == 1 ]] && ! command -v gzip >/dev/null 2>&1; then
-  printf 'ERROR: COMPRESS_CORPUS=1 requires gzip.\n' >&2
+if [[ $archive_corpus == 1 ]] && ! command -v gzip >/dev/null 2>&1; then
+  printf 'ERROR: ARCHIVE_CORPUS=1 requires gzip.\n' >&2
   exit 2
 fi
 if [[ -e $result_dir ]]; then
@@ -98,7 +99,7 @@ printf 'round\tseed\tcases\tcorpus_sha256\tstage1_ocaml_failed\tstage1_rust_fail
   printf 'total_vectors=%s\n' "$((rounds * cases_per_round))"
   printf 'seed_base=%s\n' "$seed_base"
   printf 'prepare_exports=%s\n' "$prepare_exports"
-  printf 'compress_corpus=%s\n' "$compress_corpus"
+  printf 'archive_corpus=%s\n' "$archive_corpus"
   printf 'numeric_profile=default BigInt export\n'
   printf 'rust_toolchain=stable\n'
   printf 'ocaml_version=4.11.2\n'
@@ -282,11 +283,14 @@ for ((round = 1; round <= rounds; round++)); do
   fi
   seen_corpus_hashes[$corpus_sha]=$round
 
-  corpus_name=$(basename "$corpus")
-  if [[ $compress_corpus == 1 ]]; then
+  corpus_name=not-retained
+  if [[ $archive_corpus == 1 ]]; then
+    corpus_name=$(basename "$corpus")
     printf 'Compressing retained corpus %s\n' "$corpus"
     gzip -n "$corpus"
     corpus_name="${corpus_name}.gz"
+  else
+    rm -f -- "$corpus"
   fi
 
   printf '%d\t%d\t%d\t%s\t0\t0\t0\t%s\n' \
