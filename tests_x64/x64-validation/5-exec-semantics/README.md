@@ -14,7 +14,7 @@ complete result matrix, use:
 
 ```sh
 python3 tests_x64/x64-validation/5-exec-semantics/run.py \
-  --ocaml-only-from evaluation/performance/results/x64-<timestamp>
+  --ocaml-only-from evaluation/results/rq3/x64-<timestamp>
 ```
 
 The experiment reuses `../0-data/step4.json`; it never regenerates or runs the

@@ -36,7 +36,7 @@ seed_base=${SEED_BASE:-5984326}
 prepare_exports=${PREPARE_EXPORTS:-1}
 compress_corpus=${COMPRESS_CORPUS:-1}
 timestamp=$(date +%Y%m%d-%H%M%S)
-result_dir=${RESULT_DIR:-$repo_root/evaluation/performance/results/rq2-sbpf-${rounds}x${cases_per_round}-${timestamp}}
+result_dir=${RESULT_DIR:-$repo_root/evaluation/results/rq2/sbpf-${rounds}x${cases_per_round}-${timestamp}}
 if [[ $result_dir != /* ]]; then
   result_dir="$repo_root/$result_dir"
 fi

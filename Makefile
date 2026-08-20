@@ -1,4 +1,4 @@
-.PHONY: open open_test build build_silent code gen opt test targeted hol-gcd hol-stress loc kloc clippy clippy-case-studies-prepare clippy-case-studies clippy-all macro_sbpf micro_sbpf micro_sbpf_gen x64 x64-rust-export x64-gen x64-test x64-performance x64_gen x64_test clean help
+.PHONY: open open_test build build_silent code gen opt test hol-gcd hol-stress loc kloc clippy clippy-case-studies-prepare clippy-case-studies clippy-all macro_sbpf micro_sbpf micro_sbpf_gen x64 x64-rust-export x64-gen x64-test x64-performance x64_gen x64_test clean help
 
 #### Configuration ####
 
@@ -522,13 +522,10 @@ clean:
 	find . -name "__pycache__" -type d -prune -exec rm -rf {} +
 	find test -path "*/stage1" -type d -prune -exec rm -rf {} +
 	find test -path "*/stage2" -type d -prune -exec rm -rf {} +
-	find tests_targeted -path "*/stage1" -type d -prune -exec rm -rf {} +
-	find tests_targeted -path "*/stage2" -type d -prune -exec rm -rf {} +
-	find tests_targeted -path "*/Rust_Out" -type d -prune -exec rm -rf {} +
 	find tests_HOL -path "*/stage1" -type d -prune -exec rm -rf {} + 2>/dev/null || true
 	find $(HOL_DIR) -path "*/stage1" -type d -prune -exec rm -rf {} + 2>/dev/null || true
 	rm -rf tests_sbpf/theory/stage1 tests_sbpf/theory/stage2
-	rm -rf evaluation/code_generation_quality/export
+	rm -rf evaluation/.work
 	rm -rf tests_sbpf/tests/exec_semantics/_build
 	rm -rf tests_sbpf/tests/exec_semantics/sbpf_ocaml/_build
 	rm -rf tests_sbpf/tests/exec_semantics/sbpf_rust/_build
@@ -577,9 +574,6 @@ help:
 	@echo "      Full pipeline: Isabelle -> stage1 -> stage2/<theory>/<export>/ + cargo build."
 	@echo "      Example: make test DIR=test/unit/optimization Name=Copy_Test"
 	@echo "      Example: make test DIR=test/unit/optimization"
-	@echo "  targeted"
-	@echo "      Build + cargo run stage1 for all *_Test.thy under tests_targeted."
-	@echo "      Example: make targeted"
 	@echo "  hol-gcd"
 	@echo "      Build and run the HOL gcd smoke test. Default: HOL_GCD_THEORY=$(HOL_GCD_THEORY)."
 	@echo "  hol-stress"

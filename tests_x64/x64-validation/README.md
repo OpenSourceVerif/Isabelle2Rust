@@ -150,7 +150,7 @@ not part of the default paper-facing matrix.
 JSON parsing and semantic input conversion finish before measurement. Rust and
 OCaml time only the raw `x64_step_test` call; state observation and correctness
 comparison occur only in the untimed validation pass. Results are written to
-`evaluation/performance/results/x64-<timestamp>/` as environment,
+`evaluation/results/rq3/x64-<timestamp>/` as environment,
 configuration, executable-hash, command, correctness, pilot, raw CSV, summary
 CSV, derived comparison, and paper-ready Markdown artifacts.
 

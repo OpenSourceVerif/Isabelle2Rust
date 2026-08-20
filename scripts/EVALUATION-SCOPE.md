@@ -7,7 +7,7 @@ Chapter 6 orchestration script.
 | --- | --- | --- |
 | Implementation LOC | Stage-1, Stage-2, RustLight | `count-implementation-loc.py` |
 | RQ1 corpus and definition selections | two HCT configurations, tracked 55-Unit and 36-FPP corpus | `count-rq1-corpus.py` |
-| RQ1 compiler acceptance | the same 93 Stage-1/Stage-2 pairs | `../evaluation/code_generation_quality/run-rq1-stable-builds.py` |
+| RQ1 compiler acceptance | the same 93 Stage-1/Stage-2 pairs | `../evaluation/scripts/rq1/run-stable-builds.py` |
 | RQ1 generated LOC | the same 93 pairs, reported by suite and stage | `count-rq1-generated-loc.py` |
 | RQ1 translation/optimization time | phase-only, three independent runs | **missing: requires phase instrumentation before rerun** |
 | RQ2 SBPF program agreement | 146 official programs | existing `make macro_sbpf` workflow |
@@ -16,7 +16,7 @@ Chapter 6 orchestration script.
 | RQ2 generated LOC | three pure generated workload crates, both stages separately | `count-rq2-generated-loc.py` |
 | RQ3 Clippy diagnostics | HCT-standard + Unit + FPP + three case-study crates, both stages | existing `make clippy-all REBUILD=1` workflow |
 | RQ3 clone sites | exactly the same 95-pair corpus as Clippy | `count-rq3-clone-sites.py` |
-| RQ3 SBPF runtime/allocation/ablations | SBPF-program and SBPF-instruction | `../evaluation/performance/sbpf/run.py` |
+| RQ3 SBPF runtime/allocation/ablations | SBPF-program and SBPF-instruction | `../evaluation/scripts/rq3/run-sbpf.py` |
 | RQ3 x64 runtime/allocation/ablations | X64-stepper | existing `make x64-performance` workflow |
 | RQ3 PreferOwned ablation | all three workloads | **missing: no current independent producer for the paper's 1.87x/4.78x claim** |
 

@@ -37,7 +37,7 @@ RAW_EXPORT = (
 GENERATED_ROOT = ROOT / "tests_x64" / "theory" / "performance" / "x64"
 OPTIMIZER = ROOT / "optimize" / "target" / "release" / "cargo-opt"
 BUILD = VALIDATION / "_build" / "performance"
-RESULTS = ROOT / "evaluation" / "performance" / "results"
+RESULTS = ROOT / "evaluation" / "results" / "rq3"
 EXPORTER = VALIDATION / "run_rust_export.py"
 TIME = Path("/usr/bin/time")
 CPU = "0"
@@ -509,7 +509,7 @@ def build_ocaml(configurations: dict[str, Any], binaries: dict[str, Any]) -> Non
     glue_ocaml(source, module)
     shutil.copy2(HERE / "ocaml" / "stepper.ml", build_dir / "stepper.ml")
     shutil.copy2(
-        ROOT / "evaluation" / "performance" / "monotonic_stubs.c",
+        ROOT / "evaluation" / "harness" / "common" / "monotonic_stubs.c",
         build_dir / "monotonic_stubs.c",
     )
     packages = "zarith,yojson,unix"
