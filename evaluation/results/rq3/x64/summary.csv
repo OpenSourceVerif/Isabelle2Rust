@@ -19,4 +19,4 @@ x64-stepper,OCaml baseline,Peak RSS,MiB,115.054687500,115.101562500,115.06250000
 x64-stepper,OCaml baseline,Heap allocation,KiB/step,491.115390625,491.115390625,491.115390625,491.115390625
 x64-stepper,Native x64 baseline,Median runtime,s,0.038297277,0.036242034,0.037953125,0.037953125
 x64-stepper,Native x64 baseline,Peak RSS,MiB,33.976562500,33.976562500,33.976562500,33.976562500
-x64-stepper,Native x64 baseline,Heap allocation,KiB/step,0.000000000,0.000000000,0.000000000,0.000000000
+x64-stepper,Native x64 baseline,Heap allocation,KiB/step,unavailable,unavailable,unavailable,unavailable

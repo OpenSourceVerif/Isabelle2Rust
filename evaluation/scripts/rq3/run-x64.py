@@ -590,7 +590,9 @@ def build_native(configurations: dict[str, Any], binaries: dict[str, Any]) -> No
         "allocation_rule": (
             "Successful malloc and calloc requests, and successful realloc requests, "
             "contribute their requested size to a cumulative counter that is reset "
-            "immediately before the prepared step loop."
+            "immediately before the prepared step loop. This counter excludes prepared "
+            "state and OS-managed ptrace resources, so cross-implementation allocation "
+            "is reported as unavailable."
         ),
         "executables": binaries["Native x64 baseline"],
     }
@@ -775,13 +777,14 @@ RAW_FIELDS = [
     "normalized_seconds",
     "peak_rss_kib",
     "allocated_bytes",
+    "measurement_status",
     "exit_status",
 ]
 
 
 def write_raw(rows: list[dict[str, Any]]) -> None:
     with (RESULT_DIR / "raw.csv").open("w", newline="", encoding="utf-8") as destination:
-        writer = csv.DictWriter(destination, fieldnames=RAW_FIELDS)
+        writer = csv.DictWriter(destination, fieldnames=RAW_FIELDS, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 
@@ -836,6 +839,10 @@ def measure_all(
                     / f"{metric}__{slug(implementation)}",
                 )
                 elapsed = float(result["elapsed_seconds"])
+                allocation_unavailable = (
+                    metric == "allocation"
+                    and implementation == "Native x64 baseline"
+                )
                 actual_repetitions = int(result["suite_repetitions"])
                 rows.append(
                     {
@@ -852,7 +859,16 @@ def measure_all(
                         "elapsed_seconds": f"{elapsed:.9f}",
                         "normalized_seconds": f"{elapsed / actual_repetitions:.9f}",
                         "peak_rss_kib": rss,
-                        "allocated_bytes": int(float(result["allocated_bytes"])),
+                        "allocated_bytes": (
+                            ""
+                            if allocation_unavailable
+                            else int(float(result["allocated_bytes"]))
+                        ),
+                        "measurement_status": (
+                            "unavailable: non-comparable measurement boundary"
+                            if allocation_unavailable
+                            else "measured"
+                        ),
                         "exit_status": status,
                     }
                 )
@@ -875,14 +891,6 @@ def summarize(
         metrics = [
             ("Median runtime", "s", [float(row["normalized_seconds"]) for row in runtime_rows]),
             ("Peak RSS", "MiB", [int(row["peak_rss_kib"]) / 1024.0 for row in runtime_rows]),
-            (
-                "Heap allocation",
-                "KiB/step",
-                [
-                    int(row["allocated_bytes"]) / int(row["logical_units"]) / 1024.0
-                    for row in allocation_rows
-                ],
-            ),
         ]
         for metric, unit, values in metrics:
             if len(values) != 3:
@@ -899,9 +907,33 @@ def summarize(
                     "median": f"{statistics.median(values):.9f}",
                 }
             )
+        allocation_values = (
+            None
+            if implementation == "Native x64 baseline"
+            else [
+                int(row["allocated_bytes"]) / int(row["logical_units"]) / 1024.0
+                for row in allocation_rows
+            ]
+        )
+        summary.append(
+            {
+                "benchmark": "x64-stepper",
+                "implementation": implementation,
+                "metric": "Heap allocation",
+                "unit": "KiB/step",
+                "run_1": "unavailable" if allocation_values is None else f"{allocation_values[0]:.9f}",
+                "run_2": "unavailable" if allocation_values is None else f"{allocation_values[1]:.9f}",
+                "run_3": "unavailable" if allocation_values is None else f"{allocation_values[2]:.9f}",
+                "median": (
+                    "unavailable"
+                    if allocation_values is None
+                    else f"{statistics.median(allocation_values):.9f}"
+                ),
+            }
+        )
     fields = ["benchmark", "implementation", "metric", "unit", "run_1", "run_2", "run_3", "median"]
     with (RESULT_DIR / "summary.csv").open("w", newline="", encoding="utf-8") as destination:
-        writer = csv.DictWriter(destination, fieldnames=fields)
+        writer = csv.DictWriter(destination, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         writer.writerows(summary)
     return summary
@@ -967,7 +999,9 @@ def write_grouped_ablation_summary(
     with (RESULT_DIR / "grouped_ablation.csv").open(
         "w", newline="", encoding="utf-8"
     ) as destination:
-        writer = csv.DictWriter(destination, fieldnames=list(results[0]))
+        writer = csv.DictWriter(
+            destination, fieldnames=list(results[0]), lineterminator="\n"
+        )
         writer.writeheader()
         writer.writerows(results)
     return results
@@ -985,12 +1019,12 @@ def write_derived(
     allocation = {
         row["implementation"]: float(row["median"])
         for row in summary
-        if row["metric"] == "Heap allocation"
+        if row["metric"] == "Heap allocation" and row["median"] != "unavailable"
     }
     derived = []
     for implementation in selected:
         seconds = runtime[implementation]
-        allocated = allocation[implementation]
+        allocated = allocation.get(implementation)
         derived.append(
             {
                 "implementation": implementation,
@@ -1011,17 +1045,21 @@ def write_derived(
                     if "Native x64 baseline" in runtime
                     else "N/A"
                 ),
-                "allocation_kib_per_step": f"{allocated:.9f}",
+                "allocation_kib_per_step": (
+                    "unavailable" if allocated is None else f"{allocated:.9f}"
+                ),
                 "allocation_vs_stage1": (
                     f"{allocated / allocation['Stage-1']:.6f}"
-                    if "Stage-1" in allocation and allocation["Stage-1"] != 0
-                    else "N/A"
+                    if allocated is not None
+                    and "Stage-1" in allocation
+                    and allocation["Stage-1"] != 0
+                    else "unavailable"
                 ),
             }
         )
     fields = list(derived[0])
     with (RESULT_DIR / "derived.csv").open("w", newline="", encoding="utf-8") as destination:
-        writer = csv.DictWriter(destination, fieldnames=fields)
+        writer = csv.DictWriter(destination, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         writer.writerows(derived)
     return derived

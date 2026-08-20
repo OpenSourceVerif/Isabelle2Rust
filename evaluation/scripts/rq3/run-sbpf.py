@@ -564,8 +564,9 @@ def build_case_study(configurations: dict[str, Any], binaries: dict[str, Any]) -
             "are outside the measured region"
         ),
         "allocation_scope": (
-            "cumulative allocation within the prepared interpreter calls only; "
-            "VM construction is excluded"
+            "diagnostic counter within prepared interpreter calls only; VM construction "
+            "and OS-managed resources are excluded, so cross-implementation allocation "
+            "is reported as unavailable"
         ),
         "runtime_suite_repetitions": CASE_STUDY_REPETITIONS,
         "source_sha256": {
@@ -733,13 +734,14 @@ RAW_FIELDS = [
     "peak_rss_kib",
     "allocated_bytes",
     "host_instructions",
+    "measurement_status",
     "exit_status",
 ]
 
 
 def write_raw(rows: list[dict[str, Any]]) -> None:
     with (RESULT_DIR / "raw.csv").open("w", newline="", encoding="utf-8") as destination:
-        writer = csv.DictWriter(destination, fieldnames=RAW_FIELDS)
+        writer = csv.DictWriter(destination, fieldnames=RAW_FIELDS, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 
@@ -859,6 +861,10 @@ def measure_all(
                         / f"{benchmark}__{metric}__{slug(implementation)}",
                     )
                     elapsed = float(result["elapsed_seconds"])
+                    allocation_unavailable = (
+                        metric == "allocation"
+                        and implementation == "Case-study baseline"
+                    )
                     actual_repetitions = int(
                         result.get("suite_repetitions", "1")
                     )
@@ -877,8 +883,17 @@ def measure_all(
                             "elapsed_seconds": f"{elapsed:.9f}",
                             "normalized_seconds": f"{elapsed / actual_repetitions:.9f}",
                             "peak_rss_kib": rss,
-                            "allocated_bytes": int(float(result["allocated_bytes"])),
+                            "allocated_bytes": (
+                                ""
+                                if allocation_unavailable
+                                else int(float(result["allocated_bytes"]))
+                            ),
                             "host_instructions": "",
+                            "measurement_status": (
+                                "unavailable: non-comparable measurement boundary"
+                                if allocation_unavailable
+                                else "measured"
+                            ),
                             "exit_status": exit_status,
                         }
                     )
@@ -910,7 +925,12 @@ def summarize(
             ]
             runtime_values = [float(row["normalized_seconds"]) for row in runtime_rows]
             rss_values = [int(row["peak_rss_kib"]) / 1024.0 for row in runtime_rows]
-            if benchmark == "SBPF-program":
+            if implementation == "Case-study baseline":
+                allocation_values = None
+                allocation_unit = (
+                    "MiB/case" if benchmark == "SBPF-program" else "KiB/step"
+                )
+            elif benchmark == "SBPF-program":
                 allocation_values = [
                     int(row["allocated_bytes"]) / int(row["logical_units"]) / (1024.0**2)
                     for row in allocation_rows
@@ -927,7 +947,6 @@ def summarize(
             metrics = [
                 ("Median runtime", "s", runtime_values),
                 ("Peak RSS", "MiB", rss_values),
-                ("Heap allocation", allocation_unit, allocation_values),
             ]
             for metric, unit, values in metrics:
                 summary.append(
@@ -946,6 +965,22 @@ def summarize(
                 {
                     "benchmark": benchmark,
                     "implementation": implementation,
+                    "metric": "Heap allocation",
+                    "unit": allocation_unit,
+                    "run_1": "unavailable" if allocation_values is None else f"{allocation_values[0]:.9f}",
+                    "run_2": "unavailable" if allocation_values is None else f"{allocation_values[1]:.9f}",
+                    "run_3": "unavailable" if allocation_values is None else f"{allocation_values[2]:.9f}",
+                    "median": (
+                        "unavailable"
+                        if allocation_values is None
+                        else f"{statistics.median(allocation_values):.9f}"
+                    ),
+                }
+            )
+            summary.append(
+                {
+                    "benchmark": benchmark,
+                    "implementation": implementation,
                     "metric": "Host instructions",
                     "unit": instruction_unit,
                     "run_1": "TBD",
@@ -956,7 +991,7 @@ def summarize(
             )
     fields = ["benchmark", "implementation", "metric", "unit", "run_1", "run_2", "run_3", "median"]
     with (RESULT_DIR / "summary.csv").open("w", newline="", encoding="utf-8") as destination:
-        writer = csv.DictWriter(destination, fieldnames=fields)
+        writer = csv.DictWriter(destination, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         writer.writerows(summary)
     return summary
@@ -1029,7 +1064,7 @@ def write_grouped_ablation_summary(
     with (RESULT_DIR / "grouped_ablation.csv").open(
         "w", newline="", encoding="utf-8"
     ) as destination:
-        writer = csv.DictWriter(destination, fieldnames=fields)
+        writer = csv.DictWriter(destination, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         writer.writerows(paired)
     return paired
