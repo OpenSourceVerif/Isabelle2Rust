@@ -1816,9 +1816,13 @@ fun print_type_param_bound (vname, sort) =
             | NONE =>
                 ((print_term_pattern is_pseudo_fun some_thm vars NOBR pat, [], []), state));
         val initial_state = (0, snd (rv_names vars));
-        val (printed, _) = fold_map (fn (pat, ty) =>
+        val (printed, (_, namectxt')) = fold_map (fn (pat, ty) =>
           print_pat false ty pat) pats_tys initial_state;
-      in (map #1 printed, maps #2 printed, maps #3 printed) end
+        (* Residual matches are printed after the surface pattern.  Carry the
+           generated surface binders into their name context so an inner field
+           cannot reuse (and shadow) a still-live outer name such as p0. *)
+        val vars' = ((fst (rv_names vars), namectxt'), rv_types vars);
+      in (map #1 printed, maps #2 printed, maps #3 printed, vars') end
     and pat_irrefutable pat =
       (case pat of
         IVar _ => true
@@ -2606,11 +2610,11 @@ fun print_type_param_bound (vname, sort) =
                           |> rv_intro_typed_pats (ListPair.zip (ts, param_tys));
                         val used_vars = build (Code_Thingol.add_varnames t);
                         val ts' = map (wildcard_unused_pattern used_vars) ts;
-                        val (surface_pats, lets, residuals) =
+                        val (surface_pats, lets, residuals, row_vars') =
                           print_box_frontier_patterns is_pseudo_fun some_thm row_vars
                             (ListPair.zip (ts', param_tys));
                       in
-                        (ts', surface_pats, lets, residuals, row_vars, used_vars,
+                        (ts', surface_pats, lets, residuals, row_vars', used_vars,
                           print_term_app is_pseudo_fun some_thm row_vars NOBR t)
                       end;
                     val infos = map row_info eqs;
@@ -2753,14 +2757,34 @@ fun print_type_param_bound (vname, sort) =
                     val (_, _, some_thm, vars) = prepare_eqn eq;
                     val used_vars = build (Code_Thingol.add_varnames t);
                     val ts' = map (wildcard_unused_pattern used_vars) ts;
-                    fun print_binding (IVar _, _) = NONE
-                      | print_binding (pat, param) =
-                          SOME (rust_open
-                            [str "let ",
-                             print_term_pattern is_pseudo_fun some_thm vars NOBR pat,
-                             str " = ", param, str ";"]);
-                    val bindings = map_filter print_binding
+                    fun binding (IVar _, _) = NONE
+                      | binding (pat, param) = SOME
+                          (print_term_pattern is_pseudo_fun some_thm vars NOBR pat,
+                           param);
+                    val binding_pairs = map_filter binding
                       (ListPair.zip (ts', dummy_parms));
+                    (* Bind several irrefutable parameter patterns simultaneously.
+                       Sequential lets can let a field from an earlier pattern
+                       shadow a still-pending signature parameter (for example
+                       x1), causing the next pattern to inspect that field rather
+                       than the original argument.  Tuple destructuring evaluates
+                       every RHS parameter before introducing any field binder. *)
+                    val bindings =
+                      (case binding_pairs of
+                        [] => []
+                      | [(pat, param)] =>
+                          [rust_open [str "let ", pat, str " = ", param, str ";"]]
+                      | _ =>
+                          let
+                            val (pats, params) = split_list binding_pairs;
+                          in
+                            [rust_open
+                              [str "let ",
+                               to_tuple pats (Pretty.block (commas_append pats)),
+                               str " = ",
+                               to_tuple params (Pretty.block (commas_append params)),
+                               str ";"]]
+                          end);
                   in Pretty.chunks (bindings @ print_eqn_body eq) end;
                 val body =
                   (case eqs
