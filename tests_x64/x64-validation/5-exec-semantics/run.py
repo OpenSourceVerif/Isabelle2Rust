@@ -322,7 +322,6 @@ def write_stage_manifest(
             "enabled": optimized,
             "members": STRUCTURAL_TRANSFORMATIONS,
         },
-        "bigint_bit_operations_enabled": False,
         "stage1_materialization": (
             "original export copied without cargo-opt or RustLightAST parsing/printing"
             if not optimized

@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use crate::utils::patterns::{closure_param_name, collect_pattern_bindings, is_binding_ident};
+use crate::utils::types::is_reference_type;
 use rustlightast::*;
 
 /// Eliminate clones whose owned receiver is dead after the clone.
@@ -568,14 +570,6 @@ fn collect_live_closure_body(params: &[ClosureParam], body: &Expr, live: &mut Ha
     live.extend(body_live);
 }
 
-fn is_reference_type(ty: &Type) -> bool {
-    matches!(ty, Type::Reference(_, true, _))
-}
-
-fn closure_param_name(param: &ClosureParam) -> String {
-    param.pattern.trim_start_matches("mut ").trim().to_string()
-}
-
 fn closure_param_is_owned(param: &ClosureParam) -> bool {
     let name = closure_param_name(param);
     if !is_binding_ident(&name) {
@@ -583,21 +577,6 @@ fn closure_param_is_owned(param: &ClosureParam) -> bool {
     }
 
     !matches!(param.ty, Some(Type::Reference(_, true, _)))
-}
-
-fn is_binding_ident(input: &str) -> bool {
-    let mut chars = input.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    (first == '_' || first.is_ascii_alphabetic())
-        && input != "_"
-        && !is_reserved_pattern_word(input)
-        && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
-}
-
-fn is_reserved_pattern_word(input: &str) -> bool {
-    matches!(input, "box" | "false" | "mut" | "ref" | "self" | "true")
 }
 
 fn remove_pattern_bindings_from_live(pattern: &str, live: &mut HashSet<String>) {
@@ -609,149 +588,11 @@ fn remove_pattern_bindings_from_live(pattern: &str, live: &mut HashSet<String>) 
 }
 
 fn collect_binding_names_from_pattern(pattern: &str, out: &mut HashSet<String>) {
-    collect_pattern_binding_names(pattern, out, true);
+    collect_pattern_bindings(pattern, out, true);
 }
 
 fn collect_owned_binding_names_from_pattern(pattern: &str, out: &mut HashSet<String>) {
-    collect_pattern_binding_names(pattern, out, false);
-}
-
-fn collect_pattern_binding_names(pattern: &str, out: &mut HashSet<String>, include_ref: bool) {
-    let pattern = pattern.trim();
-    if pattern.is_empty() || pattern == "_" || pattern == ".." {
-        return;
-    }
-
-    if let Some(inner) = strip_prefix_word(pattern, "ref") {
-        if include_ref {
-            collect_pattern_binding_names(inner, out, include_ref);
-        }
-        return;
-    }
-    if let Some(inner) = strip_prefix_word(pattern, "mut") {
-        collect_pattern_binding_names(inner, out, include_ref);
-        return;
-    }
-    if let Some(inner) = outer_parens_inner(pattern) {
-        for part in split_top_level_commas(inner) {
-            collect_pattern_binding_names(&part, out, include_ref);
-        }
-        return;
-    }
-
-    if let Some((_, args)) = split_constructor_pattern(pattern) {
-        for arg in args {
-            collect_pattern_binding_names(&arg, out, include_ref);
-        }
-        return;
-    }
-
-    if pattern.contains("::") || matches!(pattern, "true" | "false") {
-        return;
-    }
-
-    if is_binding_ident(pattern) {
-        out.insert(pattern.to_string());
-    }
-}
-
-fn strip_prefix_word<'a>(input: &'a str, word: &str) -> Option<&'a str> {
-    let rest = input.strip_prefix(word)?;
-    if rest.starts_with(char::is_whitespace) {
-        Some(rest.trim_start())
-    } else {
-        None
-    }
-}
-
-fn outer_parens_inner(input: &str) -> Option<&str> {
-    if !input.starts_with('(') || !input.ends_with(')') {
-        return None;
-    }
-    let mut depth = 0usize;
-    for (idx, ch) in input.char_indices() {
-        match ch {
-            '(' => depth += 1,
-            ')' => {
-                depth = depth.checked_sub(1)?;
-                if depth == 0 && idx != input.len() - 1 {
-                    return None;
-                }
-            }
-            _ => {}
-        }
-    }
-    if depth == 0 {
-        input.strip_prefix('(')?.strip_suffix(')')
-    } else {
-        None
-    }
-}
-
-fn split_constructor_pattern(input: &str) -> Option<(&str, Vec<String>)> {
-    let mut depth = 0usize;
-    let mut start = None;
-
-    for (idx, ch) in input.char_indices() {
-        match ch {
-            '(' => {
-                if depth == 0 {
-                    start = Some(idx);
-                }
-                depth += 1;
-            }
-            ')' => {
-                depth = depth.checked_sub(1)?;
-                if depth == 0 && idx != input.len() - 1 {
-                    return None;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    if depth != 0 {
-        return None;
-    }
-
-    let start = start?;
-    let constructor = input[..start].trim();
-    if constructor.is_empty() {
-        return None;
-    }
-
-    let inner = input[start + 1..input.len() - 1].trim();
-    Some((constructor, split_top_level_commas(inner)))
-}
-
-fn split_top_level_commas(input: &str) -> Vec<String> {
-    let mut parts = Vec::new();
-    let mut start = 0usize;
-    let mut paren = 0usize;
-    let mut bracket = 0usize;
-    let mut brace = 0usize;
-
-    for (idx, ch) in input.char_indices() {
-        match ch {
-            '(' => paren += 1,
-            ')' => paren = paren.saturating_sub(1),
-            '[' => bracket += 1,
-            ']' => bracket = bracket.saturating_sub(1),
-            '{' => brace += 1,
-            '}' => brace = brace.saturating_sub(1),
-            ',' if paren == 0 && bracket == 0 && brace == 0 => {
-                parts.push(input[start..idx].trim().to_string());
-                start = idx + ch.len_utf8();
-            }
-            _ => {}
-        }
-    }
-
-    let last = input[start..].trim();
-    if !last.is_empty() {
-        parts.push(last.to_string());
-    }
-    parts
+    collect_pattern_bindings(pattern, out, false);
 }
 
 #[cfg(test)]

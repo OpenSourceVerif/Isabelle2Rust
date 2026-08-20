@@ -3,6 +3,14 @@ use std::collections::{HashMap, HashSet};
 use rustlightast::*;
 
 use crate::rustlight_parser::TYPE_FACT_ONLY_DOC;
+use crate::utils::ast_rewrite::{ensure_function_comment, ensure_item_comment};
+use crate::utils::names::{collect_imports, resolve_name_path, resolve_segments};
+use crate::utils::patterns::{bind_pattern_types as bind_pattern_types_common, is_binding_ident};
+use crate::utils::types::{
+    apply_type_subst, callable_return_type, explicit_identity_return_type, function_type_env,
+    generic_names_with_bound, infer_block_type as infer_block_type_common, type_is_copy_trait,
+    type_name_leaf, type_substitution, types_equal, TypeEnv,
+};
 
 /// Result of the copy-analysis pass.
 #[derive(Debug, Clone, Default)]
@@ -20,7 +28,6 @@ pub struct CopyOptions {
     pub keep_unused_copy: bool,
 }
 
-type TypeEnv = HashMap<String, Type>;
 type ItemId = Vec<String>;
 
 #[derive(Debug, Clone)]
@@ -34,52 +41,11 @@ impl ModuleScope {
         if is_primitive_copy_type(name) {
             return vec![name.to_string()];
         }
-
-        if let Some(path) = self.imports.get(name) {
-            return path.clone();
-        }
-
-        let mut path = self.module_path.clone();
-        path.push(name.to_string());
-        path
+        resolve_name_path(&self.module_path, &self.imports, name)
     }
 
     fn resolve_segments(&self, segments: &[String]) -> ItemId {
-        let Some((first, rest)) = segments.split_first() else {
-            return Vec::new();
-        };
-
-        match first.as_str() {
-            "crate" => segments.to_vec(),
-            "self" => {
-                let mut path = self.module_path.clone();
-                path.extend(rest.iter().cloned());
-                path
-            }
-            "super" => {
-                let mut path = self.module_path.clone();
-                let mut remaining = segments;
-                while matches!(remaining.first().map(String::as_str), Some("super")) {
-                    path.pop();
-                    remaining = &remaining[1..];
-                }
-                path.extend(remaining.iter().cloned());
-                path
-            }
-            _ => {
-                if let Some(imported) = self.imports.get(first) {
-                    let mut path = imported.clone();
-                    path.extend(rest.iter().cloned());
-                    path
-                } else if segments.len() == 1 {
-                    self.resolve_name_path(first)
-                } else {
-                    let mut path = vec!["crate".to_string()];
-                    path.extend(segments.iter().cloned());
-                    path
-                }
-            }
-        }
+        resolve_segments(&self.module_path, &self.imports, segments)
     }
 }
 
@@ -148,28 +114,16 @@ struct CopyContext {
 /// This pass intentionally stays on the paper's copy-inference side of the
 /// pipeline: it does not optimize borrow/reference expressions, which belong
 /// to later optimization stages.
+#[cfg(test)]
 pub fn optimize_copy(module: &mut RustModule) -> CopyAnalysis {
     optimize_copy_with_options(module, CopyOptions::default())
 }
 
+#[cfg(test)]
 pub fn optimize_copy_with_options(module: &mut RustModule, options: CopyOptions) -> CopyAnalysis {
     let module_path = vec!["crate".to_string(), module.name.clone()];
     let mut modules = [(module_path, module)];
     optimize_copy_modules_with_paths(&mut modules, options)
-}
-
-/// Infer and apply Copy optimizations across every parsed module in a package.
-pub fn optimize_copy_modules(modules: &mut [&mut RustModule]) -> CopyAnalysis {
-    let mut located_modules = modules
-        .iter_mut()
-        .map(|module| {
-            (
-                vec!["crate".to_string(), module.name.clone()],
-                &mut **module,
-            )
-        })
-        .collect::<Vec<_>>();
-    optimize_copy_modules_with_paths(&mut located_modules, CopyOptions::default())
 }
 
 /// Package-level Copy inference with canonical module paths supplied by the
@@ -1779,33 +1733,13 @@ impl CopyContext {
     }
 
     fn infer_block_type(&self, block: &Block, env: &TypeEnv, scope: &ModuleScope) -> Option<Type> {
-        let mut block_env = env.clone();
-
-        for stmt in &block.stmts {
-            if let Statement::Let(let_stmt) = stmt {
-                let inferred_ty = let_stmt.ty.clone().or_else(|| {
-                    let_stmt
-                        .init
-                        .as_ref()
-                        .and_then(|init| self.infer_expr_type(init, &block_env, scope))
-                });
-
-                if let Some(ty) = inferred_ty {
-                    if is_binding_ident(&let_stmt.name) {
-                        block_env.insert(let_stmt.name.clone(), ty);
-                    } else {
-                        self.bind_pattern_types(&let_stmt.name, &ty, &mut block_env, scope);
-                    }
-                } else {
-                    remove_pattern_types(&let_stmt.name, &mut block_env);
-                }
-            }
-        }
-
-        block
-            .expr
-            .as_ref()
-            .and_then(|expr| self.infer_expr_type(expr, &block_env, scope))
+        infer_block_type_common(
+            block,
+            env,
+            |expr, env| self.infer_expr_type(expr, env, scope),
+            |pattern, ty, env| self.bind_pattern_types(pattern, ty, env, scope),
+            remove_pattern_types,
+        )
     }
 
     fn infer_call_type(
@@ -1816,7 +1750,8 @@ impl CopyContext {
         scope: &ModuleScope,
     ) -> Option<Type> {
         if let Some(callee_ty) = self.infer_expr_type(callee, env, scope) {
-            if let Some(return_type) = self.callable_return_type(&callee_ty, scope) {
+            let callee_ty = self.expand_alias_type(&callee_ty, scope, &mut HashSet::new());
+            if let Some(return_type) = callable_return_type(&callee_ty) {
                 return Some(return_type);
             }
         }
@@ -1852,20 +1787,6 @@ impl CopyContext {
             }
         }
         Some(apply_type_subst(&return_type, &subst))
-    }
-
-    fn callable_return_type(&self, ty: &Type, scope: &ModuleScope) -> Option<Type> {
-        let ty = self.expand_alias_type(ty, scope, &mut HashSet::new());
-        match ty {
-            Type::CallableTrait(callable) => Some(*callable.return_type),
-            Type::Generic(name, mut params)
-                if matches!(type_name_leaf(&name), "Rc" | "Arc" | "Box") && params.len() == 1 =>
-            {
-                self.callable_return_type(&params.remove(0), scope)
-            }
-            Type::Reference(inner, _, _) => self.callable_return_type(&inner, scope),
-            _ => None,
-        }
     }
 
     fn infer_constructor_call_type(
@@ -1960,7 +1881,7 @@ impl CopyContext {
     fn field_type(&self, ty: &Type, member: &str, scope: &ModuleScope) -> Option<Type> {
         let type_id = self.type_id_for_type(ty, scope)?;
         let def = self.type_defs.get(&type_id)?;
-        let subst = type_substitution(def, ty);
+        let subst = type_substitution(&def.generics, ty);
 
         match &def.kind {
             TypeDefKind::Struct(fields) => fields.iter().find_map(|field| {
@@ -1981,43 +1902,9 @@ impl CopyContext {
         env: &mut TypeEnv,
         scope: &ModuleScope,
     ) {
-        let pattern = pattern.trim();
-        if pattern.is_empty() || pattern == "_" || pattern == ".." {
-            return;
-        }
-
-        // Pattern strings are kept lightweight in RustLightAST, so this routine
-        // recovers just enough structure to bind identifiers to payload types.
-        let pattern = strip_binding_modifiers(pattern);
-
-        if let Some(inner) = outer_parens_inner(pattern) {
-            let parts = split_top_level_commas(inner);
-            if parts.len() > 1 {
-                if let Type::Tuple(types) = expected {
-                    for (part, ty) in parts.iter().zip(types) {
-                        self.bind_pattern_types(part, ty, env, scope);
-                    }
-                }
-                return;
-            }
-        }
-
-        if let Some((constructor, args)) = split_constructor_pattern(pattern) {
-            if let Some(field_types) = self.pattern_payload_types(constructor, expected, scope) {
-                for (arg, ty) in args.iter().zip(field_types.iter()) {
-                    self.bind_pattern_types(arg, ty, env, scope);
-                }
-            }
-            return;
-        }
-
-        if pattern.contains("::") || matches!(pattern, "true" | "false") {
-            return;
-        }
-
-        if is_binding_ident(pattern) {
-            env.insert(pattern.to_string(), expected.clone());
-        }
+        bind_pattern_types_common(pattern, expected, env, &mut |constructor, expected| {
+            self.pattern_payload_types(constructor, expected, scope)
+        });
     }
 
     fn pattern_payload_types(
@@ -2036,7 +1923,7 @@ impl CopyContext {
 
         if let Some(expected_id) = self.type_id_for_type(&expanded_expected, scope) {
             if let Some(def) = self.type_defs.get(&expected_id) {
-                let subst = type_substitution(def, &expanded_expected);
+                let subst = type_substitution(&def.generics, &expanded_expected);
                 match &def.kind {
                     TypeDefKind::Enum(variants) => {
                         if let Some(variant) =
@@ -2650,23 +2537,6 @@ fn count_clone_calls_in_expr(expr: &Expr) -> usize {
     }
 }
 
-fn explicit_identity_return_type(callee: &Expr) -> Option<Type> {
-    let segment = match callee {
-        Expr::Ident(segment) => segment,
-        Expr::Path(path, PathType::Namespace) => path.last()?,
-        Expr::Parenthesized(inner) => return explicit_identity_return_type(inner),
-        _ => return None,
-    };
-    let name = segment
-        .split_once('<')
-        .map_or(segment.as_str(), |(head, _)| head)
-        .trim()
-        .trim_end_matches("::");
-    (name == "identity")
-        .then(|| crate::rustlight_parser::first_explicit_type_argument(segment))
-        .flatten()
-}
-
 fn explicit_qself_value_return_type(callee: &Expr) -> Option<Type> {
     let source = match callee {
         Expr::Macro(source) => source.trim(),
@@ -2695,14 +2565,6 @@ fn item_id(scope: &ModuleScope, name: &str) -> ItemId {
     id
 }
 
-fn type_is_copy_trait(ty: &Type) -> bool {
-    match ty {
-        Type::Named(name) => name == "Copy",
-        Type::Path(path) => path.last().is_some_and(|name| name == "Copy"),
-        _ => false,
-    }
-}
-
 fn type_constructor_id(ty: &Type, scope: &ModuleScope) -> Option<ItemId> {
     match ty {
         Type::Named(name) => Some(scope.resolve_name_path(name)),
@@ -2719,10 +2581,6 @@ fn type_leaf_name(ty: &Type) -> Option<&str> {
         Type::Path(path) => path.last().map(String::as_str),
         _ => None,
     }
-}
-
-fn type_name_leaf(name: &str) -> &str {
-    name.rsplit("::").next().unwrap_or(name)
 }
 
 fn resolve_type_constructor_name(name: &str, scope: &ModuleScope) -> ItemId {
@@ -2743,58 +2601,6 @@ fn primitive_copy_types() -> [&'static str; 16] {
 
 fn is_primitive_copy_type(name: &str) -> bool {
     primitive_copy_types().contains(&name)
-}
-
-fn collect_imports(items: &[Item]) -> HashMap<String, Vec<String>> {
-    let mut imports = HashMap::new();
-    for item in items {
-        if let Item::Use(use_stmt) = item {
-            collect_import(&mut imports, use_stmt);
-        }
-    }
-    imports
-}
-
-fn collect_import(imports: &mut HashMap<String, Vec<String>>, use_stmt: &UseStatement) {
-    match &use_stmt.kind {
-        UseKind::Simple => {
-            if let Some((source, local)) = imported_leaf(use_stmt.path.last()) {
-                let mut path = use_stmt.path.clone();
-                if let Some(last) = path.last_mut() {
-                    *last = source;
-                }
-                imports.insert(local, path);
-            }
-        }
-        UseKind::Nested(items) => {
-            for item in items {
-                if let Some((source, local)) = imported_leaf(Some(item)) {
-                    let mut path = use_stmt.path.clone();
-                    path.push(source);
-                    imports.insert(local, path);
-                }
-            }
-        }
-        UseKind::Glob => {}
-    }
-}
-
-fn imported_leaf(leaf: Option<&String>) -> Option<(String, String)> {
-    let leaf = leaf?.trim();
-    if let Some((source, local)) = leaf.split_once(" as ") {
-        Some((source.trim().to_string(), local.trim().to_string()))
-    } else {
-        Some((leaf.to_string(), leaf.to_string()))
-    }
-}
-
-fn function_type_env(function: &FunctionDef) -> TypeEnv {
-    function
-        .params
-        .iter()
-        .filter(|param| !param.name.is_empty())
-        .map(|param| (param.name.clone(), param.ty.clone()))
-        .collect()
 }
 
 fn collect_generated_calls_item(
@@ -2981,24 +2787,8 @@ fn ensure_clone_copy_derives(derives: &mut Vec<String>) {
     derives.insert(insert_at, "Copy".to_string());
 }
 
-fn ensure_item_comment(docs: &mut Vec<String>, comment: &str) {
-    if !docs.iter().any(|doc| doc.trim() == comment) {
-        docs.push(comment.to_string());
-    }
-}
-
-fn ensure_function_comment(function: &mut FunctionDef, comment: &str) {
-    if !function.docs.iter().any(|doc| doc.trim() == comment) {
-        function.docs.push(comment.to_string());
-    }
-}
-
 fn has_bound(generic: &GenericParam, bound: &str) -> bool {
     generic.bounds.iter().any(|candidate| candidate == bound)
-}
-
-fn generic_names_with_bound(function: &FunctionDef, bound: &str) -> HashSet<String> {
-    generic_param_names_with_bound(&function.generics, bound)
 }
 
 fn generic_param_names_with_bound(generics: &[GenericParam], bound: &str) -> HashSet<String> {
@@ -3054,56 +2844,6 @@ fn pattern_binding_tokens(pattern: &str) -> impl Iterator<Item = &str> {
         })
 }
 
-fn type_substitution(def: &TypeDef, ty: &Type) -> HashMap<String, Type> {
-    match ty {
-        Type::Generic(_, params) if params.len() == def.generics.len() => def
-            .generics
-            .iter()
-            .cloned()
-            .zip(params.iter().cloned())
-            .collect(),
-        _ => HashMap::new(),
-    }
-}
-
-fn apply_type_subst(ty: &Type, subst: &HashMap<String, Type>) -> Type {
-    match ty {
-        Type::Named(name) => subst
-            .get(name)
-            .cloned()
-            .unwrap_or_else(|| Type::Named(name.clone())),
-        Type::Generic(name, params) => Type::Generic(
-            name.clone(),
-            params
-                .iter()
-                .map(|param| apply_type_subst(param, subst))
-                .collect(),
-        ),
-        Type::Tuple(types) => Type::Tuple(
-            types
-                .iter()
-                .map(|param| apply_type_subst(param, subst))
-                .collect(),
-        ),
-        Type::Array(inner, len) => Type::Array(Box::new(apply_type_subst(inner, subst)), *len),
-        Type::Reference(inner, is_ref, mutable) => {
-            Type::Reference(Box::new(apply_type_subst(inner, subst)), *is_ref, *mutable)
-        }
-        Type::Slice(inner) => Type::Slice(Box::new(apply_type_subst(inner, subst))),
-        Type::CallableTrait(callable) => Type::CallableTrait(CallableTraitType {
-            qualifier: callable.qualifier.clone(),
-            trait_name: callable.trait_name.clone(),
-            args: callable
-                .args
-                .iter()
-                .map(|arg| apply_type_subst(arg, subst))
-                .collect(),
-            return_type: Box::new(apply_type_subst(&callable.return_type, subst)),
-        }),
-        Type::Path(_) | Type::Unit | Type::Never => ty.clone(),
-    }
-}
-
 fn generic_names_in_type(ty: &Type, out: &mut HashSet<String>) {
     match ty {
         Type::Named(name) => {
@@ -3131,22 +2871,6 @@ fn generic_names_in_type(ty: &Type, out: &mut HashSet<String>) {
             generic_names_in_type(&callable.return_type, out);
         }
     }
-}
-
-fn is_binding_ident(input: &str) -> bool {
-    let mut chars = input.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-
-    (first == '_' || first.is_ascii_alphabetic())
-        && input != "_"
-        && !is_reserved_pattern_word(input)
-        && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
-}
-
-fn is_reserved_pattern_word(input: &str) -> bool {
-    matches!(input, "box" | "false" | "mut" | "ref" | "self" | "true")
 }
 
 fn block_is_unsuffixed_integer(block: &Block) -> bool {
@@ -3180,121 +2904,6 @@ fn expr_is_unsuffixed_integer(expr: &Expr) -> bool {
 
 fn binary_op_returns_bool(op: &str) -> bool {
     matches!(op, "==" | "!=" | "<" | "<=" | ">" | ">=" | "&&" | "||")
-}
-
-fn strip_prefix_word<'a>(input: &'a str, word: &str) -> Option<&'a str> {
-    let rest = input.strip_prefix(word)?;
-    if rest.starts_with(char::is_whitespace) {
-        Some(rest.trim_start())
-    } else {
-        None
-    }
-}
-
-fn strip_binding_modifiers(mut input: &str) -> &str {
-    loop {
-        let trimmed = input.trim_start();
-        if let Some(rest) = strip_prefix_word(trimmed, "ref") {
-            input = rest;
-        } else if let Some(rest) = strip_prefix_word(trimmed, "mut") {
-            input = rest;
-        } else {
-            return trimmed;
-        }
-    }
-}
-
-fn outer_parens_inner(input: &str) -> Option<&str> {
-    if !input.starts_with('(') || !input.ends_with(')') {
-        return None;
-    }
-
-    let mut depth = 0usize;
-    for (idx, ch) in input.char_indices() {
-        match ch {
-            '(' => depth += 1,
-            ')' => {
-                depth = depth.checked_sub(1)?;
-                if depth == 0 && idx != input.len() - 1 {
-                    return None;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    if depth == 0 {
-        input.strip_prefix('(')?.strip_suffix(')')
-    } else {
-        None
-    }
-}
-
-fn split_constructor_pattern(input: &str) -> Option<(&str, Vec<String>)> {
-    let mut depth = 0usize;
-    let mut start = None;
-
-    for (idx, ch) in input.char_indices() {
-        match ch {
-            '(' => {
-                if depth == 0 {
-                    start = Some(idx);
-                }
-                depth += 1;
-            }
-            ')' => {
-                depth = depth.checked_sub(1)?;
-                if depth == 0 && idx != input.len() - 1 {
-                    return None;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    if depth != 0 {
-        return None;
-    }
-
-    let start = start?;
-    let constructor = input[..start].trim();
-    if constructor.is_empty() {
-        return None;
-    }
-
-    let inner = input[start + 1..input.len() - 1].trim();
-    Some((constructor, split_top_level_commas(inner)))
-}
-
-fn split_top_level_commas(input: &str) -> Vec<String> {
-    let mut parts = Vec::new();
-    let mut start = 0usize;
-    let mut paren_depth = 0usize;
-    let mut bracket_depth = 0usize;
-    let mut brace_depth = 0usize;
-
-    for (idx, ch) in input.char_indices() {
-        match ch {
-            '(' => paren_depth += 1,
-            ')' => paren_depth = paren_depth.saturating_sub(1),
-            '[' => bracket_depth += 1,
-            ']' => bracket_depth = bracket_depth.saturating_sub(1),
-            '{' => brace_depth += 1,
-            '}' => brace_depth = brace_depth.saturating_sub(1),
-            ',' if paren_depth == 0 && bracket_depth == 0 && brace_depth == 0 => {
-                parts.push(input[start..idx].trim().to_string());
-                start = idx + ch.len_utf8();
-            }
-            _ => {}
-        }
-    }
-
-    let last = input[start..].trim();
-    if !last.is_empty() {
-        parts.push(last.to_string());
-    }
-
-    parts
 }
 
 /// Structural match of a formal type against an actual type.
@@ -3338,33 +2947,6 @@ fn unify_type(
         Type::Unit => matches!(actual, Type::Unit),
         Type::Never => matches!(actual, Type::Never),
         _ => types_equal(formal, actual),
-    }
-}
-
-fn types_equal(a: &Type, b: &Type) -> bool {
-    match (a, b) {
-        (Type::Named(n1), Type::Named(n2)) => n1 == n2,
-        (Type::Generic(n1, p1), Type::Generic(n2, p2)) => {
-            n1 == n2 && p1.len() == p2.len() && p1.iter().zip(p2).all(|(x, y)| types_equal(x, y))
-        }
-        (Type::Tuple(t1), Type::Tuple(t2)) => {
-            t1.len() == t2.len() && t1.iter().zip(t2).all(|(x, y)| types_equal(x, y))
-        }
-        (Type::Path(p1), Type::Path(p2)) => p1 == p2,
-        (Type::Reference(t1, r1, m1), Type::Reference(t2, r2, m2)) => {
-            r1 == r2 && m1 == m2 && types_equal(t1, t2)
-        }
-        (Type::CallableTrait(c1), Type::CallableTrait(c2)) => {
-            std::mem::discriminant(&c1.qualifier) == std::mem::discriminant(&c2.qualifier)
-                && c1.trait_name == c2.trait_name
-                && c1.args.len() == c2.args.len()
-                && c1.args.iter().zip(&c2.args).all(|(x, y)| types_equal(x, y))
-                && types_equal(&c1.return_type, &c2.return_type)
-        }
-        (Type::Slice(t1), Type::Slice(t2)) => types_equal(t1, t2),
-        (Type::Array(t1, n1), Type::Array(t2, n2)) => n1 == n2 && types_equal(t1, t2),
-        (Type::Unit, Type::Unit) | (Type::Never, Type::Never) => true,
-        _ => false,
     }
 }
 

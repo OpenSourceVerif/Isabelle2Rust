@@ -9,11 +9,13 @@ use syn::{
     TypeSlice, TypeTraitObject, TypeTuple, Visibility as SynVisibility,
 };
 
+#[cfg(test)]
+use rustlightast::RustCodeGenerator;
 use rustlightast::{
     Attribute, AttributeArg, Block, CallableTraitQualifier, CallableTraitType, ClosureParam,
     ConstDef, EnumDef, Expr, Field, FunctionDef, GenericParam, ImplBlock, ImplItem, Item, LetStmt,
-    Literal, MatchArm, Param, PathType, RustCodeGenerator, RustModule, Statement, StructDef, Type,
-    TypeAlias, UnionDef, UseKind, UseStatement, Variant, Visibility,
+    Literal, MatchArm, Param, PathType, RustModule, Statement, StructDef, Type, TypeAlias,
+    UnionDef, UseKind, UseStatement, Variant, Visibility,
 };
 
 pub const TYPE_FACT_ONLY_DOC: &str = "@isabelle2rust-type-fact-only";
@@ -97,6 +99,7 @@ fn convert_function_type_fact(item_fn: &syn::ItemFn) -> Option<FunctionDef> {
     })
 }
 
+#[cfg(test)]
 pub fn parse_and_print_rust_source(
     source: &str,
     module_name: impl Into<String>,

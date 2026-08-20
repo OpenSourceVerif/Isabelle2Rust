@@ -123,7 +123,3 @@ Generated Rust source
   -> Remaining structural cleanup
   -> optimized Rust source
 ```
-
-The standalone BigInt bit-operation lowering implementation and its unit tests remain
-available through the library API, but `cargo-opt` and the current evaluation
-pipeline do not invoke it.

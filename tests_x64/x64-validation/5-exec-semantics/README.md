@@ -32,9 +32,7 @@ Borrow, Last-Use, and Closure. Copy, Mut, and the remaining structural cleanup
 transformations stay enabled in every formal Stage-2 configuration.
 `--diagnostic` explicitly runs the additional minus-Copy and minus-Mut checks.
 
-The standalone BigInt bit-operation lowering implementation remains in the optimizer
-library, but the current optimization and evaluation pipelines do not invoke
-it. The remaining baselines are the fixed Isabelle OCaml export compiled with
+The remaining baselines are the fixed Isabelle OCaml export compiled with
 `ocamlopt` 4.11.2 and the existing ptrace-based native x64 execution method.
 
 Each benchmark process is pinned to logical CPU 0. Parsing, input conversion,

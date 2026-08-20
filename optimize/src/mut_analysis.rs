@@ -1,5 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
+use crate::utils::ast_queries::{
+    count_bindings_in_block as count_bindings_in_block_common,
+    count_ident_reads_in_expr as count_ident_reads_in_expr_common, AstQueryOptions,
+};
+use crate::utils::ast_rewrite::ensure_function_comment;
+use crate::utils::patterns::{closure_param_name, is_binding_ident};
 use rustlightast::*;
 
 /// Result of the mutability-inference pass.
@@ -372,201 +378,19 @@ fn is_confined(block: &Block, name: &str, limit: usize) -> bool {
 
 // ── Read counting and renaming ───────────────────────────────────────────────
 
-fn count_reads_in_block(block: &Block, name: &str) -> usize {
-    let mut count = 0;
-    for stmt in &block.stmts {
-        match stmt {
-            Statement::Let(let_stmt) => {
-                if let Some(init) = &let_stmt.init {
-                    count += count_reads_in_expr(init, name);
-                }
-            }
-            Statement::Expr(expr) => count += count_reads_in_expr(expr, name),
-            _ => {}
-        }
-    }
-    if let Some(tail) = &block.expr {
-        count += count_reads_in_expr(tail, name);
-    }
-    count
-}
-
 fn count_reads_in_expr(expr: &Expr, name: &str) -> usize {
-    match expr {
-        Expr::Ident(id) => usize::from(id == name),
-        Expr::Path(path, PathType::Member) => usize::from(path.first().is_some_and(|h| h == name)),
-        Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) | Expr::BuilderChain(_) => 0,
-        Expr::Call(callee, args) => {
-            count_reads_in_expr(callee, name)
-                + args
-                    .iter()
-                    .map(|a| count_reads_in_expr(a, name))
-                    .sum::<usize>()
-        }
-        Expr::MethodCall(receiver, _, args) => {
-            count_reads_in_expr(receiver, name)
-                + args
-                    .iter()
-                    .map(|a| count_reads_in_expr(a, name))
-                    .sum::<usize>()
-        }
-        Expr::Array(items) | Expr::Tuple(items) => {
-            items.iter().map(|i| count_reads_in_expr(i, name)).sum()
-        }
-        Expr::BinaryOp(l, _, r) | Expr::Index(l, r) | Expr::Assign(l, r) => {
-            count_reads_in_expr(l, name) + count_reads_in_expr(r, name)
-        }
-        Expr::UnaryOp(_, inner)
-        | Expr::Parenthesized(inner)
-        | Expr::Cast(inner, _)
-        | Expr::Reference(inner, _, _)
-        | Expr::Await(inner) => count_reads_in_expr(inner, name),
-        Expr::Closure(_, body, _) | Expr::TypedClosure(_, _, body, _) => {
-            count_reads_in_expr(body, name)
-        }
-        Expr::Block(block) => count_reads_in_block(block, name),
-        Expr::Loop(block) | Expr::Unsafe(block) => count_reads_in_block(block, name),
-        Expr::If {
-            condition,
-            then_branch,
-            else_branch,
-        } => {
-            count_reads_in_expr(condition, name)
-                + count_reads_in_block(then_branch, name)
-                + else_branch
-                    .as_ref()
-                    .map_or(0, |b| count_reads_in_block(b, name))
-        }
-        Expr::IfLet {
-            value,
-            then_branch,
-            else_branch,
-            ..
-        } => {
-            count_reads_in_expr(value, name)
-                + count_reads_in_block(then_branch, name)
-                + else_branch
-                    .as_ref()
-                    .map_or(0, |b| count_reads_in_block(b, name))
-        }
-        Expr::Match { expr, arms } => {
-            count_reads_in_expr(expr, name)
-                + arms
-                    .iter()
-                    .map(|arm| {
-                        arm.guard
-                            .as_ref()
-                            .map_or(0, |g| count_reads_in_expr(g, name))
-                            + count_reads_in_block(&arm.body, name)
-                    })
-                    .sum::<usize>()
-        }
-    }
+    count_ident_reads_in_expr_common(
+        expr,
+        name,
+        AstQueryOptions {
+            respect_bindings: false,
+            visit_builder_chains: false,
+        },
+    )
 }
 
-/// Count the binding occurrences of `name` within `block` (its own scope).  Used
-/// to reject chains whose name is shadowed, since renaming would then be unsafe.
 fn count_bindings_in_block(block: &Block, name: &str) -> usize {
-    let mut count = 0;
-    for stmt in &block.stmts {
-        match stmt {
-            Statement::Let(let_stmt) => {
-                if is_binding_ident(&let_stmt.name) && let_stmt.name == name {
-                    count += 1;
-                } else if pattern_binds_name(&let_stmt.name, name) {
-                    count += 1;
-                }
-                if let Some(init) = &let_stmt.init {
-                    count += count_bindings_in_expr(init, name);
-                }
-            }
-            Statement::Expr(expr) => count += count_bindings_in_expr(expr, name),
-            _ => {}
-        }
-    }
-    if let Some(tail) = &block.expr {
-        count += count_bindings_in_expr(tail, name);
-    }
-    count
-}
-
-fn count_bindings_in_expr(expr: &Expr, name: &str) -> usize {
-    match expr {
-        Expr::Block(block) => count_bindings_in_block(block, name),
-        Expr::Loop(block) | Expr::Unsafe(block) => count_bindings_in_block(block, name),
-        Expr::If {
-            condition,
-            then_branch,
-            else_branch,
-        } => {
-            count_bindings_in_expr(condition, name)
-                + count_bindings_in_block(then_branch, name)
-                + else_branch
-                    .as_ref()
-                    .map_or(0, |b| count_bindings_in_block(b, name))
-        }
-        Expr::IfLet {
-            pattern,
-            value,
-            then_branch,
-            else_branch,
-        } => {
-            usize::from(pattern_binds_name(pattern, name))
-                + count_bindings_in_expr(value, name)
-                + count_bindings_in_block(then_branch, name)
-                + else_branch
-                    .as_ref()
-                    .map_or(0, |b| count_bindings_in_block(b, name))
-        }
-        Expr::Match { expr, arms } => {
-            count_bindings_in_expr(expr, name)
-                + arms
-                    .iter()
-                    .map(|arm| {
-                        usize::from(pattern_binds_name(&arm.pattern, name))
-                            + arm
-                                .guard
-                                .as_ref()
-                                .map_or(0, |g| count_bindings_in_expr(g, name))
-                            + count_bindings_in_block(&arm.body, name)
-                    })
-                    .sum::<usize>()
-        }
-        Expr::Closure(params, body, _) | Expr::TypedClosure(params, _, body, _) => {
-            usize::from(params.iter().any(|p| closure_param_name(p) == name))
-                + count_bindings_in_expr(body, name)
-        }
-        Expr::Call(callee, args) => {
-            count_bindings_in_expr(callee, name)
-                + args
-                    .iter()
-                    .map(|a| count_bindings_in_expr(a, name))
-                    .sum::<usize>()
-        }
-        Expr::MethodCall(receiver, _, args) => {
-            count_bindings_in_expr(receiver, name)
-                + args
-                    .iter()
-                    .map(|a| count_bindings_in_expr(a, name))
-                    .sum::<usize>()
-        }
-        Expr::Array(items) | Expr::Tuple(items) => {
-            items.iter().map(|i| count_bindings_in_expr(i, name)).sum()
-        }
-        Expr::BinaryOp(l, _, r) | Expr::Index(l, r) | Expr::Assign(l, r) => {
-            count_bindings_in_expr(l, name) + count_bindings_in_expr(r, name)
-        }
-        Expr::UnaryOp(_, inner)
-        | Expr::Parenthesized(inner)
-        | Expr::Cast(inner, _)
-        | Expr::Reference(inner, _, _)
-        | Expr::Await(inner) => count_bindings_in_expr(inner, name),
-        Expr::Ident(_)
-        | Expr::Macro(_)
-        | Expr::Path(_, _)
-        | Expr::Literal(_)
-        | Expr::BuilderChain(_) => 0,
-    }
+    count_bindings_in_block_common(block, name, false)
 }
 
 /// Rename every *read* of a variable named in `map` to its mapped name, leaving
@@ -705,50 +529,6 @@ fn is_box_extraction_expr(expr: &Expr) -> bool {
         Expr::Parenthesized(inner) => is_box_extraction_expr(inner),
         _ => false,
     }
-}
-
-fn ensure_function_comment(function: &mut FunctionDef, comment: &str) {
-    if !function.docs.iter().any(|doc| doc.trim() == comment) {
-        function.docs.push(comment.to_string());
-    }
-}
-
-fn closure_param_name(param: &ClosureParam) -> String {
-    param.pattern.trim_start_matches("mut ").trim().to_string()
-}
-
-fn is_binding_ident(input: &str) -> bool {
-    let mut chars = input.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    (first == '_' || first.is_ascii_alphabetic())
-        && input != "_"
-        && !is_reserved_pattern_word(input)
-        && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
-}
-
-fn is_reserved_pattern_word(input: &str) -> bool {
-    matches!(input, "box" | "false" | "mut" | "ref" | "self" | "true")
-}
-
-/// Whether the (string) pattern binds a variable called `name`.
-fn pattern_binds_name(pattern: &str, name: &str) -> bool {
-    if !is_binding_ident(name) {
-        return false;
-    }
-    let mut token = String::new();
-    for ch in pattern.chars() {
-        if ch == '_' || ch.is_ascii_alphanumeric() {
-            token.push(ch);
-        } else {
-            if token == name {
-                return true;
-            }
-            token.clear();
-        }
-    }
-    token == name
 }
 
 #[cfg(test)]

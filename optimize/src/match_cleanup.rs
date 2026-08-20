@@ -1,5 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
+use crate::utils::names::{collect_imports, resolve_name_path, resolve_segments};
+use crate::utils::patterns::{outer_parens_inner, split_top_level_commas, strip_prefix_word};
+use crate::utils::types::{function_type_env, TypeEnv};
 use rustlightast::*;
 
 /// Result of the match-cleanup pass.
@@ -12,8 +15,6 @@ pub struct MatchOptAnalysis {
     /// Fused adjacent constructor matches with the same generated panic fallback.
     pub fused_nested_matches: usize,
 }
-
-type TypeEnv = HashMap<String, Type>;
 
 /// Closed-world facts for external Rust types whose definitions are not part
 /// of the generated crate and therefore cannot be collected from RustLightAST.
@@ -120,51 +121,11 @@ struct MatchScope<'a> {
 
 impl MatchScope<'_> {
     fn resolve_name_path(&self, name: &str) -> Vec<String> {
-        if let Some(path) = self.imports.get(name) {
-            return path.clone();
-        }
-
-        let mut path = self.module_path.clone();
-        path.push(name.to_string());
-        path
+        resolve_name_path(&self.module_path, &self.imports, name)
     }
 
     fn resolve_segments(&self, segments: &[String]) -> Vec<String> {
-        let Some((first, rest)) = segments.split_first() else {
-            return Vec::new();
-        };
-
-        match first.as_str() {
-            "crate" => segments.to_vec(),
-            "self" => {
-                let mut path = self.module_path.clone();
-                path.extend(rest.iter().cloned());
-                path
-            }
-            "super" => {
-                let mut path = self.module_path.clone();
-                let mut remaining = segments;
-                while matches!(remaining.first().map(String::as_str), Some("super")) {
-                    path.pop();
-                    remaining = &remaining[1..];
-                }
-                path.extend(remaining.iter().cloned());
-                path
-            }
-            _ => {
-                if let Some(imported) = self.imports.get(first) {
-                    let mut path = imported.clone();
-                    path.extend(rest.iter().cloned());
-                    path
-                } else if segments.len() == 1 {
-                    self.resolve_name_path(first)
-                } else {
-                    let mut path = vec!["crate".to_string()];
-                    path.extend(segments.iter().cloned());
-                    path
-                }
-            }
-        }
+        resolve_segments(&self.module_path, &self.imports, segments)
     }
 
     fn resolve_type_path(&self, ty: &Type) -> Option<Vec<String>> {
@@ -214,6 +175,7 @@ enum CoverageCase {
 
 /// Clean match artifacts left by the conservative stage-1 printer and earlier
 /// ownership passes.
+#[cfg(test)]
 pub fn optimize_match(module: &mut RustModule) -> MatchOptAnalysis {
     let module_path = vec!["crate".to_string(), module.name.clone()];
     let mut context = MatchTypeContext::default();
@@ -1214,58 +1176,6 @@ fn count_nonexhaustive_panics_in_expr(expr: &Expr) -> usize {
     }
 }
 
-fn collect_imports(items: &[Item]) -> HashMap<String, Vec<String>> {
-    let mut imports = HashMap::new();
-    for item in items {
-        if let Item::Use(use_stmt) = item {
-            collect_import(&mut imports, use_stmt);
-        }
-    }
-    imports
-}
-
-fn collect_import(imports: &mut HashMap<String, Vec<String>>, use_stmt: &UseStatement) {
-    match &use_stmt.kind {
-        UseKind::Simple => {
-            if let Some((source, local)) = imported_leaf(use_stmt.path.last()) {
-                let mut path = use_stmt.path.clone();
-                if let Some(last) = path.last_mut() {
-                    *last = source;
-                }
-                imports.insert(local, path);
-            }
-        }
-        UseKind::Nested(items) => {
-            for item in items {
-                if let Some((source, local)) = imported_leaf(Some(item)) {
-                    let mut path = use_stmt.path.clone();
-                    path.push(source);
-                    imports.insert(local, path);
-                }
-            }
-        }
-        UseKind::Glob => {}
-    }
-}
-
-fn imported_leaf(leaf: Option<&String>) -> Option<(String, String)> {
-    let leaf = leaf?.trim();
-    if let Some((source, local)) = leaf.split_once(" as ") {
-        Some((source.trim().to_string(), local.trim().to_string()))
-    } else {
-        Some((leaf.to_string(), leaf.to_string()))
-    }
-}
-
-fn function_type_env(function: &FunctionDef) -> TypeEnv {
-    function
-        .params
-        .iter()
-        .filter(|param| !param.name.is_empty())
-        .map(|param| (param.name.clone(), param.ty.clone()))
-        .collect()
-}
-
 fn bind_pattern_env(pattern: &str, ty: &Type, env: &mut TypeEnv, scope: &MatchScope) {
     let pattern = strip_pattern_modifiers(pattern.trim());
     if pattern.is_empty() || pattern == "_" || pattern == ".." {
@@ -1475,56 +1385,6 @@ fn split_constructor_path(constructor: &str) -> (Option<Vec<String>>, &str) {
     }
 }
 
-fn outer_parens_inner(pattern: &str) -> Option<&str> {
-    let pattern = pattern.trim();
-    if !(pattern.starts_with('(') && pattern.ends_with(')')) {
-        return None;
-    }
-
-    let mut depth = 0;
-    for (idx, ch) in pattern.char_indices() {
-        match ch {
-            '(' => depth += 1,
-            ')' => {
-                depth -= 1;
-                if depth == 0 && idx != pattern.len() - 1 {
-                    return None;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    (depth == 0).then_some(&pattern[1..pattern.len() - 1])
-}
-
-fn split_top_level_commas(input: &str) -> Vec<String> {
-    let mut parts = Vec::new();
-    let mut start = 0;
-    let mut depth = 0;
-
-    for (idx, ch) in input.char_indices() {
-        match ch {
-            '(' | '[' | '{' => depth += 1,
-            ')' | ']' | '}' => depth -= 1,
-            ',' if depth == 0 => {
-                parts.push(input[start..idx].trim().to_string());
-                start = idx + ch.len_utf8();
-            }
-            _ => {}
-        }
-    }
-
-    if start <= input.len() {
-        let tail = input[start..].trim();
-        if !tail.is_empty() {
-            parts.push(tail.to_string());
-        }
-    }
-
-    parts
-}
-
 fn first_top_level_paren(input: &str) -> Option<usize> {
     let mut angle_depth = 0;
     for (idx, ch) in input.char_indices() {
@@ -1544,13 +1404,6 @@ fn matching_paren_inner(input: &str) -> Option<&str> {
         return None;
     }
     outer_parens_inner(input)
-}
-
-fn strip_prefix_word<'a>(input: &'a str, word: &str) -> Option<&'a str> {
-    input
-        .strip_prefix(word)
-        .filter(|rest| rest.starts_with(char::is_whitespace))
-        .map(str::trim_start)
 }
 
 fn starts_with_variant_case(pattern: &str) -> bool {

@@ -7,6 +7,19 @@ use crate::rustlight_parser::TYPE_FACT_ONLY_DOC;
 use crate::last_use_analysis::{
     rewrite_last_use_clones_in_function, rewrite_last_use_clones_in_owned_expr,
 };
+use crate::utils::ast_queries::strip_parens;
+use crate::utils::ast_rewrite::{ensure_function_comment, substitute_idents};
+use crate::utils::names::{collect_imports, resolve_name_path, resolve_segments};
+use crate::utils::patterns::{
+    bind_pattern_types, closure_param_name, is_binding_ident, outer_parens_inner,
+    pattern_binds_name, split_constructor_pattern, split_top_level_commas, strip_binding_modifiers,
+};
+use crate::utils::types::{
+    apply_type_subst, callable_return_type, explicit_identity_return_type, function_type_env,
+    generic_names_with_bound, infer_block_type as infer_block_type_common, is_reference_type,
+    strip_path_segment_generics, type_is_copy_trait, type_name_leaf, type_substitution,
+    types_equal as same_type, TypeEnv,
+};
 
 /// Result of the borrow-analysis pass.
 #[derive(Debug, Clone, Default)]
@@ -14,10 +27,6 @@ pub struct BorrowAnalysis {
     /// Names of functions whose parameters were rewritten to shared borrows.
     pub borrow_fns: HashSet<String>,
 }
-
-// ── Type-level helpers (mirrored from copy_analysis) ─────────────────────────
-
-type TypeEnv = HashMap<String, Type>;
 
 /// Type of a variable after in-place borrow rewriting.
 ///
@@ -100,13 +109,7 @@ impl<'a> DemandSite<'a> {
 
 impl ModuleScope {
     fn resolve_name_path(&self, name: &str) -> Vec<String> {
-        if let Some(path) = self.imports.get(name) {
-            return path.clone();
-        }
-
-        let mut path = self.module_path.clone();
-        path.push(name.to_string());
-        path
+        resolve_name_path(&self.module_path, &self.imports, name)
     }
 
     fn resolve_segments(&self, segments: &[String]) -> Vec<String> {
@@ -114,48 +117,12 @@ impl ModuleScope {
             .iter()
             .map(|segment| strip_path_segment_generics(segment).to_string())
             .collect::<Vec<_>>();
-        let Some((first, rest)) = normalized.split_first() else {
-            return Vec::new();
-        };
-
-        match first.as_str() {
-            "crate" => normalized,
-            "self" => {
-                let mut path = self.module_path.clone();
-                path.extend(rest.iter().cloned());
-                path
-            }
-            "super" => {
-                let mut path = self.module_path.clone();
-                let mut remaining = normalized.as_slice();
-                while matches!(remaining.first().map(String::as_str), Some("super")) {
-                    path.pop();
-                    remaining = &remaining[1..];
-                }
-                path.extend(remaining.iter().cloned());
-                path
-            }
-            _ => {
-                if let Some(imported) = self.imports.get(first) {
-                    let mut path = imported.clone();
-                    path.extend(rest.iter().cloned());
-                    path
-                } else if normalized.len() == 1 {
-                    self.resolve_name_path(first)
-                } else {
-                    let mut path = vec!["crate".to_string()];
-                    path.extend(normalized);
-                    path
-                }
-            }
-        }
+        resolve_segments(&self.module_path, &self.imports, &normalized)
     }
 }
 
 #[derive(Debug, Clone)]
 struct FieldInfo {
-    #[allow(dead_code)]
-    name: String,
     ty: Type,
 }
 
@@ -423,6 +390,7 @@ struct BorrowContext {
 /// Borrow use newly materialized Copy facts. A Copy-pass ablation supplies an
 /// empty set. Source derives, explicit implementations, and primitive scalar
 /// facts are collected independently and remain available under `-Copy`.
+#[cfg(test)]
 pub fn optimize_borrow(
     module: &mut RustModule,
     inferred_copy_types: &HashSet<String>,
@@ -435,6 +403,7 @@ pub fn optimize_borrow(
 ///
 /// B-Call consults `Borrow(g)` at call sites, so callee summaries must be
 /// computed across module boundaries before any body rewrite starts.
+#[cfg(test)]
 pub fn optimize_borrow_modules(
     modules: &mut [&mut RustModule],
     inferred_copy_types: &HashSet<String>,
@@ -593,10 +562,7 @@ impl BorrowContext {
                         kind: TypeDefKind::Struct(
                             def.fields
                                 .iter()
-                                .map(|f| FieldInfo {
-                                    name: f.name.clone(),
-                                    ty: f.ty.clone(),
-                                })
+                                .map(|f| FieldInfo { ty: f.ty.clone() })
                                 .collect(),
                         ),
                     },
@@ -739,11 +705,10 @@ impl BorrowContext {
     }
 
     fn candidate_borrow_positions(&self, f: &FunctionDef) -> Vec<usize> {
-        let copy_generics = generic_names_with_bound(f, "Copy");
         f.params
             .iter()
             .enumerate()
-            .filter(|(_, param)| self.is_borrow_candidate_type(&param.ty, &copy_generics))
+            .filter(|(_, param)| self.is_borrow_candidate_type(&param.ty))
             .map(|(i, _)| i)
             .collect()
     }
@@ -765,7 +730,7 @@ impl BorrowContext {
             .enumerate()
             .filter(|(_, param)| {
                 // Only consider owned (non-reference) parameters.
-                self.is_borrow_candidate_type(&param.ty, &copy_generics)
+                self.is_borrow_candidate_type(&param.ty)
                     && self.is_param_borrowable(
                         f,
                         &last_use_view,
@@ -779,19 +744,15 @@ impl BorrowContext {
             .collect()
     }
 
-    fn is_borrow_candidate_type(&self, ty: &Type, copy_generics: &HashSet<String>) -> bool {
+    fn is_borrow_candidate_type(&self, ty: &Type) -> bool {
         if is_reference_type(ty) || contains_callable_trait(ty) {
             return false;
         }
 
         match ty {
             Type::Named(_) | Type::Path(_) | Type::Generic(_, _) => true,
-            Type::Tuple(types) => types
-                .iter()
-                .any(|ty| self.is_borrow_candidate_type(ty, copy_generics)),
-            Type::Slice(inner) | Type::Array(inner, _) => {
-                self.is_borrow_candidate_type(inner, copy_generics)
-            }
+            Type::Tuple(types) => types.iter().any(|ty| self.is_borrow_candidate_type(ty)),
+            Type::Slice(inner) | Type::Array(inner, _) => self.is_borrow_candidate_type(inner),
             Type::CallableTrait(_) | Type::Reference(_, _, _) | Type::Unit | Type::Never => false,
         }
     }
@@ -877,11 +838,35 @@ impl BorrowContext {
         for stmt in &block.stmts {
             match stmt {
                 Statement::Let(let_stmt) => {
+                    let inferred_ty = let_stmt.ty.clone().or_else(|| {
+                        let_stmt
+                            .init
+                            .as_ref()
+                            .and_then(|e| self.infer_type(e, env, scope))
+                    });
                     let derived_alias = if let_stmt.ty.is_none() {
                         let_stmt
                             .init
                             .as_ref()
                             .and_then(|init| supported_let_alias_origin(init, &local_derived, env))
+                    } else {
+                        None
+                    };
+                    // A plain Rust destructuring `let` is legal only for an
+                    // irrefutable pattern.  Treat it as the same observational
+                    // decomposition as a one-arm match: the initializer itself
+                    // need not be materialized, and ownership demands arise
+                    // from the subsequent uses of the bound fields.
+                    let irrefutable_pattern_origin = if !is_binding_ident(&let_stmt.name) {
+                        inferred_ty.as_ref().and_then(|ty| {
+                            self.is_irrefutable_pattern(&let_stmt.name, ty, scope)
+                                .then(|| {
+                                    let_stmt.init.as_ref().and_then(|init| {
+                                        derived_borrow_alias_origin(init, &local_derived)
+                                    })
+                                })
+                                .flatten()
+                        })
                     } else {
                         None
                     };
@@ -903,7 +888,9 @@ impl BorrowContext {
                             // borrowed temporary or an escaping reference.
                             demands.insert(Demand::Unk);
                         }
-                        if derived_alias.is_none() || !is_binding_ident(&let_stmt.name) {
+                        if irrefutable_pattern_origin.is_some() {
+                            demands.insert(Demand::Obs);
+                        } else if derived_alias.is_none() || !is_binding_ident(&let_stmt.name) {
                             // General initializers materialize an owned binding.
                             // Supported untyped aliases are preserved as shared
                             // values; other initializers materialize ownership.
@@ -918,17 +905,9 @@ impl BorrowContext {
                         }
                     }
                     // Update env for subsequent statements.
-                    let inferred_ty = let_stmt.ty.clone().or_else(|| {
-                        let_stmt
-                            .init
-                            .as_ref()
-                            .and_then(|e| self.infer_type(e, env, scope))
-                    });
-                    if let Some(ty) = inferred_ty {
+                    if let Some(ty) = &inferred_ty {
                         if is_binding_ident(&let_stmt.name) {
-                            // Supported aliases propagate the origin so their
-                            // eventual use determines the demand.
-                            env.insert(let_stmt.name.clone(), ty);
+                            env.insert(let_stmt.name.clone(), ty.clone());
                         } else {
                             self.bind_pattern_env(&let_stmt.name, &ty, env, scope);
                         }
@@ -937,6 +916,22 @@ impl BorrowContext {
                         local_derived.remove(&let_stmt.name);
                         if let Some(origin) = derived_alias {
                             local_derived.insert(let_stmt.name.clone(), origin);
+                        }
+                    } else {
+                        let mut bindings = HashSet::new();
+                        collect_pattern_binding_names(&let_stmt.name, &mut bindings);
+                        for binding in bindings {
+                            local_derived.remove(&binding);
+                        }
+                        if let (Some(ty), Some(origin)) = (&inferred_ty, irrefutable_pattern_origin)
+                        {
+                            self.collect_derived_from_pattern(
+                                &let_stmt.name,
+                                ty,
+                                origin,
+                                &mut local_derived,
+                                scope,
+                            );
                         }
                     }
                 }
@@ -2246,6 +2241,12 @@ impl BorrowContext {
         for (stmt_idx, stmt) in block.stmts.iter().enumerate() {
             match stmt {
                 Statement::Let(let_stmt) => {
+                    let original_ty = let_stmt.ty.clone().or_else(|| {
+                        let_stmt
+                            .init
+                            .as_ref()
+                            .and_then(|e| self.infer_type(e, &local_orig, scope))
+                    });
                     // B-Closure: try to eliminate the owncap wrapper before
                     // falling through to the general own-rewrite.
                     // The binding must be used only as a local direct callee;
@@ -2275,8 +2276,29 @@ impl BorrowContext {
                     } else {
                         None
                     };
+                    let borrowed_pattern =
+                        if bclosure.is_none() && !is_binding_ident(&let_stmt.name) {
+                            original_ty.as_ref().and_then(|ty| {
+                                if !self.is_irrefutable_pattern(&let_stmt.name, ty, scope) {
+                                    return None;
+                                }
+                                let init = let_stmt.init.as_ref()?;
+                                let (rewritten, mode) = self.rewrite_tuple_match_component(
+                                    init,
+                                    borrow_env,
+                                    &local_orig,
+                                    copy_generics,
+                                    scope,
+                                )?;
+                                mode.has_borrowed_component().then_some((rewritten, mode))
+                            })
+                        } else {
+                            None
+                        };
                     let new_init = if let Some(closure_expr) = bclosure {
                         Some(closure_expr)
+                    } else if let Some((pattern_expr, _)) = &borrowed_pattern {
+                        Some(pattern_expr.clone())
                     } else if let Some((alias_expr, _)) = &borrowed_alias {
                         Some(alias_expr.clone())
                     } else {
@@ -2291,12 +2313,7 @@ impl BorrowContext {
                         })
                     };
                     // Update environments.
-                    if let Some(ty) = let_stmt.ty.clone().or_else(|| {
-                        let_stmt
-                            .init
-                            .as_ref()
-                            .and_then(|e| self.infer_type(e, &local_orig, scope))
-                    }) {
+                    if let Some(ty) = original_ty {
                         if is_binding_ident(&let_stmt.name) {
                             local_orig.insert(let_stmt.name.clone(), ty.clone());
                             if let Some((_, borrow_ty)) = &borrowed_alias {
@@ -2306,12 +2323,16 @@ impl BorrowContext {
                             }
                         } else {
                             self.bind_pattern_env(&let_stmt.name, &ty, &mut local_orig, scope);
-                            self.bind_pattern_env_for_borrow(
-                                &let_stmt.name,
-                                &ty,
-                                borrow_env,
-                                scope,
-                            );
+                            if let Some((_, mode)) = &borrowed_pattern {
+                                self.bind_pattern_env_for_match_mode(
+                                    &let_stmt.name,
+                                    mode,
+                                    borrow_env,
+                                    scope,
+                                );
+                            } else {
+                                self.bind_pattern_env(&let_stmt.name, &ty, borrow_env, scope);
+                            }
                         }
                     }
                     stmts.push(Statement::Let(LetStmt {
@@ -2720,12 +2741,7 @@ impl BorrowContext {
                             // Non-borrowed scrutinee: pattern unchanged.
                             if let Some(ty) = self.infer_type(scrutinee, orig_env, scope) {
                                 self.bind_pattern_env(&arm.pattern, &ty, &mut arm_orig, scope);
-                                self.bind_pattern_env_for_borrow(
-                                    &arm.pattern,
-                                    &ty,
-                                    &mut arm_borrow,
-                                    scope,
-                                );
+                                self.bind_pattern_env(&arm.pattern, &ty, &mut arm_borrow, scope);
                             }
                             new_pattern = arm.pattern.clone();
                         }
@@ -3094,54 +3110,9 @@ impl BorrowContext {
         env: &mut TypeEnv,
         scope: &ModuleScope,
     ) {
-        let pattern = pattern.trim();
-        if pattern.is_empty() || pattern == "_" || pattern == ".." {
-            return;
-        }
-
-        let pattern = strip_binding_modifiers(pattern);
-
-        if let Some(inner) = outer_parens_inner(pattern) {
-            let parts = split_top_level_commas(inner);
-            if parts.len() > 1 {
-                if let Type::Tuple(types) = expected {
-                    for (p, t) in parts.iter().zip(types) {
-                        self.bind_pattern_env(p, t, env, scope);
-                    }
-                }
-                return;
-            }
-        }
-
-        if let Some((constructor, args)) = split_constructor_pattern(pattern) {
-            if let Some(field_types) = self.pattern_field_types(constructor, expected, scope) {
-                for (arg, ty) in args.iter().zip(field_types.iter()) {
-                    self.bind_pattern_env(arg, ty, env, scope);
-                }
-            }
-            return;
-        }
-
-        if pattern.contains("::") || matches!(pattern, "true" | "false") {
-            return;
-        }
-
-        if is_binding_ident(pattern) {
-            env.insert(pattern.to_string(), expected.clone());
-        }
-    }
-
-    /// Like `bind_pattern_env` but for a BorrowEnv: each bound variable gets
-    /// the same type as in the normal env (no reference wrapping).  Used for
-    /// non-borrowed scrutinees.
-    fn bind_pattern_env_for_borrow(
-        &self,
-        pattern: &str,
-        expected: &Type,
-        env: &mut BorrowEnv,
-        scope: &ModuleScope,
-    ) {
-        self.bind_pattern_env(pattern, expected, env, scope);
+        bind_pattern_types(pattern, expected, env, &mut |constructor, expected| {
+            self.pattern_field_types(constructor, expected, scope)
+        });
     }
 
     /// Bind one pattern using the component-wise modes selected for a tuple
@@ -3157,7 +3128,7 @@ impl BorrowContext {
     ) {
         match mode {
             MatchBindingMode::Owned(ty) => {
-                self.bind_pattern_env_for_borrow(pattern, ty, env, scope);
+                self.bind_pattern_env(pattern, ty, env, scope);
             }
             MatchBindingMode::Borrowed(inner_ty) => {
                 self.bind_pattern_env_for_borrow_match(pattern, inner_ty, env, scope);
@@ -3271,7 +3242,7 @@ impl BorrowContext {
             }
             Expr::Call(callee, _) => self
                 .infer_type(callee, env, scope)
-                .and_then(|ty| self.callable_return_type(&ty))
+                .and_then(|ty| callable_return_type(&ty))
                 .or_else(|| explicit_identity_return_type(callee))
                 .or_else(|| {
                     match callee.as_ref() {
@@ -3344,41 +3315,89 @@ impl BorrowContext {
     }
 
     fn infer_block_type(&self, block: &Block, env: &TypeEnv, scope: &ModuleScope) -> Option<Type> {
-        let mut block_env = env.clone();
-        for stmt in &block.stmts {
-            let Statement::Let(let_stmt) = stmt else {
-                continue;
-            };
-            let inferred_ty = let_stmt.ty.clone().or_else(|| {
-                let_stmt
-                    .init
-                    .as_ref()
-                    .and_then(|init| self.infer_type(init, &block_env, scope))
-            });
-            if let Some(ty) = inferred_ty {
-                if is_binding_ident(&let_stmt.name) {
-                    block_env.insert(let_stmt.name.clone(), ty);
-                } else {
-                    self.bind_pattern_env(&let_stmt.name, &ty, &mut block_env, scope);
-                }
-            }
-        }
-        block
-            .expr
-            .as_ref()
-            .and_then(|expr| self.infer_type(expr, &block_env, scope))
+        infer_block_type_common(
+            block,
+            env,
+            |expr, env| self.infer_type(expr, env, scope),
+            |pattern, ty, env| self.bind_pattern_env(pattern, ty, env, scope),
+            |_, _| {},
+        )
     }
 
-    fn callable_return_type(&self, ty: &Type) -> Option<Type> {
-        match ty {
-            Type::CallableTrait(callable) => Some(callable.return_type.as_ref().clone()),
-            Type::Generic(name, params)
-                if matches!(type_name_leaf(name), "Rc" | "Arc" | "Box") && params.len() == 1 =>
-            {
-                self.callable_return_type(&params[0])
+    /// Whether `pattern` succeeds for every value of `expected`.
+    ///
+    /// The generated stable-Rust surface uses destructuring `let` for tuples,
+    /// tuple structs, and single-variant enums.  Only those structurally proven
+    /// forms share B-Match's borrowed-decomposition machinery; unknown and
+    /// genuinely refutable patterns remain on the conservative owned path.
+    fn is_irrefutable_pattern(&self, pattern: &str, expected: &Type, scope: &ModuleScope) -> bool {
+        let pattern = strip_binding_modifiers(pattern.trim());
+        if pattern.is_empty() {
+            return false;
+        }
+        if pattern == "_" || pattern == ".." || is_binding_ident(pattern) {
+            return true;
+        }
+
+        if let Some(inner) = outer_parens_inner(pattern) {
+            let parts = split_top_level_commas(inner);
+            if parts.is_empty() {
+                return matches!(expected, Type::Unit);
             }
-            Type::Reference(inner, _, _) => self.callable_return_type(inner),
-            _ => None,
+            if let Type::Tuple(types) = expected {
+                return parts.len() == types.len()
+                    && parts
+                        .iter()
+                        .zip(types)
+                        .all(|(part, ty)| self.is_irrefutable_pattern(part, ty, scope));
+            }
+            return parts.len() == 1 && self.is_irrefutable_pattern(&parts[0], expected, scope);
+        }
+
+        if let Some((constructor, args)) = split_constructor_pattern(pattern) {
+            let Some(field_types) =
+                self.irrefutable_constructor_field_types(constructor, expected, scope)
+            else {
+                return false;
+            };
+            return args.len() == field_types.len()
+                && args
+                    .iter()
+                    .zip(&field_types)
+                    .all(|(arg, ty)| self.is_irrefutable_pattern(arg, ty, scope));
+        }
+
+        self.irrefutable_constructor_field_types(pattern, expected, scope)
+            .is_some_and(|fields| fields.is_empty())
+    }
+
+    fn irrefutable_constructor_field_types(
+        &self,
+        constructor: &str,
+        expected: &Type,
+        scope: &ModuleScope,
+    ) -> Option<Vec<Type>> {
+        let variant_name = constructor
+            .rsplit("::")
+            .next()
+            .unwrap_or(constructor)
+            .trim();
+        if variant_name == "PhantomData" {
+            return Some(Vec::new());
+        }
+
+        let type_id = self.type_id_for_type(expected, scope)?;
+        let def = self.type_defs.get(&type_id)?;
+        match &def.kind {
+            TypeDefKind::Enum(variants)
+                if variants.len() == 1 && variants[0].name == variant_name =>
+            {
+                self.pattern_field_types(constructor, expected, scope)
+            }
+            TypeDefKind::Struct(_) if type_id.last().is_some_and(|name| name == variant_name) => {
+                self.pattern_field_types(constructor, expected, scope)
+            }
+            TypeDefKind::Enum(_) | TypeDefKind::Struct(_) => None,
         }
     }
 
@@ -3400,7 +3419,7 @@ impl BorrowContext {
 
         if let Some(type_id) = self.type_id_for_type(ty, scope) {
             if let Some(def) = self.type_defs.get(&type_id) {
-                let subst = type_substitution(def, ty);
+                let subst = type_substitution(&def.generics, ty);
                 match &def.kind {
                     TypeDefKind::Enum(variants) => {
                         if let Some(v) = variants.iter().find(|v| v.name == variant_name) {
@@ -3844,7 +3863,7 @@ impl BorrowContext {
             return None;
         }
         let result = self.type_defs.get(&type_id).and_then(|def| {
-            let subst = type_substitution(def, instantiated);
+            let subst = type_substitution(&def.generics, instantiated);
             match &def.kind {
                 TypeDefKind::Struct(fields) => sum_estimated_words(fields.iter().map(|field| {
                     let ty = self.instantiate_declared_type(def, &field.ty, &subst);
@@ -3966,11 +3985,11 @@ impl BorrowContext {
         }
 
         // All captures are borrowable.  Build substitution: y_cap → y.
-        let subst: HashMap<String, String> = captures
+        let subst: HashMap<String, Expr> = captures
             .iter()
-            .map(|(cap, orig)| (cap.clone(), orig.clone()))
+            .map(|(cap, orig)| (cap.clone(), Expr::Ident(orig.clone())))
             .collect();
-        let rewritten_body = subst_idents_in_expr(body, &subst);
+        let rewritten_body = substitute_idents(body, &subst);
 
         // Return a non-move closure — the body now references the outer
         // variables directly and Rust will capture them by shared reference.
@@ -3999,12 +4018,6 @@ fn normalize_match_scrutinee(expr: &Expr, root: &str) -> Option<Expr> {
 }
 
 // ── B-Closure helpers ────────────────────────────────────────────────────────
-
-/// Extract the bare parameter name from a possibly-typed closure param string.
-/// `"x"` → `"x"`, `"x: Int"` → `"x"`, `"mut x: Int"` → `"x"`.
-fn closure_param_name(param: &ClosureParam) -> String {
-    param.pattern.trim_start_matches("mut ").trim().to_string()
-}
 
 #[derive(Debug, Default)]
 struct ClosureBindingUsage {
@@ -4289,13 +4302,6 @@ fn block_has_free_var_from(block: &Block, vars: &HashSet<String>) -> bool {
 }
 
 /// Strip parentheses to find the underlying expression.
-fn strip_parens(expr: &Expr) -> &Expr {
-    match expr {
-        Expr::Parenthesized(inner) => strip_parens(inner),
-        other => other,
-    }
-}
-
 /// Extract `(params, body)` from a `move |params| body` closure, handling
 /// any number of wrapping parentheses.  Returns `None` for non-move closures.
 fn extract_move_closure_parts(expr: &Expr) -> Option<(&[ClosureParam], &Expr)> {
@@ -4307,150 +4313,10 @@ fn extract_move_closure_parts(expr: &Expr) -> Option<(&[ClosureParam], &Expr)> {
     }
 }
 
-/// Walk `expr` and replace every `Ident` whose name is in `subst` with the
-/// mapped replacement name.  Respects closure-param shadowing.
-fn subst_idents_in_expr(expr: &Expr, subst: &HashMap<String, String>) -> Expr {
-    match expr {
-        Expr::Ident(name) => {
-            if let Some(rep) = subst.get(name) {
-                Expr::Ident(rep.clone())
-            } else {
-                expr.clone()
-            }
-        }
-        Expr::MethodCall(recv, method, args) => Expr::MethodCall(
-            Box::new(subst_idents_in_expr(recv, subst)),
-            method.clone(),
-            args.iter()
-                .map(|a| subst_idents_in_expr(a, subst))
-                .collect(),
-        ),
-        Expr::Call(callee, args) => Expr::Call(
-            Box::new(subst_idents_in_expr(callee, subst)),
-            args.iter()
-                .map(|a| subst_idents_in_expr(a, subst))
-                .collect(),
-        ),
-        Expr::Block(block) => Expr::Block(subst_idents_in_block(block, subst)),
-        Expr::Parenthesized(inner) => {
-            Expr::Parenthesized(Box::new(subst_idents_in_expr(inner, subst)))
-        }
-        Expr::Cast(inner, ty) => {
-            Expr::Cast(Box::new(subst_idents_in_expr(inner, subst)), ty.clone())
-        }
-        Expr::Array(elems) => Expr::Array(
-            elems
-                .iter()
-                .map(|e| subst_idents_in_expr(e, subst))
-                .collect(),
-        ),
-        Expr::Tuple(elems) => Expr::Tuple(
-            elems
-                .iter()
-                .map(|e| subst_idents_in_expr(e, subst))
-                .collect(),
-        ),
-        Expr::BinaryOp(l, op, r) => Expr::BinaryOp(
-            Box::new(subst_idents_in_expr(l, subst)),
-            op.clone(),
-            Box::new(subst_idents_in_expr(r, subst)),
-        ),
-        Expr::UnaryOp(op, inner) => {
-            Expr::UnaryOp(op.clone(), Box::new(subst_idents_in_expr(inner, subst)))
-        }
-        Expr::Reference(inner, a, b) => {
-            Expr::Reference(Box::new(subst_idents_in_expr(inner, subst)), *a, *b)
-        }
-        Expr::Match { expr, arms } => Expr::Match {
-            expr: Box::new(subst_idents_in_expr(expr, subst)),
-            arms: arms
-                .iter()
-                .map(|arm| MatchArm {
-                    pattern: arm.pattern.clone(),
-                    guard: arm.guard.as_ref().map(|g| subst_idents_in_expr(g, subst)),
-                    body: subst_idents_in_block(&arm.body, subst),
-                })
-                .collect(),
-        },
-        Expr::If {
-            condition,
-            then_branch,
-            else_branch,
-        } => Expr::If {
-            condition: Box::new(subst_idents_in_expr(condition, subst)),
-            then_branch: subst_idents_in_block(then_branch, subst),
-            else_branch: else_branch
-                .as_ref()
-                .map(|b| subst_idents_in_block(b, subst)),
-        },
-        Expr::Closure(params, body, is_move) => {
-            // Closure params shadow the substitution.
-            let mut inner_subst = subst.clone();
-            for p in params {
-                inner_subst.remove(&closure_param_name(p));
-            }
-            Expr::Closure(
-                params.clone(),
-                Box::new(subst_idents_in_expr(body, &inner_subst)),
-                *is_move,
-            )
-        }
-        Expr::TypedClosure(params, return_type, body, is_move) => {
-            let mut inner_subst = subst.clone();
-            for p in params {
-                inner_subst.remove(&closure_param_name(p));
-            }
-            Expr::TypedClosure(
-                params.clone(),
-                return_type.clone(),
-                Box::new(subst_idents_in_expr(body, &inner_subst)),
-                *is_move,
-            )
-        }
-        // All other nodes are leaves or unsupported — return unchanged.
-        _ => expr.clone(),
-    }
-}
-
-fn subst_idents_in_block(block: &Block, subst: &HashMap<String, String>) -> Block {
-    let mut inner = subst.clone();
-    let mut stmts = Vec::new();
-    for stmt in &block.stmts {
-        match stmt {
-            Statement::Let(ls) => {
-                let new_init = ls.init.as_ref().map(|i| subst_idents_in_expr(i, &inner));
-                // `let` binding shadows the name for subsequent statements.
-                inner.remove(&ls.name);
-                stmts.push(Statement::Let(LetStmt {
-                    ifmut: ls.ifmut,
-                    name: ls.name.clone(),
-                    ty: ls.ty.clone(),
-                    init: new_init,
-                }));
-            }
-            Statement::Expr(e) => {
-                stmts.push(Statement::Expr(subst_idents_in_expr(e, &inner)));
-            }
-            other => stmts.push(other.clone()),
-        }
-    }
-    Block {
-        stmts,
-        expr: block
-            .expr
-            .as_ref()
-            .map(|e| Box::new(subst_idents_in_expr(e, &inner))),
-    }
-}
-
 // ── Stand-alone helpers ───────────────────────────────────────────────────────
 
 fn make_ref_type(ty: &Type) -> Type {
     Type::Reference(Box::new(ty.clone()), true, false)
-}
-
-fn is_reference_type(ty: &Type) -> bool {
-    matches!(ty, Type::Reference(_, true, _))
 }
 
 fn ref_inner(ty: &Type) -> Option<&Type> {
@@ -4471,54 +4337,6 @@ fn box_inner_type(ty: &Type) -> Option<&Type> {
 
 fn borrowed_box_inner_type(ty: &Type) -> Option<&Type> {
     ref_inner(ty).and_then(box_inner_type)
-}
-
-fn same_type(left: &Type, right: &Type) -> bool {
-    match (left, right) {
-        (Type::Path(left), Type::Path(right)) => left == right,
-        (Type::Named(left), Type::Named(right)) => left == right,
-        (Type::Generic(left_name, left_args), Type::Generic(right_name, right_args)) => {
-            left_name == right_name
-                && left_args.len() == right_args.len()
-                && left_args
-                    .iter()
-                    .zip(right_args)
-                    .all(|(left, right)| same_type(left, right))
-        }
-        (Type::CallableTrait(left), Type::CallableTrait(right)) => {
-            let same_qualifier = matches!(
-                (&left.qualifier, &right.qualifier),
-                (CallableTraitQualifier::Dyn, CallableTraitQualifier::Dyn)
-                    | (CallableTraitQualifier::Impl, CallableTraitQualifier::Impl)
-            );
-            same_qualifier
-                && left.trait_name == right.trait_name
-                && left.args.len() == right.args.len()
-                && left
-                    .args
-                    .iter()
-                    .zip(&right.args)
-                    .all(|(left, right)| same_type(left, right))
-                && same_type(&left.return_type, &right.return_type)
-        }
-        (
-            Type::Reference(left, left_ref, left_mut),
-            Type::Reference(right, right_ref, right_mut),
-        ) => left_ref == right_ref && left_mut == right_mut && same_type(left, right),
-        (Type::Tuple(left), Type::Tuple(right)) => {
-            left.len() == right.len()
-                && left
-                    .iter()
-                    .zip(right)
-                    .all(|(left, right)| same_type(left, right))
-        }
-        (Type::Slice(left), Type::Slice(right)) => same_type(left, right),
-        (Type::Array(left, left_len), Type::Array(right, right_len)) => {
-            left_len == right_len && same_type(left, right)
-        }
-        (Type::Unit, Type::Unit) | (Type::Never, Type::Never) => true,
-        _ => false,
-    }
 }
 
 fn is_box_type(ty: &Type) -> bool {
@@ -4619,10 +4437,6 @@ fn unconditional_impl_target_id(impl_block: &ImplBlock, scope: &ModuleScope) -> 
     }
 }
 
-fn type_name_leaf(name: &str) -> &str {
-    name.rsplit("::").next().unwrap_or(name)
-}
-
 /// Canonical outer nominal constructor, without generic arguments.
 fn outer_nominal_family(ty: &Type) -> Option<String> {
     match ty {
@@ -4670,14 +4484,6 @@ fn type_carries_nominal_family(ty: &Type, family: &str) -> bool {
         | Type::CallableTrait(_)
         | Type::Unit
         | Type::Never => false,
-    }
-}
-
-fn type_is_copy_trait(ty: &Type) -> bool {
-    match ty {
-        Type::Named(name) => name == "Copy",
-        Type::Path(path) => path.last().is_some_and(|name| name == "Copy"),
-        _ => false,
     }
 }
 
@@ -4910,136 +4716,6 @@ fn canonicalize_declared_nominal_name(
     }
 }
 
-fn type_substitution(def: &TypeDef, ty: &Type) -> HashMap<String, Type> {
-    match ty {
-        Type::Generic(_, params) if params.len() == def.generics.len() => def
-            .generics
-            .iter()
-            .cloned()
-            .zip(params.iter().cloned())
-            .collect(),
-        _ => HashMap::new(),
-    }
-}
-
-fn apply_type_subst(ty: &Type, subst: &HashMap<String, Type>) -> Type {
-    match ty {
-        Type::Named(name) => subst
-            .get(name)
-            .cloned()
-            .unwrap_or_else(|| Type::Named(name.clone())),
-        Type::Generic(name, params) => Type::Generic(
-            name.clone(),
-            params.iter().map(|p| apply_type_subst(p, subst)).collect(),
-        ),
-        Type::Tuple(types) => {
-            Type::Tuple(types.iter().map(|t| apply_type_subst(t, subst)).collect())
-        }
-        Type::Array(inner, len) => Type::Array(Box::new(apply_type_subst(inner, subst)), *len),
-        Type::Reference(inner, is_ref, mutable) => {
-            Type::Reference(Box::new(apply_type_subst(inner, subst)), *is_ref, *mutable)
-        }
-        Type::Slice(inner) => Type::Slice(Box::new(apply_type_subst(inner, subst))),
-        Type::CallableTrait(callable) => Type::CallableTrait(CallableTraitType {
-            qualifier: callable.qualifier.clone(),
-            trait_name: callable.trait_name.clone(),
-            args: callable
-                .args
-                .iter()
-                .map(|arg| apply_type_subst(arg, subst))
-                .collect(),
-            return_type: Box::new(apply_type_subst(&callable.return_type, subst)),
-        }),
-        Type::Path(_) | Type::Unit | Type::Never => ty.clone(),
-    }
-}
-
-fn collect_imports(items: &[Item]) -> HashMap<String, Vec<String>> {
-    let mut imports = HashMap::new();
-    for item in items {
-        if let Item::Use(use_stmt) = item {
-            collect_import(&mut imports, use_stmt);
-        }
-    }
-    imports
-}
-
-fn collect_import(imports: &mut HashMap<String, Vec<String>>, use_stmt: &UseStatement) {
-    match &use_stmt.kind {
-        UseKind::Simple => {
-            if let Some((source, local)) = imported_leaf(use_stmt.path.last()) {
-                let mut path = use_stmt.path.clone();
-                if let Some(last) = path.last_mut() {
-                    *last = source;
-                }
-                imports.insert(local, path);
-            }
-        }
-        UseKind::Nested(items) => {
-            for item in items {
-                if let Some((source, local)) = imported_leaf(Some(item)) {
-                    let mut path = use_stmt.path.clone();
-                    path.push(source);
-                    imports.insert(local, path);
-                }
-            }
-        }
-        UseKind::Glob => {}
-    }
-}
-
-fn imported_leaf(leaf: Option<&String>) -> Option<(String, String)> {
-    let leaf = leaf?.trim();
-    if let Some((source, local)) = leaf.split_once(" as ") {
-        Some((source.trim().to_string(), local.trim().to_string()))
-    } else {
-        Some((leaf.to_string(), leaf.to_string()))
-    }
-}
-
-fn explicit_identity_return_type(callee: &Expr) -> Option<Type> {
-    let segment = match callee {
-        Expr::Ident(segment) => segment,
-        Expr::Path(path, PathType::Namespace) => path.last()?,
-        Expr::Parenthesized(inner) => return explicit_identity_return_type(inner),
-        _ => return None,
-    };
-    (strip_path_segment_generics(segment) == "identity")
-        .then(|| crate::rustlight_parser::first_explicit_type_argument(segment))
-        .flatten()
-}
-
-fn strip_path_segment_generics(segment: &str) -> &str {
-    let before_args = segment.split_once('<').map_or(segment, |(head, _)| head);
-    before_args
-        .trim()
-        .strip_suffix("::")
-        .unwrap_or(before_args.trim())
-        .trim()
-}
-
-fn function_type_env(f: &FunctionDef) -> TypeEnv {
-    f.params
-        .iter()
-        .filter(|p| !p.name.is_empty())
-        .map(|p| (p.name.clone(), p.ty.clone()))
-        .collect()
-}
-
-fn ensure_function_comment(f: &mut FunctionDef, comment: &str) {
-    if !f.docs.iter().any(|doc| doc.trim() == comment) {
-        f.docs.push(comment.to_string());
-    }
-}
-
-fn generic_names_with_bound(f: &FunctionDef, bound: &str) -> HashSet<String> {
-    f.generics
-        .iter()
-        .filter(|g| g.bounds.iter().any(|b| b == bound))
-        .map(|g| g.name.clone())
-        .collect()
-}
-
 /// Whether `expr` preserves a borrow-derived origin in a local binding.
 ///
 /// These are precisely the alias shapes that remain references when B-Match
@@ -5252,154 +4928,6 @@ fn collect_deref_ident_uses_expr(expr: &Expr, out: &mut HashSet<String>) {
         }
         Expr::Ident(_) | Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) => {}
     }
-}
-
-// ── String-level pattern utilities (shared with copy_analysis) ────────────────
-
-fn is_binding_ident(input: &str) -> bool {
-    let mut chars = input.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    (first == '_' || first.is_ascii_alphabetic())
-        && input != "_"
-        && !is_reserved_pattern_word(input)
-        && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
-}
-
-fn pattern_binds_name(pattern: &str, name: &str) -> bool {
-    if !is_binding_ident(name) {
-        return false;
-    }
-
-    let mut token = String::new();
-    for ch in pattern.chars() {
-        if ch == '_' || ch.is_ascii_alphanumeric() {
-            token.push(ch);
-        } else {
-            if token == name {
-                return true;
-            }
-            token.clear();
-        }
-    }
-
-    token == name
-}
-
-fn is_reserved_pattern_word(input: &str) -> bool {
-    matches!(input, "box" | "false" | "mut" | "ref" | "self" | "true")
-}
-
-fn strip_prefix_word<'a>(input: &'a str, word: &str) -> Option<&'a str> {
-    let rest = input.strip_prefix(word)?;
-    if rest.starts_with(char::is_whitespace) {
-        Some(rest.trim_start())
-    } else {
-        None
-    }
-}
-
-fn strip_binding_modifiers(mut input: &str) -> &str {
-    loop {
-        let trimmed = input.trim_start();
-        if let Some(rest) = strip_prefix_word(trimmed, "ref") {
-            input = rest;
-        } else if let Some(rest) = strip_prefix_word(trimmed, "mut") {
-            input = rest;
-        } else {
-            return trimmed;
-        }
-    }
-}
-
-fn outer_parens_inner(input: &str) -> Option<&str> {
-    if !input.starts_with('(') || !input.ends_with(')') {
-        return None;
-    }
-    let mut depth = 0usize;
-    for (idx, ch) in input.char_indices() {
-        match ch {
-            '(' => depth += 1,
-            ')' => {
-                depth = depth.checked_sub(1)?;
-                if depth == 0 && idx != input.len() - 1 {
-                    return None;
-                }
-            }
-            _ => {}
-        }
-    }
-    if depth == 0 {
-        input.strip_prefix('(')?.strip_suffix(')')
-    } else {
-        None
-    }
-}
-
-fn split_constructor_pattern(input: &str) -> Option<(&str, Vec<String>)> {
-    let mut depth = 0usize;
-    let mut start = None;
-
-    for (idx, ch) in input.char_indices() {
-        match ch {
-            '(' => {
-                if depth == 0 {
-                    start = Some(idx);
-                }
-                depth += 1;
-            }
-            ')' => {
-                depth = depth.checked_sub(1)?;
-                if depth == 0 && idx != input.len() - 1 {
-                    return None;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    if depth != 0 {
-        return None;
-    }
-
-    let start = start?;
-    let constructor = input[..start].trim();
-    if constructor.is_empty() {
-        return None;
-    }
-
-    let inner = input[start + 1..input.len() - 1].trim();
-    Some((constructor, split_top_level_commas(inner)))
-}
-
-fn split_top_level_commas(input: &str) -> Vec<String> {
-    let mut parts = Vec::new();
-    let mut start = 0usize;
-    let mut paren = 0usize;
-    let mut bracket = 0usize;
-    let mut brace = 0usize;
-
-    for (idx, ch) in input.char_indices() {
-        match ch {
-            '(' => paren += 1,
-            ')' => paren = paren.saturating_sub(1),
-            '[' => bracket += 1,
-            ']' => bracket = bracket.saturating_sub(1),
-            '{' => brace += 1,
-            '}' => brace = brace.saturating_sub(1),
-            ',' if paren == 0 && bracket == 0 && brace == 0 => {
-                parts.push(input[start..idx].trim().to_string());
-                start = idx + ch.len_utf8();
-            }
-            _ => {}
-        }
-    }
-    let last = input[start..].trim();
-    if !last.is_empty() {
-        parts.push(last.to_string());
-    }
-    parts
 }
 
 #[cfg(test)]
@@ -6292,6 +5820,89 @@ pub fn first(x0: (Blob, Blob)) -> Blob {
         let analysis = optimize_borrow(&mut module, &HashSet::new());
 
         assert!(analysis.borrow_fns.contains("crate::Tuple_Test::first"));
+    }
+
+    #[test]
+    fn irrefutable_let_uses_borrowed_pattern_decomposition() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub Box<u64>);
+
+#[derive(Clone)]
+pub enum Holder {
+    One(Blob),
+}
+
+pub fn take(x0: Holder) -> Blob {
+    let Holder::One(value) = x0;
+    value.clone()
+}
+"#;
+        let mut module = parse_rust_source(source, "Let_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(analysis.borrow_fns.contains("crate::Let_Test::take"));
+        optimize_last_use(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn take(x0: &Holder) -> Blob"));
+        assert!(printed.contains("let Holder :: One (value) = x0;"));
+        assert!(printed.contains("value.clone()"));
+        assert!(!printed.contains("x0.clone()"));
+    }
+
+    #[test]
+    fn irrefutable_let_preserves_prefer_owned_for_multiple_payloads() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub Box<u64>);
+
+#[derive(Clone)]
+pub enum Pair {
+    Both(Blob, Blob),
+}
+
+pub fn split(x0: Pair) -> (Blob, Blob) {
+    let Pair::Both(left, right) = x0;
+    (left.clone(), right.clone())
+}
+"#;
+        let mut module = parse_rust_source(source, "Let_Pair_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(!analysis.borrow_fns.contains("crate::Let_Pair_Test::split"));
+        optimize_last_use(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn split(x0: Pair) -> (Blob, Blob)"));
+        assert!(printed.contains("(left, right)"));
+        assert!(!printed.contains("left.clone()"));
+        assert!(!printed.contains("right.clone()"));
+    }
+
+    #[test]
+    fn refutable_let_does_not_use_borrowed_pattern_decomposition() {
+        let source = r#"
+#[derive(Clone)]
+pub enum Choice {
+    Left,
+    Right,
+}
+
+pub fn invalid_but_parseable(x0: Choice) -> bool {
+    let Choice::Left = x0;
+    true
+}
+"#;
+        let mut module = parse_rust_source(source, "Refutable_Let_Test").expect("source parses");
+
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+
+        assert!(!analysis
+            .borrow_fns
+            .contains("crate::Refutable_Let_Test::invalid_but_parseable"));
     }
 
     #[test]

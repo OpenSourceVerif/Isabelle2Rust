@@ -209,15 +209,6 @@ functional correctness after the match compiler fix, but it remains essential
 for a compact and practically executable baseline. Timing the structural
 variant as an optimization would still be misleading.
 
-### Direct BigInt bit operations
-
-The optimizer retains a standalone `bigint_bit_operations` implementation that lowers
-the concrete `SemiringBitOperations for BigInt` implementations of `push_bit`,
-`drop_bit`, and `mask` to native shifts and a shifted mask. The current
-`cargo-opt` and evaluation pipelines do not invoke this pass. Historical rows
-in this document that predate the pipeline change may include the lowering;
-the current paper-facing Stage-2 matrix does not.
-
 ### Administrative closure eta-reduction
 
 The current Stage-2 pipeline also removes backend-generated forwarding
@@ -296,6 +287,4 @@ It supports widths from 1 through 128 bits and covers construction, conversion,
 wrapping arithmetic, division and remainder, unsigned and signed comparison,
 bitwise operations, shifts, bit updates and tests, casts, and the 128-bit
 intermediate used by the 64-bit high-half multiplication paths. Isabelle `int`
-and `nat` remain `BigInt`. The retained standalone BigInt bit-operation lowering can
-still be applied independently, but it is disabled in the current Stage-2
-evaluation pipeline.
+and `nat` remain `BigInt`.

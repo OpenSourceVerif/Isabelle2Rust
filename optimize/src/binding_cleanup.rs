@@ -1,3 +1,4 @@
+use crate::utils::patterns::is_binding_ident;
 use rustlightast::*;
 
 /// Inline immutable, untyped bindings that are returned immediately.
@@ -178,21 +179,6 @@ fn trailing_let_return_replacement(block: &Block) -> Option<Expr> {
         }
         _ => None,
     }
-}
-
-fn is_binding_ident(input: &str) -> bool {
-    let mut chars = input.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    (first == '_' || first.is_ascii_alphabetic())
-        && input != "_"
-        && !is_reserved_pattern_word(input)
-        && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
-}
-
-fn is_reserved_pattern_word(input: &str) -> bool {
-    matches!(input, "box" | "false" | "mut" | "ref" | "self" | "true")
 }
 
 #[cfg(test)]
