@@ -30,8 +30,8 @@ SBPF_CLIPPY_PROGRAM_S1 := tests_sbpf/theory/stage1/bpf_generator_checked128/inte
 SBPF_CLIPPY_PROGRAM_S2 := tests_sbpf/theory/stage2/bpf_generator_checked128/interp_test
 SBPF_CLIPPY_STEP_S1    := tests_sbpf/theory/stage1/bpf_generator_checked128/step_test
 SBPF_CLIPPY_STEP_S2    := tests_sbpf/theory/stage2/bpf_generator_checked128/step_test
-X64_CLIPPY_STEPPER_S1  := tests_x64/theory/stage1/x64StepRustPerformanceGenerator/x64_step_test
-X64_CLIPPY_STEPPER_S2  := tests_x64/theory/stage2/x64StepRustPerformanceGenerator/x64_step_test
+X64_CLIPPY_STEPPER_S1  := tests_x64/theory/stage1/x64_generator_checked128/x64_step_test
+X64_CLIPPY_STEPPER_S2  := tests_x64/theory/stage2/x64_generator_checked128/x64_step_test
 ISABELLE_BUILD_LOCK    := $(CURDIR)/.isabelle-build.lock
 ISABELLE_PROJECT_BUILD := isabelle build -v -e -d . $(PROJECT_SESSION)
 ISABELLE_TEST_VERBOSE  := isabelle build -v -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
@@ -530,9 +530,9 @@ clean:
 	rm -f tests_x64/x64-validation/2-exec-assembler/exec tests_x64/x64-validation/2-exec-assembler/*.cmi tests_x64/x64-validation/2-exec-assembler/*.cmo
 	rm -f tests_x64/x64-validation/4-x64-stepper-c/ptrace_exec
 	rm -f tests_x64/x64-validation/5-exec-semantics/exec tests_x64/x64-validation/5-exec-semantics/*.cmi tests_x64/x64-validation/5-exec-semantics/*.cmo
-	# Rust x64 stage1 exports and correctness copies are reproducible build
-	# products.  Fixed OCaml files and 0-data vectors are intentionally retained.
-	rm -rf tests_x64/theory/stage1/x64EncodeRustGenerator tests_x64/theory/stage1/x64StepRustGenerator
+	# x64 stage1/stage2 exports and correctness copies are reproducible build
+	# products.  Fixed 0-data vectors are intentionally retained.
+	rm -rf tests_x64/theory/stage1 tests_x64/theory/stage2
 	rm -rf tests_x64/x64-validation/_build
 	rm -rf tests_x64/theory/performance
 	rm -rf tests_x64/x64-validation/1-x64-ins-gen/target tests_x64/x64-validation/3-x64-map-gen/target

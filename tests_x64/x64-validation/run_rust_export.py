@@ -2,10 +2,10 @@
 """Export and compile the unmodified Rust x64 validation baselines.
 
 This preflight is intentionally separate from the correctness harness.  It
-builds the two Rust-only generator theories, verifies their expected artifacts,
+builds the selected Rust generator profile, verifies its expected artifacts,
 and compiles the generated Cargo projects before any test glue is copied into a
-working tree.  A successful result therefore establishes that the raw
-``x64_encode`` and ``x64_step_test`` exports compile on their own.
+working tree.  A successful result therefore establishes that the raw exports
+compile on their own.
 """
 
 from __future__ import annotations
@@ -48,14 +48,19 @@ class ExportSpec:
 
 
 CORRECTNESS_EXPORTS = (
-    ExportSpec("x64EncodeRustGenerator", "x64_encode", "X64_encode.rs"),
-    ExportSpec("x64StepRustGenerator", "x64_step_test", "X64_step_test.rs"),
+    ExportSpec("x64_generator_bigint", "x64_encode", "X64_encode.rs"),
+    ExportSpec("x64_generator_bigint", "x64_step_test", "X64_step_test.rs"),
 )
 
 PERFORMANCE_EXPORTS = (
-    ExportSpec(
-        "x64StepRustPerformanceGenerator", "x64_step_test", "X64_step_test.rs"
-    ),
+    ExportSpec("x64_generator_checked128", "x64_step_test", "X64_step_test.rs"),
+)
+
+OCAML_THEORY = "x64_generator_ocaml"
+OCAML_EXPORT_ROOT = THEORY_DIR / "stage1" / OCAML_THEORY
+OCAML_EXPORTS = (
+    OCAML_EXPORT_ROOT / "x64_encode.ocaml",
+    OCAML_EXPORT_ROOT / "x64_step_test.ocaml",
 )
 
 
@@ -158,6 +163,36 @@ def check_isabelle_environment(env: dict[str, str]) -> bool:
     return True
 
 
+def build_theory(
+    theory: str, export_root: Path, *, isabelle_env: dict[str, str]
+) -> bool:
+    """Build one x64 generator theory with the bounded Isabelle launcher."""
+
+    if export_root.exists():
+        shutil.rmtree(export_root)
+    # x64 code generation retains a large HOL/code-generator graph.  Pass the
+    # worker limit as an explicit make-variable override: Isabelle settings
+    # intentionally replace a same-named process environment variable, while
+    # ``-o threads=...`` on the actual build command is authoritative.
+    isabelle_build = (
+        f"{shlex.quote(str(ISABELLE_LAUNCHER))} build -v -e "
+        f"-o threads={ISABELLE_THREADS} -d test-root Rust"
+    )
+    rc = run(
+        [
+            "make",
+            "build",
+            "TEST_DIR=tests_x64/theory",
+            f"TEST_THEORY={theory}",
+            f"TEST_TIMEOUT={ISABELLE_TIMEOUT}",
+            f"ISABELLE_TEST_VERBOSE={isabelle_build}",
+        ],
+        cwd=ROOT,
+        env=isabelle_env,
+    )
+    return rc == 0
+
+
 def ensure_export(
     spec: ExportSpec, *, rebuild: bool, isabelle_env: dict[str, str]
 ) -> bool:
@@ -173,34 +208,30 @@ def ensure_export(
     # A new export must not inherit an old main.rs, lockfile, target tree, or
     # previously injected test fragment.  The directory contains only
     # reproducible Isabelle export artifacts for this one generator theory.
-    if spec.export_root.exists():
-        shutil.rmtree(spec.export_root)
-    # x64 code generation retains a large HOL/code-generator graph.  Pass the
-    # worker limit as an explicit make-variable override: Isabelle settings
-    # intentionally replace a same-named process environment variable, while
-    # ``-o threads=...`` on the actual build command is authoritative.
-    isabelle_build = (
-        f"{shlex.quote(str(ISABELLE_LAUNCHER))} build -v -e "
-        f"-o threads={ISABELLE_THREADS} -d test-root Rust"
-    )
-    rc = run(
-        [
-            "make",
-            "build",
-            "TEST_DIR=tests_x64/theory",
-            f"TEST_THEORY={spec.theory}",
-            f"TEST_TIMEOUT={ISABELLE_TIMEOUT}",
-            f"ISABELLE_TEST_VERBOSE={isabelle_build}",
-        ],
-        cwd=ROOT,
-        env=isabelle_env,
-    )
-    if rc != 0:
+    if not build_theory(spec.theory, spec.export_root, isabelle_env=isabelle_env):
         return False
 
     missing_after = [path for path in expected_files(spec) if not path.exists()]
     for path in missing_after:
         print(f"ERROR: expected Rust export not found: {rel(path)}")
+    return not missing_after
+
+
+def ensure_ocaml_export(*, rebuild: bool, isabelle_env: dict[str, str]) -> bool:
+    """Generate the combined fixed OCaml encoder and stepper export."""
+
+    missing = [path for path in OCAML_EXPORTS if not path.exists()]
+    if not rebuild and not missing:
+        announce("Isabelle export", f"reusing {rel(OCAML_EXPORT_ROOT)}")
+        return True
+
+    reason = "REBUILD=1" if rebuild else "missing " + ", ".join(rel(p) for p in missing)
+    announce("Isabelle export", f"building {OCAML_THEORY} ({reason})")
+    if not build_theory(OCAML_THEORY, OCAML_EXPORT_ROOT, isabelle_env=isabelle_env):
+        return False
+    missing_after = [path for path in OCAML_EXPORTS if not path.exists()]
+    for path in missing_after:
+        print(f"ERROR: expected OCaml export not found: {rel(path)}")
     return not missing_after
 
 
@@ -254,14 +285,14 @@ def compile_export(spec: ExportSpec, cargo: list[str]) -> bool:
 
 
 def main() -> int:
-    if len(sys.argv) > 2 or (len(sys.argv) == 2 and sys.argv[1] != "performance"):
-        print("usage: run_rust_export.py [performance]")
+    if len(sys.argv) > 2 or (
+        len(sys.argv) == 2 and sys.argv[1] not in {"performance", "ocaml"}
+    ):
+        print("usage: run_rust_export.py [performance|ocaml]")
         return 2
-    exports = PERFORMANCE_EXPORTS if len(sys.argv) == 2 else CORRECTNESS_EXPORTS
+    mode = sys.argv[1] if len(sys.argv) == 2 else "correctness"
+    exports = PERFORMANCE_EXPORTS if mode == "performance" else CORRECTNESS_EXPORTS
     rebuild = os.environ.get("REBUILD") == "1"
-    cargo = cargo_command()
-    if run(cargo + ["--version"], cwd=ROOT) != 0:
-        return 2
 
     isabelle_env = isabelle_environment()
     announce(
@@ -273,11 +304,26 @@ def main() -> int:
     # of risking another unbounded Poly/ML process.
     if not check_isabelle_environment(isabelle_env):
         return 2
+    if mode == "ocaml":
+        passed = ensure_ocaml_export(rebuild=rebuild, isabelle_env=isabelle_env)
+        print("\n========================================")
+        print("x64 raw OCaml export summary")
+        print("  Overall: PASS" if passed else "  Overall: FAIL")
+        return 0 if passed else 1
+
+    cargo = cargo_command()
+    if run(cargo + ["--version"], cwd=ROOT) != 0:
+        return 2
     passed = 0
+    rebuilt_theories: set[str] = set()
     for spec in exports:
-        if not ensure_export(spec, rebuild=rebuild, isabelle_env=isabelle_env):
+        rebuild_theory = rebuild and spec.theory not in rebuilt_theories
+        if not ensure_export(
+            spec, rebuild=rebuild_theory, isabelle_env=isabelle_env
+        ):
             print(f"ERROR: Rust export failed for {spec.theory}")
             break
+        rebuilt_theories.add(spec.theory)
         if not compile_export(spec, cargo):
             print(f"ERROR: raw Rust export did not compile for {spec.theory}")
             break

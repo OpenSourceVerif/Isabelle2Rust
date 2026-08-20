@@ -58,7 +58,7 @@ class Adapter:
 ADAPTERS = {
     "encoder": Adapter(
         name="encoder",
-        source=THEORY_STAGE1 / "x64EncodeRustGenerator" / "x64_encode",
+        source=THEORY_STAGE1 / "x64_generator_bigint" / "x64_encode",
         module="X64_encode.rs",
         main=HARNESS / "encoder_main.rs",
         input_env="X64_ENCODER_INPUT",
@@ -66,7 +66,7 @@ ADAPTERS = {
     ),
     "stepper": Adapter(
         name="stepper",
-        source=THEORY_STAGE1 / "x64StepRustGenerator" / "x64_step_test",
+        source=THEORY_STAGE1 / "x64_generator_bigint" / "x64_step_test",
         module="X64_step_test.rs",
         main=HARNESS / "stepper_main.rs",
         input_env="X64_STEPPER_INPUT",

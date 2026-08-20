@@ -25,8 +25,8 @@ fi
 script_path=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/$(basename -- "${BASH_SOURCE[0]}")
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
 data_dir="$repo_root/tests_x64/x64-validation/0-data"
-encoder_export="$repo_root/tests_x64/theory/stage1/x64EncodeRustGenerator/x64_encode"
-stepper_export="$repo_root/tests_x64/theory/stage1/x64StepRustGenerator/x64_step_test"
+encoder_export="$repo_root/tests_x64/theory/stage1/x64_generator_bigint/x64_encode"
+stepper_export="$repo_root/tests_x64/theory/stage1/x64_generator_bigint/x64_step_test"
 
 rounds=${ROUNDS:-10}
 cases_per_round=${CASES_PER_ROUND:-100000}

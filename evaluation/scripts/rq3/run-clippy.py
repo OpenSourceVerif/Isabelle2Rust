@@ -35,8 +35,8 @@ CASE_STUDIES = {
         "stage2": "tests_sbpf/theory/stage2/bpf_generator_checked128/step_test/Cargo.toml",
     },
     "X64-stepper": {
-        "stage1": "tests_x64/theory/stage1/x64StepRustPerformanceGenerator/x64_step_test/Cargo.toml",
-        "stage2": "tests_x64/theory/stage2/x64StepRustPerformanceGenerator/x64_step_test/Cargo.toml",
+        "stage1": "tests_x64/theory/stage1/x64_generator_checked128/x64_step_test/Cargo.toml",
+        "stage2": "tests_x64/theory/stage2/x64_generator_checked128/x64_step_test/Cargo.toml",
     },
 }
 EXPECTED_ALL_DIAGNOSTICS = {

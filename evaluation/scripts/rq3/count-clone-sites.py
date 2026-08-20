@@ -25,8 +25,8 @@ CASE_STUDIES = {
         "stage2": "tests_sbpf/theory/stage2/bpf_generator_checked128/step_test",
     },
     "X64-stepper": {
-        "stage1": "tests_x64/theory/stage1/x64StepRustPerformanceGenerator/x64_step_test",
-        "stage2": "tests_x64/theory/stage2/x64StepRustPerformanceGenerator/x64_step_test",
+        "stage1": "tests_x64/theory/stage1/x64_generator_checked128/x64_step_test",
+        "stage2": "tests_x64/theory/stage2/x64_generator_checked128/x64_step_test",
     },
 }
 

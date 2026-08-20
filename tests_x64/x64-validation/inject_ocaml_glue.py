@@ -33,7 +33,7 @@ class InjectionJob:
 JOBS = [
     InjectionJob(
         name="x64_encode",
-        source=ROOT.parent / "theory/stage1/x64EncodeGenerator/x64_encode.ocaml",
+        source=ROOT.parent / "theory/stage1/x64_generator_ocaml/x64_encode.ocaml",
         target=ROOT / "2-exec-assembler/x64_encode.ml",
         module_lower="x64_encode",
         module_upper="X64_encode",
@@ -43,7 +43,7 @@ JOBS = [
     ),
     InjectionJob(
         name="x64_step_test",
-        source=ROOT.parent / "theory/stage1/x64StepGenerator/x64_step_test.ocaml",
+        source=ROOT.parent / "theory/stage1/x64_generator_ocaml/x64_step_test.ocaml",
         target=ROOT / "5-exec-semantics/x64_step_test.ml",
         module_lower="x64_step_test",
         module_upper="X64_step_test",

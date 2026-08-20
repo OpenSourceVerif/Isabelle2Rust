@@ -32,8 +32,16 @@ RAW_EXPORT = (
     / "tests_x64"
     / "theory"
     / "stage1"
-    / "x64StepRustPerformanceGenerator"
+    / "x64_generator_checked128"
     / "x64_step_test"
+)
+OCAML_EXPORT = (
+    ROOT
+    / "tests_x64"
+    / "theory"
+    / "stage1"
+    / "x64_generator_ocaml"
+    / "x64_step_test.ocaml"
 )
 GENERATED_ROOT = ROOT / "tests_x64" / "theory" / "performance" / "x64"
 OPTIMIZER = ROOT / "optimize" / "target" / "release" / "cargo-opt"
@@ -214,6 +222,12 @@ def generate_rust_export() -> None:
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
         raise RuntimeError(f"missing x64 performance export files: {missing}")
+
+
+def generate_ocaml_export() -> None:
+    execute(["python3", str(EXPORTER), "ocaml"])
+    if not OCAML_EXPORT.is_file():
+        raise RuntimeError(f"missing x64 OCaml baseline export: {OCAML_EXPORT}")
 
 
 def add_benchmark_dependencies(manifest: Path) -> None:
@@ -492,14 +506,7 @@ def build_ocaml(configurations: dict[str, Any], binaries: dict[str, Any]) -> Non
     compiler = output(["ocamlopt", "-version"])
     if compiler != "4.11.2":
         raise RuntimeError(f"expected ocamlopt 4.11.2, got {compiler}")
-    source = (
-        ROOT
-        / "tests_x64"
-        / "theory"
-        / "stage1"
-        / "x64StepGenerator"
-        / "x64_step_test.ocaml"
-    )
+    source = OCAML_EXPORT
     build_dir = BUILD / "ocaml"
     if build_dir.exists():
         shutil.rmtree(build_dir)
@@ -1277,6 +1284,7 @@ def main() -> int:
             if ocaml_refresh:
                 configurations.pop("OCaml baseline", None)
                 binaries.pop("OCaml baseline", None)
+                generate_ocaml_export()
                 build_ocaml(configurations, binaries)
                 configurations["ocaml_rerun"] = {
                     "reused_unchanged_implementations_from": str(reused_from),
@@ -1350,6 +1358,7 @@ def main() -> int:
             prepare_generated(configurations, selected_rust)
             build_generated(configurations, binaries, selected_rust)
             if not args.rust_only and not args.diagnostic:
+                generate_ocaml_export()
                 build_ocaml(configurations, binaries)
                 build_native(configurations, binaries)
         (RESULT_DIR / "configurations.json").write_text(
