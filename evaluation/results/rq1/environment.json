@@ -1,0 +1,15 @@
+{
+  "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+  "cloc": "1.90",
+  "git_clean": true,
+  "git_commit": "a16b10506412798fc74154029f7da70e56dada5a",
+  "isabelle": "Isabelle2025",
+  "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+  "stable_builds": {
+    "accepted_crates": 182,
+    "accepted_pairs": 91,
+    "failed_crates": 0
+  },
+  "timestamp": "2026-08-20T22:41:01+08:00",
+  "timing_status": "unavailable: phase-only translation and optimization instrumentation has not been implemented"
+}

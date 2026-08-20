@@ -30,6 +30,10 @@ tests_x64/theory/performance/
 evaluation/.work/
 evaluation/harness/rq3/sbpf/native/target/
 evaluation/results/*
+!evaluation/results/rq1/
+!evaluation/results/rq1/**
+!evaluation/results/rq2/
+!evaluation/results/rq2/**
 !evaluation/results/rq3/
 evaluation/results/rq3/*
 !evaluation/results/rq3/code-quality/
