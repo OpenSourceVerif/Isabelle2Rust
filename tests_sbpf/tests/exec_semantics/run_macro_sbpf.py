@@ -2,7 +2,7 @@
 """Shared SBPF macro-validation orchestration.
 
 This script owns only the language-independent path:
-  1. ensure bpf_generator is exported from Isabelle,
+  1. ensure the BigInt profile is exported from Isabelle,
   2. refresh the local macro-test JSON data derived from sbpf_ocaml/test.ml,
   3. run the OCaml and Rust language-specific macro runners,
   4. print one combined statistical summary.
@@ -38,14 +38,14 @@ class StageResult:
 ROOT = Path(__file__).resolve().parents[3]
 EXEC_DIR = ROOT / "tests_sbpf" / "tests" / "exec_semantics"
 DATA_DIR = ROOT / "tests_sbpf" / "tests" / "data"
-THEORY = os.environ.get("SBPF_THEORY") or "bpf_generator"
+THEORY = os.environ.get("SBPF_THEORY") or "bpf_generator_bigint"
 EXPORT_DIR = Path(
     os.environ.get("SBPF_EXPORT_DIR")
     or ROOT / "tests_sbpf" / "theory" / "stage1" / THEORY
 )
 if not EXPORT_DIR.is_absolute():
     EXPORT_DIR = ROOT / EXPORT_DIR
-OCAML_EXPORT_DIR = ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator"
+OCAML_EXPORT_DIR = ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator_bigint"
 TEST_ML = EXEC_DIR / "sbpf_ocaml" / "test.ml"
 INTERP_JSON = DATA_DIR / "interp_in.json"
 SHARED_BUILD_DIR = EXEC_DIR / "_build"

@@ -2,7 +2,7 @@
 """Shared SBPF micro-validation orchestration.
 
 This script owns the language-independent instruction-level path:
-  1. ensure bpf_generator is exported from Isabelle,
+  1. ensure the BigInt profile is exported from Isabelle,
   2. optionally generate random step-test vectors,
   3. run the OCaml and Rust language-specific step runners,
   4. print one combined statistical summary.
@@ -36,14 +36,14 @@ class StageResult:
 ROOT = Path(__file__).resolve().parents[3]
 EXEC_DIR = ROOT / "tests_sbpf" / "tests" / "exec_semantics"
 DATA_DIR = ROOT / "tests_sbpf" / "tests" / "data"
-THEORY = os.environ.get("SBPF_THEORY") or "bpf_generator"
+THEORY = os.environ.get("SBPF_THEORY") or "bpf_generator_bigint"
 EXPORT_DIR = Path(
     os.environ.get("SBPF_EXPORT_DIR")
     or ROOT / "tests_sbpf" / "theory" / "stage1" / THEORY
 )
 if not EXPORT_DIR.is_absolute():
     EXPORT_DIR = ROOT / EXPORT_DIR
-OCAML_EXPORT_DIR = ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator"
+OCAML_EXPORT_DIR = ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator_bigint"
 STEP_JSON = Path(os.environ.get("SBPF_STEP_JSON") or DATA_DIR / "ocaml_in.json")
 if not STEP_JSON.is_absolute():
     STEP_JSON = ROOT / STEP_JSON

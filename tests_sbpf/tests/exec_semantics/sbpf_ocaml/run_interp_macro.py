@@ -14,7 +14,12 @@ from pathlib import Path
 
 ROOT = Path(os.environ.get("SBPF_ROOT", Path(__file__).resolve().parents[4]))
 EXEC_DIR = Path(os.environ.get("SBPF_EXEC_DIR", ROOT / "tests_sbpf" / "tests" / "exec_semantics"))
-EXPORT_DIR = Path(os.environ.get("SBPF_EXPORT_DIR", ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator"))
+EXPORT_DIR = Path(
+    os.environ.get(
+        "SBPF_EXPORT_DIR",
+        ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator_bigint",
+    )
+)
 OCAML_DIR = EXEC_DIR / "sbpf_ocaml"
 TEST_ML = OCAML_DIR / "test.ml"
 

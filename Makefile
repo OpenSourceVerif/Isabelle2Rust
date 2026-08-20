@@ -26,10 +26,10 @@ RQ3_CLIPPY             := $(CURDIR)/evaluation/scripts/rq3/run-clippy.py
 IMPLEMENTATION_LOC     := $(CURDIR)/evaluation/scripts/rq1/count-implementation-loc.py
 CLIPPY_PROCESSES       ?= 4
 CLIPPY_CARGO_JOBS      ?= 1
-SBPF_CLIPPY_PROGRAM_S1 := tests_sbpf/theory/stage1/bpf_generator_word_checked_interp/interp_test
-SBPF_CLIPPY_PROGRAM_S2 := tests_sbpf/theory/stage2/bpf_generator_word_checked_interp/interp_test
-SBPF_CLIPPY_STEP_S1    := tests_sbpf/theory/stage1/bpf_generator_word_checked/step_test
-SBPF_CLIPPY_STEP_S2    := tests_sbpf/theory/stage2/bpf_generator_word_checked/step_test
+SBPF_CLIPPY_PROGRAM_S1 := tests_sbpf/theory/stage1/bpf_generator_checked128/interp_test
+SBPF_CLIPPY_PROGRAM_S2 := tests_sbpf/theory/stage2/bpf_generator_checked128/interp_test
+SBPF_CLIPPY_STEP_S1    := tests_sbpf/theory/stage1/bpf_generator_checked128/step_test
+SBPF_CLIPPY_STEP_S2    := tests_sbpf/theory/stage2/bpf_generator_checked128/step_test
 X64_CLIPPY_STEPPER_S1  := tests_x64/theory/stage1/x64StepRustPerformanceGenerator/x64_step_test
 X64_CLIPPY_STEPPER_S2  := tests_x64/theory/stage2/x64StepRustPerformanceGenerator/x64_step_test
 ISABELLE_BUILD_LOCK    := $(CURDIR)/.isabelle-build.lock
@@ -401,13 +401,10 @@ clippy:
 
 # Generate the pure Rust crates used by the SBPF and X64 case studies, then
 # apply the same complete Stage-2 optimizer used by the test-suite workflow.
-# REBUILD=1 forces all three Isabelle exports to be refreshed.
+# REBUILD=1 forces both Isabelle case-study theories to be refreshed.
 clippy-case-studies-prepare:
-	@if [ "$(REBUILD)" = "1" ] || [ ! -f "$(SBPF_CLIPPY_PROGRAM_S1)/Cargo.toml" ]; then \
-	  $(MAKE) -s build_silent TEST_DIR=tests_sbpf/theory TEST_THEORY=bpf_generator_word_checked_interp; \
-	fi
-	@if [ "$(REBUILD)" = "1" ] || [ ! -f "$(SBPF_CLIPPY_STEP_S1)/Cargo.toml" ]; then \
-	  $(MAKE) -s build_silent TEST_DIR=tests_sbpf/theory TEST_THEORY=bpf_generator_word_checked; \
+	@if [ "$(REBUILD)" = "1" ] || [ ! -f "$(SBPF_CLIPPY_PROGRAM_S1)/Cargo.toml" ] || [ ! -f "$(SBPF_CLIPPY_STEP_S1)/Cargo.toml" ]; then \
+	  $(MAKE) -s build_silent TEST_DIR=tests_sbpf/theory TEST_THEORY=bpf_generator_checked128; \
 	fi
 	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" \
 	  RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" python3 "$(X64_RUST_EXPORT)" performance
@@ -593,7 +590,7 @@ help:
 	@echo "  macro_sbpf [REBUILD=1]"
 	@echo "      Run program-level sBPF validation over the Solana official macro cases"
 	@echo "      from Isabelle-generated OCaml and Rust exports. REBUILD=1 regenerates"
-	@echo "      bpf_generator exports first. DATA_REBUILD=1 refreshes shared JSON."
+	@echo "      bpf_generator_bigint exports first. DATA_REBUILD=1 refreshes shared JSON."
 	@echo "      OCAML_REBUILD=1 rebuilds only OCaml glue/cache."
 	@echo "      Example: make macro_sbpf"
 	@echo "  micro_sbpf [REBUILD=1]"

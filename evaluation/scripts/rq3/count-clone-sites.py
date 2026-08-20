@@ -17,12 +17,12 @@ CLONE = re.compile(r"\.clone\s*\(\s*\)")
 NATURAL = re.compile(r"(\d+)")
 CASE_STUDIES = {
     "SBPF-program": {
-        "stage1": "tests_sbpf/theory/stage1/bpf_generator_word_checked_interp/interp_test",
-        "stage2": "tests_sbpf/theory/stage2/bpf_generator_word_checked_interp/interp_test",
+        "stage1": "tests_sbpf/theory/stage1/bpf_generator_checked128/interp_test",
+        "stage2": "tests_sbpf/theory/stage2/bpf_generator_checked128/interp_test",
     },
     "SBPF-instruction": {
-        "stage1": "tests_sbpf/theory/stage1/bpf_generator_word_checked/step_test",
-        "stage2": "tests_sbpf/theory/stage2/bpf_generator_word_checked/step_test",
+        "stage1": "tests_sbpf/theory/stage1/bpf_generator_checked128/step_test",
+        "stage2": "tests_sbpf/theory/stage2/bpf_generator_checked128/step_test",
     },
     "X64-stepper": {
         "stage1": "tests_x64/theory/stage1/x64StepRustPerformanceGenerator/x64_step_test",

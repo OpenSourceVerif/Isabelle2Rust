@@ -28,19 +28,21 @@ SBPF_HARNESS = HARNESS / "sbpf"
 DATA = ROOT / "tests_sbpf" / "tests" / "data"
 PROGRAM_INPUT = DATA / "interp_in.json"
 STEP_INPUT = DATA / "ocaml_in_6000.json"
-DEFAULT_EXPORT = ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator"
+DEFAULT_EXPORT = (
+    ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator_bigint"
+)
 ADAPTED_EXPORTS = {
     "interp_test": ROOT
     / "tests_sbpf"
     / "theory"
     / "stage1"
-    / "bpf_generator_word_checked_interp"
+    / "bpf_generator_checked128"
     / "interp_test",
     "step_test": ROOT
     / "tests_sbpf"
     / "theory"
     / "stage1"
-    / "bpf_generator_word_checked"
+    / "bpf_generator_checked128"
     / "step_test",
 }
 GENERATED_ROOT = ROOT / "tests_sbpf" / "theory" / "performance"
@@ -314,12 +316,9 @@ def generate_step_input() -> None:
 
 
 def generate_exports(*, include_baseline: bool = True) -> None:
-    theories = [
-        "bpf_generator_word_checked",
-        "bpf_generator_word_checked_interp",
-    ]
+    theories = ["bpf_generator_checked128"]
     if include_baseline:
-        theories.insert(0, "bpf_generator")
+        theories.insert(0, "bpf_generator_bigint")
     for theory in theories:
         execute(
             [
