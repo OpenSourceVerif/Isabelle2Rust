@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
 workspace_root=$(cd -- "$repo_root/.." && pwd)
 
 cd "$workspace_root"
@@ -25,7 +25,7 @@ unset RUSTC_BOOTSTRAP
        -o -path 'Isabelle2Rust/rust-toolchain.toml' \
        -o -path 'Isabelle2Rust/ROOT' \
        -o -path 'Isabelle2Rust/scripts/isabelle-exported.Cargo.lock' \
-       -o -path 'Isabelle2Rust/scripts/hol-experiment-fingerprint.sh' \
+       -o -path 'Isabelle2Rust/evaluation/scripts/rq1/fingerprint-hol.sh' \
        -o -path 'Isabelle2Rust/test/HOL_Codegenerator/*.thy' \
        -o -path 'Isabelle2Rust/test/HOL_Codegenerator/template/*.rs' \
        -o -path 'Isabelle2Rust/optimize/Cargo.toml' \

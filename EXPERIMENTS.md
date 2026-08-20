@@ -7,7 +7,7 @@ attempts.
 Before rerunning an experiment, execute:
 
 ```sh
-scripts/hol-experiment-fingerprint.sh
+evaluation/scripts/rq1/fingerprint-hol.sh
 ```
 
 If its value matches the latest successful HOL-Codegenerator entry below, reuse
