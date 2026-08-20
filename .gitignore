@@ -29,4 +29,11 @@ tests_sbpf/theory/performance/
 tests_x64/theory/performance/
 evaluation/performance/sbpf/build/
 evaluation/performance/sbpf/case-study-baseline/target/
-evaluation/performance/results/
+evaluation/performance/results/*
+!evaluation/performance/results/README.md
+!evaluation/performance/results/20260820-052719+0800/
+!evaluation/performance/results/20260820-052719+0800/**
+!evaluation/performance/results/x64-20260820-053412+0800/
+!evaluation/performance/results/x64-20260820-053412+0800/**
+!evaluation/performance/results/provenance/
+!evaluation/performance/results/provenance/**

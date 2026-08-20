@@ -1,0 +1,37 @@
+workload,implementation,metric,unit,run_1,run_2,run_3,median
+SBPF-program,Stage-1,Median runtime,s,81.756419489,81.894963691,80.158382013,81.756419489
+SBPF-program,Stage-1,Heap allocation,MiB/case,370.059423159,370.059423159,370.059423159,370.059423159
+SBPF-program,Stage-2 minus Borrow,Median runtime,s,0.122636725,0.117432655,0.124558219,0.122636725
+SBPF-program,Stage-2 minus Borrow,Heap allocation,MiB/case,0.895576268,0.895576268,0.895576268,0.895576268
+SBPF-program,Stage-2 minus Last-Use,Median runtime,s,2.388777797,2.187427919,2.353417321,2.353417321
+SBPF-program,Stage-2 minus Last-Use,Heap allocation,MiB/case,8.274862211,8.274862211,8.274862211,8.274862211
+SBPF-program,Stage-2 Full,Median runtime,s,0.010580467,0.010101723,0.010685937,0.010580467
+SBPF-program,Stage-2 Full,Heap allocation,MiB/case,0.096717416,0.096717416,0.096717416,0.096717416
+SBPF-program,OCaml baseline,Median runtime,s,0.151179306,0.147996489,0.160406845,0.151179306
+SBPF-program,OCaml baseline,Heap allocation,MiB/case,2.539450084,2.539450084,2.539450084,2.539450084
+SBPF-program,Original system,Median runtime,s,0.000047628,0.000051748,0.000114484,0.000051748
+SBPF-program,Original system,Heap allocation,MiB/case,0.000000000,0.000000000,0.000000000,0.000000000
+SBPF-instruction,Stage-1,Median runtime,s,5.239456566,5.286775264,5.322212327,5.286775264
+SBPF-instruction,Stage-1,Heap allocation,KiB/vector,963.613432292,963.613432292,963.613432292,963.613432292
+SBPF-instruction,Stage-2 minus Borrow,Median runtime,s,0.137211302,0.141217511,0.142812519,0.141217511
+SBPF-instruction,Stage-2 minus Borrow,Heap allocation,KiB/vector,35.540489583,35.540489583,35.540489583,35.540489583
+SBPF-instruction,Stage-2 minus Last-Use,Median runtime,s,2.407308566,2.354180031,2.367078138,2.367078138
+SBPF-instruction,Stage-2 minus Last-Use,Heap allocation,KiB/vector,568.863468750,568.863468750,568.863468750,568.863468750
+SBPF-instruction,Stage-2 Full,Median runtime,s,0.079076947,0.079981990,0.077632359,0.079076947
+SBPF-instruction,Stage-2 Full,Heap allocation,KiB/vector,22.234416667,22.234416667,22.234416667,22.234416667
+SBPF-instruction,OCaml baseline,Median runtime,s,1.101820765,1.188248437,1.121931595,1.121931595
+SBPF-instruction,OCaml baseline,Heap allocation,KiB/vector,295.356296875,295.356296875,295.356296875,295.356296875
+SBPF-instruction,Original system,Median runtime,s,0.002857294,0.002120514,0.003508093,0.002857294
+SBPF-instruction,Original system,Heap allocation,KiB/vector,0.000000000,0.000000000,0.000000000,0.000000000
+x64-stepper,Stage-1,Median runtime,s,0.030861915,0.030527238,0.032560184,0.030861915
+x64-stepper,Stage-1,Heap allocation,KiB/step,9.818316406,9.818316406,9.818316406,9.818316406
+x64-stepper,Stage-2 minus Borrow,Median runtime,s,0.014460687,0.014392725,0.014179885,0.014392725
+x64-stepper,Stage-2 minus Borrow,Heap allocation,KiB/step,3.882019531,3.882019531,3.882019531,3.882019531
+x64-stepper,Stage-2 minus Last-Use,Median runtime,s,0.018186107,0.017682181,0.018230297,0.018186107
+x64-stepper,Stage-2 minus Last-Use,Heap allocation,KiB/step,5.056404948,5.056404948,5.056404948,5.056404948
+x64-stepper,Stage-2 Full,Median runtime,s,0.010422736,0.010106612,0.010296761,0.010296761
+x64-stepper,Stage-2 Full,Heap allocation,KiB/step,2.742649740,2.742649740,2.742649740,2.742649740
+x64-stepper,OCaml baseline,Median runtime,s,0.622871049,0.613594685,0.625063633,0.622871049
+x64-stepper,OCaml baseline,Heap allocation,KiB/step,491.115390625,491.115390625,491.115390625,491.115390625
+x64-stepper,Original system,Median runtime,s,0.038297277,0.036242034,0.037953125,0.037953125
+x64-stepper,Original system,Heap allocation,KiB/step,0.000000000,0.000000000,0.000000000,0.000000000

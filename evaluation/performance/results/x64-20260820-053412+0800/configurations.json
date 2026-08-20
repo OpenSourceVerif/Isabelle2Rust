@@ -1,0 +1,385 @@
+{
+  "Stage-1": {
+    "borrowed_adapter": false,
+    "entry_point_calling_convention": "by value for all five x64_step_test arguments; borrow optimization remains active inside the generated semantics when enabled",
+    "executables": {
+      "x64-stepper": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage1/x64_step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "07adfbbbdecb46ce92bc39b1ea87c1e531593e116417db089b357f4e9a87cb11"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage1/x64_step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "",
+          "sha256": "19648aeb8438c12257c2d0e2a33d9aec2111b316afff21c807745e9d5c5316c3"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "X64_step_test.rs": "a10a265861f49a883b4e07b7c9236de52a1ead628edaf454b76be0c0ab926771",
+      "lib.rs": "78cd305dcd735cb64566330ed95d02d4d4b170ded67cbf29f77a742b72300aa2",
+      "main.rs": "bf69e73da68c1c2c11e8ce97993e43fd9908c5bf4969c5432f995de248e91c81"
+    },
+    "implementation": "Stage-1",
+    "optimized": false,
+    "optimizer_flags": [],
+    "optimizer_sha256": null,
+    "source_shape": {
+      "borrow_optimized_functions": 0,
+      "clone_calls": 3366,
+      "complex_type_aliases": 0,
+      "inferred_copy_derives": 0,
+      "let_mut_bindings": 6,
+      "mut_optimized_functions": 0,
+      "rust_files": 5,
+      "source_bytes": 688345
+    },
+    "source_stage1_sha256": {
+      "Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "X64_step_test.rs": "772a45b3e8a3d6485cb49f59679b2eccbb6a62c1141cd30c0c9c26faf340cf17",
+      "lib.rs": "78cd305dcd735cb64566330ed95d02d4d4b170ded67cbf29f77a742b72300aa2"
+    },
+    "stage1_materialization": "original export copied without cargo-opt or RustLightAST parsing/printing",
+    "stage2_groups": {
+      "borrow": false,
+      "closure": false,
+      "last_use": false
+    },
+    "stage2_passes": {
+      "borrow": false,
+      "closure": false,
+      "copy": false,
+      "last_use": false,
+      "mut": false
+    },
+    "structural_transformations": {
+      "enabled": false,
+      "members": [
+        "binding cleanup",
+        "match cleanup",
+        "Boolean cleanup",
+        "bound cleanup",
+        "complex-type cleanup"
+      ]
+    }
+  },
+  "Stage-2 Full": {
+    "borrowed_adapter": false,
+    "entry_point_calling_convention": "by value for all five x64_step_test arguments; borrow optimization remains active inside the generated semantics when enabled",
+    "executables": {
+      "x64-stepper": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-full/x64_step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "830cbab921d41c3372bb5abb1164adcf89719db96c4f5a588fc58dedc8b00f97"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-full/x64_step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "",
+          "sha256": "b9f8021dd22aa92a1335fc80e871e226f892c068451958571b9bf2dff0c783f5"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "X64_step_test.rs": "a8f81c35c5262bea8953d2786664379f41aadeba7a0c67cd2b8484eef4b2cac7",
+      "lib.rs": "0a94f1aea78b8343565abea63cc297e1e4e5ecff22cd5ebcf9ff818288898c9e",
+      "main.rs": "bf69e73da68c1c2c11e8ce97993e43fd9908c5bf4969c5432f995de248e91c81"
+    },
+    "implementation": "Stage-2 Full",
+    "optimized": true,
+    "optimizer_flags": [],
+    "optimizer_sha256": "707396958f501340fcff7807672aedf724e5c9e65a202ced40d50d7c372305f1",
+    "source_shape": {
+      "borrow_optimized_functions": 79,
+      "clone_calls": 220,
+      "complex_type_aliases": 93,
+      "inferred_copy_derives": 11,
+      "let_mut_bindings": 6,
+      "mut_optimized_functions": 0,
+      "rust_files": 5,
+      "source_bytes": 736221
+    },
+    "source_stage1_sha256": {
+      "Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "X64_step_test.rs": "772a45b3e8a3d6485cb49f59679b2eccbb6a62c1141cd30c0c9c26faf340cf17",
+      "lib.rs": "78cd305dcd735cb64566330ed95d02d4d4b170ded67cbf29f77a742b72300aa2"
+    },
+    "stage1_materialization": "cargo-opt applied to an unchanged copy of the original Stage-1 export",
+    "stage2_groups": {
+      "borrow": true,
+      "closure": true,
+      "last_use": true
+    },
+    "stage2_passes": {
+      "borrow": true,
+      "closure": true,
+      "copy": true,
+      "last_use": true,
+      "mut": true
+    },
+    "structural_transformations": {
+      "enabled": true,
+      "members": [
+        "binding cleanup",
+        "match cleanup",
+        "Boolean cleanup",
+        "bound cleanup",
+        "complex-type cleanup"
+      ]
+    }
+  },
+  "Stage-2 minus Borrow": {
+    "borrowed_adapter": false,
+    "entry_point_calling_convention": "by value for all five x64_step_test arguments; borrow optimization remains active inside the generated semantics when enabled",
+    "executables": {
+      "x64-stepper": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-no-borrow/x64_step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "e72cea696a761aa56765675539d409919d591835b2f44a7d92247991cb4f6915"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-no-borrow/x64_step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "",
+          "sha256": "9a2685de7d98fd63270c26a9a1d22d6da98f836ef70315b08751db67dcf0ef44"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "X64_step_test.rs": "b7cd1d068f9e8b5a75e6b503d2effab77cd08e08a88f0e2614a2d7de2a67a08c",
+      "lib.rs": "0a94f1aea78b8343565abea63cc297e1e4e5ecff22cd5ebcf9ff818288898c9e",
+      "main.rs": "bf69e73da68c1c2c11e8ce97993e43fd9908c5bf4969c5432f995de248e91c81"
+    },
+    "implementation": "Stage-2 minus Borrow",
+    "optimized": true,
+    "optimizer_flags": [
+      "--disable-borrow"
+    ],
+    "optimizer_sha256": "707396958f501340fcff7807672aedf724e5c9e65a202ced40d50d7c372305f1",
+    "source_shape": {
+      "borrow_optimized_functions": 0,
+      "clone_calls": 552,
+      "complex_type_aliases": 93,
+      "inferred_copy_derives": 11,
+      "let_mut_bindings": 6,
+      "mut_optimized_functions": 0,
+      "rust_files": 5,
+      "source_bytes": 730343
+    },
+    "source_stage1_sha256": {
+      "Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "X64_step_test.rs": "772a45b3e8a3d6485cb49f59679b2eccbb6a62c1141cd30c0c9c26faf340cf17",
+      "lib.rs": "78cd305dcd735cb64566330ed95d02d4d4b170ded67cbf29f77a742b72300aa2"
+    },
+    "stage1_materialization": "cargo-opt applied to an unchanged copy of the original Stage-1 export",
+    "stage2_groups": {
+      "borrow": false,
+      "closure": true,
+      "last_use": true
+    },
+    "stage2_passes": {
+      "borrow": false,
+      "closure": true,
+      "copy": true,
+      "last_use": true,
+      "mut": true
+    },
+    "structural_transformations": {
+      "enabled": true,
+      "members": [
+        "binding cleanup",
+        "match cleanup",
+        "Boolean cleanup",
+        "bound cleanup",
+        "complex-type cleanup"
+      ]
+    }
+  },
+  "Stage-2 minus Closure": {
+    "borrowed_adapter": false,
+    "entry_point_calling_convention": "by value for all five x64_step_test arguments; borrow optimization remains active inside the generated semantics when enabled",
+    "executables": {
+      "x64-stepper": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-no-closure/x64_step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "c44d08a190b93b06a4aca15921b869314ba172a2d6dea0bb0bd4749c3f7134b0"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-no-closure/x64_step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "",
+          "sha256": "4a9bba6f7441d0822f06e19d9f5c8f75bc9ea66d9615e3c58c86204816ab6c26"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "X64_step_test.rs": "9d2afbea7d70bab0108fcf694e0b822eb1554c8cefea04c05a77046df94562e2",
+      "lib.rs": "0a94f1aea78b8343565abea63cc297e1e4e5ecff22cd5ebcf9ff818288898c9e",
+      "main.rs": "bf69e73da68c1c2c11e8ce97993e43fd9908c5bf4969c5432f995de248e91c81"
+    },
+    "implementation": "Stage-2 minus Closure",
+    "optimized": true,
+    "optimizer_flags": [
+      "--disable-closure"
+    ],
+    "optimizer_sha256": "707396958f501340fcff7807672aedf724e5c9e65a202ced40d50d7c372305f1",
+    "source_shape": {
+      "borrow_optimized_functions": 79,
+      "clone_calls": 220,
+      "complex_type_aliases": 93,
+      "inferred_copy_derives": 11,
+      "let_mut_bindings": 6,
+      "mut_optimized_functions": 0,
+      "rust_files": 5,
+      "source_bytes": 745292
+    },
+    "source_stage1_sha256": {
+      "Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "X64_step_test.rs": "772a45b3e8a3d6485cb49f59679b2eccbb6a62c1141cd30c0c9c26faf340cf17",
+      "lib.rs": "78cd305dcd735cb64566330ed95d02d4d4b170ded67cbf29f77a742b72300aa2"
+    },
+    "stage1_materialization": "cargo-opt applied to an unchanged copy of the original Stage-1 export",
+    "stage2_groups": {
+      "borrow": true,
+      "closure": false,
+      "last_use": true
+    },
+    "stage2_passes": {
+      "borrow": true,
+      "closure": false,
+      "copy": true,
+      "last_use": true,
+      "mut": true
+    },
+    "structural_transformations": {
+      "enabled": true,
+      "members": [
+        "binding cleanup",
+        "match cleanup",
+        "Boolean cleanup",
+        "bound cleanup",
+        "complex-type cleanup"
+      ]
+    }
+  },
+  "Stage-2 minus Last-Use": {
+    "borrowed_adapter": false,
+    "entry_point_calling_convention": "by value for all five x64_step_test arguments; borrow optimization remains active inside the generated semantics when enabled",
+    "executables": {
+      "x64-stepper": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-no-last-use/x64_step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "0f299e30745343e6fb4b23dd237eb90a572d39242bad666b03eaf5a779094dd8"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-no-last-use/x64_step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "",
+          "sha256": "3e3520bbfd957c620b328676f31c1af3278b614b7c144599550b2feda881215b"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "X64_step_test.rs": "43c27a2e50c8f128dde980eaa37c1d5882e05fb76491e903ccc313619b2f5ef8",
+      "lib.rs": "0a94f1aea78b8343565abea63cc297e1e4e5ecff22cd5ebcf9ff818288898c9e",
+      "main.rs": "bf69e73da68c1c2c11e8ce97993e43fd9908c5bf4969c5432f995de248e91c81"
+    },
+    "implementation": "Stage-2 minus Last-Use",
+    "optimized": true,
+    "optimizer_flags": [
+      "--disable-last-use"
+    ],
+    "optimizer_sha256": "707396958f501340fcff7807672aedf724e5c9e65a202ced40d50d7c372305f1",
+    "source_shape": {
+      "borrow_optimized_functions": 79,
+      "clone_calls": 447,
+      "complex_type_aliases": 93,
+      "inferred_copy_derives": 11,
+      "let_mut_bindings": 6,
+      "mut_optimized_functions": 0,
+      "rust_files": 5,
+      "source_bytes": 744014
+    },
+    "source_stage1_sha256": {
+      "Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "X64_step_test.rs": "772a45b3e8a3d6485cb49f59679b2eccbb6a62c1141cd30c0c9c26faf340cf17",
+      "lib.rs": "78cd305dcd735cb64566330ed95d02d4d4b170ded67cbf29f77a742b72300aa2"
+    },
+    "stage1_materialization": "cargo-opt applied to an unchanged copy of the original Stage-1 export",
+    "stage2_groups": {
+      "borrow": true,
+      "closure": true,
+      "last_use": false
+    },
+    "stage2_passes": {
+      "borrow": true,
+      "closure": true,
+      "copy": true,
+      "last_use": false,
+      "mut": true
+    },
+    "structural_transformations": {
+      "enabled": true,
+      "members": [
+        "binding cleanup",
+        "match cleanup",
+        "Boolean cleanup",
+        "bound cleanup",
+        "complex-type cleanup"
+      ]
+    }
+  },
+  "allocation_rule": "Successful Rust alloc and alloc_zeroed add layout.size(); successful realloc adds new_size; dealloc subtracts nothing. The counter is reset immediately before the measured workload.",
+  "available_pass_level_ablations": [
+    "Copy",
+    "Borrow",
+    "Mut",
+    "Last-Use",
+    "Closure"
+  ],
+  "benchmark": "x64-stepper",
+  "cases": 6000,
+  "diagnostic_mode": false,
+  "matrix_order": [
+    "Stage-1",
+    "Stage-2 minus Borrow",
+    "Stage-2 minus Last-Use",
+    "Stage-2 minus Closure",
+    "Stage-2 Full",
+    "OCaml baseline",
+    "Native x64 baseline"
+  ],
+  "numeric_representation": "Rust WordU128 layer plus Checked128 Int/Nat profile for Stage-1 and every Stage-2 configuration; fixed default OCaml export for the OCaml baseline",
+  "paper_facing_ablations": [
+    "Borrow",
+    "Last-Use",
+    "Closure"
+  ],
+  "rust_build": "cargo +stable build --release --locked",
+  "stage2_rerun": {
+    "regenerated_implementations": [
+      "Stage-2 minus Borrow",
+      "Stage-2 minus Last-Use",
+      "Stage-2 minus Closure",
+      "Stage-2 Full"
+    ],
+    "reused_unchanged_implementations_from": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/results/x64-20260820-044143+0800"
+  },
+  "timed_region": "raw x64_step_test call only; parsing, conversion, observation, and comparison excluded"
+}

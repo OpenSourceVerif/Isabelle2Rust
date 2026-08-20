@@ -1,0 +1,72 @@
+{
+  "Stage-1": {
+    "x64-stepper": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage1/x64_step_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg allocation_metrics",
+        "sha256": "07adfbbbdecb46ce92bc39b1ea87c1e531593e116417db089b357f4e9a87cb11"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage1/x64_step_test/target/runtime/release/isabelle_exported",
+        "rustflags": "",
+        "sha256": "19648aeb8438c12257c2d0e2a33d9aec2111b316afff21c807745e9d5c5316c3"
+      }
+    }
+  },
+  "Stage-2 Full": {
+    "x64-stepper": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-full/x64_step_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg allocation_metrics",
+        "sha256": "830cbab921d41c3372bb5abb1164adcf89719db96c4f5a588fc58dedc8b00f97"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-full/x64_step_test/target/runtime/release/isabelle_exported",
+        "rustflags": "",
+        "sha256": "b9f8021dd22aa92a1335fc80e871e226f892c068451958571b9bf2dff0c783f5"
+      }
+    }
+  },
+  "Stage-2 minus Borrow": {
+    "x64-stepper": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-no-borrow/x64_step_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg allocation_metrics",
+        "sha256": "e72cea696a761aa56765675539d409919d591835b2f44a7d92247991cb4f6915"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-no-borrow/x64_step_test/target/runtime/release/isabelle_exported",
+        "rustflags": "",
+        "sha256": "9a2685de7d98fd63270c26a9a1d22d6da98f836ef70315b08751db67dcf0ef44"
+      }
+    }
+  },
+  "Stage-2 minus Closure": {
+    "x64-stepper": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-no-closure/x64_step_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg allocation_metrics",
+        "sha256": "c44d08a190b93b06a4aca15921b869314ba172a2d6dea0bb0bd4749c3f7134b0"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-no-closure/x64_step_test/target/runtime/release/isabelle_exported",
+        "rustflags": "",
+        "sha256": "4a9bba6f7441d0822f06e19d9f5c8f75bc9ea66d9615e3c58c86204816ab6c26"
+      }
+    }
+  },
+  "Stage-2 minus Last-Use": {
+    "x64-stepper": {
+      "allocation": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-no-last-use/x64_step_test/target/allocation/release/isabelle_exported",
+        "rustflags": "--cfg allocation_metrics",
+        "sha256": "0f299e30745343e6fb4b23dd237eb90a572d39242bad666b03eaf5a779094dd8"
+      },
+      "runtime": {
+        "path": "/home/ljy/fm2026/Isabelle2Rust/tests_x64/theory/performance/x64/stage2-no-last-use/x64_step_test/target/runtime/release/isabelle_exported",
+        "rustflags": "",
+        "sha256": "3e3520bbfd957c620b328676f31c1af3278b614b7c144599550b2feda881215b"
+      }
+    }
+  }
+}

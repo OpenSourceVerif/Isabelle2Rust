@@ -1,0 +1,482 @@
+{
+  "Stage-1": {
+    "borrowed_adapter": false,
+    "executables": {
+      "SBPF-instruction": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage1/step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "89124754904d8614a0329f8bc49351695d39883069dd812ab4a5937bba335406"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage1/step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "",
+          "sha256": "2d50784e32f84541c2affa0438e5a15be7547069e3a6aa7ee816a1b0548756b3"
+        }
+      },
+      "SBPF-program": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage1/interp_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "7df85c4864c3abde2605fa4a0594b0b81eb3aa4d8727325d3d39048313255c08"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage1/interp_test/target/runtime/release/isabelle_exported",
+          "rustflags": "",
+          "sha256": "16428a461467c55f83f21753c13d959c9d8b71f2bb463512be2bb51cbb41bb8d"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "interp_test/Interp_test.rs": "775f97ab44e9cbb6b3ba245d840ffdcbcaffe72e6b0646d6374330a58b2def80",
+      "interp_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "interp_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "interp_test/lib.rs": "96935dadb4ba0939803383af5f1fb501ad71540cc47d047675d352cdf70c9dcb",
+      "interp_test/main.rs": "d6c7f59c96416327604c64f64738400ae24679a1ad3a07a57322b1d6e60e23e0",
+      "step_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "step_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "step_test/Step_test.rs": "387ea21c4fe5061e26d2df5e14eb3864a77748a2df130cca2cc373e5eb9bd397",
+      "step_test/lib.rs": "109ac463bd5602ced864ff3b2048e923c8a6d418d50429232a084d17b6dab3e1",
+      "step_test/main.rs": "8b1d07fd3626307baa5ec1823ea5a8292069b780236caef10b036b1e3c14e063"
+    },
+    "implementation": "Stage-1",
+    "optimized": false,
+    "optimizer_flags": [],
+    "optimizer_sha256": null,
+    "source_shape": {
+      "borrow_optimized_functions": 0,
+      "clone_calls": 3899,
+      "complex_type_aliases": 0,
+      "inferred_copy_derives": 0,
+      "let_mut_bindings": 12,
+      "mut_optimized_functions": 0,
+      "rust_files": 10,
+      "source_bytes": 792589
+    },
+    "source_stage1_sha256": {
+      "interp_test/Interp_test.rs": "775f97ab44e9cbb6b3ba245d840ffdcbcaffe72e6b0646d6374330a58b2def80",
+      "interp_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "interp_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "interp_test/lib.rs": "96935dadb4ba0939803383af5f1fb501ad71540cc47d047675d352cdf70c9dcb",
+      "step_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "step_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "step_test/Step_test.rs": "387ea21c4fe5061e26d2df5e14eb3864a77748a2df130cca2cc373e5eb9bd397",
+      "step_test/lib.rs": "109ac463bd5602ced864ff3b2048e923c8a6d418d50429232a084d17b6dab3e1"
+    },
+    "stage1_materialization": "original export copied without cargo-opt or RustLightAST parsing/printing",
+    "stage2_groups": {
+      "borrow": false,
+      "closure": false,
+      "last_use": false
+    },
+    "stage2_passes": {
+      "borrow": false,
+      "closure": false,
+      "copy": false,
+      "last_use": false,
+      "mut": false
+    },
+    "structural_transformations": {
+      "enabled": false,
+      "members": [
+        "binding cleanup",
+        "match cleanup",
+        "Boolean cleanup",
+        "bound cleanup",
+        "complex-type cleanup"
+      ]
+    }
+  },
+  "Stage-2 Full": {
+    "borrowed_adapter": true,
+    "executables": {
+      "SBPF-instruction": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-full/step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed --cfg allocation_metrics",
+          "sha256": "ece986d024fa99eb7846dadbb27627863b378dc435d7c5689d09ffe36f22b26d"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-full/step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed",
+          "sha256": "991698e0cabaefdee6f4be1097e7762af6fe3332acd5f66e5736ab08ebd22b92"
+        }
+      },
+      "SBPF-program": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-full/interp_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed --cfg allocation_metrics",
+          "sha256": "84b930b6e367fc85fe1c0af72e73cf21ec46a7b557c9296a59bf0e37147fab37"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-full/interp_test/target/runtime/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed",
+          "sha256": "3946c1892f13a5328e38e72bdb63b45bce01c87f61f9429aae7a29ce66a45756"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "interp_test/Interp_test.rs": "efefebd82e9145dedc7a3837044b43bdec573a6b4c98bcc38ce484e07c5df686",
+      "interp_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "interp_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "interp_test/lib.rs": "4ffd520f860dbe784ab09803b7e778afb4217ac9fe981e8928c61c8656c61386",
+      "interp_test/main.rs": "d6c7f59c96416327604c64f64738400ae24679a1ad3a07a57322b1d6e60e23e0",
+      "step_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "step_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "step_test/Step_test.rs": "19e76c01d52f9fed03b8e7c51ec8a490fa7dee291a39664ae5959f6b1866d322",
+      "step_test/lib.rs": "41929a8dd951508eef21f6c7d339033ae910d70350b9bade6819260ebe8c9230",
+      "step_test/main.rs": "8b1d07fd3626307baa5ec1823ea5a8292069b780236caef10b036b1e3c14e063"
+    },
+    "implementation": "Stage-2 Full",
+    "optimized": true,
+    "optimizer_flags": [],
+    "optimizer_sha256": "707396958f501340fcff7807672aedf724e5c9e65a202ced40d50d7c372305f1",
+    "source_shape": {
+      "borrow_optimized_functions": 106,
+      "clone_calls": 282,
+      "complex_type_aliases": 653,
+      "inferred_copy_derives": 26,
+      "let_mut_bindings": 12,
+      "mut_optimized_functions": 0,
+      "rust_files": 10,
+      "source_bytes": 638372
+    },
+    "source_stage1_sha256": {
+      "interp_test/Interp_test.rs": "775f97ab44e9cbb6b3ba245d840ffdcbcaffe72e6b0646d6374330a58b2def80",
+      "interp_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "interp_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "interp_test/lib.rs": "96935dadb4ba0939803383af5f1fb501ad71540cc47d047675d352cdf70c9dcb",
+      "step_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "step_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "step_test/Step_test.rs": "387ea21c4fe5061e26d2df5e14eb3864a77748a2df130cca2cc373e5eb9bd397",
+      "step_test/lib.rs": "109ac463bd5602ced864ff3b2048e923c8a6d418d50429232a084d17b6dab3e1"
+    },
+    "stage1_materialization": "cargo-opt applied to an unchanged copy of the original Stage-1 export",
+    "stage2_groups": {
+      "borrow": true,
+      "closure": true,
+      "last_use": true
+    },
+    "stage2_passes": {
+      "borrow": true,
+      "closure": true,
+      "copy": true,
+      "last_use": true,
+      "mut": true
+    },
+    "structural_transformations": {
+      "enabled": true,
+      "members": [
+        "binding cleanup",
+        "match cleanup",
+        "Boolean cleanup",
+        "bound cleanup",
+        "complex-type cleanup"
+      ]
+    }
+  },
+  "Stage-2 minus Borrow": {
+    "borrowed_adapter": false,
+    "executables": {
+      "SBPF-instruction": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-borrow/step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "1e0336ebebb610416affd1c60a079cfa2f93b831df1c9142c74a7850ca01821b"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-borrow/step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "",
+          "sha256": "e6529598aafd8fdcf98951a0043ec22a020c7913cbbeb1040d2bae64bd203ebf"
+        }
+      },
+      "SBPF-program": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-borrow/interp_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg allocation_metrics",
+          "sha256": "9e0f64551fd2b56f47168bd3205ab9203dc83faa16504b88e721b68ab16fd9fe"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-borrow/interp_test/target/runtime/release/isabelle_exported",
+          "rustflags": "",
+          "sha256": "04c8955f60e402e7ac7a8575f33f5438ed1c12cb2bed0de3260a2745a01585b8"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "interp_test/Interp_test.rs": "6074032f597d30ef33a0b655e0e2f7c0c18feccaa6fb411b6106b37c1df83189",
+      "interp_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "interp_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "interp_test/lib.rs": "4ffd520f860dbe784ab09803b7e778afb4217ac9fe981e8928c61c8656c61386",
+      "interp_test/main.rs": "d6c7f59c96416327604c64f64738400ae24679a1ad3a07a57322b1d6e60e23e0",
+      "step_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "step_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "step_test/Step_test.rs": "a036d6bf547acbff0c8a7b7b5e923a6b3a6c39af7dbc845b0a81079e4bb311bc",
+      "step_test/lib.rs": "41929a8dd951508eef21f6c7d339033ae910d70350b9bade6819260ebe8c9230",
+      "step_test/main.rs": "8b1d07fd3626307baa5ec1823ea5a8292069b780236caef10b036b1e3c14e063"
+    },
+    "implementation": "Stage-2 minus Borrow",
+    "optimized": true,
+    "optimizer_flags": [
+      "--disable-borrow"
+    ],
+    "optimizer_sha256": "707396958f501340fcff7807672aedf724e5c9e65a202ced40d50d7c372305f1",
+    "source_shape": {
+      "borrow_optimized_functions": 0,
+      "clone_calls": 412,
+      "complex_type_aliases": 653,
+      "inferred_copy_derives": 26,
+      "let_mut_bindings": 12,
+      "mut_optimized_functions": 0,
+      "rust_files": 10,
+      "source_bytes": 634075
+    },
+    "source_stage1_sha256": {
+      "interp_test/Interp_test.rs": "775f97ab44e9cbb6b3ba245d840ffdcbcaffe72e6b0646d6374330a58b2def80",
+      "interp_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "interp_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "interp_test/lib.rs": "96935dadb4ba0939803383af5f1fb501ad71540cc47d047675d352cdf70c9dcb",
+      "step_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "step_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "step_test/Step_test.rs": "387ea21c4fe5061e26d2df5e14eb3864a77748a2df130cca2cc373e5eb9bd397",
+      "step_test/lib.rs": "109ac463bd5602ced864ff3b2048e923c8a6d418d50429232a084d17b6dab3e1"
+    },
+    "stage1_materialization": "cargo-opt applied to an unchanged copy of the original Stage-1 export",
+    "stage2_groups": {
+      "borrow": false,
+      "closure": true,
+      "last_use": true
+    },
+    "stage2_passes": {
+      "borrow": false,
+      "closure": true,
+      "copy": true,
+      "last_use": true,
+      "mut": true
+    },
+    "structural_transformations": {
+      "enabled": true,
+      "members": [
+        "binding cleanup",
+        "match cleanup",
+        "Boolean cleanup",
+        "bound cleanup",
+        "complex-type cleanup"
+      ]
+    }
+  },
+  "Stage-2 minus Closure": {
+    "borrowed_adapter": true,
+    "executables": {
+      "SBPF-instruction": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-closure/step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed --cfg allocation_metrics",
+          "sha256": "90ee50b6454592449d3e8f6c8c48250d78c418b8afb76ad147fcd3ed878dcdab"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-closure/step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed",
+          "sha256": "8b7a730510e934b0e2212bc8bcab43f2ff0e2045813eeea927b570b40358e5ce"
+        }
+      },
+      "SBPF-program": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-closure/interp_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed --cfg allocation_metrics",
+          "sha256": "2491bada11c874bc1d539b2740ed3fb6ef2bec87b58c1a30d82cddf678480061"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-closure/interp_test/target/runtime/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed",
+          "sha256": "a6902362ce5e7f96be1c91fb111fd16c475675810a44bf65c9dcf8968ce5973e"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "interp_test/Interp_test.rs": "ead1c8f6da82229d1b75389b06486b67edecbbb0d8180cc07f0cd73ebf4c3231",
+      "interp_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "interp_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "interp_test/lib.rs": "4ffd520f860dbe784ab09803b7e778afb4217ac9fe981e8928c61c8656c61386",
+      "interp_test/main.rs": "d6c7f59c96416327604c64f64738400ae24679a1ad3a07a57322b1d6e60e23e0",
+      "step_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "step_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "step_test/Step_test.rs": "19591bc1be3e5e422dfb4e707684b662d86e27747e67ab4b113023bc8ce56a73",
+      "step_test/lib.rs": "41929a8dd951508eef21f6c7d339033ae910d70350b9bade6819260ebe8c9230",
+      "step_test/main.rs": "8b1d07fd3626307baa5ec1823ea5a8292069b780236caef10b036b1e3c14e063"
+    },
+    "implementation": "Stage-2 minus Closure",
+    "optimized": true,
+    "optimizer_flags": [
+      "--disable-closure"
+    ],
+    "optimizer_sha256": "707396958f501340fcff7807672aedf724e5c9e65a202ced40d50d7c372305f1",
+    "source_shape": {
+      "borrow_optimized_functions": 106,
+      "clone_calls": 282,
+      "complex_type_aliases": 653,
+      "inferred_copy_derives": 26,
+      "let_mut_bindings": 12,
+      "mut_optimized_functions": 0,
+      "rust_files": 10,
+      "source_bytes": 657151
+    },
+    "source_stage1_sha256": {
+      "interp_test/Interp_test.rs": "775f97ab44e9cbb6b3ba245d840ffdcbcaffe72e6b0646d6374330a58b2def80",
+      "interp_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "interp_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "interp_test/lib.rs": "96935dadb4ba0939803383af5f1fb501ad71540cc47d047675d352cdf70c9dcb",
+      "step_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "step_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "step_test/Step_test.rs": "387ea21c4fe5061e26d2df5e14eb3864a77748a2df130cca2cc373e5eb9bd397",
+      "step_test/lib.rs": "109ac463bd5602ced864ff3b2048e923c8a6d418d50429232a084d17b6dab3e1"
+    },
+    "stage1_materialization": "cargo-opt applied to an unchanged copy of the original Stage-1 export",
+    "stage2_groups": {
+      "borrow": true,
+      "closure": false,
+      "last_use": true
+    },
+    "stage2_passes": {
+      "borrow": true,
+      "closure": false,
+      "copy": true,
+      "last_use": true,
+      "mut": true
+    },
+    "structural_transformations": {
+      "enabled": true,
+      "members": [
+        "binding cleanup",
+        "match cleanup",
+        "Boolean cleanup",
+        "bound cleanup",
+        "complex-type cleanup"
+      ]
+    }
+  },
+  "Stage-2 minus Last-Use": {
+    "borrowed_adapter": true,
+    "executables": {
+      "SBPF-instruction": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-last-use/step_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed --cfg allocation_metrics",
+          "sha256": "11b28ff71ff818ef19ca734a6b487b6b5ebb9cb121f9c6ccef8b4ff3952051bb"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-last-use/step_test/target/runtime/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed",
+          "sha256": "510300ba8a8243b96fc87c8d02f67903d0ed985519cc06513f2b38f4fa5b4b11"
+        }
+      },
+      "SBPF-program": {
+        "allocation": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-last-use/interp_test/target/allocation/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed --cfg allocation_metrics",
+          "sha256": "b3a186f8bf8b4b9148e3574d2ad665fb33a009e655f3a663d33892fbc480eb0e"
+        },
+        "runtime": {
+          "path": "/home/ljy/fm2026/Isabelle2Rust/tests_sbpf/theory/performance/stage2-no-last-use/interp_test/target/runtime/release/isabelle_exported",
+          "rustflags": "--cfg sbpf_borrowed",
+          "sha256": "c1b4b025507d53af50bb4899bb431db3a6b0c9c8568759c2066135ebd53b33a5"
+        }
+      }
+    },
+    "generated_source_sha256": {
+      "interp_test/Interp_test.rs": "75dadcb7d4dc9355c9a69326f60435fce4af16d9c6cad890606acfbff682d3b3",
+      "interp_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "interp_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "interp_test/lib.rs": "4ffd520f860dbe784ab09803b7e778afb4217ac9fe981e8928c61c8656c61386",
+      "interp_test/main.rs": "d6c7f59c96416327604c64f64738400ae24679a1ad3a07a57322b1d6e60e23e0",
+      "step_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "step_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "step_test/Step_test.rs": "8311418f0b54fb530b4491d4fef674bbb493e2e39bdf41dbfb1fcb20f8bdf9e3",
+      "step_test/lib.rs": "41929a8dd951508eef21f6c7d339033ae910d70350b9bade6819260ebe8c9230",
+      "step_test/main.rs": "8b1d07fd3626307baa5ec1823ea5a8292069b780236caef10b036b1e3c14e063"
+    },
+    "implementation": "Stage-2 minus Last-Use",
+    "optimized": true,
+    "optimizer_flags": [
+      "--disable-last-use"
+    ],
+    "optimizer_sha256": "707396958f501340fcff7807672aedf724e5c9e65a202ced40d50d7c372305f1",
+    "source_shape": {
+      "borrow_optimized_functions": 106,
+      "clone_calls": 799,
+      "complex_type_aliases": 653,
+      "inferred_copy_derives": 26,
+      "let_mut_bindings": 12,
+      "mut_optimized_functions": 0,
+      "rust_files": 10,
+      "source_bytes": 660679
+    },
+    "source_stage1_sha256": {
+      "interp_test/Interp_test.rs": "775f97ab44e9cbb6b3ba245d840ffdcbcaffe72e6b0646d6374330a58b2def80",
+      "interp_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "interp_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "interp_test/lib.rs": "96935dadb4ba0939803383af5f1fb501ad71540cc47d047675d352cdf70c9dcb",
+      "step_test/Rust_Checked128.rs": "f52e3212cad56a59ff7f64d658ef820ef9eaac727019c306a3a3255a441d91bc",
+      "step_test/Rust_Word.rs": "05c903f66efd95a376a91908a967d54e6fb734aeaacd5c8a3c906f13e1d4b856",
+      "step_test/Step_test.rs": "387ea21c4fe5061e26d2df5e14eb3864a77748a2df130cca2cc373e5eb9bd397",
+      "step_test/lib.rs": "109ac463bd5602ced864ff3b2048e923c8a6d418d50429232a084d17b6dab3e1"
+    },
+    "stage1_materialization": "cargo-opt applied to an unchanged copy of the original Stage-1 export",
+    "stage2_groups": {
+      "borrow": true,
+      "closure": true,
+      "last_use": false
+    },
+    "stage2_passes": {
+      "borrow": true,
+      "closure": true,
+      "copy": true,
+      "last_use": false,
+      "mut": true
+    },
+    "structural_transformations": {
+      "enabled": true,
+      "members": [
+        "binding cleanup",
+        "match cleanup",
+        "Boolean cleanup",
+        "bound cleanup",
+        "complex-type cleanup"
+      ]
+    }
+  },
+  "allocation_rule": "Successful alloc and alloc_zeroed add layout.size(); successful realloc adds new_size; dealloc subtracts nothing. The counter is reset immediately before the measurement region.",
+  "available_pass_level_ablations": [
+    "Copy",
+    "Borrow",
+    "Mut",
+    "Last-Use",
+    "Closure"
+  ],
+  "diagnostic_mode": false,
+  "matrix_order": [
+    "Stage-1",
+    "Stage-2 minus Borrow",
+    "Stage-2 minus Last-Use",
+    "Stage-2 minus Closure",
+    "Stage-2 Full",
+    "OCaml baseline",
+    "Case-study baseline"
+  ],
+  "numeric_representation": "Rust WordU128 layer plus Checked128 Int/Nat profile for Stage-1 and every Stage-2 configuration; fixed default OCaml export for the OCaml baseline",
+  "paper_facing_ablations": [
+    "Borrow",
+    "Last-Use",
+    "Closure"
+  ],
+  "rust_build": "cargo +stable build --release --locked",
+  "stage2_rerun": {
+    "regenerated_implementations": [
+      "Stage-2 minus Borrow",
+      "Stage-2 minus Last-Use",
+      "Stage-2 minus Closure",
+      "Stage-2 Full"
+    ],
+    "reused_unchanged_implementations_from": "/home/ljy/fm2026/Isabelle2Rust/evaluation/performance/results/20260820-042501+0800"
+  }
+}

@@ -1,0 +1,19 @@
+workload,implementation,passed,failed,source_stdout,source_sha256
+SBPF-program,Stage-1,146,0,evaluation/performance/results/20260723-225514+0800/correctness/SBPF-program__stage-1.stdout,3b0e58461f7bad9938dfccba4d23e2d56dfb5528dfdae8f194bc3d17b3a1362f
+SBPF-program,Stage-2 minus Borrow,146,0,evaluation/performance/results/20260806-173656+0800/correctness/SBPF-program__stage-2-minus-borrow.stdout,3b0e58461f7bad9938dfccba4d23e2d56dfb5528dfdae8f194bc3d17b3a1362f
+SBPF-program,Stage-2 minus Last-Use,146,0,evaluation/performance/results/20260806-173656+0800/correctness/SBPF-program__stage-2-minus-last-use.stdout,3b0e58461f7bad9938dfccba4d23e2d56dfb5528dfdae8f194bc3d17b3a1362f
+SBPF-program,Stage-2 Full,146,0,evaluation/performance/results/20260806-173656+0800/correctness/SBPF-program__stage-2-full.stdout,3b0e58461f7bad9938dfccba4d23e2d56dfb5528dfdae8f194bc3d17b3a1362f
+SBPF-program,OCaml baseline,146,0,evaluation/performance/results/20260724-215022+0800/correctness/SBPF-program__ocaml-baseline.stdout,3b0e58461f7bad9938dfccba4d23e2d56dfb5528dfdae8f194bc3d17b3a1362f
+SBPF-program,Original system,146,0,evaluation/performance/results/20260720-213206+0800/correctness/SBPF-program__case-study-baseline.stdout,3b0e58461f7bad9938dfccba4d23e2d56dfb5528dfdae8f194bc3d17b3a1362f
+SBPF-instruction,Stage-1,6000,0,evaluation/performance/results/20260723-225514+0800/correctness/SBPF-instruction__stage-1.stdout,b0aad1b244af58afe19ec71fb35786b50f4778b435d099714a6122f1e6d16bfc
+SBPF-instruction,Stage-2 minus Borrow,6000,0,evaluation/performance/results/20260806-173656+0800/correctness/SBPF-instruction__stage-2-minus-borrow.stdout,b0aad1b244af58afe19ec71fb35786b50f4778b435d099714a6122f1e6d16bfc
+SBPF-instruction,Stage-2 minus Last-Use,6000,0,evaluation/performance/results/20260806-173656+0800/correctness/SBPF-instruction__stage-2-minus-last-use.stdout,b0aad1b244af58afe19ec71fb35786b50f4778b435d099714a6122f1e6d16bfc
+SBPF-instruction,Stage-2 Full,6000,0,evaluation/performance/results/20260806-173656+0800/correctness/SBPF-instruction__stage-2-full.stdout,b0aad1b244af58afe19ec71fb35786b50f4778b435d099714a6122f1e6d16bfc
+SBPF-instruction,OCaml baseline,6000,0,evaluation/performance/results/20260724-215022+0800/correctness/SBPF-instruction__ocaml-baseline.stdout,b0aad1b244af58afe19ec71fb35786b50f4778b435d099714a6122f1e6d16bfc
+SBPF-instruction,Original system,6000,0,evaluation/performance/results/20260720-213206+0800/correctness/SBPF-instruction__case-study-baseline.stdout,b0aad1b244af58afe19ec71fb35786b50f4778b435d099714a6122f1e6d16bfc
+x64-stepper,Stage-1,6000,0,evaluation/performance/results/x64-20260723-181321+0800/correctness/stage-1.stdout,54c714259e420cfb92eab7d1c045c21e361613f05420e8f98aa14617bb5bfa6f
+x64-stepper,Stage-2 minus Borrow,6000,0,evaluation/performance/results/x64-20260806-174144+0800/correctness/stage-2-minus-borrow.stdout,54c714259e420cfb92eab7d1c045c21e361613f05420e8f98aa14617bb5bfa6f
+x64-stepper,Stage-2 minus Last-Use,6000,0,evaluation/performance/results/x64-20260806-174144+0800/correctness/stage-2-minus-last-use.stdout,54c714259e420cfb92eab7d1c045c21e361613f05420e8f98aa14617bb5bfa6f
+x64-stepper,Stage-2 Full,6000,0,evaluation/performance/results/x64-20260806-174144+0800/correctness/stage-2-full.stdout,54c714259e420cfb92eab7d1c045c21e361613f05420e8f98aa14617bb5bfa6f
+x64-stepper,OCaml baseline,6000,0,evaluation/performance/results/x64-20260724-215228+0800/correctness/ocaml-baseline.stdout,54c714259e420cfb92eab7d1c045c21e361613f05420e8f98aa14617bb5bfa6f
+x64-stepper,Original system,6000,0,evaluation/performance/results/x64-20260723-181321+0800/correctness/native-x64-baseline.stdout,54c714259e420cfb92eab7d1c045c21e361613f05420e8f98aa14617bb5bfa6f
