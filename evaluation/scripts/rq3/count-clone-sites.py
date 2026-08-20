@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[3]
 EXPORT_CODE = re.compile(r"^\s*export_code(?:\s|$)", re.MULTILINE)
 CLONE = re.compile(r"\.clone\s*\(\s*\)")
 NATURAL = re.compile(r"(\d+)")
