@@ -1,1 +1,0 @@
-RESULT benchmark=x64-stepper metric=runtime process_id=394068 cases=6000 suite_repetitions=291 logical_units=1746000 elapsed_seconds=5.939385056 allocated_bytes=0

@@ -1,1 +1,0 @@
-RESULT benchmark=SBPF-instruction metric=pilot process_id=380696 cases=6000 suite_repetitions=1 logical_units=6000 elapsed_seconds=2.685634712 allocated_bytes=0

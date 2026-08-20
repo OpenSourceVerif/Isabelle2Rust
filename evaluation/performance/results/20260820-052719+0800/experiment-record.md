@@ -129,4 +129,7 @@ Host instructions are `TBD`. The direct `perf_event_open(PERF_COUNT_HW_INSTRUCTI
 - `summary.csv`: the three values and median for every table cell.
 - `grouped_ablation.csv`: within-round minus-group/Full ratios and their medians.
 - `commands.txt`: every actual preparation, build, validation, pilot, and measurement command.
-- `correctness/`, `pilot/`, and `runs/`: per-process stdout, stderr, and `/usr/bin/time -v` output.
+- `correctness/`: validation stdout, stderr, and `/usr/bin/time -v` output.
+
+Pilot output and per-invocation measurement logs are preserved in the
+author-side history archive rather than this paper-facing result bundle.

@@ -38,6 +38,10 @@
 - `summary.csv`: three measurements and median for each paper metric.
 - `grouped_ablation.csv`: within-round minus-group/Full ratios and their medians.
 - `derived.csv`: throughput and cross-baseline ratios.
-- `commands.txt`, `correctness/`, `pilot/`, and `runs/`: full reproduction trail.
+- `commands.txt`: preparation, build, validation, pilot, and measurement commands.
+- `correctness/`: validation stdout, stderr, and `/usr/bin/time -v` output.
+
+Pilot output and per-invocation measurement logs are preserved in the
+author-side history archive rather than this paper-facing result bundle.
 
 Host instruction counts remain TBD: perf_event_open failed with errno 13 (Permission denied), perf_event_paranoid=2.
