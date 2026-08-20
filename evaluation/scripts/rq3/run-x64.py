@@ -65,7 +65,7 @@ STAGES = {
     "Stage-2 minus PreferOwned": (
         "stage2-no-prefer-owned",
         ["--disable-prefer-owned"],
-        False,
+        True,
     ),
 }
 
@@ -418,7 +418,9 @@ def build_generated(
             }
         configurations[implementation]["borrowed_adapter"] = borrowed
         configurations[implementation]["entry_point_calling_convention"] = (
-            "by value for all five x64_step_test arguments; borrow optimization remains active inside the generated semantics when enabled"
+            "shared references for the four list arguments"
+            if borrowed
+            else "by value for all five x64_step_test arguments; borrow optimization remains active inside the generated semantics when enabled"
         )
         configurations[implementation]["executables"] = binaries[implementation]
 
