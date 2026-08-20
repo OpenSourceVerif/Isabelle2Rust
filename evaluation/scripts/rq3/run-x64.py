@@ -26,7 +26,8 @@ HARNESS = ROOT / "evaluation" / "harness" / "rq3"
 X64_HARNESS = HARNESS / "x64"
 VALIDATION = ROOT / "tests_x64" / "x64-validation"
 SOURCE_INPUT = VALIDATION / "0-data" / "step4.json"
-FIXED_INPUT = X64_HARNESS / "data" / "x64_step_6000.json"
+WORK = ROOT / "evaluation" / ".work" / "rq3" / "x64"
+FIXED_INPUT = WORK / "data" / "x64_step_6000.json"
 RAW_EXPORT = (
     ROOT
     / "tests_x64"
@@ -37,8 +38,8 @@ RAW_EXPORT = (
 )
 GENERATED_ROOT = ROOT / "tests_x64" / "theory" / "performance" / "x64"
 OPTIMIZER = ROOT / "optimize" / "target" / "release" / "cargo-opt"
-BUILD = ROOT / "evaluation" / ".work" / "x64"
-RESULTS = ROOT / "evaluation" / "results" / "rq3"
+BUILD = WORK / "build"
+RESULTS = WORK / "runs"
 EXPORTER = VALIDATION / "run_rust_export.py"
 TIME = Path("/usr/bin/time")
 CPU = "0"

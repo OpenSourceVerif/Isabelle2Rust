@@ -17,7 +17,7 @@ from datetime import datetime
 
 
 REPO = Path(__file__).resolve().parents[3]
-OUTPUT = REPO / "evaluation" / "results" / "rq3" / "code-quality"
+OUTPUT = REPO / "evaluation" / ".work" / "rq3" / "code-quality"
 SHARED_LOCK = REPO / "scripts" / "isabelle-exported.Cargo.lock"
 LOCK_HELPER = REPO / "scripts" / "ensure-cargo-lock.py"
 EXPORT_CODE = re.compile(r"^\s*export_code(?:\s|$)", re.MULTILINE)
