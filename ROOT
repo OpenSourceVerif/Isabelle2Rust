@@ -7,11 +7,8 @@ session Rust = Main +
     Rust_Base_Setup
     Rust_Integer_BigInt_Layer
     Rust_BigInt_Setup
-    Rust_Integer_Hybrid128_Layer
-    Rust_Hybrid128_Setup
     Rust_Checked128_Setup
     Rust_BigInt_WordU128_Setup
-    Rust_Hybrid128_WordU128_Setup
     Rust_Checked128_WordU128_Setup
 
 session "Rust-HOL-Codegenerator_Test" in "test/HOL_Codegenerator" = "HOL-Library" +

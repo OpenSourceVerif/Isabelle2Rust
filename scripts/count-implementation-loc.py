@@ -25,10 +25,7 @@ STAGE1_THEORIES = [
     REPO_ROOT / "Rust_BigInt_WordU128_Setup.thy",
     REPO_ROOT / "Rust_Checked128_Setup.thy",
     REPO_ROOT / "Rust_Checked128_WordU128_Setup.thy",
-    REPO_ROOT / "Rust_Hybrid128_Setup.thy",
-    REPO_ROOT / "Rust_Hybrid128_WordU128_Setup.thy",
     REPO_ROOT / "Rust_Integer_BigInt_Layer.thy",
-    REPO_ROOT / "Rust_Integer_Hybrid128_Layer.thy",
 ]
 
 OPEN_CARTOUCHE = ("\\<open>", "‹")

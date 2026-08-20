@@ -120,7 +120,6 @@ def cache_key(export_rs: Path, glue_rs: Path) -> dict[str, str]:
         "glue_version": GLUE_VERSION,
         "sbpf_stage": os.environ.get("SBPF_STAGE", "1"),
         "sbpf_no_bigint": os.environ.get("SBPF_NO_BIGINT", "0"),
-        "sbpf_native_int": os.environ.get("SBPF_NATIVE_INT", "0"),
         "export_rs_sha256": file_sha256(export_rs),
         "glue_rs_sha256": file_sha256(glue_rs),
     }
@@ -140,10 +139,6 @@ def cache_is_valid(pkg_dir: Path, key: dict[str, str]) -> bool:
 
 
 def main() -> int:
-    if os.environ.get("SBPF_NO_BIGINT") == "1" and os.environ.get("SBPF_NATIVE_INT") == "1":
-        print("ERROR: SBPF_NO_BIGINT=1 and SBPF_NATIVE_INT=1 are mutually exclusive")
-        return 2
-
     toml = EXPORT_DIR / "step_test" / "Cargo.toml"
     if not toml.exists():
         print(f"ERROR: missing Isabelle Rust export: {rel(toml)}")
@@ -174,8 +169,6 @@ def main() -> int:
         env["RUSTFLAGS"] += " --cfg sbpf_stage2"
     if os.environ.get("SBPF_NO_BIGINT") == "1":
         env["RUSTFLAGS"] += " --cfg sbpf_no_bigint"
-    if os.environ.get("SBPF_NATIVE_INT") == "1":
-        env["RUSTFLAGS"] += " --cfg sbpf_native_int"
 
     if os.environ.get("SBPF_BENCH_REPEATS") is not None:
         announce("glue", f"installing {rel(main_rs)} into {rel(pkg_dir / 'src' / 'main.rs')}")

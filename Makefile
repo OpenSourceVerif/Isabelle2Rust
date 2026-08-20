@@ -39,7 +39,7 @@ ISABELLE_TEST_SILENT   := isabelle build -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
 export ISABELLE_CARGO
 unexport RUSTC_BOOTSTRAP
 
-WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = $(TEST_TIMEOUT)]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "$(TEST_DIR)"' '  theories [document = false]' '    Rust_Base_Setup' '    Rust_Integer_BigInt_Layer' '    Rust_BigInt_Setup' '    Rust_Integer_Hybrid128_Layer' '    Rust_Hybrid128_Setup' '    Rust_Checked128_Setup' '    Rust_BigInt_WordU128_Setup' '    Rust_Hybrid128_WordU128_Setup' '    Rust_Checked128_WordU128_Setup' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
+WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = $(TEST_TIMEOUT)]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "$(TEST_DIR)"' '  theories [document = false]' '    Rust_Base_Setup' '    Rust_Integer_BigInt_Layer' '    Rust_BigInt_Setup' '    Rust_Checked128_Setup' '    Rust_BigInt_WordU128_Setup' '    Rust_Checked128_WordU128_Setup' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
 
 #### Targets ####
 
@@ -114,7 +114,7 @@ gen:
 	    FILES="$$HOL_FILE"; \
 	  else \
 	    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
-	      FILES=$$(git ls-files -- "$(DIR)" | sed -n '/_Test\.thy$$/p' | sort); \
+	      FILES=$$(git ls-files -- "$(DIR)" | sed -n '/_Test\.thy$$/p' | while IFS= read -r f; do [ -f "$$f" ] && printf '%s\n' "$$f"; done | sort); \
 	    else \
 	      FILES=$$(find "$(DIR)" -name '*_Test.thy' -type f | sort); \
 	    fi; \
@@ -293,7 +293,7 @@ test:
 	    FILES="$$HOL_FILE"; \
 	  else \
 	    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
-	      FILES=$$(git ls-files -- "$(DIR)" | sed -n '/_Test\.thy$$/p' | sort); \
+	      FILES=$$(git ls-files -- "$(DIR)" | sed -n '/_Test\.thy$$/p' | while IFS= read -r f; do [ -f "$$f" ] && printf '%s\n' "$$f"; done | sort); \
 	    else \
 	      FILES=$$(find "$(DIR)" -name '*_Test.thy' -type f | sort); \
 	    fi; \

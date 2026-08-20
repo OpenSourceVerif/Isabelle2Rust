@@ -132,8 +132,8 @@ vectors, in source order, from the existing native-CPU observations in
 `0-data/step4.json`, writes the fixed corpus to
 `5-exec-semantics/data/x64_step_6000.json`, and records both hashes. It then:
 
-1. exports only the Rust `x64_step_test` performance theory using the Word and
-   hybrid Native Int/Nat representations;
+1. exports only the Rust `x64_step_test` performance theory using the
+   Checked128 numeric and fixed-width Word representations;
 2. copies the unoptimized Stage-1 export and builds Stage-2 minus Borrow,
    Stage-2 minus Last-Use, Stage-2 minus Closure, and Stage-2 Full;
 3. builds the fixed OCaml export with `ocamlopt` and a native x64 ptrace

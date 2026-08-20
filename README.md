@@ -19,18 +19,13 @@ The repository consists of these major components:
 - **Numeric profiles**: import exactly one complete profile for `integer`,
   `int`, and `nat`:
   - `Rust_BigInt_Setup.thy`: all three numeric types use arbitrary precision.
-  - `Rust_Hybrid128_Setup.thy`: `i128`/`u128` fast paths with BigInt/BigUint
-    overflow variants.
   - `Rust_Checked128_Setup.thy`: raw `i128`/`u128` values with checked
     overflow.
 - **Word profiles**: when Isabelle words are required, select the matching
-  `Rust_BigInt_WordU128_Setup.thy`,
-  `Rust_Hybrid128_WordU128_Setup.thy`, or
+  `Rust_BigInt_WordU128_Setup.thy` or
   `Rust_Checked128_WordU128_Setup.thy` entry point.
-- **Internal layers**: `Rust_Integer_BigInt_Layer.thy` and
-  `Rust_Integer_Hybrid128_Layer.thy` are reserved for tests that intentionally
-  keep Isabelle's binary-natural representation. The former setup names remain
-  as compatibility wrappers.
+- **Internal layer**: `Rust_Integer_BigInt_Layer.thy` is reserved for tests
+  that intentionally keep Isabelle's binary-natural representation.
 - **`tests_HOL/`** : a collection of 7 official `HOL codegenerator_tests`, evaluates to a Boolean result. Link to paper's Section 4.
 - **`tests_targeted/`** : a suite of 41 targeted test cases designed to exercise representative translation scenarios. All tests compile and execute successfully via Cargo. Link to paper's Section 4.
 - **`test/eval/`**: the frozen, paper-facing RQ3 performance data included in
