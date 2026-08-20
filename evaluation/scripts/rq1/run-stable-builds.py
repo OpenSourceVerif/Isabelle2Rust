@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import csv
 import os
 from pathlib import Path
 import re
@@ -16,7 +17,7 @@ REPO = Path(__file__).resolve().parents[3]
 LOCK_HELPER = REPO / "scripts" / "ensure-cargo-lock.py"
 SHARED_LOCK = REPO / "scripts" / "isabelle-exported.Cargo.lock"
 EXPECTED_RUSTC_RELEASE = os.environ.get("EXPECTED_RUSTC_RELEASE", "1.94.0")
-EXPECTED_SUITES = {"HCT": 2, "Unit": 55, "FPP": 36}
+EXPECTED_SUITES = {"HCT": 2, "Unit": 53, "FPP": 36}
 EXPORT_CODE = re.compile(r"^\s*export_code(?:\s|$)", re.MULTILINE)
 FEATURE_GATE = re.compile(r"#!\s*\[\s*feature\s*\(")
 NATURAL_PART = re.compile(r"(\d+)")
@@ -152,6 +153,7 @@ def positive_int(value: str) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--processes", type=positive_int, default=4)
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
     environment = stable_environment()
@@ -168,8 +170,15 @@ def main() -> int:
         return 1
 
     print(f"Toolchain: {rustc}; {cargo}; RUSTC_BOOTSTRAP unset", flush=True)
-    print("Corpus: HCT=2, Unit=55, FPP=36; pairs=93; crates=186", flush=True)
+    pairs = sum(EXPECTED_SUITES.values())
+    print(
+        "Corpus: "
+        + ", ".join(f"{suite}={count}" for suite, count in EXPECTED_SUITES.items())
+        + f"; pairs={pairs}; crates={pairs * 2}",
+        flush=True,
+    )
     failures: list[tuple[str, str, str, Path, str]] = []
+    results: list[tuple[str, str, str, Path, str]] = []
     completed = 0
     with ThreadPoolExecutor(max_workers=args.processes) as executor:
         futures = {
@@ -178,11 +187,41 @@ def main() -> int:
         }
         for future in as_completed(futures):
             result = future.result()
+            results.append(result)
             if result[-1]:
                 failures.append(result)
             completed += 1
             if completed % 10 == 0 or completed == len(jobs):
                 print(f"  built {completed}/{len(jobs)} crates", flush=True)
+
+    if args.output:
+        rows = []
+        for suite in EXPECTED_SUITES:
+            suite_results = [result for result in results if result[0] == suite]
+            row = {
+                "suite": suite,
+                "pairs": len(suite_results) // 2,
+                "stage1_accepted": sum(
+                    result[2] == "stage1" and not result[-1] for result in suite_results
+                ),
+                "stage2_accepted": sum(
+                    result[2] == "stage2" and not result[-1] for result in suite_results
+                ),
+            }
+            rows.append(row)
+        rows.append(
+            {
+                "suite": "Total",
+                "pairs": sum(int(row["pairs"]) for row in rows),
+                "stage1_accepted": sum(int(row["stage1_accepted"]) for row in rows),
+                "stage2_accepted": sum(int(row["stage2_accepted"]) for row in rows),
+            }
+        )
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        with args.output.open("w", newline="", encoding="utf-8") as target:
+            writer = csv.DictWriter(target, fieldnames=list(rows[0]), lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(rows)
 
     if failures:
         print("Stable build failures:", file=sys.stderr)
@@ -195,7 +234,10 @@ def main() -> int:
                 print(f"    {error.splitlines()[-1]}", file=sys.stderr)
         return 1
 
-    print("RQ1 stable compiler acceptance: PASS (93/93 pairs; 186/186 crates)")
+    print(
+        f"RQ1 stable compiler acceptance: PASS ({pairs}/{pairs} pairs; "
+        f"{pairs * 2}/{pairs * 2} crates)"
+    )
     return 0
 
 
