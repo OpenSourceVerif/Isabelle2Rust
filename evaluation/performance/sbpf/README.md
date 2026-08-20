@@ -71,10 +71,6 @@ are enabled in every formal Stage-2 configuration. `--diagnostic` explicitly
 runs the additional minus-Copy and minus-Mut checks; these rows are excluded
 from the default performance matrix.
 
-The BigInt bit-operation lowering implementation remains available as a standalone
-library optimization, but neither the current `cargo-opt` pipeline nor these
-evaluation configurations invoke it.
-
 Outputs are written to `evaluation/performance/results/<timestamp>/`, including
 the environment, configuration and executable hashes, commands, correctness
 logs, per-process stdout/stderr, `raw.csv`, `summary.csv`, and
