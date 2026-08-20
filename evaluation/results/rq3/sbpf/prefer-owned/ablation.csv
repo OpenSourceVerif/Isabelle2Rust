@@ -1,0 +1,3 @@
+benchmark,ablated_group,implementation,run_1_minus_over_full,run_2_minus_over_full,run_3_minus_over_full,median_minus_over_full,minus_cost_percent,full_speedup_percent,full_wins,conclusion
+SBPF-program,PreferOwned,Stage-2 minus PreferOwned,2.720388513,2.666878548,2.843202015,2.720388513,172.038851,63.240545,3,Full faster
+SBPF-instruction,PreferOwned,Stage-2 minus PreferOwned,5.931060186,6.011109151,5.981637293,5.981637293,498.163729,83.282169,3,Full faster
