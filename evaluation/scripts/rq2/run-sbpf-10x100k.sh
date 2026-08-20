@@ -24,7 +24,7 @@ elif (($# != 0)); then
 fi
 
 script_path=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/$(basename -- "${BASH_SOURCE[0]}")
-repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
 theory_dir="$repo_root/tests_sbpf/theory"
 stage1_export="$theory_dir/stage1/bpf_generator"
 stage2_export="$theory_dir/stage2/bpf_generator"

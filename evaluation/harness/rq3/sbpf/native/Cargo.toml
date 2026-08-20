@@ -14,8 +14,8 @@ path = "src/instruction.rs"
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-solana_rbpf = { path = "../../../../tests_sbpf/tests/rbpf" }
-test_utils = { path = "../../../../tests_sbpf/tests/rbpf/test_utils" }
+solana_rbpf = { path = "../../../../../tests_sbpf/tests/rbpf" }
+test_utils = { path = "../../../../../tests_sbpf/tests/rbpf/test_utils" }
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(allocation_metrics)'] }

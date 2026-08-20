@@ -23,7 +23,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[3]
-HARNESS = ROOT / "evaluation" / "harness"
+HARNESS = ROOT / "evaluation" / "harness" / "rq3"
 SBPF_HARNESS = HARNESS / "sbpf"
 DATA = ROOT / "tests_sbpf" / "tests" / "data"
 PROGRAM_INPUT = DATA / "interp_in.json"

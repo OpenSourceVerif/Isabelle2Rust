@@ -22,10 +22,11 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[3]
-HERE = Path(__file__).resolve().parent
-VALIDATION = HERE.parent
+HARNESS = ROOT / "evaluation" / "harness" / "rq3"
+X64_HARNESS = HARNESS / "x64"
+VALIDATION = ROOT / "tests_x64" / "x64-validation"
 SOURCE_INPUT = VALIDATION / "0-data" / "step4.json"
-FIXED_INPUT = HERE / "data" / "x64_step_6000.json"
+FIXED_INPUT = X64_HARNESS / "data" / "x64_step_6000.json"
 RAW_EXPORT = (
     ROOT
     / "tests_x64"
@@ -36,7 +37,7 @@ RAW_EXPORT = (
 )
 GENERATED_ROOT = ROOT / "tests_x64" / "theory" / "performance" / "x64"
 OPTIMIZER = ROOT / "optimize" / "target" / "release" / "cargo-opt"
-BUILD = VALIDATION / "_build" / "performance"
+BUILD = ROOT / "evaluation" / ".work" / "x64"
 RESULTS = ROOT / "evaluation" / "results" / "rq3"
 EXPORTER = VALIDATION / "run_rust_export.py"
 TIME = Path("/usr/bin/time")
@@ -252,8 +253,13 @@ def install_rust_harness(package: Path) -> None:
     module = package / "src" / "X64_step_test.rs"
     with module.open("a", encoding="utf-8") as destination:
         destination.write("\n")
-        destination.write((HERE / "rust" / "observe.rs").read_text(encoding="utf-8"))
-    shutil.copy2(HERE / "rust" / "stepper.rs", package / "src" / "main.rs")
+        destination.write(
+            (X64_HARNESS / "rust" / "observe.rs").read_text(encoding="utf-8")
+        )
+    shutil.copy2(
+        X64_HARNESS / "rust" / "stepper.rs",
+        package / "src" / "main.rs",
+    )
     add_benchmark_dependencies(package / "Cargo.toml")
     execute(
         [
@@ -507,9 +513,12 @@ def build_ocaml(configurations: dict[str, Any], binaries: dict[str, Any]) -> Non
     build_dir.mkdir(parents=True)
     module = build_dir / "x64_step_test.ml"
     glue_ocaml(source, module)
-    shutil.copy2(HERE / "ocaml" / "stepper.ml", build_dir / "stepper.ml")
     shutil.copy2(
-        ROOT / "evaluation" / "harness" / "common" / "monotonic_stubs.c",
+        X64_HARNESS / "ocaml" / "stepper.ml",
+        build_dir / "stepper.ml",
+    )
+    shutil.copy2(
+        HARNESS / "common" / "monotonic_stubs.c",
         build_dir / "monotonic_stubs.c",
     )
     packages = "zarith,yojson,unix"
@@ -562,7 +571,7 @@ def build_native(configurations: dict[str, Any], binaries: dict[str, Any]) -> No
         "-Wl,--wrap=calloc",
         "-Wl,--wrap=realloc",
         *cflags,
-        str(HERE / "native" / "stepper.c"),
+        str(X64_HARNESS / "native" / "stepper.c"),
         "-o",
         str(binary),
         *libs,
@@ -575,7 +584,7 @@ def build_native(configurations: dict[str, Any], binaries: dict[str, Any]) -> No
     configurations["Native x64 baseline"] = {
         "compiler": output(["cc", "--version"]).splitlines()[0],
         "jansson": output(["pkg-config", "--modversion", "jansson"]),
-        "source_sha256": sha256(HERE / "native" / "stepper.c"),
+        "source_sha256": sha256(X64_HARNESS / "native" / "stepper.c"),
         "core_operation": "ptrace-driven execution of one encoded instruction",
         "allocation_rule": (
             "Successful malloc and calloc requests, and successful realloc requests, "

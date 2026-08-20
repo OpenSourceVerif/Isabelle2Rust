@@ -8,7 +8,7 @@ migration.
 ## Layout
 
 - `scripts/`: experiment-specific producers, grouped by research question.
-- `harness/`: code linked into or around measured implementations.
+- `harness/rq3/`: measurement-only code linked into or around RQ3 workloads.
 - `results/`: only the currently accepted paper-facing data.
 
 Generated build trees and newly recorded timestamped runs are ignored. Complete
@@ -21,10 +21,18 @@ Run commands from the repository root:
 
 ```sh
 python3 evaluation/scripts/rq1/run-stable-builds.py
+evaluation/scripts/rq2/run-sbpf-10x100k.sh
+evaluation/scripts/rq2/run-x64-10x100k.sh
 python3 evaluation/scripts/rq3/run-clippy.py
 python3 evaluation/scripts/rq3/run-sbpf.py
 make x64-performance
 ```
+
+The harnesses used by the ordinary `macro_sbpf`, `micro_sbpf`,
+`micro_sbpf_gen`, `x64`, `x64_gen`, and `x64_test` workflows are not part of
+this directory. They remain with their SBPF and x64 test suites. Only the
+additional adapters used by the RQ3 performance measurements are stored under
+`harness/rq3/`.
 
 The SBPF and x64 performance producers first write complete timestamped records
 under `evaluation/results/rq3/`. After review, only the consolidated files used
