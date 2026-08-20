@@ -21,7 +21,8 @@ CARGO_LOCK_HELPER      := $(CURDIR)/scripts/ensure-cargo-lock.py
 OPTIMIZE_DIR           := $(CURDIR)/optimize
 OPT_STACK_KB            ?= 65536
 EXPORT_ITEM_COUNTER    := $(CURDIR)/scripts/count-rust-export-items.pl
-TEST_RUST_METRICS      := $(CURDIR)/scripts/test-rust-metrics.py
+RQ1_GENERATED_LOC      := $(CURDIR)/evaluation/scripts/rq1/count-generated-loc.py
+RQ3_CLIPPY             := $(CURDIR)/evaluation/scripts/rq3/run-clippy.py
 IMPLEMENTATION_LOC     := $(CURDIR)/evaluation/scripts/rq1/count-implementation-loc.py
 CLIPPY_PROCESSES       ?= 4
 CLIPPY_CARGO_JOBS      ?= 1
@@ -385,7 +386,7 @@ hol-stress:
 
 # Count physical lines in the current HOL, unit, and FPP generated Rust crates.
 kloc:
-	@python3 "$(TEST_RUST_METRICS)" kloc
+	@python3 "$(RQ1_GENERATED_LOC)"
 
 # Count implementation lines for the architecture description.
 loc:
@@ -395,7 +396,7 @@ loc:
 # Generate_Binary_Nat is intentionally excluded because it duplicates the
 # Generate lint profile.
 clippy:
-	@CARGO="$(CARGO)" python3 "$(TEST_RUST_METRICS)" clippy \
+	@python3 "$(RQ3_CLIPPY)" --scope test-suites \
 	  --processes "$(CLIPPY_PROCESSES)" --cargo-jobs "$(CLIPPY_CARGO_JOBS)"
 
 # Generate the pure Rust crates used by the SBPF and X64 case studies, then
@@ -425,11 +426,11 @@ clippy-case-studies-prepare:
 	_opt_case_study X64-stepper "$(X64_CLIPPY_STEPPER_S1)" "$(X64_CLIPPY_STEPPER_S2)"
 
 clippy-case-studies: clippy-case-studies-prepare
-	@CARGO="$(CARGO)" python3 "$(TEST_RUST_METRICS)" clippy --scope case-studies \
+	@python3 "$(RQ3_CLIPPY)" --scope case-studies \
 	  --processes "$(CLIPPY_PROCESSES)" --cargo-jobs "$(CLIPPY_CARGO_JOBS)"
 
 clippy-all: clippy-case-studies-prepare
-	@CARGO="$(CARGO)" python3 "$(TEST_RUST_METRICS)" clippy --scope all \
+	@python3 "$(RQ3_CLIPPY)" --scope all \
 	  --processes "$(CLIPPY_PROCESSES)" --cargo-jobs "$(CLIPPY_CARGO_JOBS)"
 
 
