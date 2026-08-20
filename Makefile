@@ -510,8 +510,8 @@ x64_test: x64-test
 x64: x64-gen x64-test
 
 # RQ3 performance matrix for the x64 semantics only.  It reuses the fixed
-# OCaml stepper export and existing step4 CPU observations; the encoder is
-# neither exported nor executed by this target.
+# OCaml stepper export and frozen evaluation corpus; the validation data under
+# 0-data and the encoder are neither read nor rewritten by this target.
 x64-performance:
 	@PYTHONDONTWRITEBYTECODE=1 RUST_TOOLCHAIN=stable python3 $(X64_PERFORMANCE)
 
@@ -556,7 +556,7 @@ help:
 	@echo "      Cross-check raw Rust exports against fixed OCaml output and the x64 CPU."
 	@echo "  x64-performance"
 	@echo "      Run the seven-implementation RQ3 x64-stepper performance matrix."
-	@echo "      Reuses step4.json and does not regenerate or execute the encoder."
+	@echo "      Reuses the frozen evaluation corpus and does not modify 0-data."
 	@echo "  build TEST_DIR=<dir> TEST_THEORY=<thy-name>"
 	@echo "      Generate test-root/ROOT and run isabelle build (verbose)."
 	@echo "      Example: make build TEST_DIR=test/unit/mapping TEST_THEORY=Lists_Test"

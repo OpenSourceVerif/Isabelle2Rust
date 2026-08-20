@@ -25,9 +25,8 @@ ROOT = Path(__file__).resolve().parents[3]
 HARNESS = ROOT / "evaluation" / "harness" / "rq3"
 X64_HARNESS = HARNESS / "x64"
 VALIDATION = ROOT / "tests_x64" / "x64-validation"
-SOURCE_INPUT = VALIDATION / "0-data" / "step4.json"
 WORK = ROOT / "evaluation" / ".work" / "rq3" / "x64"
-FIXED_INPUT = WORK / "data" / "x64_step_6000.json"
+FIXED_INPUT = X64_HARNESS / "data" / "x64_step_6000.json"
 RAW_EXPORT = (
     ROOT
     / "tests_x64"
@@ -193,19 +192,12 @@ def execute(
     return completed
 
 
-def prepare_input() -> None:
-    values = json.loads(SOURCE_INPUT.read_text(encoding="utf-8"))
-    if len(values) < CASE_COUNT:
-        raise RuntimeError(
-            f"{SOURCE_INPUT} contains {len(values)} vectors; {CASE_COUNT} required"
-        )
-    FIXED_INPUT.parent.mkdir(parents=True, exist_ok=True)
-    FIXED_INPUT.write_text(
-        json.dumps(values[:CASE_COUNT], indent=2) + "\n", encoding="utf-8"
-    )
+def validate_input() -> None:
     fixed = json.loads(FIXED_INPUT.read_text(encoding="utf-8"))
     if len(fixed) != CASE_COUNT:
-        raise RuntimeError("failed to materialize the fixed 6,000-vector corpus")
+        raise RuntimeError(
+            f"{FIXED_INPUT} contains {len(fixed)} vectors; {CASE_COUNT} required"
+        )
 
 
 def generate_rust_export() -> None:
@@ -645,12 +637,10 @@ def record_environment() -> dict[str, Any]:
         "cpu_affinity_before": sorted(os.sched_getaffinity(0)),
         "measurement_cpu": int(CPU),
         "input": {
-            "source_path": str(SOURCE_INPUT),
-            "source_sha256": sha256(SOURCE_INPUT),
-            "selection": f"first {CASE_COUNT} vectors in source order",
             "path": str(FIXED_INPUT),
             "sha256": sha256(FIXED_INPUT),
             "cases": CASE_COUNT,
+            "selection": "frozen x64 native-observation corpus",
         },
         "host_instructions": perf_event_probe(),
         "rustc_bootstrap_present": "RUSTC_BOOTSTRAP" in os.environ,
@@ -1096,7 +1086,7 @@ def write_record(
         f"- Measurement CPU: `{environment['measurement_cpu']}`",
         f"- Fixed input: `{environment['input']['path']}`",
         f"- Input SHA-256: `{environment['input']['sha256']}`",
-        f"- Corpus construction: {environment['input']['selection']} from source SHA-256 `{environment['input']['source_sha256']}`.",
+        f"- Corpus: {environment['input']['selection']}.",
         (
             "- Correctness: all five regenerated Rust implementations passed "
             "6000/6000 vectors against the recorded native x64 observations; "
@@ -1268,7 +1258,7 @@ def main() -> int:
         timestamp = datetime.now().astimezone().strftime("x64-%Y%m%d-%H%M%S%z")
         RESULT_DIR = RESULTS / timestamp
         RESULT_DIR.mkdir(parents=True)
-        prepare_input()
+        validate_input()
         environment = record_environment()
         if args.stage2_only_from or args.rust_from or args.ocaml_only_from:
             reused_from = (
