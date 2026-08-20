@@ -47,6 +47,7 @@ ADAPTED_EXPORTS = {
 }
 GENERATED_ROOT = ROOT / "tests_sbpf" / "theory" / "performance"
 OPTIMIZER = ROOT / "optimize" / "target" / "release" / "cargo-opt"
+RUSTLIGHTAST = ROOT.parent / "RustLightAST"
 BASELINE = SBPF_HARNESS / "native"
 WORK = ROOT / "evaluation" / ".work" / "rq3" / "sbpf"
 BUILD = WORK / "build"
@@ -75,6 +76,11 @@ STAGES = {
     "Stage-2 Full": ("stage2-full", [], True),
     "Stage-2 minus Copy": ("stage2-no-copy", ["--disable-copy"], True),
     "Stage-2 minus Mut": ("stage2-no-mut", ["--disable-mut"], True),
+    "Stage-2 minus PreferOwned": (
+        "stage2-no-prefer-owned",
+        ["--disable-prefer-owned"],
+        True,
+    ),
 }
 
 STAGE2_IMPLEMENTATIONS = [
@@ -106,6 +112,9 @@ DIAGNOSTIC_ABLATIONS = {
     "Copy": "Stage-2 minus Copy",
     "Mut": "Stage-2 minus Mut",
 }
+
+PREFER_OWNED_IMPLEMENTATIONS = ["Stage-2 minus PreferOwned", "Stage-2 Full"]
+PREFER_OWNED_ABLATIONS = {"PreferOwned": "Stage-2 minus PreferOwned"}
 
 STRUCTURAL_TRANSFORMATIONS = [
     "binding cleanup",
@@ -282,6 +291,11 @@ def write_stage_manifest(
             "last_use": optimized and "--disable-last-use" not in optimizer_flags,
             "closure": optimized and "--disable-closure" not in optimizer_flags,
         },
+        "borrow_policy": {
+            "prefer_owned": optimized
+            and "--disable-borrow" not in optimizer_flags
+            and "--disable-prefer-owned" not in optimizer_flags,
+        },
         "structural_transformations": {
             "enabled": optimized,
             "members": STRUCTURAL_TRANSFORMATIONS,
@@ -392,6 +406,9 @@ def prepare_generated(
             stage_dir, implementation, optimizer_flags, source_hashes
         )
         configurations[implementation]["borrowed_adapter"] = borrowed
+        configurations[implementation]["prefer_owned_ablation_adapter"] = (
+            implementation == "Stage-2 minus PreferOwned"
+        )
 
 
 def build_generated(
@@ -411,6 +428,8 @@ def build_generated(
                 flags = []
                 if borrowed:
                     flags.append("--cfg sbpf_borrowed")
+                if implementation == "Stage-2 minus PreferOwned":
+                    flags.append("--cfg sbpf_no_prefer_owned")
                 if allocation:
                     flags.append("--cfg allocation_metrics")
                 target = package_dir / "target" / metric
@@ -621,6 +640,11 @@ def record_environment() -> dict[str, Any]:
         "timestamp": datetime.now().astimezone().isoformat(),
         "git_commit": output(["git", "rev-parse", "HEAD"]),
         "git_status": output(["git", "status", "--short"]),
+        "rustlightast": {
+            "path": str(RUSTLIGHTAST),
+            "git_commit": output(["git", "-C", str(RUSTLIGHTAST), "rev-parse", "HEAD"]),
+            "git_status": output(["git", "-C", str(RUSTLIGHTAST), "status", "--short"]),
+        },
         "uname": output(["uname", "-a"]),
         "lscpu": output(["lscpu"]),
         "free_h": output(["free", "-h"]),
@@ -790,6 +814,16 @@ def pilot_benchmarks(
             )
             repetitions[benchmark]["Stage-2 minus Closure"] = paired_repetitions
             repetitions[benchmark]["Stage-2 Full"] = paired_repetitions
+        if all(
+            implementation in repetitions[benchmark]
+            for implementation in PREFER_OWNED_IMPLEMENTATIONS
+        ):
+            paired_repetitions = max(
+                repetitions[benchmark][implementation]
+                for implementation in PREFER_OWNED_IMPLEMENTATIONS
+            )
+            for implementation in PREFER_OWNED_IMPLEMENTATIONS:
+                repetitions[benchmark][implementation] = paired_repetitions
     (RESULT_DIR / "suite_repetitions.json").write_text(
         json.dumps(repetitions, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -1077,11 +1111,14 @@ def write_experiment_record(
     instruction_only: bool = False,
     rust_only: bool = False,
     diagnostic: bool = False,
+    prefer_owned_ablation: bool = False,
     rust_refresh: bool = False,
     baseline_refresh: bool = False,
     ocaml_refresh: bool = False,
 ) -> None:
     git_dirty = bool(environment["git_status"].strip())
+    paired_ablation = "PreferOwned" if prefer_owned_ablation else "Closure"
+    ablation_kind = "policy" if prefer_owned_ablation else "pass"
     lines = [
         "# RQ3 SBPF experiment record",
         "",
@@ -1104,6 +1141,9 @@ def write_experiment_record(
             "generated-Rust configurations passed 146/146 SBPF-program cases "
             "and 6000/6000 SBPF-instruction vectors."
             if diagnostic
+            else "- Correctness: both PreferOwned configurations passed "
+            "146/146 SBPF-program cases and 6000/6000 SBPF-instruction vectors."
+            if prefer_owned_ablation
             else "- Correctness: all five generated-Rust configurations passed "
             "146/146 SBPF-program cases and 6000/6000 SBPF-instruction vectors."
             if rust_only
@@ -1132,7 +1172,7 @@ def write_experiment_record(
             else "- Correctness: all seven SBPF-program implementations passed 146/146 cases; "
             "all seven SBPF-instruction implementations passed 6000/6000 vectors."
         ),
-        f"- Each value below is from an independent pinned process. Generated and OCaml pilots select whole-suite repetition counts targeting approximately {RUNTIME_TARGET_SECONDS:.0f} seconds. The prepared Solana baseline retains its historical configuration of {CASE_STUDY_REPETITIONS['SBPF-program']} SBPF-program suites and {CASE_STUDY_REPETITIONS['SBPF-instruction']} SBPF-instruction suite per process; every VM is independently constructed before measurement and executed once. Full and minus Closure use the larger of their two pilot repetition counts and run adjacently with alternating order. Every ablation effect is the median of the three within-round minus-pass/Full ratios. Reused rows retain their recorded protocol. Each allocation round uses one complete suite. Runtime results are normalized per suite.",
+        f"- Each value below is from an independent pinned process. Generated and OCaml pilots select whole-suite repetition counts targeting approximately {RUNTIME_TARGET_SECONDS:.0f} seconds. The prepared Solana baseline retains its historical configuration of {CASE_STUDY_REPETITIONS['SBPF-program']} SBPF-program suites and {CASE_STUDY_REPETITIONS['SBPF-instruction']} SBPF-instruction suite per process; every VM is independently constructed before measurement and executed once. Full and minus {paired_ablation} use the larger of their two pilot repetition counts and run adjacently with alternating order. Every ablation effect is the median of the three within-round minus-{ablation_kind}/Full ratios. Reused rows retain their recorded protocol. Each allocation round uses one complete suite. Runtime results are normalized per suite.",
         "- OCaml runtime uses `clock_gettime(CLOCK_MONOTONIC)` through a C stub.",
         "",
     ]
@@ -1140,6 +1180,8 @@ def write_experiment_record(
         [
             "## Diagnostic Stage-2 pass ablations"
             if diagnostic
+            else "## PreferOwned ablation"
+            if prefer_owned_ablation
             else "## Paper-facing Stage-2 ablations",
             "",
         ]
@@ -1244,6 +1286,11 @@ def main() -> int:
         help="explicitly run only Stage-2 minus Copy, minus Mut, and Full",
     )
     parser.add_argument(
+        "--prefer-owned-ablation",
+        action="store_true",
+        help="measure only Stage-2 minus PreferOwned and Stage-2 Full",
+    )
+    parser.add_argument(
         "--reuse-stage1-exports",
         action="store_true",
         help="use the existing raw Stage-1 exports instead of regenerating them",
@@ -1266,7 +1313,7 @@ def main() -> int:
             "--resume, --stage2-only-from, --instruction-only-from, --rust-from, and "
             "--baseline-only-from, and --ocaml-only-from are mutually exclusive"
         )
-    if args.diagnostic and (
+    if (args.diagnostic or args.prefer_owned_ablation) and (
         args.resume
         or args.stage2_only_from
         or args.instruction_only_from
@@ -1276,8 +1323,10 @@ def main() -> int:
         or args.rust_only
     ):
         parser.error(
-            "--diagnostic cannot be combined with --resume, reuse modes, or --rust-only"
+            "targeted ablation modes cannot be combined with --resume, reuse modes, or --rust-only"
         )
+    if args.diagnostic and args.prefer_owned_ablation:
+        parser.error("--diagnostic and --prefer-owned-ablation are mutually exclusive")
 
     reused_from: Path | None = None
     instruction_only = args.instruction_only_from is not None
@@ -1406,11 +1455,17 @@ def main() -> int:
             build_generated(configurations, binaries, regenerated)
         else:
             selected_rust = (
-                DIAGNOSTIC_IMPLEMENTATIONS if args.diagnostic else RUST_IMPLEMENTATIONS
+                PREFER_OWNED_IMPLEMENTATIONS
+                if args.prefer_owned_ablation
+                else DIAGNOSTIC_IMPLEMENTATIONS
+                if args.diagnostic
+                else RUST_IMPLEMENTATIONS
             )
             configurations = {
                 "matrix_order": (
-                    DIAGNOSTIC_IMPLEMENTATIONS
+                    PREFER_OWNED_IMPLEMENTATIONS
+                    if args.prefer_owned_ablation
+                    else DIAGNOSTIC_IMPLEMENTATIONS
                     if args.diagnostic
                     else RUST_IMPLEMENTATIONS
                     if args.rust_only
@@ -1423,8 +1478,10 @@ def main() -> int:
                     "Last-Use",
                     "Closure",
                 ],
+                "available_policy_ablations": ["PreferOwned"],
                 "paper_facing_ablations": ["Borrow", "Last-Use", "Closure"],
                 "diagnostic_mode": args.diagnostic,
+                "prefer_owned_ablation": args.prefer_owned_ablation,
                 "numeric_representation": (
                     "Rust WordU128 layer plus Checked128 Int/Nat profile for Stage-1 and every "
                     "Stage-2 configuration; fixed default OCaml export for the OCaml baseline"
@@ -1439,7 +1496,7 @@ def main() -> int:
             binaries = {}
             prepare_generated(configurations, selected_rust)
             build_generated(configurations, binaries, selected_rust)
-            if not args.rust_only and not args.diagnostic:
+            if not args.rust_only and not args.diagnostic and not args.prefer_owned_ablation:
                 build_ocaml(configurations, binaries)
                 build_case_study(configurations, binaries)
         (RESULT_DIR / "configurations.json").write_text(
@@ -1453,7 +1510,9 @@ def main() -> int:
             return 0
 
     selected = (
-        DIAGNOSTIC_IMPLEMENTATIONS
+        PREFER_OWNED_IMPLEMENTATIONS
+        if args.prefer_owned_ablation
+        else DIAGNOSTIC_IMPLEMENTATIONS
         if args.diagnostic
         else RUST_IMPLEMENTATIONS
         if args.rust_only
@@ -1508,12 +1567,17 @@ def main() -> int:
         rows,
         environment["host_instructions"]["available"],
         selected
-        if (args.rust_only or args.diagnostic) and reused_from is None
+        if (args.rust_only or args.diagnostic or args.prefer_owned_ablation)
+        and reused_from is None
         else None,
     )
     grouped_ablation = write_grouped_ablation_summary(
         rows,
-        DIAGNOSTIC_ABLATIONS if args.diagnostic else ABLATION_GROUPS,
+        PREFER_OWNED_ABLATIONS
+        if args.prefer_owned_ablation
+        else DIAGNOSTIC_ABLATIONS
+        if args.diagnostic
+        else ABLATION_GROUPS,
     )
     write_experiment_record(
         summary,
@@ -1523,6 +1587,7 @@ def main() -> int:
         instruction_only,
         args.rust_only,
         args.diagnostic,
+        args.prefer_owned_ablation,
         rust_refresh,
         baseline_refresh,
         ocaml_refresh,

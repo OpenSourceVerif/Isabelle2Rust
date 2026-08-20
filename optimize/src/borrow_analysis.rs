@@ -28,6 +28,16 @@ pub struct BorrowAnalysis {
     pub borrow_fns: HashSet<String>,
 }
 
+/// Evaluation controls for the Borrow analysis.
+///
+/// The default preserves the production optimizer.  Disabling
+/// `PreferOwned` is exposed only to measure that profitability judgment while
+/// retaining the safety checks and the small-`Copy` by-value policy.
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
+pub struct BorrowOptions {
+    pub disable_prefer_owned: bool,
+}
+
 /// Type of a variable after in-place borrow rewriting.
 ///
 /// After B-Match rewrites a match on `v: &D<T>`, every pattern-bound variable
@@ -342,6 +352,9 @@ fn prefer_owned(demands: &HashSet<Demand>, rebuilds_input_family: bool) -> bool 
 // ── Main context ──────────────────────────────────────────────────────────────
 
 struct BorrowContext {
+    /// Whether the flow-sensitive `PreferOwned` profitability judgment is
+    /// active. Safety and `PreferByValue` remain active in its ablation.
+    prefer_owned_enabled: bool,
     /// Types whose `Copy` implementation was inferred and materialized by the
     /// preceding Copy pass. A `-Copy` ablation supplies an empty set here.
     inferred_copy_types: HashSet<String>,
@@ -426,7 +439,21 @@ pub fn optimize_borrow_modules_with_paths(
     modules: &mut [(Vec<String>, &mut RustModule)],
     inferred_copy_types: &HashSet<String>,
 ) -> BorrowAnalysis {
-    let (mut ctx, functions) = BorrowContext::from_modules(modules, inferred_copy_types);
+    optimize_borrow_modules_with_paths_and_options(
+        modules,
+        inferred_copy_types,
+        BorrowOptions::default(),
+    )
+}
+
+/// Package-level borrow inference with evaluation-only policy controls.
+pub fn optimize_borrow_modules_with_paths_and_options(
+    modules: &mut [(Vec<String>, &mut RustModule)],
+    inferred_copy_types: &HashSet<String>,
+    options: BorrowOptions,
+) -> BorrowAnalysis {
+    let (mut ctx, functions) =
+        BorrowContext::from_modules_with_options(modules, inferred_copy_types, options);
 
     // Three-pass design:
     //  1. Analyse every post-copy function, including _copy specialisations.
@@ -489,11 +516,12 @@ impl BorrowContext {
         positions
     }
 
-    fn from_modules(
+    fn from_modules_with_options(
         modules: &[(Vec<String>, &mut RustModule)],
         inferred_copy_types: &HashSet<String>,
+        options: BorrowOptions,
     ) -> (Self, Vec<LocatedFunction>) {
-        let mut ctx = Self::empty(inferred_copy_types);
+        let mut ctx = Self::empty(inferred_copy_types, options);
         let mut functions = Vec::new();
         for (module_path, module) in modules {
             ctx.collect_items(&module.items, module_path, &mut functions);
@@ -501,8 +529,9 @@ impl BorrowContext {
         (ctx, functions)
     }
 
-    fn empty(inferred_copy_types: &HashSet<String>) -> Self {
+    fn empty(inferred_copy_types: &HashSet<String>, options: BorrowOptions) -> Self {
         Self {
+            prefer_owned_enabled: !options.disable_prefer_owned,
             inferred_copy_types: inferred_copy_types.clone(),
             source_copy_types: HashSet::new(),
             materialized_copy_type_ids: HashSet::new(),
@@ -791,7 +820,7 @@ impl BorrowContext {
             self.collect_param_demands(last_use_view, param, base_env, copy_generics, scope);
         let rebuilds_input_family =
             same_outer_nominal_family_in_scope(&param.ty, &f.return_type, scope);
-        prefer_owned(&preview_demands, rebuilds_input_family)
+        (self.prefer_owned_enabled && prefer_owned(&preview_demands, rebuilds_input_family))
             || self.prefer_by_value(&param.ty, copy_generics, scope)
     }
 
@@ -2127,10 +2156,11 @@ impl BorrowContext {
                 same_outer_nominal_family_in_scope(root_ty, &result_ty, scope)
             });
 
-        !prefer_owned(
-            &preview_demands,
-            function_rebuilds_root || match_rebuilds_root,
-        )
+        !self.prefer_owned_enabled
+            || !prefer_owned(
+                &preview_demands,
+                function_rebuilds_root || match_rebuilds_root,
+            )
     }
 
     /// Rewrite a generated tuple-match scrutinee component by component.
@@ -3979,7 +4009,9 @@ impl BorrowContext {
                 &mut demands,
                 DemandSite::new(true, scope), // closure-body tail is return context
             );
-            if !local_rewrite_safe(&demands) || prefer_owned(&demands, false) {
+            if !local_rewrite_safe(&demands)
+                || (self.prefer_owned_enabled && prefer_owned(&demands, false))
+            {
                 return None;
             }
         }
@@ -5057,6 +5089,7 @@ mod tests {
 
     fn empty_ctx() -> BorrowContext {
         BorrowContext {
+            prefer_owned_enabled: true,
             inferred_copy_types: HashSet::new(),
             source_copy_types: HashSet::new(),
             materialized_copy_type_ids: HashSet::new(),
@@ -5546,7 +5579,11 @@ pub fn identity(x: BigInt) -> BigInt {
         let mut module = parse_rust_source(source, "Test").expect("source parses");
         let (ctx, functions) = {
             let modules = [(vec!["crate".to_string(), "Test".to_string()], &mut module)];
-            BorrowContext::from_modules(&modules, &HashSet::new())
+            BorrowContext::from_modules_with_options(
+                &modules,
+                &HashSet::new(),
+                BorrowOptions::default(),
+            )
         };
         let located = functions
             .iter()
@@ -5880,6 +5917,45 @@ pub fn split(x0: Pair) -> (Blob, Blob) {
         assert!(printed.contains("(left, right)"));
         assert!(!printed.contains("left.clone()"));
         assert!(!printed.contains("right.clone()"));
+    }
+
+    #[test]
+    fn prefer_owned_ablation_borrows_safe_rebuilding_parameter() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub Box<u64>);
+
+#[derive(Clone)]
+pub enum Pair {
+    Both(Blob, Blob),
+}
+
+pub fn split(x0: Pair) -> (Blob, Blob) {
+    let Pair::Both(left, right) = x0;
+    (left.clone(), right.clone())
+}
+"#;
+        let mut module = parse_rust_source(source, "Let_Pair_Test").expect("source parses");
+        let mut modules = [(
+            vec!["crate".to_string(), "Let_Pair_Test".to_string()],
+            &mut module,
+        )];
+
+        let analysis = optimize_borrow_modules_with_paths_and_options(
+            &mut modules,
+            &HashSet::new(),
+            BorrowOptions {
+                disable_prefer_owned: true,
+            },
+        );
+
+        assert!(analysis.borrow_fns.contains("crate::Let_Pair_Test::split"));
+        optimize_last_use(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("pub fn split(x0: &Pair) -> (Blob, Blob)"));
+        assert!(printed.contains("left.clone()"));
+        assert!(printed.contains("right.clone()"));
     }
 
     #[test]
@@ -7263,7 +7339,11 @@ impl<W> Clone for Word<W> {
 "#;
         let mut module = parse_rust_source(source, "Test").expect("source parses");
         let modules = vec![(vec!["crate".to_string(), "Test".to_string()], &mut module)];
-        let (ctx, _) = BorrowContext::from_modules(&modules, &HashSet::new());
+        let (ctx, _) = BorrowContext::from_modules_with_options(
+            &modules,
+            &HashSet::new(),
+            BorrowOptions::default(),
+        );
         assert!(ctx.unconditional_copy_types.contains("Word"));
 
         let word_ty = Type::Generic("crate::Test::Word".to_string(), vec![named("Marker")]);

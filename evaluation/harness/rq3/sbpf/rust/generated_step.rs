@@ -129,7 +129,7 @@ fn run(case: &BenchCase) -> bool {
     )
 }
 
-#[cfg(sbpf_borrowed)]
+#[cfg(all(sbpf_borrowed, not(sbpf_no_prefer_owned)))]
 fn run(case: &BenchCase) -> bool {
     step_test(
         &case.lp,
@@ -141,6 +141,21 @@ fn run(case: &BenchCase) -> bool {
         case.ipc.clone(),
         case.index.clone(),
         case.expected.clone(),
+    )
+}
+
+#[cfg(sbpf_no_prefer_owned)]
+fn run(case: &BenchCase) -> bool {
+    step_test(
+        &case.lp,
+        &case.lr,
+        &case.lm,
+        &case.lc,
+        case.v,
+        case.fuel,
+        case.ipc,
+        case.index,
+        case.expected,
     )
 }
 

@@ -112,7 +112,7 @@ fn run(case: &BenchCase) -> bool {
     )
 }
 
-#[cfg(sbpf_borrowed)]
+#[cfg(all(sbpf_borrowed, not(sbpf_no_prefer_owned)))]
 fn run(case: &BenchCase) -> bool {
     bpf_interp_test(
         case.lp.clone(),
@@ -121,6 +121,19 @@ fn run(case: &BenchCase) -> bool {
         case.v.clone(),
         case.fuel.clone(),
         case.expected.clone(),
+        case.succeeds,
+    )
+}
+
+#[cfg(sbpf_no_prefer_owned)]
+fn run(case: &BenchCase) -> bool {
+    bpf_interp_test(
+        &case.lp,
+        &case.lm,
+        &case.lc,
+        case.v,
+        case.fuel,
+        case.expected,
         case.succeeds,
     )
 }

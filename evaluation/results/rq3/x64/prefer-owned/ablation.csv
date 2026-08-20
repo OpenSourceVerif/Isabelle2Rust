@@ -1,0 +1,2 @@
+benchmark,ablated_group,implementation,run_1_minus_over_full,run_2_minus_over_full,run_3_minus_over_full,median_minus_over_full,minus_cost_percent,full_speedup_percent,full_wins,conclusion
+x64-stepper,PreferOwned,Stage-2 minus PreferOwned,0.944470811,1.021117708,0.945527934,0.945527934,-5.447207,-5.761021,1,Stage-2 minus PreferOwned faster

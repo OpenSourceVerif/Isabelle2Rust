@@ -1,0 +1,7 @@
+benchmark,implementation,metric,unit,run_1,run_2,run_3,median
+x64-stepper,Stage-2 minus PreferOwned,Median runtime,s,0.009056813,0.009258607,0.008916596,0.009056813
+x64-stepper,Stage-2 minus PreferOwned,Peak RSS,MiB,18.550781250,18.554687500,18.742187500,18.554687500
+x64-stepper,Stage-2 minus PreferOwned,Heap allocation,KiB/step,2.517076823,2.517076823,2.517076823,2.517076823
+x64-stepper,Stage-2 Full,Median runtime,s,0.009589299,0.009067130,0.009430283,0.009430283
+x64-stepper,Stage-2 Full,Peak RSS,MiB,18.617187500,18.550781250,18.542968750,18.550781250
+x64-stepper,Stage-2 Full,Heap allocation,KiB/step,2.742649740,2.742649740,2.742649740,2.742649740

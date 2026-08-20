@@ -1,0 +1,17 @@
+benchmark,implementation,metric,unit,run_1,run_2,run_3,median
+SBPF-program,Stage-2 minus PreferOwned,Median runtime,s,0.029381178,0.028894725,0.029370763,0.029370763
+SBPF-program,Stage-2 minus PreferOwned,Peak RSS,MiB,7.847656250,7.933593750,7.917968750,7.917968750
+SBPF-program,Stage-2 minus PreferOwned,Heap allocation,MiB/case,0.317528712,0.317528712,0.317528712,0.317528712
+SBPF-program,Stage-2 minus PreferOwned,Host instructions,instructions/case,TBD,TBD,TBD,TBD
+SBPF-program,Stage-2 Full,Median runtime,s,0.010800361,0.010834661,0.010330171,0.010800361
+SBPF-program,Stage-2 Full,Peak RSS,MiB,4.980468750,4.996093750,5.027343750,4.996093750
+SBPF-program,Stage-2 Full,Heap allocation,MiB/case,0.096717416,0.096717416,0.096717416,0.096717416
+SBPF-program,Stage-2 Full,Host instructions,instructions/case,TBD,TBD,TBD,TBD
+SBPF-instruction,Stage-2 minus PreferOwned,Median runtime,s,0.448387207,0.451987169,0.453929574,0.451987169
+SBPF-instruction,Stage-2 minus PreferOwned,Peak RSS,MiB,23.929687500,23.992187500,23.851562500,23.929687500
+SBPF-instruction,Stage-2 minus PreferOwned,Heap allocation,KiB/step,184.438661458,184.438661458,184.438661458,184.438661458
+SBPF-instruction,Stage-2 minus PreferOwned,Host instructions,instructions/step,TBD,TBD,TBD,TBD
+SBPF-instruction,Stage-2 Full,Median runtime,s,0.075599841,0.075191975,0.075887178,0.075599841
+SBPF-instruction,Stage-2 Full,Peak RSS,MiB,23.988281250,23.988281250,23.851562500,23.988281250
+SBPF-instruction,Stage-2 Full,Heap allocation,KiB/step,21.342750000,21.342750000,21.342750000,21.342750000
+SBPF-instruction,Stage-2 Full,Host instructions,instructions/step,TBD,TBD,TBD,TBD

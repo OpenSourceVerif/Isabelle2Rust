@@ -6,9 +6,9 @@ use std::process::ExitCode;
 
 use isabelle2rust_optimize::{
     cleanup_bindings, cleanup_booleans, cleanup_bounds, cleanup_complex_types,
-    optimize_borrow_modules_with_paths, optimize_closure, optimize_copy_modules_with_paths,
-    optimize_last_use, optimize_match_with_context, optimize_mut, parse_rust_source,
-    parse_rust_type_facts, CopyOptions, MatchTypeContext,
+    optimize_borrow_modules_with_paths_and_options, optimize_closure,
+    optimize_copy_modules_with_paths, optimize_last_use, optimize_match_with_context, optimize_mut,
+    parse_rust_source, parse_rust_type_facts, BorrowOptions, CopyOptions, MatchTypeContext,
 };
 use rustlightast::{RustCodeGenerator, RustModule};
 
@@ -44,6 +44,7 @@ struct Config {
 struct PipelineOptions {
     disable_copy: bool,
     disable_borrow: bool,
+    disable_prefer_owned: bool,
     disable_mut: bool,
     disable_last_use: bool,
     disable_closure: bool,
@@ -198,6 +199,8 @@ fn parse_args() -> Result<Config, String> {
             pipeline.disable_copy = true;
         } else if arg == "--disable-borrow" {
             pipeline.disable_borrow = true;
+        } else if arg == "--disable-prefer-owned" {
+            pipeline.disable_prefer_owned = true;
         } else if arg == "--disable-mut" {
             pipeline.disable_mut = true;
         } else if arg == "--disable-last-use" {
@@ -217,7 +220,7 @@ fn parse_args() -> Result<Config, String> {
             target = Some(PathBuf::from(arg));
         } else {
             return Err(format!(
-                "unexpected argument {}; use: cargo opt [package-path] [--out-dir path] [--keep-unused-copy] [--disable-copy] [--disable-borrow] [--disable-mut] [--disable-last-use] [--disable-closure] [diagnostic options]",
+                "unexpected argument {}; use: cargo opt [package-path] [--out-dir path] [--keep-unused-copy] [--disable-copy] [--disable-borrow] [--disable-prefer-owned] [--disable-mut] [--disable-last-use] [--disable-closure] [diagnostic options]",
                 PathBuf::from(arg).display()
             ));
         }
@@ -232,12 +235,13 @@ fn parse_args() -> Result<Config, String> {
 }
 
 fn help_text() -> String {
-    "usage: cargo opt [package-path] [--out-dir path] [--keep-unused-copy] [--disable-copy] [--disable-borrow] [--disable-mut] [--disable-last-use] [--disable-closure] [diagnostic options]\n\
+    "usage: cargo opt [package-path] [--out-dir path] [--keep-unused-copy] [--disable-copy] [--disable-borrow] [--disable-prefer-owned] [--disable-mut] [--disable-last-use] [--disable-closure] [diagnostic options]\n\
      writes optimized Rust files to <package-path>/opt/src by default\n\
      and generates <package-path>/opt/Cargo.toml for cargo run-opt\n\
      --keep-unused-copy keeps generated _copy functions even when no call site uses them\n\
      --disable-copy skips Copyability recovery\n\
      --disable-borrow skips Borrow analysis and rewriting\n\
+     --disable-prefer-owned keeps Borrow enabled but disables its PreferOwned profitability judgment\n\
      --disable-mut skips M-Shadow/M-Mut recovery\n\
      --disable-last-use skips last-use clone elimination\n\
      --disable-closure skips closure cleanup\n\
@@ -359,7 +363,13 @@ fn write_optimized_sources(
                     .map(|module| (unit.module_path.clone(), module))
             })
             .collect();
-        optimize_borrow_modules_with_paths(&mut modules, &inferred_copy_types);
+        optimize_borrow_modules_with_paths_and_options(
+            &mut modules,
+            &inferred_copy_types,
+            BorrowOptions {
+                disable_prefer_owned: pipeline.disable_prefer_owned,
+            },
+        );
     }
 
     let mut post_match_context = MatchTypeContext::default();
