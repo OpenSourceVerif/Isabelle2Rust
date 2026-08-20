@@ -1,0 +1,36 @@
+{
+  "campaign": "SBPF instruction-level differential validation",
+  "started_at": "2026-08-21T01:19:22+08:00",
+  "completed_at": "2026-08-21T02:15:46+08:00",
+  "git_commit": "254d918d27248f54f8519017c82ba7e97714851e",
+  "git_clean": true,
+  "numeric_profile": "BigInt",
+  "rust_toolchain": "stable",
+  "ocamlopt": "4.11.2",
+  "uname": "Linux DRBEAR-LAPTOP 6.18.33.2-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Thu Jun 18 21:54:43 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "parameters": {
+    "rounds": 10,
+    "cases_per_round": 100000,
+    "total_vectors": 1000000,
+    "seed_base": 5984326,
+    "prepare_exports": true,
+    "archive_corpus": false
+  },
+  "producer": {
+    "path": "evaluation/scripts/rq2/run-sbpf-10x100k.sh",
+    "sha256": "85b16a682f413e6b8ab1565afb3559c0161118d39463b13cfdac9d348ff64514"
+  },
+  "exports": {
+    "stage1_sha256": "38f8186ba729a08413e41ce60b3e0f216af51db8bd95585736b9035af1f3d769",
+    "stage2_full_sha256": "381b91c581ff8603ef69c98100a5f21a9e5bb571f15cd1b74ad00b742d659aca"
+  },
+  "source_artifacts_sha256": {
+    "batches.tsv": "ed5669f85c3cd066216079e085efbb0728f31a8eba3d200f9b620fe5787a2cd9",
+    "metadata.txt": "1904c0698c60acd56691eb1dffac26a6f27d348af038f22149e9de0618a54dff",
+    "summary.txt": "4e7e4b3cbfbeea6ab5aff6cebc91a0117fd533c7461cb6d3139225a9891cf3f8"
+  },
+  "retention": {
+    "generated_corpora": "not retained; each batch is identified by its seed and SHA-256 digest",
+    "detailed_logs": "retained only in evaluation-history, not promoted into final results"
+  }
+}
