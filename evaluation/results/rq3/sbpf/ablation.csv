@@ -1,7 +1,7 @@
 benchmark,ablated_group,implementation,run_1_minus_over_full,run_2_minus_over_full,run_3_minus_over_full,median_minus_over_full,minus_cost_percent,full_speedup_percent,full_wins,conclusion
-SBPF-program,Borrow,Stage-2 minus Borrow,11.777757908,12.243820989,12.133248128,12.133248128,1113.324813,91.758184,3,Full faster
-SBPF-program,Last-Use,Stage-2 minus Last-Use,227.925565248,215.959526438,228.442793036,227.925565248,22692.556525,99.561260,3,Full faster
-SBPF-program,Closure,Stage-2 minus Closure,0.976738686,0.974019090,1.038674378,0.976738686,-2.326131,-2.381529,1,Stage-2 minus Closure faster
-SBPF-instruction,Borrow,Stage-2 minus Borrow,1.708519956,1.805935416,1.836177819,1.805935416,80.593542,44.627034,3,Full faster
-SBPF-instruction,Last-Use,Stage-2 minus Last-Use,28.494927297,30.109125721,31.514421755,30.109125721,2910.912572,96.678748,3,Full faster
-SBPF-instruction,Closure,Stage-2 minus Closure,0.966879710,0.979004056,1.059937018,0.979004056,-2.099594,-2.144623,1,Stage-2 minus Closure faster
+SBPF-program,Borrow,Stage-2 minus Borrow,11.777757908,12.243820989,12.133248128,11.843312136,1084.331214,91.556416,3,Full faster
+SBPF-program,Last-Use,Stage-2 minus Last-Use,227.925565248,215.959526438,228.442793036,222.983926045,22198.392604,99.551537,3,Full faster
+SBPF-program,Closure,Stage-2 minus Closure,0.976738686,0.974019090,1.038674378,0.993964216,-0.603578,-0.607244,1,Stage-2 minus Closure faster
+SBPF-instruction,Borrow,Stage-2 minus Borrow,1.708519956,1.805935416,1.836177819,1.836177819,83.617782,45.539044,3,Full faster
+SBPF-instruction,Last-Use,Stage-2 minus Last-Use,28.494927297,30.109125721,31.514421755,31.494082329,3049.408233,96.824800,3,Full faster
+SBPF-instruction,Closure,Stage-2 minus Closure,0.966879710,0.979004056,1.059937018,1.024036189,2.403619,2.347201,1,Full faster

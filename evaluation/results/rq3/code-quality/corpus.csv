@@ -89,9 +89,9 @@ stage1,FPP,test/fpp/5_IMP/AExp_Test.thy,test/fpp/5_IMP/stage1/AExp_Test/export1/
 stage1,FPP,test/fpp/5_IMP/BExp_Test.thy,test/fpp/5_IMP/stage1/BExp_Test/export1/Cargo.toml,db9c528b09b6611065d77d7144732709dc4bf4a5bbb1f6367a189c58b3ac3902,9,0,2
 stage1,FPP,test/fpp/5_IMP/Com_Test.thy,test/fpp/5_IMP/stage1/Com_Test/export1/Cargo.toml,89eabf8300989cc9488c5111cfdfb9a61c481adff93a6ee9a85ee941640f7951,10,0,0
 stage1,FPP,test/fpp/5_IMP/Compiler_Test.thy,test/fpp/5_IMP/stage1/Compiler_Test/export1/Cargo.toml,468596cad9b7faff1859d3cfe89c22f4774a25686ac057e1ab8ccb2bdcd1be82,15,0,28
-stage1,SBPF-program,SBPF-program,tests_sbpf/theory/stage1/bpf_generator_word_checked_interp/interp_test/Cargo.toml,4059bebf2f4ca5a488ca3025028ca24779d471511bd256940c48737c655ca4c0,6,0,1152
-stage1,SBPF-instruction,SBPF-instruction,tests_sbpf/theory/stage1/bpf_generator_word_checked/step_test/Cargo.toml,6bae360c8b4fdc635a695b27d00a7e17e6362a7015d8be0da17740a2b75e0ca6,6,0,1139
-stage1,X64-stepper,X64-stepper,tests_x64/theory/stage1/x64StepRustPerformanceGenerator/x64_step_test/Cargo.toml,0b9174edf79c6169a77e6159c638ea327cdc837f23ea73bc89dcc6934e4bdad8,6,0,1714
+stage1,SBPF-program,SBPF-program,test/sbpf/theory/stage1/bpf_generator_word_checked_interp/interp_test/Cargo.toml,4059bebf2f4ca5a488ca3025028ca24779d471511bd256940c48737c655ca4c0,6,0,1152
+stage1,SBPF-instruction,SBPF-instruction,test/sbpf/theory/stage1/bpf_generator_word_checked/step_test/Cargo.toml,6bae360c8b4fdc635a695b27d00a7e17e6362a7015d8be0da17740a2b75e0ca6,6,0,1139
+stage1,X64-stepper,X64-stepper,test/x64/theory/stage1/x64StepRustPerformanceGenerator/x64_step_test/Cargo.toml,0b9174edf79c6169a77e6159c638ea327cdc837f23ea73bc89dcc6934e4bdad8,6,0,1714
 stage2,HOL,test/HOL_Codegenerator/Generate.thy,test/HOL_Codegenerator/stage2/Generate/export1/Cargo.toml,eacf8e075515fec3a0606036ac7693d5a67ff4a57963c55c77452a8b6f68093f,199,0,15
 stage2,Unit,test/unit/functions/BasicDefinitions_Test.thy,test/unit/functions/stage2/BasicDefinitions_Test/export1/Cargo.toml,b8153bfeed2476f76c5da56f195ec170b59f2a69a689e6f7c2405b68cf893f22,6,0,0
 stage2,Unit,test/unit/functions/HigherOrder_Test.thy,test/unit/functions/stage2/HigherOrder_Test/export1/Cargo.toml,82a4f3ab36a07e724e4e9a2d697fea357629146a895e299e4f18e9d7d80118b5,6,0,0
@@ -182,6 +182,6 @@ stage2,FPP,test/fpp/5_IMP/AExp_Test.thy,test/fpp/5_IMP/stage2/AExp_Test/export1/
 stage2,FPP,test/fpp/5_IMP/BExp_Test.thy,test/fpp/5_IMP/stage2/BExp_Test/export1/Cargo.toml,2b881746774e4a502c23877df0c0168215cf17853f00eac0cccf6fd334365b9b,9,0,0
 stage2,FPP,test/fpp/5_IMP/Com_Test.thy,test/fpp/5_IMP/stage2/Com_Test/export1/Cargo.toml,5ee4e3365887811d0559fc9996b50f1ac45d8bb245567c8995b9ecf0f003016d,10,0,0
 stage2,FPP,test/fpp/5_IMP/Compiler_Test.thy,test/fpp/5_IMP/stage2/Compiler_Test/export1/Cargo.toml,4b111cb7a42d8bc282d36f4d0755a29c3f38394876215296c61d6d3e679e8157,15,0,0
-stage2,SBPF-program,SBPF-program,tests_sbpf/theory/stage2/bpf_generator_word_checked_interp/interp_test/Cargo.toml,589d2a8a8b7e09f9ae47d19a38bff30a593a4310f6869a1dc3b9cb148638ee4d,6,0,4
-stage2,SBPF-instruction,SBPF-instruction,tests_sbpf/theory/stage2/bpf_generator_word_checked/step_test/Cargo.toml,4286f1b2c6928f38e3964b7e7751f30e82b4274af4b93f4cd867368404d03963,6,0,5
-stage2,X64-stepper,X64-stepper,tests_x64/theory/stage2/x64StepRustPerformanceGenerator/x64_step_test/Cargo.toml,efbe019ece17b3b3246f213887adc27050c9d3583754cd0a0ac56ce2353881db,6,0,2
+stage2,SBPF-program,SBPF-program,test/sbpf/theory/stage2/bpf_generator_word_checked_interp/interp_test/Cargo.toml,589d2a8a8b7e09f9ae47d19a38bff30a593a4310f6869a1dc3b9cb148638ee4d,6,0,4
+stage2,SBPF-instruction,SBPF-instruction,test/sbpf/theory/stage2/bpf_generator_word_checked/step_test/Cargo.toml,4286f1b2c6928f38e3964b7e7751f30e82b4274af4b93f4cd867368404d03963,6,0,5
+stage2,X64-stepper,X64-stepper,test/x64/theory/stage2/x64StepRustPerformanceGenerator/x64_step_test/Cargo.toml,efbe019ece17b3b3246f213887adc27050c9d3583754cd0a0ac56ce2353881db,6,0,2

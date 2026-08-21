@@ -26,10 +26,10 @@ fi
 
 script_path=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/$(basename -- "${BASH_SOURCE[0]}")
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
-theory_dir="$repo_root/tests_sbpf/theory"
+theory_dir="$repo_root/test/sbpf/theory"
 stage1_export="$theory_dir/stage1/bpf_generator_bigint"
 stage2_export="$theory_dir/stage2/bpf_generator_bigint"
-stage2_runner="$repo_root/tests_sbpf/tests/exec_semantics/sbpf_rust/run_step_micro.py"
+stage2_runner="$repo_root/test/sbpf/tests/exec_semantics/sbpf_rust/run_step_micro.py"
 
 rounds=${ROUNDS:-10}
 cases_per_round=${CASES_PER_ROUND:-100000}
@@ -183,9 +183,9 @@ fi
 if [[ $need_prepare == 1 ]]; then
   printf 'Preparing current Stage-1 and full Stage-2 SBPF exports.\n'
   run_logged "$result_dir/prepare-stage1.log" \
-    "${clean_env[@]}" make gen DIR=tests_sbpf/theory Name=bpf_generator_bigint
+    "${clean_env[@]}" make gen DIR=test/sbpf/theory Name=bpf_generator_bigint
   run_logged "$result_dir/prepare-stage2.log" \
-    "${clean_env[@]}" make opt DIR=tests_sbpf/theory Name=bpf_generator_bigint
+    "${clean_env[@]}" make opt DIR=test/sbpf/theory Name=bpf_generator_bigint
 fi
 for manifest in "$stage1_manifest" "$stage2_manifest"; do
   if [[ ! -f $manifest ]]; then
@@ -262,8 +262,8 @@ for ((round = 1; round <= rounds; round++)); do
   run_logged "$stage2_log" \
     "${clean_env[@]}" SBPF_STAGE=2 \
       SBPF_ROOT="$repo_root" \
-      SBPF_EXEC_DIR="$repo_root/tests_sbpf/tests/exec_semantics" \
-      SBPF_DATA_DIR="$repo_root/tests_sbpf/tests/data" \
+      SBPF_EXEC_DIR="$repo_root/test/sbpf/tests/exec_semantics" \
+      SBPF_DATA_DIR="$repo_root/test/sbpf/tests/data" \
       SBPF_EXPORT_DIR="$stage2_export" \
       SBPF_STEP_JSON="$corpus" \
       python3 "$stage2_runner"

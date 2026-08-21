@@ -24,12 +24,13 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 HARNESS = ROOT / "evaluation" / "harness" / "rq3"
 X64_HARNESS = HARNESS / "x64"
-VALIDATION = ROOT / "tests_x64" / "x64-validation"
+VALIDATION = ROOT / "test" / "x64" / "x64-validation"
 WORK = ROOT / "evaluation" / ".work" / "rq3" / "x64"
-FIXED_INPUT = X64_HARNESS / "data" / "x64_step_6000.json"
+FIXED_INPUT = VALIDATION / "0-data" / "x64_step_6000.json"
 RAW_EXPORT = (
     ROOT
-    / "tests_x64"
+    / "test"
+    / "x64"
     / "theory"
     / "stage1"
     / "x64_generator_checked128"
@@ -37,13 +38,14 @@ RAW_EXPORT = (
 )
 OCAML_EXPORT = (
     ROOT
-    / "tests_x64"
+    / "test"
+    / "x64"
     / "theory"
     / "stage1"
     / "x64_generator_ocaml"
     / "x64_step_test.ocaml"
 )
-GENERATED_ROOT = ROOT / "tests_x64" / "theory" / "performance" / "x64"
+GENERATED_ROOT = ROOT / "test" / "x64" / "theory" / "performance" / "x64"
 OPTIMIZER = ROOT / "optimize" / "target" / "release" / "cargo-opt"
 RUSTLIGHTAST = ROOT.parent / "RustLightAST"
 BUILD = WORK / "build"
@@ -1002,7 +1004,7 @@ def write_grouped_ablation_summary(
             minus_value / full_value
             for minus_value, full_value in zip(minus, full)
         ]
-        median_ratio = statistics.median(ratios)
+        median_ratio = statistics.median(minus) / statistics.median(full)
         results.append(
             {
                 "benchmark": "x64-stepper",
@@ -1157,7 +1159,7 @@ def write_record(
             if reused_from
             else "- Reuse: no performance rows were reused."
         ),
-        f"- Timing: JSON parsing, input conversion, observation, and per-case comparison are outside the timed region. A one-traversal pilot selects a whole-suite repetition count for each newly measured implementation targeting approximately {RUNTIME_TARGET_SECONDS:.0f} seconds per independent CPU-pinned runtime process. Full and minus {paired_ablation} use the larger of their two pilot repetition counts and run adjacently with alternating order. Each ablation effect is the median of the three within-round minus-{ablation_kind}/Full ratios. Results are normalized to one 6,000-vector traversal.",
+        f"- Timing: JSON parsing, input conversion, observation, and per-case comparison are outside the timed region. A one-traversal pilot selects a whole-suite repetition count for each newly measured implementation targeting approximately {RUNTIME_TARGET_SECONDS:.0f} seconds per independent CPU-pinned runtime process. Full and minus {paired_ablation} use the larger of their two pilot repetition counts and run adjacently with alternating order. Each ablation effect is the ratio of the minus-{ablation_kind} and Full configuration medians. Results are normalized to one 6,000-vector traversal.",
         f"- Runtime suite repetitions: {json.dumps(repetitions, sort_keys=True)}.",
         "- OCaml runtime uses `clock_gettime(CLOCK_MONOTONIC)` through a C stub.",
         "- Rust allocation uses the same cumulative allocation counter as the SBPF experiment. OCaml uses `Gc.allocated_bytes`. The native C baseline uses linker-wrapped allocation functions and resets its cumulative counter immediately before the prepared ptrace step loop.",
@@ -1175,7 +1177,7 @@ def write_record(
         lines.append(
             f"- {row['ablated_group']}: minus/Full ratios "
             f"{row['run_1_minus_over_full']}, {row['run_2_minus_over_full']}, "
-            f"{row['run_3_minus_over_full']}; median {row['median_minus_over_full']} "
+            f"{row['run_3_minus_over_full']}; ratio of medians {row['median_minus_over_full']} "
             f"({row['conclusion']}, Full speedup {row['full_speedup_percent']}%, "
             f"Full wins {row['full_wins']}/3)."
         )
@@ -1205,7 +1207,7 @@ def write_record(
             "- `binaries.json`: exact executables and hashes.",
             "- `raw.csv`: one row per formal measurement process.",
             "- `summary.csv`: three measurements and median for each paper metric.",
-            "- `grouped_ablation.csv`: within-round minus-group/Full ratios and their medians.",
+            "- `grouped_ablation.csv`: within-round minus-group/Full ratios and the ratio of the configuration medians.",
             "- `derived.csv`: throughput and cross-baseline ratios.",
             "- `commands.txt`, `correctness/`, `pilot/`, and `runs/`: full reproduction trail.",
             "",

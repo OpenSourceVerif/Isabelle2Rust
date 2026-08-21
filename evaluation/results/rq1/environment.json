@@ -11,5 +11,5 @@
     "failed_crates": 0
   },
   "timestamp": "2026-08-20T22:41:01+08:00",
-  "timing_status": "unavailable: phase-only translation and optimization instrumentation has not been implemented"
+  "timing_status": "unavailable: the new phase-only timing producer has not yet completed and promoted a full three-round run"
 }

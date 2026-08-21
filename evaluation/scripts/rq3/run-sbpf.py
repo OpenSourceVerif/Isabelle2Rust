@@ -25,27 +25,29 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 HARNESS = ROOT / "evaluation" / "harness" / "rq3"
 SBPF_HARNESS = HARNESS / "sbpf"
-DATA = ROOT / "tests_sbpf" / "tests" / "data"
+DATA = ROOT / "test" / "sbpf" / "tests" / "data"
 PROGRAM_INPUT = DATA / "interp_in.json"
 STEP_INPUT = DATA / "ocaml_in_6000.json"
 DEFAULT_EXPORT = (
-    ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator_bigint"
+    ROOT / "test" / "sbpf" / "theory" / "stage1" / "bpf_generator_bigint"
 )
 ADAPTED_EXPORTS = {
     "interp_test": ROOT
-    / "tests_sbpf"
+    / "test"
+    / "sbpf"
     / "theory"
     / "stage1"
     / "bpf_generator_checked128"
     / "interp_test",
     "step_test": ROOT
-    / "tests_sbpf"
+    / "test"
+    / "sbpf"
     / "theory"
     / "stage1"
     / "bpf_generator_checked128"
     / "step_test",
 }
-GENERATED_ROOT = ROOT / "tests_sbpf" / "theory" / "performance"
+GENERATED_ROOT = ROOT / "test" / "sbpf" / "theory" / "performance"
 OPTIMIZER = ROOT / "optimize" / "target" / "release" / "cargo-opt"
 RUSTLIGHTAST = ROOT.parent / "RustLightAST"
 BASELINE = SBPF_HARNESS / "native"
@@ -338,7 +340,7 @@ def generate_exports(*, include_baseline: bool = True) -> None:
             [
                 "make",
                 "build",
-                "TEST_DIR=tests_sbpf/theory",
+                "TEST_DIR=test/sbpf/theory",
                 f"TEST_THEORY={theory}",
             ]
         )
@@ -1070,7 +1072,7 @@ def write_grouped_ablation_summary(
                 minus_value / full_value
                 for minus_value, full_value in zip(minus, full)
             ]
-            median_ratio = statistics.median(ratios)
+            median_ratio = statistics.median(minus) / statistics.median(full)
             full_wins = sum(ratio > 1.0 for ratio in ratios)
             paired.append(
                 {
@@ -1172,7 +1174,7 @@ def write_experiment_record(
             else "- Correctness: all seven SBPF-program implementations passed 146/146 cases; "
             "all seven SBPF-instruction implementations passed 6000/6000 vectors."
         ),
-        f"- Each value below is from an independent pinned process. Generated and OCaml pilots select whole-suite repetition counts targeting approximately {RUNTIME_TARGET_SECONDS:.0f} seconds. The prepared Solana baseline retains its historical configuration of {CASE_STUDY_REPETITIONS['SBPF-program']} SBPF-program suites and {CASE_STUDY_REPETITIONS['SBPF-instruction']} SBPF-instruction suite per process; every VM is independently constructed before measurement and executed once. Full and minus {paired_ablation} use the larger of their two pilot repetition counts and run adjacently with alternating order. Every ablation effect is the median of the three within-round minus-{ablation_kind}/Full ratios. Reused rows retain their recorded protocol. Each allocation round uses one complete suite. Runtime results are normalized per suite.",
+        f"- Each value below is from an independent pinned process. Generated and OCaml pilots select whole-suite repetition counts targeting approximately {RUNTIME_TARGET_SECONDS:.0f} seconds. The prepared Solana baseline retains its historical configuration of {CASE_STUDY_REPETITIONS['SBPF-program']} SBPF-program suites and {CASE_STUDY_REPETITIONS['SBPF-instruction']} SBPF-instruction suite per process; every VM is independently constructed before measurement and executed once. Full and minus {paired_ablation} use the larger of their two pilot repetition counts and run adjacently with alternating order. Every ablation effect is the ratio of the minus-{ablation_kind} and Full configuration medians. Reused rows retain their recorded protocol. Each allocation round uses one complete suite. Runtime results are normalized per suite.",
         "- OCaml runtime uses `clock_gettime(CLOCK_MONOTONIC)` through a C stub.",
         "",
     ]
@@ -1190,7 +1192,7 @@ def write_experiment_record(
         lines.append(
             f"- {row['benchmark']} / {row['ablated_group']}: minus/Full ratios "
             f"{row['run_1_minus_over_full']}, {row['run_2_minus_over_full']}, "
-            f"{row['run_3_minus_over_full']}; median {row['median_minus_over_full']} "
+            f"{row['run_3_minus_over_full']}; ratio of medians {row['median_minus_over_full']} "
             f"({row['conclusion']}, Full speedup {row['full_speedup_percent']}%, "
             f"Full wins {row['full_wins']}/3)."
         )
@@ -1237,7 +1239,7 @@ def write_experiment_record(
             "- `configurations.json`: pass matrix, source hashes, build settings, and executable hashes.",
             "- `raw.csv`: one row per formal measurement process.",
             "- `summary.csv`: the three values and median for every table cell.",
-            "- `grouped_ablation.csv`: within-round minus-group/Full ratios and their medians.",
+            "- `grouped_ablation.csv`: within-round minus-group/Full ratios and the ratio of the configuration medians.",
             "- `commands.txt`: every actual preparation, build, validation, pilot, and measurement command.",
             "- `correctness/`, `pilot/`, and `runs/`: per-process stdout, stderr, and `/usr/bin/time -v` output.",
             "",

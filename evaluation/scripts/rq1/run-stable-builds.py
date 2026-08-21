@@ -17,7 +17,12 @@ REPO = Path(__file__).resolve().parents[3]
 LOCK_HELPER = REPO / "scripts" / "ensure-cargo-lock.py"
 SHARED_LOCK = REPO / "scripts" / "isabelle-exported.Cargo.lock"
 EXPECTED_RUSTC_RELEASE = os.environ.get("EXPECTED_RUSTC_RELEASE", "1.94.0")
-EXPECTED_SUITES = {"HCT": 2, "Unit": 53, "FPP": 36}
+EXPECTED_SUITES = {
+    "HCT-standard": 1,
+    "HCT-binary-nat": 1,
+    "Unit": 53,
+    "FPP": 36,
+}
 EXPORT_CODE = re.compile(r"^\s*export_code(?:\s|$)", re.MULTILINE)
 FEATURE_GATE = re.compile(r"#!\s*\[\s*feature\s*\(")
 NATURAL_PART = re.compile(r"(\d+)")
@@ -77,8 +82,11 @@ def tracked_theories() -> list[tuple[str, Path]]:
         raise RuntimeError(tracked.stderr.strip())
 
     selected: list[tuple[str, Path]] = [
-        ("HCT", REPO / "test" / "HOL_Codegenerator" / "Generate.thy"),
-        ("HCT", REPO / "test" / "HOL_Codegenerator" / "Generate_Binary_Nat.thy"),
+        ("HCT-standard", REPO / "test" / "HOL_Codegenerator" / "Generate.thy"),
+        (
+            "HCT-binary-nat",
+            REPO / "test" / "HOL_Codegenerator" / "Generate_Binary_Nat.thy",
+        ),
     ]
     for relative in tracked.stdout.splitlines():
         theory = REPO / relative
@@ -97,16 +105,19 @@ def tracked_theories() -> list[tuple[str, Path]]:
     return selected
 
 
-def latest_manifest(theory: Path, stage: str) -> Path:
+def generated_manifest(theory: Path, stage: str) -> Path:
     root = theory.parent / stage / theory.stem
     manifests = [
         path
         for path in root.rglob("Cargo.toml")
         if "target" not in path.relative_to(root).parts
     ]
-    if not manifests:
-        raise RuntimeError(f"missing {stage} crate for {theory.relative_to(REPO)}")
-    return sorted(manifests, key=lambda path: natural_key(path.relative_to(root)))[-1]
+    if len(manifests) != 1:
+        raise RuntimeError(
+            f"expected exactly one {stage} crate for {theory.relative_to(REPO)}, "
+            f"found {len(manifests)}"
+        )
+    return manifests[0]
 
 
 def reject_unstable_crate(manifest: Path) -> None:
@@ -161,7 +172,7 @@ def main() -> int:
         rustc, cargo = verify_toolchain(environment)
         theories = tracked_theories()
         jobs = [
-            (suite, theory, stage, latest_manifest(theory, stage))
+            (suite, theory, stage, generated_manifest(theory, stage))
             for suite, theory in theories
             for stage in ("stage1", "stage2")
         ]

@@ -1,6 +1,6 @@
-suite,pairs,stage1_accepted,stage2_accepted,definition_selections,thingol_function_nodes,stage1_rust_loc,stage2_rust_loc,reduction_percent,translation_seconds,optimization_seconds
-HCT-standard,1,1,1,3146,2939,53329,45503,14.7,unavailable,unavailable
-HCT-binary-nat,1,1,1,3144,2935,53779,44519,17.2,unavailable,unavailable
-Unit,53,53,53,457,unavailable,9098,8633,5.1,unavailable,unavailable
-FPP,36,36,36,328,unavailable,20388,19171,6.0,unavailable,unavailable
-Total,91,91,91,7075,5874,136594,117826,13.7,unavailable,unavailable
+suite,pairs,stage1_accepted,stage2_accepted,stage1_rust_loc,stage2_rust_loc,reduction_percent,translation_seconds,optimization_seconds
+HCT-standard,1,1,1,53329,45503,14.7,unavailable,unavailable
+HCT-binary-nat,1,1,1,53779,44519,17.2,unavailable,unavailable
+Unit,53,53,53,9098,8633,5.1,unavailable,unavailable
+FPP,36,36,36,20388,19171,6.0,unavailable,unavailable
+Total,91,91,91,136594,117826,13.7,unavailable,unavailable

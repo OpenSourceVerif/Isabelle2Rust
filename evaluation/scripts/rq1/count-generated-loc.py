@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Count cloc Rust LOC for the generated RQ1 Stage-1/Stage-2 corpus."""
+"""Count generated Rust LOC for the frozen RQ1 Stage-1/Stage-2 corpus.
+
+Only ``src/**/*.rs`` files from Isabelle-exported library crates are counted.
+The script rejects binary drivers, Rust tests, benchmarks, examples, and build
+scripts so a hand-written harness cannot silently enter the paper's KLOC.
+``cloc`` supplies the code count and therefore excludes comments and blank
+lines.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +22,16 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]
 EXPORT_CODE = re.compile(r"^\s*export_code(?:\s|$)", re.MULTILINE)
 NATURAL = re.compile(r"(\d+)")
+RUST_TEST = re.compile(
+    r"#\s*!?\s*\[\s*(?:test|cfg\s*\(\s*test\s*\))\s*\]",
+    re.MULTILINE,
+)
+EXPECTED_SUITES = {
+    "HCT-standard": 1,
+    "HCT-binary-nat": 1,
+    "Unit": 53,
+    "FPP": 36,
+}
 
 
 def natural_key(path: Path) -> list[object]:
@@ -36,17 +53,38 @@ def tracked_theories(suite: str) -> list[Path]:
     return sorted(selected)
 
 
-def latest_crate(theory: Path, stage: str) -> Path:
+def generated_crate(theory: Path, stage: str) -> Path:
     root = theory.parent / stage / theory.stem
     manifests = [p for p in root.rglob("Cargo.toml") if "target" not in p.relative_to(root).parts]
-    if not manifests:
-        raise RuntimeError(f"missing {stage} crate for {theory.relative_to(REPO)}")
-    return sorted(manifests, key=lambda p: natural_key(p.relative_to(root)))[-1].parent
+    if len(manifests) != 1:
+        raise RuntimeError(
+            f"expected exactly one {stage} crate for {theory.relative_to(REPO)}, "
+            f"found {len(manifests)}"
+        )
+    return manifests[0].parent
 
 
 def cloc(roots: list[Path]) -> tuple[int, int]:
-    command = ["cloc", "--json", "--quiet", "--skip-uniqueness", "--exclude-dir=target", "--include-lang=Rust"]
-    command.extend(map(str, roots))
+    sources: list[Path] = []
+    forbidden_names = ("build.rs",)
+    forbidden_dirs = ("benches", "examples", "test", "tests")
+    for root in roots:
+        if any((root / name).exists() for name in forbidden_names + forbidden_dirs):
+            raise RuntimeError(f"non-generated test/harness path present in {root}")
+        if (root / "src" / "main.rs").exists():
+            raise RuntimeError(f"binary driver present in generated RQ1 crate: {root / 'src/main.rs'}")
+        crate_sources = sorted((root / "src").rglob("*.rs"))
+        if not crate_sources:
+            raise RuntimeError(f"no generated Rust sources under {root / 'src'}")
+        for source in crate_sources:
+            if RUST_TEST.search(source.read_text(encoding="utf-8", errors="replace")):
+                raise RuntimeError(f"Rust test item present in generated RQ1 source: {source}")
+        sources.extend(crate_sources)
+
+    command = [
+        "cloc", "--json", "--quiet", "--skip-uniqueness", "--include-lang=Rust",
+        *map(str, sources),
+    ]
     result = subprocess.run(command, cwd=REPO, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip())
@@ -64,10 +102,13 @@ def main() -> int:
         "Unit": tracked_theories("unit"),
         "FPP": tracked_theories("fpp"),
     }
+    actual = {suite: len(theories) for suite, theories in suites.items()}
+    if actual != EXPECTED_SUITES:
+        raise RuntimeError(f"RQ1 corpus mismatch: expected {EXPECTED_SUITES}, found {actual}")
     rows = []
     for suite, theories in suites.items():
         for stage in ("stage1", "stage2"):
-            files, loc = cloc([latest_crate(theory, stage) for theory in theories])
+            files, loc = cloc([generated_crate(theory, stage) for theory in theories])
             rows.append({"suite": suite, "stage": stage, "crates": len(theories), "rust_files": files, "rust_loc": loc})
     target = args.output.open("w", newline="", encoding="utf-8") if args.output else sys.stdout
     try:

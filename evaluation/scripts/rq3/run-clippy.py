@@ -27,16 +27,16 @@ STAGES = ("stage1", "stage2")
 EXPECTED_TEST_SUITES = {"HOL": 1, "Unit": 53, "FPP": 36}
 CASE_STUDIES = {
     "SBPF-program": {
-        "stage1": "tests_sbpf/theory/stage1/bpf_generator_checked128/interp_test/Cargo.toml",
-        "stage2": "tests_sbpf/theory/stage2/bpf_generator_checked128/interp_test/Cargo.toml",
+        "stage1": "test/sbpf/theory/stage1/bpf_generator_checked128/interp_test/Cargo.toml",
+        "stage2": "test/sbpf/theory/stage2/bpf_generator_checked128/interp_test/Cargo.toml",
     },
     "SBPF-instruction": {
-        "stage1": "tests_sbpf/theory/stage1/bpf_generator_checked128/step_test/Cargo.toml",
-        "stage2": "tests_sbpf/theory/stage2/bpf_generator_checked128/step_test/Cargo.toml",
+        "stage1": "test/sbpf/theory/stage1/bpf_generator_checked128/step_test/Cargo.toml",
+        "stage2": "test/sbpf/theory/stage2/bpf_generator_checked128/step_test/Cargo.toml",
     },
     "X64-stepper": {
-        "stage1": "tests_x64/theory/stage1/x64_generator_checked128/x64_step_test/Cargo.toml",
-        "stage2": "tests_x64/theory/stage2/x64_generator_checked128/x64_step_test/Cargo.toml",
+        "stage1": "test/x64/theory/stage1/x64_generator_checked128/x64_step_test/Cargo.toml",
+        "stage2": "test/x64/theory/stage2/x64_generator_checked128/x64_step_test/Cargo.toml",
     },
 }
 EXPECTED_ALL_DIAGNOSTICS = {

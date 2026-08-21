@@ -12,20 +12,20 @@ import tempfile
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 RUSTLIGHT_ROOT = REPO_ROOT.parent / "RustLightAST"
 
 STAGE1_ML = [
-    REPO_ROOT / "code_rust.ML",
-    REPO_ROOT / "code_debug_info.ML",
+    REPO_ROOT / "translate" / "code_rust.ML",
+    REPO_ROOT / "translate" / "code_debug_info.ML",
 ]
 STAGE1_THEORIES = [
-    REPO_ROOT / "Rust_Base_Setup.thy",
-    REPO_ROOT / "Rust_BigInt_Setup.thy",
-    REPO_ROOT / "Rust_BigInt_WordU128_Setup.thy",
-    REPO_ROOT / "Rust_Checked128_Setup.thy",
-    REPO_ROOT / "Rust_Checked128_WordU128_Setup.thy",
-    REPO_ROOT / "Rust_Integer_BigInt_Layer.thy",
+    REPO_ROOT / "translate" / "Rust_Base_Setup.thy",
+    REPO_ROOT / "translate" / "Rust_BigInt_Setup.thy",
+    REPO_ROOT / "translate" / "Rust_BigInt_WordU128_Setup.thy",
+    REPO_ROOT / "translate" / "Rust_Checked128_Setup.thy",
+    REPO_ROOT / "translate" / "Rust_Checked128_WordU128_Setup.thy",
+    REPO_ROOT / "translate" / "Rust_Integer_BigInt_Layer.thy",
 ]
 
 OPEN_CARTOUCHE = ("\\<open>", "‹")

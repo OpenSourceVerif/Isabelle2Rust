@@ -14,13 +14,13 @@ unset RUSTC_BOOTSTRAP
   printf 'tool:cargo=%s\0' "$(cargo +stable --version)"
 
   find Isabelle2Rust -type f \
-    \( -path 'Isabelle2Rust/code_rust.ML' \
-       -o -path 'Isabelle2Rust/Rust_Base_Setup.thy' \
-       -o -path 'Isabelle2Rust/Rust_Integer_BigInt_Layer.thy' \
-       -o -path 'Isabelle2Rust/Rust_BigInt_Setup.thy' \
-       -o -path 'Isabelle2Rust/Rust_Checked128_Setup.thy' \
-       -o -path 'Isabelle2Rust/Rust_BigInt_WordU128_Setup.thy' \
-       -o -path 'Isabelle2Rust/Rust_Checked128_WordU128_Setup.thy' \
+    \( -path 'Isabelle2Rust/translate/code_rust.ML' \
+       -o -path 'Isabelle2Rust/translate/Rust_Base_Setup.thy' \
+       -o -path 'Isabelle2Rust/translate/Rust_Integer_BigInt_Layer.thy' \
+       -o -path 'Isabelle2Rust/translate/Rust_BigInt_Setup.thy' \
+       -o -path 'Isabelle2Rust/translate/Rust_Checked128_Setup.thy' \
+       -o -path 'Isabelle2Rust/translate/Rust_BigInt_WordU128_Setup.thy' \
+       -o -path 'Isabelle2Rust/translate/Rust_Checked128_WordU128_Setup.thy' \
        -o -path 'Isabelle2Rust/Makefile' \
        -o -path 'Isabelle2Rust/rust-toolchain.toml' \
        -o -path 'Isabelle2Rust/ROOT' \

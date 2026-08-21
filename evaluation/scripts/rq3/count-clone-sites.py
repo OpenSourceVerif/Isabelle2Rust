@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Count explicit .clone() call sites in the 95-pair RQ3 Clippy corpus."""
+"""Count explicit .clone() call sites in the 93-pair RQ3 Clippy corpus."""
 
 from __future__ import annotations
 
@@ -17,16 +17,16 @@ CLONE = re.compile(r"\.clone\s*\(\s*\)")
 NATURAL = re.compile(r"(\d+)")
 CASE_STUDIES = {
     "SBPF-program": {
-        "stage1": "tests_sbpf/theory/stage1/bpf_generator_checked128/interp_test",
-        "stage2": "tests_sbpf/theory/stage2/bpf_generator_checked128/interp_test",
+        "stage1": "test/sbpf/theory/stage1/bpf_generator_checked128/interp_test",
+        "stage2": "test/sbpf/theory/stage2/bpf_generator_checked128/interp_test",
     },
     "SBPF-instruction": {
-        "stage1": "tests_sbpf/theory/stage1/bpf_generator_checked128/step_test",
-        "stage2": "tests_sbpf/theory/stage2/bpf_generator_checked128/step_test",
+        "stage1": "test/sbpf/theory/stage1/bpf_generator_checked128/step_test",
+        "stage2": "test/sbpf/theory/stage2/bpf_generator_checked128/step_test",
     },
     "X64-stepper": {
-        "stage1": "tests_x64/theory/stage1/x64_generator_checked128/x64_step_test",
-        "stage2": "tests_x64/theory/stage2/x64_generator_checked128/x64_step_test",
+        "stage1": "test/x64/theory/stage1/x64_generator_checked128/x64_step_test",
+        "stage2": "test/x64/theory/stage2/x64_generator_checked128/x64_step_test",
     },
 }
 
@@ -53,7 +53,15 @@ def crate(theory: Path, stage: str) -> Path:
 
 
 def count(roots: list[Path]) -> tuple[int, int]:
-    files = sorted({p for root in roots for p in root.rglob("*.rs") if "target" not in p.relative_to(root).parts})
+    missing = [root for root in roots if not (root / "Cargo.toml").is_file()]
+    if missing:
+        raise RuntimeError(
+            "missing generated crate(s): "
+            + ", ".join(str(path.relative_to(REPO)) for path in missing)
+        )
+    files = sorted({p for root in roots for p in (root / "src").rglob("*.rs")})
+    if not files:
+        raise RuntimeError("generated clone-site corpus contains no Rust sources")
     return len(files), sum(len(CLONE.findall(path.read_text(encoding="utf-8", errors="replace"))) for path in files)
 
 

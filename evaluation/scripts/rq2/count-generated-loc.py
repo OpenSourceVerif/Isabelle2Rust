@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -14,25 +15,43 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]
 CRATES = {
     "SBPF-program": {
-        "stage1": "tests_sbpf/theory/stage1/bpf_generator_bigint/interp_test",
-        "stage2": "tests_sbpf/theory/stage2/bpf_generator_bigint/interp_test",
+        "stage1": "test/sbpf/theory/stage1/bpf_generator_bigint/interp_test",
+        "stage2": "test/sbpf/theory/stage2/bpf_generator_bigint/interp_test",
     },
     "SBPF-instruction": {
-        "stage1": "tests_sbpf/theory/stage1/bpf_generator_bigint/step_test",
-        "stage2": "tests_sbpf/theory/stage2/bpf_generator_bigint/step_test",
+        "stage1": "test/sbpf/theory/stage1/bpf_generator_bigint/step_test",
+        "stage2": "test/sbpf/theory/stage2/bpf_generator_bigint/step_test",
     },
     "X64-stepper": {
-        "stage1": "tests_x64/theory/stage1/x64_generator_bigint/x64_step_test",
-        "stage2": "tests_x64/theory/stage2/x64_generator_bigint/x64_step_test",
+        "stage1": "test/x64/theory/stage1/x64_generator_bigint/x64_step_test",
+        "stage2": "test/x64/theory/stage2/x64_generator_bigint/x64_step_test",
     },
 }
+RUST_TEST = re.compile(
+    r"#\s*!?\s*\[\s*(?:test|cfg\s*\(\s*test\s*\))\s*\]",
+    re.MULTILINE,
+)
 
 
 def cloc(root: Path) -> tuple[int, int]:
     if not (root / "Cargo.toml").is_file():
         raise RuntimeError(f"missing generated crate: {root.relative_to(REPO)}")
+    # Validation workflows install their handwritten executable as
+    # ``src/main.rs``. Count only the generated library modules, irrespective
+    # of whether that harness is currently present in the working crate.
+    sources = sorted(
+        source for source in (root / "src").rglob("*.rs") if source.name != "main.rs"
+    )
+    if not sources:
+        raise RuntimeError(f"no generated Rust sources under {(root / 'src').relative_to(REPO)}")
+    for source in sources:
+        if RUST_TEST.search(source.read_text(encoding="utf-8", errors="replace")):
+            raise RuntimeError(f"Rust test item present in generated source: {source.relative_to(REPO)}")
     result = subprocess.run(
-        ["cloc", "--json", "--quiet", "--skip-uniqueness", "--exclude-dir=target", "--include-lang=Rust", str(root)],
+        [
+            "cloc", "--json", "--quiet", "--skip-uniqueness", "--include-lang=Rust",
+            *map(str, sources),
+        ],
         cwd=REPO, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     if result.returncode != 0:
