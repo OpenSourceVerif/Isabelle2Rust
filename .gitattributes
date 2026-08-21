@@ -13,3 +13,7 @@
 
 # Large generated sBPF instruction corpus.
 test/sbpf/tests/data/ocaml_in.json filter=lfs diff=lfs merge=lfs -text
+
+# Large generated x64 validation corpora.
+test/x64/x64-validation/0-data/step3.json filter=lfs diff=lfs merge=lfs -text
+test/x64/x64-validation/0-data/step4.json filter=lfs diff=lfs merge=lfs -text
