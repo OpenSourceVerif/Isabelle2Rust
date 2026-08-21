@@ -1,8 +1,15 @@
-.PHONY: open open_test build build_silent code gen opt test hol-gcd hol-stress loc kloc clippy clippy-case-studies-prepare clippy-case-studies clippy-all macro_sbpf micro_sbpf micro_sbpf_gen x64 x64-rust-export x64-gen x64-test x64-performance x64_gen x64_test clean help
+.DEFAULT_GOAL := open
+
+.PHONY: open open_test build build_silent code gen opt test \
+        hol-gcd hol-stress loc kloc rq1-timings \
+        rq3-clippy rq3-sbpf rq3-x64 \
+        macro_sbpf micro_sbpf micro_sbpf_gen \
+        x64 x64-rust-export x64-gen x64-test \
+        clean help
 
 #### Configuration ####
 
-DEFAULT_FILE := $(CURDIR)/Rust_Base_Setup.thy
+DEFAULT_FILE := $(CURDIR)/translate/Rust_Base_Setup.thy
 PROJECT_SESSION := Rust
 TEST_SESSION    := Rust
 TEST_ROOT_DIR   := test-root
@@ -22,16 +29,13 @@ OPTIMIZE_DIR           := $(CURDIR)/optimize
 OPT_STACK_KB            ?= 65536
 EXPORT_ITEM_COUNTER    := $(CURDIR)/scripts/count-rust-export-items.pl
 RQ1_GENERATED_LOC      := $(CURDIR)/evaluation/scripts/rq1/count-generated-loc.py
+RQ1_TIMINGS            := $(CURDIR)/evaluation/scripts/rq1/run-timings.py
 RQ3_CLIPPY             := $(CURDIR)/evaluation/scripts/rq3/run-clippy.py
-IMPLEMENTATION_LOC     := $(CURDIR)/evaluation/scripts/rq1/count-implementation-loc.py
+RQ3_SBPF               := $(CURDIR)/evaluation/scripts/rq3/run-sbpf.py
+RQ3_X64                := $(CURDIR)/evaluation/scripts/rq3/run-x64.py
+IMPLEMENTATION_LOC     := $(CURDIR)/evaluation/scripts/count-implementation-loc.py
 CLIPPY_PROCESSES       ?= 4
 CLIPPY_CARGO_JOBS      ?= 1
-SBPF_CLIPPY_PROGRAM_S1 := tests_sbpf/theory/stage1/bpf_generator_checked128/interp_test
-SBPF_CLIPPY_PROGRAM_S2 := tests_sbpf/theory/stage2/bpf_generator_checked128/interp_test
-SBPF_CLIPPY_STEP_S1    := tests_sbpf/theory/stage1/bpf_generator_checked128/step_test
-SBPF_CLIPPY_STEP_S2    := tests_sbpf/theory/stage2/bpf_generator_checked128/step_test
-X64_CLIPPY_STEPPER_S1  := tests_x64/theory/stage1/x64_generator_checked128/x64_step_test
-X64_CLIPPY_STEPPER_S2  := tests_x64/theory/stage2/x64_generator_checked128/x64_step_test
 ISABELLE_BUILD_LOCK    := $(CURDIR)/.isabelle-build.lock
 ISABELLE_PROJECT_BUILD := isabelle build -v -e -d . $(PROJECT_SESSION)
 ISABELLE_TEST_VERBOSE  := isabelle build -v -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
@@ -40,9 +44,9 @@ ISABELLE_TEST_SILENT   := isabelle build -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
 export ISABELLE_CARGO
 unexport RUSTC_BOOTSTRAP
 
-WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = $(TEST_TIMEOUT)]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "$(TEST_DIR)"' '  theories [document = false]' '    Rust_Base_Setup' '    Rust_Integer_BigInt_Layer' '    Rust_BigInt_Setup' '    Rust_Checked128_Setup' '    Rust_BigInt_WordU128_Setup' '    Rust_Checked128_WordU128_Setup' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
+WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = $(TEST_TIMEOUT)]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "translate"' '    "$(TEST_DIR)"' '  theories [document = false]' '    "translate/Rust_Base_Setup"' '    "translate/Rust_Integer_BigInt_Layer"' '    "translate/Rust_BigInt_Setup"' '    "translate/Rust_Checked128_Setup"' '    "translate/Rust_BigInt_WordU128_Setup"' '    "translate/Rust_Checked128_WordU128_Setup"' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
 
-#### Targets ####
+#### Code generation ####
 
 open:
 	isabelle jedit -n -d . -R $(PROJECT_SESSION) $(DEFAULT_FILE)
@@ -384,58 +388,36 @@ hol-stress:
 	  $(MAKE) -s opt DIR="$(HOL_DIR)" Name="$$THEORY" || exit 1; \
 	done
 
+#### Evaluation ####
+
 # Count physical lines in the current HOL, unit, and FPP generated Rust crates.
 kloc:
 	@python3 "$(RQ1_GENERATED_LOC)"
+
+# Three independent phase-only runs; excludes proof checking and Cargo builds.
+rq1-timings:
+	@python3 "$(RQ1_TIMINGS)"
 
 # Count implementation lines for the architecture description.
 loc:
 	@python3 "$(IMPLEMENTATION_LOC)"
 
-# Aggregate warning types across Stage 1 and Stage 2 generated Rust crates.
-# Generate_Binary_Nat is intentionally excluded because it duplicates the
-# Generate lint profile.
-clippy:
-	@python3 "$(RQ3_CLIPPY)" --scope test-suites \
-	  --processes "$(CLIPPY_PROCESSES)" --cargo-jobs "$(CLIPPY_CARGO_JOBS)"
-
-# Generate the pure Rust crates used by the SBPF and X64 case studies, then
-# apply the same complete Stage-2 optimizer used by the test-suite workflow.
-# REBUILD=1 forces both Isabelle case-study theories to be refreshed.
-clippy-case-studies-prepare:
-	@if [ "$(REBUILD)" = "1" ] || [ ! -f "$(SBPF_CLIPPY_PROGRAM_S1)/Cargo.toml" ] || [ ! -f "$(SBPF_CLIPPY_STEP_S1)/Cargo.toml" ]; then \
-	  $(MAKE) -s build_silent TEST_DIR=tests_sbpf/theory TEST_THEORY=bpf_generator_checked128; \
-	fi
-	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" \
-	  RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" python3 "$(X64_RUST_EXPORT)" performance
-	@_opt_case_study() { \
-	  local label="$$1" source="$$2" output="$$3"; \
-	  echo ">>> [clippy] optimizing $$label"; \
-	  (ulimit -s "$(OPT_STACK_KB)"; \
-	    env -u RUSTC_BOOTSTRAP $(CARGO) run -q --release \
-	      --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
-	      "$$source" --out-dir "$$output") || return 1; \
-	  CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$output/Cargo.toml" \
-	    "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
-	}; \
-	_opt_case_study SBPF-program "$(SBPF_CLIPPY_PROGRAM_S1)" "$(SBPF_CLIPPY_PROGRAM_S2)" && \
-	_opt_case_study SBPF-instruction "$(SBPF_CLIPPY_STEP_S1)" "$(SBPF_CLIPPY_STEP_S2)" && \
-	_opt_case_study X64-stepper "$(X64_CLIPPY_STEPPER_S1)" "$(X64_CLIPPY_STEPPER_S2)"
-
-clippy-case-studies: clippy-case-studies-prepare
-	@python3 "$(RQ3_CLIPPY)" --scope case-studies \
-	  --processes "$(CLIPPY_PROCESSES)" --cargo-jobs "$(CLIPPY_CARGO_JOBS)"
-
-clippy-all: clippy-case-studies-prepare
+rq3-clippy:
 	@python3 "$(RQ3_CLIPPY)" --scope all \
 	  --processes "$(CLIPPY_PROCESSES)" --cargo-jobs "$(CLIPPY_CARGO_JOBS)"
 
+rq3-sbpf:
+	@PYTHONDONTWRITEBYTECODE=1 python3 "$(RQ3_SBPF)"
+
+rq3-x64:
+	@PYTHONDONTWRITEBYTECODE=1 python3 "$(RQ3_X64)"
+
+#### Validation ####
 
 # sbpf macro validation:
-#   shared orchestration lives under tests_sbpf/tests/exec_semantics;
+#   shared orchestration lives under test/sbpf/tests/exec_semantics;
 #   language-specific glue and execution live under sbpf_ocaml / sbpf_rust.
-SBPF_THEORY_DIR   := tests_sbpf/theory
-SBPF_EXEC         := tests_sbpf/tests/exec_semantics
+SBPF_EXEC         := test/sbpf/tests/exec_semantics
 OCAML_VERSION     ?= 4.11.2
 RUST_TOOLCHAIN    ?= stable
 
@@ -449,9 +431,9 @@ micro_sbpf_gen:
 	@PYTHONDONTWRITEBYTECODE=1 X="$(X)" SBPF_STEP_JSON="$(SBPF_STEP_JSON)" SBPF_STEP_SEED="$(SBPF_STEP_SEED)" python3 $(SBPF_EXEC)/run_micro_sbpf.py gen
 
 # x64 validation:
-#   x64_gen builds the random instruction/state data under tests_x64/x64-validation/0-data.
-#   x64_test compares the real x64 CPU stepper against the Isabelle-exported OCaml semantics.
-X64_VALIDATION      := tests_x64/x64-validation
+#   x64-gen builds random instruction/state data under test/x64/x64-validation/0-data.
+#   x64-test compares the real x64 CPU stepper against the Isabelle-exported OCaml semantics.
+X64_VALIDATION      := test/x64/x64-validation
 X64_INS_GEN         := $(X64_VALIDATION)/1-x64-ins-gen
 X64_ASSEMBLER       := $(X64_VALIDATION)/2-exec-assembler
 X64_MAP_GEN         := $(X64_VALIDATION)/3-x64-map-gen
@@ -459,7 +441,6 @@ X64_STEPPER_C       := $(X64_VALIDATION)/4-x64-stepper-c
 X64_SEMANTICS       := $(X64_VALIDATION)/5-exec-semantics
 X64_RUST_EXPORT     := $(X64_VALIDATION)/run_rust_export.py
 X64_RUST_VALIDATION := $(X64_VALIDATION)/run_rust_validation.py
-X64_PERFORMANCE     := evaluation/scripts/rq3/run-x64.py
 X64_COUNT           ?= 10000
 X64_ISABELLE_THREADS ?= 1
 X64_ISABELLE_TIMEOUT ?= 1200
@@ -474,138 +455,78 @@ X64_JANSSON_LIBS    ?= $(shell pkg-config --libs jansson 2>/dev/null || echo -lj
 x64-rust-export:
 	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" X64_ISABELLE_THREADS="$(X64_ISABELLE_THREADS)" X64_ISABELLE_TIMEOUT="$(X64_ISABELLE_TIMEOUT)" X64_ISABELLE_MAX_HEAP="$(X64_ISABELLE_MAX_HEAP)" X64_ISABELLE_JAVA_HEAP="$(X64_ISABELLE_JAVA_HEAP)" python3 $(X64_RUST_EXPORT)
 
-# The hyphenated target is the canonical stage-1 workflow.  Its prerequisite
-# guarantees both raw Rust exports compile before random data or OCaml oracle
-# output is changed.  The Rust adapter then checks each raw x64_encode result
-# against the fixed OCaml encoder output.
+# Stage 1 compiles both raw Rust exports before changing random data or OCaml
+# oracle output, then checks each raw x64_encode result against OCaml.
 x64-gen: x64-rust-export
-	@echo ">>> [x64_gen] generating $(X64_COUNT) random x64 instructions"
+	@echo ">>> [x64-gen] generating $(X64_COUNT) random x64 instructions"
 	@env -u RUSTC_BOOTSTRAP $(CARGO) run --quiet --manifest-path $(X64_INS_GEN)/Cargo.toml -- $(X64_COUNT)
-	@echo ">>> [x64_gen] encoding instructions with the existing OCaml x64 encoder"
+	@echo ">>> [x64-gen] encoding instructions with the existing OCaml x64 encoder"
 	@cd "$(X64_ASSEMBLER)" && $(OCAMLC) -o exec x64_encode.ml && ./exec
-	@echo ">>> [x64_gen] cross-checking the raw Rust x64 encoder against OCaml"
+	@echo ">>> [x64-gen] cross-checking the raw Rust x64 encoder against OCaml"
 	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" python3 $(X64_RUST_VALIDATION) encoder
-	@echo ">>> [x64_gen] generating register and memory maps"
+	@echo ">>> [x64-gen] generating register and memory maps"
 	@env -u RUSTC_BOOTSTRAP $(CARGO) run --quiet --manifest-path $(X64_MAP_GEN)/Cargo.toml
 
 # Stage 2 retains the established CPU and fixed OCaml checks, then observes the
 # raw Rust x64_step_test through glue installed only in an _build crate copy.
 x64-test: x64-rust-export
-	@echo ">>> [x64_test] running cases on the real x64 CPU stepper"
+	@echo ">>> [x64-test] running cases on the real x64 CPU stepper"
 	@cd "$(X64_STEPPER_C)" && $(CC) -O2 -Wall -Wextra -o ptrace_exec ptrace_exec.c $(X64_JANSSON_LIBS) && ./ptrace_exec
-	@echo ">>> [x64_test] running Isabelle-exported OCaml semantics and comparing results"
+	@echo ">>> [x64-test] running Isabelle-exported OCaml semantics and comparing results"
 	@cd "$(X64_SEMANTICS)" && $(OCAMLFIND) ocamlc -package $(X64_OCAML_PACKAGES) -linkpkg -c x64_step_test.ml && $(OCAMLFIND) ocamlc -package $(X64_OCAML_PACKAGES) -linkpkg -o exec x64_step_test.cmo exec.ml && ./exec
-	@echo ">>> [x64_test] running the raw Rust semantics observation against the CPU"
+	@echo ">>> [x64-test] running the raw Rust semantics observation against the CPU"
 	@PYTHONDONTWRITEBYTECODE=1 CARGO="$(CARGO)" REBUILD="$(REBUILD)" RUST_TOOLCHAIN="$(RUST_TOOLCHAIN)" python3 $(X64_RUST_VALIDATION) stepper
-
-# Keep the historical underscore entry points as compatibility aliases while
-# documenting and composing the canonical hyphenated targets.
-x64_gen: x64-gen
-
-x64_test: x64-test
 
 x64: x64-gen x64-test
 
-# RQ3 performance matrix for the x64 semantics only.  It reuses the fixed
-# OCaml stepper export and frozen evaluation corpus; the validation data under
-# 0-data and the encoder are neither read nor rewritten by this target.
-x64-performance:
-	@PYTHONDONTWRITEBYTECODE=1 RUST_TOOLCHAIN=stable python3 $(X64_PERFORMANCE)
+#### Maintenance ####
 
 clean:
 	@echo "Cleaning temp files and generated output..."
-	find . -name "*\.thy~" -exec rm {} \;
-	find . -name "*\.cmi"  -exec rm {} \;
-	find . -name "*\.cmo"  -exec rm {} \;
-	find . -name "__pycache__" -type d -prune -exec rm -rf {} +
-	find test -path "*/stage1" -type d -prune -exec rm -rf {} +
-	find test -path "*/stage2" -type d -prune -exec rm -rf {} +
-	find tests_HOL -path "*/stage1" -type d -prune -exec rm -rf {} + 2>/dev/null || true
-	find $(HOL_DIR) -path "*/stage1" -type d -prune -exec rm -rf {} + 2>/dev/null || true
-	rm -rf tests_sbpf/theory/stage1 tests_sbpf/theory/stage2
+	find . -type f \( -name '*.thy~' -o -name '*.cmi' -o -name '*.cmo' \) -delete
+	find . -type d -name '__pycache__' -prune -exec rm -rf {} +
+	find test -type d \( -name stage1 -o -name stage2 \) -prune -exec rm -rf {} +
 	rm -rf evaluation/.work
-	rm -rf tests_sbpf/tests/exec_semantics/_build
-	rm -rf tests_sbpf/tests/exec_semantics/sbpf_ocaml/_build
-	rm -rf tests_sbpf/tests/exec_semantics/sbpf_rust/_build
-	rm -f tests_x64/x64-validation/2-exec-assembler/exec tests_x64/x64-validation/2-exec-assembler/*.cmi tests_x64/x64-validation/2-exec-assembler/*.cmo
-	rm -f tests_x64/x64-validation/4-x64-stepper-c/ptrace_exec
-	rm -f tests_x64/x64-validation/5-exec-semantics/exec tests_x64/x64-validation/5-exec-semantics/*.cmi tests_x64/x64-validation/5-exec-semantics/*.cmo
+	rm -rf $(SBPF_EXEC)/_build $(SBPF_EXEC)/sbpf_ocaml/_build $(SBPF_EXEC)/sbpf_rust/_build
+	rm -f $(X64_ASSEMBLER)/exec $(X64_STEPPER_C)/ptrace_exec $(X64_SEMANTICS)/exec
 	# x64 stage1/stage2 exports and correctness copies are reproducible build
 	# products.  Fixed 0-data vectors are intentionally retained.
-	rm -rf tests_x64/theory/stage1 tests_x64/theory/stage2
-	rm -rf tests_x64/x64-validation/_build
-	rm -rf tests_x64/theory/performance
-	rm -rf tests_x64/x64-validation/1-x64-ins-gen/target tests_x64/x64-validation/3-x64-map-gen/target
+	rm -rf test/x64/theory/stage1 test/x64/theory/stage2
+	rm -rf $(X64_VALIDATION)/_build
+	rm -rf test/x64/theory/performance
+	rm -rf $(X64_INS_GEN)/target $(X64_MAP_GEN)/target
 	rm -rf optimize/tests/stage1 optimize/tests/stage2
-	rm -rf tests_HOL/Hol_Test/target
 	rm -rf $(HOL_DIR)/Hol_Test/target
 	rm -rf $(TEST_ROOT_DIR)
 
 help:
-	@echo "Available targets:"
-	@echo "  open"
-	@echo "      Open $(DEFAULT_FILE) in Isabelle/jEdit."
-	@echo "  open_test TEST_DIR=<dir> TEST_THEORY=<thy-name>"
-	@echo "      Generate test-root/ROOT and open the test theory in Isabelle/jEdit."
-	@echo "  x64-rust-export"
-	@echo "      Export and compile the untouched Rust x64_encode/x64_step_test crates."
-	@echo "  x64-gen / x64-test / x64"
-	@echo "      Cross-check raw Rust exports against fixed OCaml output and the x64 CPU."
-	@echo "  x64-performance"
-	@echo "      Run the seven-implementation RQ3 x64-stepper performance matrix."
-	@echo "      Reuses the frozen evaluation corpus and does not modify 0-data."
-	@echo "  build TEST_DIR=<dir> TEST_THEORY=<thy-name>"
-	@echo "      Generate test-root/ROOT and run isabelle build (verbose)."
-	@echo "      Example: make build TEST_DIR=test/unit/mapping TEST_THEORY=Lists_Test"
-	@echo "  code"
-	@echo "      Build the project session from ROOT."
-	@echo "  gen DIR=<dir> [Name=<theory>]"
-	@echo "      Isabelle build -> stage1 + cargo build on stage1."
-	@echo "      Example: make gen DIR=test/unit/optimization Name=Copy_Test"
-	@echo "      Example: make gen DIR=test/unit/optimization"
-	@echo "  opt DIR=<dir> [Name=<theory>]"
-	@echo "      Optimize every Rust export into stage2/<theory>/<export>/ and build it."
-	@echo "      Does not run an Isabelle build."
-	@echo "      Example: make opt DIR=test/unit/optimization Name=Copy_Test"
-	@echo "      Example: make opt DIR=test/unit/optimization"
-	@echo "  test DIR=<dir> [Name=<theory>]"
-	@echo "      Full pipeline: Isabelle -> stage1 -> stage2/<theory>/<export>/ + cargo build."
-	@echo "      Example: make test DIR=test/unit/optimization Name=Copy_Test"
-	@echo "      Example: make test DIR=test/unit/optimization"
-	@echo "  hol-gcd"
-	@echo "      Build and run the HOL gcd smoke test. Default: HOL_GCD_THEORY=$(HOL_GCD_THEORY)."
-	@echo "  hol-stress"
-	@echo "      Run the Rust HOL-Codegenerator pressure test session."
-	@echo "  kloc"
-	@echo "      Count generated Rust LOC for HOL, unit, and FPP at both stages."
-	@echo "  loc"
-	@echo "      Count Stage-1, Stage-2, and RustLight LOC, excluding comments and tests."
-	@echo "  clippy [CLIPPY_PROCESSES=4] [CLIPPY_CARGO_JOBS=1]"
-	@echo "      Aggregate warning types from the HOL, Unit, and FPP Stage 1/2 crates."
-	@echo "  clippy-case-studies [REBUILD=1]"
-	@echo "      Generate, optimize, and audit the SBPF program/instruction and X64"
-	@echo "      stepper crates. REBUILD=1 refreshes the Isabelle exports first."
-	@echo "  clippy-all [REBUILD=1]"
-	@echo "      Audit both the three test suites and the three case-study workloads."
-	@echo "  macro_sbpf [REBUILD=1]"
-	@echo "      Run program-level sBPF validation over the Solana official macro cases"
-	@echo "      from Isabelle-generated OCaml and Rust exports. REBUILD=1 regenerates"
-	@echo "      bpf_generator_bigint exports first. DATA_REBUILD=1 refreshes shared JSON."
-	@echo "      OCAML_REBUILD=1 rebuilds only OCaml glue/cache."
-	@echo "      Example: make macro_sbpf"
-	@echo "  micro_sbpf [REBUILD=1]"
-	@echo "      Run instruction-level sBPF step validation over tests/data/ocaml_in.json"
-	@echo "      from Isabelle-generated OCaml and Rust step_test exports."
-	@echo "      Example: make micro_sbpf"
-	@echo "  micro_sbpf_gen [X=100]"
-	@echo "      Generate random instruction-level step test data without running tests."
-	@echo "      Example: make micro_sbpf_gen X=100"
-	@echo "  x64_gen [X64_COUNT=10000]"
-	@echo "      Generate x64 validation data under tests_x64/x64-validation/0-data"
-	@echo "      without running the Isabelle export or the final comparison."
-	@echo "  x64_test"
-	@echo "      Run the real x64 CPU stepper, then compare it with the OCaml semantics."
-	@echo "  x64"
-	@echo "      Run x64_gen followed by x64_test."
-	@echo "  clean"
-	@echo "      Remove temp files and generated output under test and legacy suites."
+	@echo "Core:"
+	@echo "  open                              Open the Rust setup in Isabelle/jEdit"
+	@echo "  open_test TEST_DIR=<dir> TEST_THEORY=<thy>"
+	@echo "                                    Open one test theory in Isabelle/jEdit"
+	@echo "  code                              Build the project session"
+	@echo "  build TEST_DIR=<dir> TEST_THEORY=<thy>"
+	@echo "                                    Export one theory (verbose)"
+	@echo "  gen DIR=<dir> [Name=<thy>]        Export and compile Stage 1"
+	@echo "  opt DIR=<dir> [Name=<thy>]        Optimize and compile existing Stage 1"
+	@echo "  test DIR=<dir> [Name=<thy>]       Run the complete Stage-1/Stage-2 pipeline"
+	@echo "  hol-gcd                           Run the HOL gcd smoke test"
+	@echo "  hol-stress                        Run the broad HOL code-generator export"
+	@echo ""
+	@echo "Validation:"
+	@echo "  macro_sbpf [REBUILD=1]            Run program-level SBPF validation"
+	@echo "  micro_sbpf [REBUILD=1]            Run instruction-level SBPF validation"
+	@echo "  micro_sbpf_gen [X=100]            Generate SBPF instruction test data"
+	@echo "  x64-rust-export [REBUILD=1]       Export and compile raw x64 Rust crates"
+	@echo "  x64-gen [X64_COUNT=10000]         Generate and cross-check x64 inputs"
+	@echo "  x64-test                          Compare x64 semantics with the CPU"
+	@echo "  x64                               Run x64-gen and x64-test"
+	@echo ""
+	@echo "Evaluation:"
+	@echo "  loc / kloc / rq1-timings"
+	@echo "  rq3-clippy                        Run the RQ3 Clippy comparison"
+	@echo "  rq3-sbpf                          Run the RQ3 SBPF performance experiment"
+	@echo "  rq3-x64                           Run the RQ3 x64 performance experiment"
+	@echo ""
+	@echo "Maintenance:"
+	@echo "  clean                             Remove generated output"
