@@ -15,13 +15,13 @@ import time
 from pathlib import Path
 
 
-ROOT = Path(os.environ.get("SBPF_ROOT", Path(__file__).resolve().parents[4]))
-EXEC_DIR = Path(os.environ.get("SBPF_EXEC_DIR", ROOT / "tests_sbpf" / "tests" / "exec_semantics"))
-DATA_DIR = Path(os.environ.get("SBPF_DATA_DIR", ROOT / "tests_sbpf" / "tests" / "data"))
+ROOT = Path(os.environ.get("SBPF_ROOT", Path(__file__).resolve().parents[5]))
+EXEC_DIR = Path(os.environ.get("SBPF_EXEC_DIR", ROOT / "test" / "sbpf" / "tests" / "exec_semantics"))
+DATA_DIR = Path(os.environ.get("SBPF_DATA_DIR", ROOT / "test" / "sbpf" / "tests" / "data"))
 EXPORT_DIR = Path(
     os.environ.get(
         "SBPF_EXPORT_DIR",
-        ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator_bigint",
+        ROOT / "test" / "sbpf" / "theory" / "stage1" / "bpf_generator_bigint",
     )
 )
 RUST_DIR = EXEC_DIR / "sbpf_rust"

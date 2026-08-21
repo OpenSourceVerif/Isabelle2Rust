@@ -20,21 +20,6 @@ text \<open>
   experiment directory, where the stress target checks it with Cargo.
 \<close>
 
-ML_val \<open>
-  let
-    val constants = Code_Thingol.read_const_exprs @{context} ["_"];
-    val program = Code_Thingol.consts_program @{context} constants;
-    val definitions =
-      Code_Symbol.Graph.dest program
-      |> filter (fn ((_, Code_Thingol.Fun _), _) => true | _ => false)
-      |> length;
-  in
-    writeln ("HOL_STRESS_STATS theory=Generate entry_points=" ^
-      string_of_int (length constants) ^ " definitions=" ^
-      string_of_int definitions)
-  end
-\<close>
-
 export_code _ in Rust
 
 end

@@ -1,9 +1,9 @@
 # sBPF performance experiments
 
 This file preserves early performance-draft provenance, including its original
-nightly toolchains.  The final paper-facing stable-Rust performance records are
-listed in the 2026-08 entries of `../EXPERIMENTS.md` and under
-`evaluation/results/rq3/`.
+nightly toolchains. The final paper-facing stable-Rust performance records are
+under `evaluation/results/rq3/`; the complete chronological experiment log is
+kept separately in the author-side evaluation-history archive.
 
 Date: 2026-07-19
 
@@ -244,7 +244,7 @@ adapter.
 ### Stage-1 u128 word adapter
 
 The earlier `u64` design was rejected because signed and unsigned high-half
-multiplication require a 128-bit intermediate. `Rust_BigInt_WordU128_Setup.thy`
+multiplication require a 128-bit intermediate. `translate/Rust_BigInt_WordU128_Setup.thy`
 instead maps Isabelle words to `RustWord<W>` with a `u128` payload and a
 `PhantomData<W>` width marker. It masks constructions and arithmetic to the
 Isabelle type-level width, while conversions to and from `int` and `nat` remain
@@ -282,7 +282,7 @@ while the full program interpreter remains 1.772 times slower.
 
 ## Implemented adapter
 
-`Rust_BigInt_WordU128_Setup.thy` is a selectable Stage-1 setup registered in `ROOT`.
+`translate/Rust_BigInt_WordU128_Setup.thy` is a selectable Stage-1 setup registered in `ROOT`.
 It supports widths from 1 through 128 bits and covers construction, conversion,
 wrapping arithmetic, division and remainder, unsigned and signed comparison,
 bitwise operations, shifts, bit updates and tests, casts, and the 128-bit

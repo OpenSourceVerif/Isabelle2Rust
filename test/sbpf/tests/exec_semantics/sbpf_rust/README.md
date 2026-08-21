@@ -7,7 +7,7 @@ The shared orchestration is in `../run_macro_sbpf.py`. This directory handles
 the Rust-specific part of the path:
 
 1. read the Isabelle-generated Cargo project:
-   `tests_sbpf/theory/stage1/bpf_generator/interp_test/`
+   `test/sbpf/theory/stage1/bpf_generator/interp_test/`
 2. install `interp_main.rs` as the generated crate's `src/main.rs`
 3. build the generated crate with the fixed Rust toolchain
 4. read the shared local data file `../../data/interp_in.json`
@@ -43,7 +43,7 @@ features.
 
 ```sh
 # regenerate the shared interp JSON from test.ml (only needed if test.ml changes)
-python3 tests_sbpf/tests/exec_semantics/gen_interp_json.py
+python3 test/sbpf/tests/exec_semantics/gen_interp_json.py
 
 
 make macro_sbpf

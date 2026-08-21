@@ -2,7 +2,7 @@
 //
 // This file is copied over the `interp_test` export's src/main.rs by `make macro_sbpf`.
 // It feeds the Rust-exported `bpf_interp_test` the local macro inputs from
-// tests_sbpf/tests/data/interp_in.json (extracted from sbpf_ocaml/test.ml by
+// test/sbpf/tests/data/interp_in.json (extracted from sbpf_ocaml/test.ml by
 // the shared gen_interp_json.py) and asserts each self-checking call returns
 // `true`.
 //

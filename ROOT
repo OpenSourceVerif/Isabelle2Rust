@@ -2,14 +2,16 @@ session Rust = Main +
   options [timeout = 600]
   sessions
     "HOL-Library"
+  directories
+    "translate"
   theories
-    Rust_Target
-    Rust_Base_Setup
-    Rust_Integer_BigInt_Layer
-    Rust_BigInt_Setup
-    Rust_Checked128_Setup
-    Rust_BigInt_WordU128_Setup
-    Rust_Checked128_WordU128_Setup
+    "translate/Rust_Target"
+    "translate/Rust_Base_Setup"
+    "translate/Rust_Integer_BigInt_Layer"
+    "translate/Rust_BigInt_Setup"
+    "translate/Rust_Checked128_Setup"
+    "translate/Rust_BigInt_WordU128_Setup"
+    "translate/Rust_Checked128_WordU128_Setup"
 
 session "Rust-HOL-Codegenerator_Test" in "test/HOL_Codegenerator" = "HOL-Library" +
   description "Rust stress test session for a broad HOL code-generator export"

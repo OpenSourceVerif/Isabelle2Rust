@@ -33,11 +33,11 @@ Generate random step-test data without running the test:
 ```sh
 make micro_sbpf_gen        # default: 100 cases
 make micro_sbpf_gen X=250  # custom case count
-SBPF_STEP_JSON=tests_sbpf/tests/data/ocaml_in_800.json \
+SBPF_STEP_JSON=test/sbpf/tests/data/ocaml_in_800.json \
 SBPF_STEP_SEED=5984326 make micro_sbpf_gen X=800
 
 # Validate an alternate corpus without replacing tests/data/ocaml_in.json.
-SBPF_STEP_JSON=tests_sbpf/tests/data/ocaml_in_800.json make micro_sbpf
+SBPF_STEP_JSON=test/sbpf/tests/data/ocaml_in_800.json make micro_sbpf
 ```
 
 Set `SBPF_STAGE=2` and `SBPF_EXPORT_DIR` to the corresponding directory under

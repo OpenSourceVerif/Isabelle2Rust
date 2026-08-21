@@ -1,6 +1,6 @@
 (* 
  * This file demonstrates how to input a large set of test cases 
- * (tests_sbpf/tests/data/ocaml_in.json) into the Isabelle-generated
+ * (test/sbpf/tests/data/ocaml_in.json) into the Isabelle-generated
  * `Step_test` module after the OCaml runner injects the required glue code.
  *)
 

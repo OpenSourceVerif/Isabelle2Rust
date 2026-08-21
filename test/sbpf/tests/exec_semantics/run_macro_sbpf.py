@@ -35,17 +35,17 @@ class StageResult:
         return self.passed + self.failed
 
 
-ROOT = Path(__file__).resolve().parents[3]
-EXEC_DIR = ROOT / "tests_sbpf" / "tests" / "exec_semantics"
-DATA_DIR = ROOT / "tests_sbpf" / "tests" / "data"
+ROOT = Path(__file__).resolve().parents[4]
+EXEC_DIR = ROOT / "test" / "sbpf" / "tests" / "exec_semantics"
+DATA_DIR = ROOT / "test" / "sbpf" / "tests" / "data"
 THEORY = os.environ.get("SBPF_THEORY") or "bpf_generator_bigint"
 EXPORT_DIR = Path(
     os.environ.get("SBPF_EXPORT_DIR")
-    or ROOT / "tests_sbpf" / "theory" / "stage1" / THEORY
+    or ROOT / "test" / "sbpf" / "theory" / "stage1" / THEORY
 )
 if not EXPORT_DIR.is_absolute():
     EXPORT_DIR = ROOT / EXPORT_DIR
-OCAML_EXPORT_DIR = ROOT / "tests_sbpf" / "theory" / "stage1" / "bpf_generator_bigint"
+OCAML_EXPORT_DIR = ROOT / "test" / "sbpf" / "theory" / "stage1" / "bpf_generator_bigint"
 TEST_ML = EXEC_DIR / "sbpf_ocaml" / "test.ml"
 INTERP_JSON = DATA_DIR / "interp_in.json"
 SHARED_BUILD_DIR = EXEC_DIR / "_build"
@@ -157,7 +157,7 @@ def ensure_isabelle_export() -> bool:
     reason = "REBUILD=1" if force_rebuild else "missing " + ", ".join(rel(p) for p in missing)
     announce("Isabelle export", f"building {THEORY} ({reason})")
     rc, _ = run_command(
-        ["make", "build", "TEST_DIR=tests_sbpf/theory", f"TEST_THEORY={THEORY}"],
+        ["make", "build", "TEST_DIR=test/sbpf/theory", f"TEST_THEORY={THEORY}"],
         cwd=ROOT,
     )
     if rc != 0:

@@ -21,9 +21,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
-VALIDATION = ROOT / "tests_x64" / "x64-validation"
-THEORY_STAGE1 = ROOT / "tests_x64" / "theory" / "stage1"
+ROOT = Path(__file__).resolve().parents[3]
+VALIDATION = ROOT / "test" / "x64" / "x64-validation"
+THEORY_STAGE1 = ROOT / "test" / "x64" / "theory" / "stage1"
 HARNESS = VALIDATION / "rust_harness"
 BUILD = VALIDATION / "_build"
 RUST_TOOLCHAIN = os.environ.get("RUST_TOOLCHAIN", "stable")

@@ -19,15 +19,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
-THEORY_DIR = ROOT / "tests_x64" / "theory"
+ROOT = Path(__file__).resolve().parents[3]
+THEORY_DIR = ROOT / "test" / "x64" / "theory"
 LOCK_SOURCE = ROOT / "scripts" / "isabelle-exported.Cargo.lock"
 RUST_TOOLCHAIN = os.environ.get("RUST_TOOLCHAIN", "stable")
 ISABELLE_THREADS = os.environ.get("X64_ISABELLE_THREADS", "1")
 ISABELLE_TIMEOUT = os.environ.get("X64_ISABELLE_TIMEOUT", "1200")
 ISABELLE_MAX_HEAP = os.environ.get("X64_ISABELLE_MAX_HEAP", "3200")
 ISABELLE_JAVA_HEAP = os.environ.get("X64_ISABELLE_JAVA_HEAP", "768")
-ISABELLE_LAUNCHER = ROOT / "tests_x64" / "x64-validation" / "_build" / "isabelle-bounded"
+ISABELLE_LAUNCHER = ROOT / "test" / "x64" / "x64-validation" / "_build" / "isabelle-bounded"
 
 
 @dataclass(frozen=True)
@@ -182,7 +182,7 @@ def build_theory(
         [
             "make",
             "build",
-            "TEST_DIR=tests_x64/theory",
+            "TEST_DIR=test/x64/theory",
             f"TEST_THEORY={theory}",
             f"TEST_TIMEOUT={ISABELLE_TIMEOUT}",
             f"ISABELLE_TEST_VERBOSE={isabelle_build}",

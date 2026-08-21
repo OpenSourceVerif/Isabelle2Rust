@@ -10,6 +10,9 @@ temp/
 !scripts/isabelle-exported.Cargo.lock
 !optimize/**/Cargo.lock
 !evaluation/harness/rq3/sbpf/native/Cargo.lock
+/.isabelle-build.lock
+/liblint_probe.rlib
+/rust_out
 __pycache__/
 **/__pycache__/
 **/export
@@ -22,11 +25,14 @@ package-lock.json
 test-root/
 optimize/target/
 optimize/tests/out/
-tests_x64/x64-validation/backups/
+test/x64/x64-validation/backups/
+test/x64/x64-validation/2-exec-assembler/exec
+test/x64/x64-validation/4-x64-stepper-c/ptrace_exec
+test/x64/x64-validation/5-exec-semantics/exec
 **/stage1
 **/stage2
-tests_sbpf/theory/performance/
-tests_x64/theory/performance/
+test/sbpf/theory/performance/
+test/x64/theory/performance/
 evaluation/.work/
 evaluation/harness/rq3/sbpf/native/target/
 evaluation/results/*
