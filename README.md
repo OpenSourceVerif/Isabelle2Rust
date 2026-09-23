@@ -6,7 +6,7 @@ ownership-aware source-to-source optimizations.
 
 ## 1. Environment
 
-The artifact was evaluated with:
+The project was tested with:
 
 - Ubuntu 22.04 under WSL2
 - Isabelle/HOL 2025
@@ -27,7 +27,7 @@ Isabelle2Rust/
 │   ├── sbpf/               # Solana eBPF case study
 │   └── x64/                # x86-64 semantics case study
 ├── evaluation/
-│   ├── scripts/            # RQ1–RQ3 experiment scripts
+│   ├── scripts/            # Generation, validation, and optimization scripts
 │   └── results/            # Evaluation results
 └── ROOT                    # Isabelle session definitions
 
@@ -88,13 +88,13 @@ pkg-config --libs jansson     # contains -ljansson
 Clone the two repositories into the required layout:
 
 ```bash
-mkdir Isabelle2Rust-artifact
-cd Isabelle2Rust-artifact
+mkdir Isabelle2Rust-workspace
+cd Isabelle2Rust-workspace
 
 git clone https://github.com/OpenSourceVerif/RustLightAST.git
 git -C RustLightAST checkout bec5b614d70afbb67041e12d800f7a8c2be502cc
 
-git clone -b tosem-ae https://github.com/OpenSourceVerif/Isabelle2Rust.git
+git clone -b main https://github.com/OpenSourceVerif/Isabelle2Rust.git
 cd Isabelle2Rust
 ```
 
@@ -106,7 +106,7 @@ Run the complete two-stage pipeline on one Isabelle theory:
 make test DIR=test/example Name=RBT_Test
 ```
 
-`RBT_Test` matches the red-black-tree running example in the paper overview.
+`RBT_Test` demonstrates code generation and optimization for a red-black tree.
 
 Here, `DIR` contains the theory and `Name` is its filename without `.thy`. The command
 generates and compiles the Stage-1 crate, applies Stage-2 optimization, and then
@@ -126,11 +126,11 @@ Stage-1 performs a syntax-directed translation from Thingol to baseline Rust.
 make gen DIR=test/example Name=RBT_Test
 ```
 
-### 5.1 Link to Paper
+### 5.1 Implementation
 
-| Paper | Code |
+| Component | Implementation |
 | --- | --- |
-| Code Translation (Section 4) | Core translator: [`translate/code_rust.ML`](translate/code_rust.ML); code adaptations: [`translate/Rust_Base_Setup.thy`](translate/Rust_Base_Setup.thy), [`translate/Rust_BigInt_Setup.thy`](translate/Rust_BigInt_Setup.thy), and [`translate/Rust_Checked128_Setup.thy`](translate/Rust_Checked128_Setup.thy) |
+| Code Translation | Core translator: [`translate/code_rust.ML`](translate/code_rust.ML); code adaptations: [`translate/Rust_Base_Setup.thy`](translate/Rust_Base_Setup.thy), [`translate/Rust_BigInt_Setup.thy`](translate/Rust_BigInt_Setup.thy), and [`translate/Rust_Checked128_Setup.thy`](translate/Rust_Checked128_Setup.thy) |
 
 ## 6. Stage-2: Code Optimization
 
@@ -144,23 +144,23 @@ make opt DIR=test/example Name=RBT_Test
 This command applies the complete Stage-2 pipeline to an existing Stage-1
 export.
 
-### 6.1 Link to Paper
+### 6.1 Implementation
 
-| Paper | Code |
+| Component | Implementation |
 | --- | --- |
-| Code Optimization (Section 5) | Complete pipeline: [`cargo-opt.rs`](optimize/src/bin/cargo-opt.rs#L320) |
-| Supporting Ownership Refinements (Section 5.1) | Copyability analysis: [`copy_analysis.rs`](optimize/src/copy_analysis.rs#L118); local mutation recovery: [`mut_analysis.rs`](optimize/src/mut_analysis.rs#L22) |
-| Last-use Clone Elimination (Section 5.2) | [`last_use_analysis.rs`](optimize/src/last_use_analysis.rs#L8) |
-| Borrow Inference (Section 5.3) | [`borrow_analysis.rs`](optimize/src/borrow_analysis.rs#L407) |
-| Structural Simplification (Section 5.4) | Pattern matches: [`match_cleanup.rs`](optimize/src/match_cleanup.rs#L179); closures: [`closure_cleanup.rs`](optimize/src/closure_cleanup.rs#L26); complex types: [`complex_type_cleanup.rs`](optimize/src/complex_type_cleanup.rs#L40) |
+| Code Optimization | Complete pipeline: [`cargo-opt.rs`](optimize/src/bin/cargo-opt.rs#L320) |
+| Supporting Ownership Refinements | Copyability analysis: [`copy_analysis.rs`](optimize/src/copy_analysis.rs#L118); local mutation recovery: [`mut_analysis.rs`](optimize/src/mut_analysis.rs#L22) |
+| Last-use Clone Elimination | [`last_use_analysis.rs`](optimize/src/last_use_analysis.rs#L8) |
+| Borrow Inference | [`borrow_analysis.rs`](optimize/src/borrow_analysis.rs#L407) |
+| Structural Simplification | Pattern matches: [`match_cleanup.rs`](optimize/src/match_cleanup.rs#L179); closures: [`closure_cleanup.rs`](optimize/src/closure_cleanup.rs#L26); complex types: [`complex_type_cleanup.rs`](optimize/src/complex_type_cleanup.rs#L40) |
 
-## 7. Evaluation
+## 7. Testing and Benchmarks
 
-The following commands reproduce the complete evaluation. Experiments that may take several hours are noted below.
+The following commands run the test suites and benchmarks. Runs that may take several hours are noted below.
 
-### 7.1 RQ1: Code-Generation Capability
+### 7.1 Code-Generation Capability
 
-We evaluate Isabelle2Rust using the rule-level Unit tests, the program-level FPP suite, and Isabelle/HOL's official library-scale HOL-Codegenerator_Test (HCT).
+Code-generation tests cover the rule-level Unit tests, the program-level FPP suite, and Isabelle/HOL's official library-scale HOL-Codegenerator_Test (HCT).
 
 ```bash
 make test DIR=test/unit
@@ -168,7 +168,7 @@ make test DIR=test/fpp
 make hol-stress
 ```
 
-The scripts for collecting the generated Rust LOC and phase times reported in Table 1 are:
+The following scripts collect generated Rust lines of code (LOC) and translation and optimization times:
 
 ```bash
 # Count generated Rust LOC
@@ -178,15 +178,15 @@ python3 evaluation/scripts/rq1/count-generated-loc.py
 python3 evaluation/scripts/rq1/run-timings.py
 ```
 
-#### Link to Paper
+#### Scripts and Results
 
-| Paper | Code |
+| Component | Implementation and Results |
 | --- | --- |
-| RQ1: Code-Generation Capability (Section 6) | HCT: [`test/HOL_Codegenerator/`](test/HOL_Codegenerator/); Unit: [`test/unit/`](test/unit/); FPP: [`test/fpp/`](test/fpp/); experiment scripts: [`evaluation/scripts/rq1/`](evaluation/scripts/rq1/); results: [`summary.csv`](evaluation/results/rq1/summary.csv) |
+| Code-Generation Capability | HCT: [`test/HOL_Codegenerator/`](test/HOL_Codegenerator/); Unit: [`test/unit/`](test/unit/); FPP: [`test/fpp/`](test/fpp/); experiment scripts: [`evaluation/scripts/rq1/`](evaluation/scripts/rq1/); results: [`summary.csv`](evaluation/results/rq1/summary.csv) |
 
-### 7.2 RQ2: Behavioral Consistency
+### 7.2 Behavioral Consistency
 
-RQ2 uses differential testing at the program and instruction levels for SBPF and at the instruction level for x86-64.
+Behavioral consistency checks use differential testing at the program and instruction levels for SBPF and at the instruction level for x86-64.
 
 #### SBPF-program
 
@@ -236,23 +236,24 @@ evaluation/scripts/rq2/run-sbpf-10x100k.sh
 evaluation/scripts/rq2/run-x64-10x100k.sh
 ```
 
-#### Link to Paper
+#### Scripts and Results
 
-| Paper | Code |
+| Component | Implementation and Results |
 | --- | --- |
-| Generated-code LOC (RQ2, Section 6) | Script: [`count-generated-loc.py`](evaluation/scripts/rq2/count-generated-loc.py); results: [`generated-loc.csv`](evaluation/results/rq2/generated-loc.csv) |
-| SBPF (RQ2, Section 6) | Theory: [`test/sbpf/theory/`](test/sbpf/theory/); validation: [`run_macro_sbpf.py`](test/sbpf/tests/exec_semantics/run_macro_sbpf.py) and [`run_micro_sbpf.py`](test/sbpf/tests/exec_semantics/run_micro_sbpf.py); reproduction: [`run-sbpf-10x100k.sh`](evaluation/scripts/rq2/run-sbpf-10x100k.sh); results: [`evaluation/results/rq2/sbpf/`](evaluation/results/rq2/sbpf/) |
-| x86-64 semantics (RQ2, Section 6) | Theory: [`test/x64/theory/`](test/x64/theory/); validation: [`run_x64.py`](test/x64/x64-validation/run_x64.py); reproduction: [`run-x64-10x100k.sh`](evaluation/scripts/rq2/run-x64-10x100k.sh); results: [`evaluation/results/rq2/x64/`](evaluation/results/rq2/x64/) |
+| Generated-code LOC | Script: [`count-generated-loc.py`](evaluation/scripts/rq2/count-generated-loc.py); results: [`generated-loc.csv`](evaluation/results/rq2/generated-loc.csv) |
+| SBPF | Theory: [`test/sbpf/theory/`](test/sbpf/theory/); validation: [`run_macro_sbpf.py`](test/sbpf/tests/exec_semantics/run_macro_sbpf.py) and [`run_micro_sbpf.py`](test/sbpf/tests/exec_semantics/run_micro_sbpf.py); reproduction: [`run-sbpf-10x100k.sh`](evaluation/scripts/rq2/run-sbpf-10x100k.sh); results: [`evaluation/results/rq2/sbpf/`](evaluation/results/rq2/sbpf/) |
+| x86-64 semantics | Theory: [`test/x64/theory/`](test/x64/theory/); validation: [`run_x64.py`](test/x64/x64-validation/run_x64.py); reproduction: [`run-x64-10x100k.sh`](evaluation/scripts/rq2/run-x64-10x100k.sh); results: [`evaluation/results/rq2/x64/`](evaluation/results/rq2/x64/) |
 
-### 7.3 RQ3: Optimization Effectiveness
+### 7.3 Optimization Effectiveness
 
-RQ3 evaluates whether Stage-2 improves generated-code quality, runtime, and
-heap allocation.
+Optimization benchmarks compare generated-code quality, runtime, and
+heap allocation before and after Stage-2.
 
 #### Code Quality
 
 The following command compares Clippy diagnostics across the Stage-1 and
-Stage-2 crates generated for the RQ1 test suites and RQ2 case studies.
+Stage-2 crates generated for the test suites in Section 7.1 and the SBPF and
+x86-64 tests in Section 7.2.
 
 ```bash
 make rq3-clippy
@@ -281,14 +282,14 @@ make rq3-x64
 
 Each `RESULT_DIR` contains `environment.json`, an `experiment-record.md` with
 the correctness results, and a `summary.csv` with three runtime and
-heap-allocation measurements and their median. The paper reports the fixed
-results and environments under
+heap-allocation measurements and their median. Recorded benchmark
+results and environments are available under
 [`evaluation/results/rq3/`](evaluation/results/rq3/); rerun performance values
 may vary with the execution environment.
 
-#### Link to Paper
+#### Scripts and Results
 
-| Paper | Code |
+| Component | Implementation and Results |
 | --- | --- |
-| Code-quality improvement (RQ3, Section 6) | Script: [`run-clippy.py`](evaluation/scripts/rq3/run-clippy.py); results: [`code-quality/`](evaluation/results/rq3/code-quality/) |
-| Performance improvement (RQ3, Section 6) | SBPF: [`run-sbpf.py`](evaluation/scripts/rq3/run-sbpf.py) and [`sbpf/`](evaluation/results/rq3/sbpf/); x86-64: [`run-x64.py`](evaluation/scripts/rq3/run-x64.py) and [`x64/`](evaluation/results/rq3/x64/) |
+| Code-quality improvement | Script: [`run-clippy.py`](evaluation/scripts/rq3/run-clippy.py); results: [`code-quality/`](evaluation/results/rq3/code-quality/) |
+| Performance improvement | SBPF: [`run-sbpf.py`](evaluation/scripts/rq3/run-sbpf.py) and [`sbpf/`](evaluation/results/rq3/sbpf/); x86-64: [`run-x64.py`](evaluation/scripts/rq3/run-x64.py) and [`x64/`](evaluation/results/rq3/x64/) |

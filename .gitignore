@@ -48,3 +48,4 @@ evaluation/results/rq3/*
 !evaluation/results/rq3/sbpf/**
 !evaluation/results/rq3/x64/
 !evaluation/results/rq3/x64/**
+/.agents/
