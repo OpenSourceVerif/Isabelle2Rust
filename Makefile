@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := open
 
-.PHONY: open open_test build build_silent code gen opt test \
+.PHONY: open open_test build build_silent _build _build_silent code gen opt test \
         hol-gcd hol-stress loc kloc rq1-timings \
         rq3-clippy rq3-sbpf rq3-x64 \
         macro_sbpf micro_sbpf micro_sbpf_gen \
@@ -15,10 +15,12 @@ TEST_SESSION    := Rust
 TEST_ROOT_DIR   := test-root
 TEST_ROOT_FILE  := $(TEST_ROOT_DIR)/ROOT
 TEST_TIMEOUT    ?= 300
+TEST_EXTRA_SESSIONS ?= Word_Lib
 HOL_DIR         ?= test/HOL_Codegenerator
 HOL_GCD_THEORY ?= Code_Test_Rust
 HOL_STRESS_SESSION ?= Rust-HOL-Codegenerator_Test
 
+ISABELLE               ?= isabelle
 RUST_TOOLCHAIN         ?= 1.94.0
 CARGO                  ?= cargo +$(RUST_TOOLCHAIN)
 ISABELLE_CARGO         ?= $(HOME)/.cargo/bin/cargo
@@ -37,21 +39,23 @@ RQ3_X64                := $(CURDIR)/evaluation/scripts/rq3/run-x64.py
 IMPLEMENTATION_LOC     := $(CURDIR)/evaluation/scripts/count-implementation-loc.py
 CLIPPY_PROCESSES       ?= 4
 CLIPPY_CARGO_JOBS      ?= 1
+RUN_WITH_LOCK          := python3 "$(CURDIR)/scripts/with-lock.py"
+RUN_WITH_STACK         := sh "$(CURDIR)/scripts/with-stack.sh" $(OPT_STACK_KB)
 ISABELLE_BUILD_LOCK    := $(CURDIR)/.isabelle-build.lock
-ISABELLE_PROJECT_BUILD := isabelle build -v -e -d . $(PROJECT_SESSION)
-ISABELLE_TEST_VERBOSE  := isabelle build -v -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
-ISABELLE_TEST_SILENT   := isabelle build -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
+ISABELLE_PROJECT_BUILD := "$(ISABELLE)" build -v -e -d . $(PROJECT_SESSION)
+ISABELLE_TEST_VERBOSE  := "$(ISABELLE)" build -v -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
+ISABELLE_TEST_SILENT   := "$(ISABELLE)" build -e -d $(TEST_ROOT_DIR) $(TEST_SESSION)
 
 export ISABELLE_CARGO
 unexport RUSTC_BOOTSTRAP
 
-WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = $(TEST_TIMEOUT)]' '  sessions' '    "HOL-Library"' '    "Word_Lib"' '  directories' '    "translate"' '    "$(TEST_DIR)"' '  theories [document = false]' '    "translate/Rust_Base_Setup"' '    "translate/Rust_Integer_BigInt_Layer"' '    "translate/Rust_BigInt_Setup"' '    "translate/Rust_Checked128_Setup"' '    "translate/Rust_BigInt_WordU128_Setup"' '    "translate/Rust_Checked128_WordU128_Setup"' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
+WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = $(TEST_TIMEOUT)]' '  sessions' '    "HOL-Library"' $(foreach session,$(TEST_EXTRA_SESSIONS),'    "$(session)"') '  directories' '    "translate"' '    "$(TEST_DIR)"' '  theories [document = false]' '    "translate/Rust_Base_Setup"' '    "translate/Rust_Integer_BigInt_Layer"' '    "translate/Rust_BigInt_Setup"' '    "translate/Rust_Checked128_Setup"' '    "translate/Rust_BigInt_WordU128_Setup"' '    "translate/Rust_Checked128_WordU128_Setup"' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
 
 #### Code generation ####
 
 # `-R` uses a generated requirements heap; let jEdit build or refresh it.
 open:
-	isabelle jedit -d . -R $(PROJECT_SESSION) $(DEFAULT_FILE)
+	"$(ISABELLE)" jedit -d . -R $(PROJECT_SESSION) $(DEFAULT_FILE)
 
 open_test:
 	@if [ -z "$(TEST_DIR)" ] || [ -z "$(TEST_THEORY)" ]; then \
@@ -60,39 +64,43 @@ open_test:
 	  exit 1; \
 	fi
 	@$(WRITE_TEST_ROOT)
-	isabelle jedit -d $(TEST_ROOT_DIR) -R $(TEST_SESSION) "$(TEST_DIR)/$(TEST_THEORY).thy"
+	"$(ISABELLE)" jedit -d $(TEST_ROOT_DIR) -R $(TEST_SESSION) "$(TEST_DIR)/$(TEST_THEORY).thy"
 
 # build one theory (verbose)
 build:
+	+@$(RUN_WITH_LOCK) "$(ISABELLE_BUILD_LOCK)" $(MAKE) --no-print-directory _build
+
+_build:
 	@if [ -z "$(TEST_DIR)" ] || [ -z "$(TEST_THEORY)" ]; then \
 	  echo "Usage: make build TEST_DIR=<dir> TEST_THEORY=<thy>"; \
 	  echo "Example: make build TEST_DIR=test/unit/mapping TEST_THEORY=Lists_Test"; \
 	  exit 1; \
 	fi
 	@{ \
-	  flock 9; \
 	  rm -rf "$(TEST_DIR)/stage1/$(TEST_THEORY)"; \
 	  echo ">> $(TEST_ROOT_FILE) for $(TEST_DIR)/$(TEST_THEORY).thy"; \
 	  $(WRITE_TEST_ROOT); \
 	  echo ">> isabelle build (verbose)..."; \
 	  $(ISABELLE_TEST_VERBOSE); \
-	} 9>$(ISABELLE_BUILD_LOCK)
+	}
 
 # build one theory (quiet, for gen/test)
 build_silent:
+	+@$(RUN_WITH_LOCK) "$(ISABELLE_BUILD_LOCK)" $(MAKE) --no-print-directory _build_silent
+
+_build_silent:
 	@if [ -z "$(TEST_DIR)" ] || [ -z "$(TEST_THEORY)" ]; then \
 	  echo "Usage: make build_silent TEST_DIR=<dir> TEST_THEORY=<thy>"; \
 	  exit 1; \
 	fi
 	@{ \
-	  flock 9; \
 	  rm -rf "$(TEST_DIR)/stage1/$(TEST_THEORY)"; \
 	  $(WRITE_TEST_ROOT); \
 	  $(ISABELLE_TEST_SILENT); \
-	} 9>$(ISABELLE_BUILD_LOCK)
+	}
 
 code:
-	@{ flock 9; $(ISABELLE_PROJECT_BUILD); } 9>$(ISABELLE_BUILD_LOCK)
+	@$(RUN_WITH_LOCK) "$(ISABELLE_BUILD_LOCK)" $(ISABELLE_PROJECT_BUILD)
 
 # gen: Isabelle build → stage1 + cargo build on stage1
 # Usage: make gen DIR=<dir> Name=<theory>   (single)
@@ -197,9 +205,8 @@ opt:
 	    local export_name=$$(basename "$$s1"); \
 	    local s2="$$s2_root/$$export_name"; \
 	    echo ">>> [opt] optimizing Rust export: $$export_name"; \
-	    (ulimit -s "$(OPT_STACK_KB)"; \
-	      env -u RUSTC_BOOTSTRAP $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
-	        "$$s1" --out-dir "$$s2") || return 1; \
+	    $(RUN_WITH_STACK) env -u RUSTC_BOOTSTRAP $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
+	        "$$s1" --out-dir "$$s2" || return 1; \
 	    CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$s2/Cargo.toml" \
 	      "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
 	    echo ">>> [opt] cargo build stage2: $$name/$$export_name"; \
@@ -214,7 +221,7 @@ opt:
 	  if [ ! -d "$$S1BASE" ]; then \
 	    echo "No stage1 directory at $$S1BASE — run make gen first"; exit 1; \
 	  fi; \
-	  NAMES=$$(find "$$S1BASE" -mindepth 1 -maxdepth 1 -type d | xargs -r -n1 basename | sort); \
+	  NAMES=$$(find "$$S1BASE" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort); \
 	  if [ -z "$$NAMES" ]; then \
 	    echo "No theories found under $$S1BASE"; exit 1; \
 	  fi; \
@@ -279,9 +286,8 @@ test:
 	    env -u RUSTC_BOOTSTRAP RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
 	      --manifest-path "$$manifest" || return 1; \
 	    echo ">>> [test] optimizing Rust export: $$export_name"; \
-	    (ulimit -s "$(OPT_STACK_KB)"; \
-	      env -u RUSTC_BOOTSTRAP $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
-	        "$$s1" --out-dir "$$s2") || return 1; \
+	    $(RUN_WITH_STACK) env -u RUSTC_BOOTSTRAP $(CARGO) run -q --manifest-path "$(OPTIMIZE_DIR)/Cargo.toml" --bin cargo-opt -- \
+	        "$$s1" --out-dir "$$s2" || return 1; \
 	    CARGO="$(CARGO)" python3 "$(CARGO_LOCK_HELPER)" "$$s2/Cargo.toml" \
 	      "$(ISABELLE_EXPORTED_LOCK)" || return 1; \
 	    env -u RUSTC_BOOTSTRAP RUSTFLAGS="-Awarnings" $(CARGO) build --locked \
@@ -376,10 +382,10 @@ hol-gcd:
 hol-stress:
 	@echo ">>> Building HOL stress export ($(HOL_STRESS_SESSION))..."
 	rm -rf $(HOL_DIR)/stage1/Generate $(HOL_DIR)/stage1/Generate_Binary_Nat
-	isabelle build -c -v -e -d . $(HOL_STRESS_SESSION)
+	"$(ISABELLE)" build -c -v -e -d . $(HOL_STRESS_SESSION)
 	@for THEORY in Generate Generate_Binary_Nat; do \
 	  ROOT="$(HOL_DIR)/stage1/$$THEORY"; \
-	  MANIFEST=$$(find "$$ROOT" -mindepth 2 -maxdepth 2 -type f -name Cargo.toml -printf '%p\n' | sort -V | tail -n 1); \
+	  MANIFEST=$$(find "$$ROOT" -mindepth 2 -maxdepth 2 -type f -name Cargo.toml -print | sort -V | tail -n 1); \
 	  if [ -z "$$MANIFEST" ]; then \
 	    echo "ERROR: no exported Cargo.toml under $$ROOT"; \
 	    exit 1; \
