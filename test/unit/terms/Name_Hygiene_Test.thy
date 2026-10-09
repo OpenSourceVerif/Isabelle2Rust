@@ -134,76 +134,90 @@ definition char_equal :: "char \<Rightarrow> char \<Rightarrow> bool" where
 lemma "char_equal (Char False False False False False False False False)
                   (Char True False False False False False False False) = False" by eval
 
-(* The existing export pipeline includes this ordinary Rust module unchanged.
-   Run its assertions with cargo test on stage1/Name_Hygiene_Test/export1.
-   They check runtime semantics because same-type capture can compile cleanly.
-   make gen DIR=test/unit/terms Name=Name_Hygiene_Test exports and builds it. *)
+(* Keep input construction and calls to the functions under test in generated
+   code, so Stage-2 can rewrite their calls together with borrowed signatures.
+   The handwritten Rust tests use only nullary boolean entry points, shared by
+   Stage-1 and Stage-2. Enumerate the same boolean inputs as the original tests. *)
+definition all_bool_inputs :: "(bool \<Rightarrow> bool) \<Rightarrow> bool" where
+  "all_bool_inputs predicate = (predicate False \<and> predicate True)"
+
+definition check_direct_parameters :: bool where
+  "check_direct_parameters = all_bool_inputs (\<lambda>a. all_bool_inputs (\<lambda>b.
+    case direct_same_type (Single (Single a)) (Single b) of
+      (Single x, y) \<Rightarrow> x = a \<and> y = b))"
+lemma "check_direct_parameters = True" by eval
+
+definition check_character_parameters :: bool where
+  "check_character_parameters = all_bool_inputs (\<lambda>a. all_bool_inputs (\<lambda>b.
+    char_equal (Char a False False False False False False False)
+               (Char b False False False False False False False) = (a = b)))"
+lemma "check_character_parameters = True" by eval
+
+definition check_eta_parameters :: bool where
+  "check_eta_parameters = all_bool_inputs (\<lambda>gate.
+    all_bool_inputs (\<lambda>a. all_bool_inputs (\<lambda>b.
+      eta_observe gate a b = (if gate then a else b) \<and>
+      eta_case_observe gate a b = (if gate then a else b) \<and>
+      eta_control_observe gate a b = (if gate then a else b))))"
+lemma "check_eta_parameters = True" by eval
+
+definition check_pending_box_fields :: bool where
+  "check_pending_box_fields =
+    (deep_observe \<and> frontier_observe \<and> partial_observe \<and> named_observe)"
+lemma "check_pending_box_fields = True" by eval
+
+definition check_boxed_boolean_patterns :: bool where
+  "check_boxed_boolean_patterns = (cross_observe \<and>
+    (case cross_rows (Node (Leaf False) (Leaf True)) of None \<Rightarrow> True | _ \<Rightarrow> False) \<and>
+    (case cross_rows (Leaf True) of None \<Rightarrow> True | _ \<Rightarrow> False))"
+lemma "check_boxed_boolean_patterns = True" by eval
+
+definition check_existing_scope_controls :: bool where
+  "check_existing_scope_controls = (cross_names_observe \<and>
+    all_bool_inputs (\<lambda>x. all_bool_inputs (\<lambda>y.
+      cap_observe x y = (x \<and> y) \<and>
+      cap_named_observe x y = (if y then x else \<not> x) \<and>
+      all_bool_inputs (\<lambda>a. all_bool_inputs (\<lambda>b.
+        local_safe (x, y) (a, b) = ((y \<and> a) \<or> b))))))"
+lemma "check_existing_scope_controls = True" by eval
+
+(* These assertions exercise runtime semantics in both generated stages.
+   make gen DIR=test/unit/terms Name=Name_Hygiene_Test
+   make opt DIR=test/unit/terms Name=Name_Hygiene_Test
+   Run cargo test in each stage's Name_Hygiene_Test/export1 directory. *)
 code_printing code_module Name_Hygiene_Assertions \<rightharpoonup> (Rust) \<open>
 #[cfg(test)]
 mod tests {
     use crate::Name_Hygiene::*;
 
-    // Simultaneous parameter destructuring preserves both input values.
     #[test]
     fn direct_parameters() {
-        for a in [false, true] { for b in [false, true] {
-            let (Single::Single(x), y) =
-                direct_same_type(Single::Single(Single::Single(a)), Single::Single(b));
-            assert_eq!((x, y), (a, b));
-        }}
+        assert!(check_direct_parameters());
     }
 
-    // Character equality must compile and distinguish different bit fields.
     #[test]
     fn character_parameters() {
-        for a in [false, true] { for b in [false, true] {
-            assert_eq!(char_equal(
-                Char::Char(a, false, false, false, false, false, false, false),
-                Char::Char(b, false, false, false, false, false, false, false)), a == b);
-        }}
+        assert!(check_character_parameters());
     }
 
-    // Explicit eta_arg and synthesized eta binders denote different arguments;
-    // changing only the explicit binder name must preserve all eight results.
     #[test]
     fn eta_parameters() {
-        for gate in [false, true] { for a in [false, true] { for b in [false, true] {
-            assert_eq!(eta_observe(gate, a, b), if gate { a } else { b });
-            assert_eq!(eta_case_observe(gate, a, b), if gate { a } else { b });
-            assert_eq!(eta_control_observe(gate, a, b), if gate { a } else { b });
-        }}}
+        assert!(check_eta_parameters());
     }
 
-    // Nested matches must retain the pending right subtree across every depth.
     #[test]
     fn pending_box_fields() {
-        assert!(deep_observe());
-        assert!(frontier_observe());
-        assert!(partial_observe());
-        assert!(named_observe());
+        assert!(check_pending_box_fields());
     }
 
-    // Native bool patterns below Box must select both True and False rows.
     #[test]
     fn boxed_boolean_patterns() {
-        assert!(cross_observe());
-        let no_value = cross_rows(Tree::Node(
-            Box::new(Tree::Leaf(false)), Box::new(Tree::Leaf(true))));
-        assert!(matches!(no_value, Option::None));
-        assert!(matches!(cross_rows(Tree::Leaf(true)), Option::None));
+        assert!(check_boxed_boolean_patterns());
     }
 
-    // Source names from later rows and closure capture aliases remain distinct.
     #[test]
     fn existing_scope_controls() {
-        assert!(cross_names_observe());
-        for x in [false, true] { for y in [false, true] {
-            assert_eq!(cap_observe(x, y), x && y);
-            assert_eq!(cap_named_observe(x, y), if y { x } else { !x });
-            for a in [false, true] { for b in [false, true] {
-                assert_eq!(local_safe((x, y), (a, b)), (y && a) || b);
-            }}
-        }}
+        assert!(check_existing_scope_controls());
     }
 }
 \<close>
@@ -215,6 +229,9 @@ export_code
   eta_control_observe frontier_named named_observe frontier_deep
   deep_observe cross_rows cross_observe cross_row_names
   cross_names_observe cap_named cap_named_observe
-  eta_case_observe char_equal in Rust module_name Name_Hygiene
+  eta_case_observe char_equal
+  check_direct_parameters check_character_parameters check_eta_parameters
+  check_pending_box_fields check_boxed_boolean_patterns check_existing_scope_controls
+  in Rust module_name Name_Hygiene
 
 end
