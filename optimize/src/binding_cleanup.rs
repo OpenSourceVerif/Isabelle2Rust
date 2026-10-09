@@ -9,6 +9,11 @@ pub fn cleanup_bindings(module: &mut RustModule) {
 fn collapse_trailing_let_returns_in_block(block: &mut Block) {
     for stmt in &mut block.stmts {
         match stmt {
+            Statement::Return(value) => {
+                if let Some(expr) = value {
+                    collapse_trailing_let_returns_in_expr(expr);
+                }
+            }
             Statement::Let(let_stmt) => {
                 if let Some(init) = &mut let_stmt.init {
                     collapse_trailing_let_returns_in_expr(init);
@@ -68,6 +73,15 @@ fn collapse_trailing_let_returns_in_item(item: &mut Item) {
 
 fn collapse_trailing_let_returns_in_expr(expr: &mut Expr) {
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => {
+            collapse_trailing_let_returns_in_expr(condition);
+            collapse_trailing_let_returns_in_block(body);
+        }
         Expr::Call(callee, args) => {
             collapse_trailing_let_returns_in_expr(callee);
             for arg in args {

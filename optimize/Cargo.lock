@@ -6,7 +6,6 @@ version = 4
 name = "isabelle2rust-optimize"
 version = "0.1.0"
 dependencies = [
- "rustlight-parser",
  "rustlightast",
  "syn",
 ]
@@ -30,19 +29,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustlight-parser"
+name = "rustlightast"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
- "rustlightast",
  "syn",
 ]
-
-[[package]]
-name = "rustlightast"
-version = "0.1.0"
-source = "git+https://github.com/OpenSourceVerif/RustLightAST.git?rev=3543faca875d2856cc11d6d85f6fd54fd94f3ac1#3543faca875d2856cc11d6d85f6fd54fd94f3ac1"
 
 [[package]]
 name = "syn"

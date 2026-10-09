@@ -197,6 +197,11 @@ fn collect_block(
 ) {
     for statement in &block.stmts {
         match statement {
+            Statement::Return(value) => {
+                if let Some(expr) = value {
+                    collect_expr(expr, generics, public, candidates);
+                }
+            }
             Statement::Let(binding) => {
                 if let Some(ty) = &binding.ty {
                     collect_type_position(ty, generics, public, candidates);
@@ -222,6 +227,15 @@ fn collect_expr(
     candidates: &mut BTreeMap<String, Candidate>,
 ) {
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => {
+            collect_expr(condition, generics, public, candidates);
+            collect_block(body, generics, public, candidates);
+        }
         Expr::Array(items) | Expr::Tuple(items) => {
             for item in items {
                 collect_expr(item, generics, public, candidates);
@@ -415,6 +429,11 @@ fn rewrite_block(
 ) {
     for statement in &mut block.stmts {
         match statement {
+            Statement::Return(value) => {
+                if let Some(expr) = value {
+                    rewrite_expr(expr, generics, specs, analysis);
+                }
+            }
             Statement::Let(binding) => {
                 if let Some(ty) = &mut binding.ty {
                     rewrite_type_position(ty, generics, specs, analysis);
@@ -440,6 +459,15 @@ fn rewrite_expr(
     analysis: &mut ComplexTypeCleanupAnalysis,
 ) {
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => {
+            rewrite_expr(condition, generics, specs, analysis);
+            rewrite_block(body, generics, specs, analysis);
+        }
         Expr::Array(items) | Expr::Tuple(items) => {
             for item in items {
                 rewrite_expr(item, generics, specs, analysis);

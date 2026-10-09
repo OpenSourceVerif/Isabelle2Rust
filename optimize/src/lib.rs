@@ -9,7 +9,7 @@ mod last_use_analysis;
 mod match_cleanup;
 mod mut_analysis;
 // Preserve existing crate-local parser paths while using the shared crate.
-pub(crate) use rustlight_parser;
+pub(crate) use rustlightast::rustlight_parser;
 mod utils;
 
 pub use binding_cleanup::cleanup_bindings;

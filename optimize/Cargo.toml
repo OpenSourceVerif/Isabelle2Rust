@@ -13,7 +13,4 @@ path = "src/bin/cargo-opt.rs"
 
 [dependencies]
 syn = { version = "2", features = ["full"] }
-rustlightast = { git = "https://github.com/OpenSourceVerif/RustLightAST.git", rev = "3543faca875d2856cc11d6d85f6fd54fd94f3ac1" }
-# Local integration until the shared parser is available at a published Git revision.
-# Keep the artifact's sibling AST checkout at its fixed revision.
-rustlight-parser = { path = "../../../Rocq2Rust-workspace/RustLightAST/parser" }
+rustlightast = { path = "../../../Rocq2Rust-workspace/RustLightAST" }

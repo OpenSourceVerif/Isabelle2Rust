@@ -83,6 +83,17 @@ fn cleanup_block(block: &mut Block, analysis: &mut BooleanCleanupAnalysis) {
                 cleanup_item(&mut item, analysis);
                 cleaned_stmts.push(Statement::Item(item));
             }
+            Statement::Return(mut value) => {
+                if let Some(expr) = &mut value {
+                    cleanup_expr(expr, analysis);
+                    if let Some(condition_binding) =
+                        hoist_block_condition(expr, &mut used_names, analysis)
+                    {
+                        cleaned_stmts.push(condition_binding);
+                    }
+                }
+                cleaned_stmts.push(Statement::Return(value));
+            }
             other => cleaned_stmts.push(other),
         }
     }
@@ -161,6 +172,11 @@ fn fresh_condition_name(used_names: &mut HashSet<String>) -> String {
 fn collect_identifiers_block(block: &Block, names: &mut HashSet<String>) {
     for stmt in &block.stmts {
         match stmt {
+            Statement::Return(value) => {
+                if let Some(expr) = value {
+                    collect_identifiers_expr(expr, names);
+                }
+            }
             Statement::Let(let_stmt) => {
                 if let Some(init) = &let_stmt.init {
                     collect_identifiers_expr(init, names);
@@ -178,6 +194,19 @@ fn collect_identifiers_block(block: &Block, names: &mut HashSet<String>) {
 
 fn collect_identifiers_expr(expr: &Expr, names: &mut HashSet<String>) {
     match expr {
+        Expr::While { condition, body } => {
+            collect_identifiers_expr(condition, names);
+            collect_identifiers_block(body, names);
+        }
+        Expr::For {
+            pattern,
+            iter,
+            body,
+        } => {
+            crate::utils::patterns::collect_pattern_bindings(pattern, names, true);
+            collect_identifiers_expr(iter, names);
+            collect_identifiers_block(body, names);
+        }
         Expr::Call(callee, args) => {
             collect_identifiers_expr(callee, names);
             for arg in args {
@@ -271,6 +300,15 @@ fn cleanup_expr_with_context(
     analysis: &mut BooleanCleanupAnalysis,
 ) {
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => {
+            cleanup_expr(condition, analysis);
+            cleanup_block(body, analysis);
+        }
         Expr::Call(callee, args) => {
             cleanup_expr_with_context(callee, true, analysis);
             for arg in args {

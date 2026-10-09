@@ -4,7 +4,7 @@ Major updates and significant bug fixes are recorded here, newest first.
 
 ## 2026-10-09 — Shared RustLight parser
 
-- Use the shared `rustlight-parser` crate from RustLightAST for Stage-2 parsing.
+- Use the parser in `rustlightast` for Stage-2 parsing.
 
 ## 2026-10-01 — macOS compatibility
 

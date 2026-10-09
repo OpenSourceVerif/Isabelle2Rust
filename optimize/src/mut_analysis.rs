@@ -20,6 +20,10 @@ pub struct MutAnalysis {
 /// The pass implements M-Shadow and M-Mut only. Last-use clone elimination
 /// and trailing-binding cleanup are independent passes.
 pub fn optimize_mut(module: &mut RustModule) -> MutAnalysis {
+    if crate::utils::control_flow::module_needs_control_flow_analysis(module) {
+        return MutAnalysis::default();
+    }
+
     let mut analysis = MutAnalysis::default();
     optimize_module(module, &mut analysis);
     analysis
@@ -75,7 +79,9 @@ fn transform_block(block: &mut Block) -> bool {
                     changed |= transform_expr(init);
                 }
             }
-            Statement::Expr(expr) => changed |= transform_expr(expr),
+            Statement::Expr(expr) | Statement::Return(Some(expr)) => {
+                changed |= transform_expr(expr)
+            }
             Statement::Item(item) => {
                 if let Item::Function(function) = item.as_mut() {
                     changed |= transform_block(&mut function.body);
@@ -97,6 +103,15 @@ fn transform_block(block: &mut Block) -> bool {
 fn transform_expr(expr: &mut Expr) -> bool {
     let mut changed = false;
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => {
+            changed |= transform_expr(condition);
+            changed |= transform_block(body);
+        }
         Expr::Block(block) => changed |= transform_block(block),
         Expr::Loop(block) | Expr::Unsafe(block) => changed |= transform_block(block),
         Expr::If {
@@ -361,7 +376,9 @@ fn is_confined(block: &Block, name: &str, limit: usize) -> bool {
                 .init
                 .as_ref()
                 .map_or(0, |init| count_reads_in_expr(init, name)),
-            Statement::Expr(expr) => count_reads_in_expr(expr, name),
+            Statement::Expr(expr) | Statement::Return(Some(expr)) => {
+                count_reads_in_expr(expr, name)
+            }
             _ => 0,
         };
         if reads > 0 {
@@ -403,7 +420,7 @@ fn rename_reads_block(block: &mut Block, map: &HashMap<String, String>) {
                     rename_reads_expr(init, map);
                 }
             }
-            Statement::Expr(expr) => rename_reads_expr(expr, map),
+            Statement::Expr(expr) | Statement::Return(Some(expr)) => rename_reads_expr(expr, map),
             _ => {}
         }
     }
@@ -414,6 +431,20 @@ fn rename_reads_block(block: &mut Block, map: &HashMap<String, String>) {
 
 fn rename_reads_expr(expr: &mut Expr, map: &HashMap<String, String>) {
     match expr {
+        Expr::While { condition, body } => {
+            rename_reads_expr(condition, map);
+            rename_reads_block(body, map);
+        }
+        Expr::For {
+            pattern,
+            iter,
+            body,
+        } => {
+            rename_reads_expr(iter, map);
+            let mut local = map.clone();
+            crate::utils::patterns::remove_pattern_bindings(pattern, &mut local);
+            rename_reads_block(body, &local);
+        }
         Expr::Ident(name) => {
             if let Some(replacement) = map.get(name) {
                 *name = replacement.clone();

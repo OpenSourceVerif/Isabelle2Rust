@@ -282,6 +282,12 @@ fn optimize_block(
                 optimize_item(&mut item, scope, analysis);
                 new_stmts.push(Statement::Item(item));
             }
+            Statement::Return(mut value) => {
+                if let Some(expr) = &mut value {
+                    optimize_expr(expr, env, scope, analysis);
+                }
+                new_stmts.push(Statement::Return(value));
+            }
             other => new_stmts.push(other),
         }
     }
@@ -300,6 +306,20 @@ fn optimize_expr(
     analysis: &mut MatchOptAnalysis,
 ) {
     match expr {
+        Expr::While { condition, body } => {
+            optimize_expr(condition, env, scope, analysis);
+            optimize_block(body, &mut env.clone(), scope, analysis);
+        }
+        Expr::For {
+            pattern,
+            iter,
+            body,
+        } => {
+            optimize_expr(iter, env, scope, analysis);
+            let mut local = env.clone();
+            crate::utils::patterns::remove_pattern_bindings(pattern, &mut local);
+            optimize_block(body, &mut local, scope, analysis);
+        }
         Expr::Call(callee, args) => {
             optimize_expr(callee, env, scope, analysis);
             for arg in args {
@@ -609,6 +629,9 @@ fn block_uses_ident(block: &Block, ident: &str) -> bool {
 
 fn statement_uses_ident(stmt: &Statement, ident: &str) -> bool {
     match stmt {
+        Statement::Return(value) => value
+            .as_ref()
+            .is_some_and(|expr| expr_uses_ident(expr, ident)),
         Statement::Let(let_stmt) => let_stmt
             .init
             .as_ref()
@@ -641,6 +664,18 @@ fn item_uses_ident(item: &Item, ident: &str) -> bool {
 
 fn expr_uses_ident(expr: &Expr, ident: &str) -> bool {
     match expr {
+        Expr::While { condition, body } => {
+            expr_uses_ident(condition, ident) || block_uses_ident(body, ident)
+        }
+        Expr::For {
+            pattern,
+            iter,
+            body,
+        } => {
+            expr_uses_ident(iter, ident)
+                || (!crate::utils::patterns::pattern_binds_name(pattern, ident)
+                    && block_uses_ident(body, ident))
+        }
         Expr::Ident(name) => name == ident,
         Expr::Path(parts, _) => parts.first().is_some_and(|part| part == ident),
         Expr::Macro(source) => source
@@ -1067,6 +1102,7 @@ fn count_nonexhaustive_panics_in_block(block: &Block) -> usize {
 
 fn count_nonexhaustive_panics_in_stmt(stmt: &Statement) -> usize {
     match stmt {
+        Statement::Return(value) => value.as_ref().map_or(0, count_nonexhaustive_panics_in_expr),
         Statement::Let(let_stmt) => let_stmt
             .init
             .as_ref()
@@ -1103,6 +1139,15 @@ fn count_nonexhaustive_panics_in_item(item: &Item) -> usize {
 
 fn count_nonexhaustive_panics_in_expr(expr: &Expr) -> usize {
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => {
+            count_nonexhaustive_panics_in_expr(condition)
+                + count_nonexhaustive_panics_in_block(body)
+        }
         Expr::Macro(source) if compact_tokens(source) == "panic!(\"non-exhaustivematch\")" => 1,
         Expr::Call(callee, args) => {
             count_nonexhaustive_panics_in_expr(callee)

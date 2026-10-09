@@ -58,6 +58,11 @@ fn optimize_block(block: &mut Block, analysis: &mut ClosureOptAnalysis) {
     // Clean statement initializers before visiting the block tail.
     for stmt in &mut block.stmts {
         match stmt {
+            Statement::Return(value) => {
+                if let Some(expr) = value {
+                    optimize_expr(expr, analysis);
+                }
+            }
             Statement::Let(let_stmt) => {
                 if let Some(init) = &mut let_stmt.init {
                     optimize_expr(init, analysis);
@@ -80,6 +85,15 @@ fn optimize_block(block: &mut Block, analysis: &mut ClosureOptAnalysis) {
 
 fn optimize_expr(expr: &mut Expr, analysis: &mut ClosureOptAnalysis) {
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => {
+            optimize_expr(condition, analysis);
+            optimize_block(body, analysis);
+        }
         Expr::Call(callee, args) => {
             optimize_expr(callee, analysis);
             for arg in args {
