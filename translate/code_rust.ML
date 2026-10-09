@@ -1018,10 +1018,20 @@ fun print_type_param_bound (vname, sort) =
         callers retain their distinct shallow/frontier matching behavior. **)
     fun is_native_tuple (Constant "Product_Type.Pair") = true
       | is_native_tuple _ = false;
+    (* Adapted nullary boolean constructors retain their registered literal
+       syntax even though code adaptation removes their Datatypecons nodes. *)
+    fun native_bool_pattern (Constant c) =
+          if c = "HOL.True" orelse c = "HOL.False" then
+            (case const_syntax c of
+              SOME (0, Plain_printer literal) => SOME (str literal)
+            | _ => NONE)
+          else NONE
+      | native_bool_pattern _ = NONE;
     fun constructor_pat pat =
       (case Code_Thingol.unfold_const_app pat of
         SOME ({sym, dom, ...}, ts) =>
-          if (is_constr sym orelse is_native_tuple sym) andalso length dom = length ts
+          if (is_constr sym orelse is_native_tuple sym
+              orelse is_some (native_bool_pattern sym)) andalso length dom = length ts
           then SOME (sym, dom, ts)
           else NONE
       | NONE => NONE);
@@ -1037,9 +1047,12 @@ fun print_type_param_bound (vname, sort) =
           | NONE => 0);
         val args = field_prts @ replicate phantom_count (str "PhantomData");
       in
-        if is_native_tuple sym then rust_parens field_prts
-        else if null args then str (constructor_name sym)
-        else Pretty.block [str (constructor_name sym), str " ", rust_parens args]
+        (case native_bool_pattern sym of
+          SOME literal => literal
+        | NONE =>
+            if is_native_tuple sym then rust_parens field_prts
+            else if null args then str (constructor_name sym)
+            else Pretty.block [str (constructor_name sym), str " ", rust_parens args])
       end;
     fun fresh_box_binder (index, namectxt) =
       let val (name, namectxt') = Name.variant ("p" ^ Int.toString index) namectxt
@@ -1903,12 +1916,16 @@ fun print_type_param_bound (vname, sort) =
            boxed pattern below a tuple (for example `(t, (k, v) # xs)`) has no
            constructor column and incorrectly falls through to the non-exhaustive
            fallback. *)
-        fun fresh_names row_vars base n =
-          Name.invent (snd (rv_names row_vars)) base n;
-        fun compile [] [] rows _ =
+        (* Every row can contribute source binders to a shared constructor arm.
+           Nested matches also retain the occupied names of their outer Box
+           fields and whole-value aliases, including pending sibling columns. *)
+        val namectxt = fold (fn (_, row_vars, _, _, _) =>
+            fold (Name.declare o snd) (Symtab.dest (fst (rv_names row_vars))))
+          rows (snd (rv_names vars));
+        fun compile [] _ rows _ =
               (case rows of [] => fallback | row :: _ => emit_row row)
           | compile columns _ [] _ = fallback
-          | compile ((scrutinee, _) :: rest_columns) all_columns rows depth =
+          | compile ((scrutinee, _) :: rest_columns) namectxt rows depth =
               let
                 val first_pats = map_filter (first_pat o #1) rows;
                 val all_irrefutable =
@@ -1919,7 +1936,7 @@ fun print_type_param_bound (vname, sort) =
                   | drop_irrefutable row = row;
               in
                 if all_irrefutable then
-                  compile rest_columns rest_columns (map drop_irrefutable rows) depth
+                  compile rest_columns namectxt (map drop_irrefutable rows) depth
                 else
                   let
                     val constructors =
@@ -1929,10 +1946,6 @@ fun print_type_param_bound (vname, sort) =
                             SOME p => Option.map #1 (constructor_pat p)
                           | NONE => NONE))
                       |> distinct (op =);
-                    val base_vars =
-                      (case rows of
-                        (_, row_vars, _, _, _) :: _ => row_vars
-                      | [] => vars);
                     fun exact_rows_for_constructor sym =
                       map_filter (fn (pats as p :: ps, row_vars, used_vars, lets, body) =>
                           (case constructor_pat p of
@@ -1955,7 +1968,10 @@ fun print_type_param_bound (vname, sort) =
                     val needs_whole_scrutinee =
                       exists irrefutable_binding_used irrefutable_rows;
                     val whole_name =
-                      hd (fresh_names base_vars ("whole" ^ Int.toString depth) 1);
+                      hd (Name.invent namectxt ("whole" ^ Int.toString depth) 1);
+                    val arm_namectxt =
+                      if needs_whole_scrutinee then Name.declare whole_name namectxt
+                      else namectxt;
                     val whole_scrutinee = str whole_name;
                     val irrefutable_scrutinee =
                       if needs_whole_scrutinee then whole_scrutinee else scrutinee;
@@ -1985,7 +2001,8 @@ fun print_type_param_bound (vname, sort) =
                         val boxes0 = box_table sym;
                         val boxes =
                           if length boxes0 = length dom then boxes0 else map (K false) dom;
-                        val temp_names = fresh_names row_vars0 ("p" ^ Int.toString depth) (length dom);
+                        val (temp_names, field_namectxt) =
+                          Name.invent' ("p" ^ Int.toString depth) (length dom) arm_namectxt;
                         fun field_entries i =
                           map (fn (ts, _, row_vars, used_vars, _, _) =>
                             (nth ts i, row_vars, used_vars)) spec_rows;
@@ -2049,7 +2066,7 @@ fun print_type_param_bound (vname, sort) =
                             (kept_field_pats ts @ ps, row_vars, used_vars, lets, body)) spec_rows;
                         val arm_body =
                           compile (field_columns @ rest_columns)
-                            (field_columns @ rest_columns) specialized_rows (depth + 1);
+                            field_namectxt specialized_rows (depth + 1);
                       in
                         rust_arm (constructor_pattern sym (map str field_names)) arm_body
                       end;
@@ -2065,7 +2082,7 @@ fun print_type_param_bound (vname, sort) =
                       if null default_rows then []
                       else
                         [rust_arm (str "_")
-                          (compile rest_columns rest_columns default_rows (depth + 1))];
+                          (compile rest_columns arm_namectxt default_rows (depth + 1))];
                     val fallback_arm =
                       if null default_rows
                       then [rust_arm (str "_") fallback]
@@ -2087,7 +2104,7 @@ fun print_type_param_bound (vname, sort) =
                   end
               end;
       in
-        compile columns columns rows 0
+        compile columns namectxt rows 0
       end
     (** Print a case expression.  A single irrefutable clause is emitted as a
         direct binding block; the remaining cases use match-based lowering. **)
@@ -2243,8 +2260,14 @@ fun print_type_param_bound (vname, sort) =
                 if null missing_tys then (binds0, body0)
                 else
                   let
+                    (* Eta arguments are Thingol variables before Rust renaming.
+                       Reserve explicit pattern binders and the free source names
+                       so introduction cannot overwrite an existing variable key. *)
+                    val eta_namectxt = snd (rv_names vars)
+                      |> fold Name.declare (Symtab.keys (fst (rv_names vars)))
+                      |> fold (Code_Thingol.fold_varnames Name.declare) (body0 :: map fst binds0)
                     val names =
-                      Name.invent (rv_names vars |> snd) "eta_arg" (length missing_tys)
+                      Name.invent eta_namectxt "eta_arg" (length missing_tys)
                     val eta_terms = map (IVar o SOME) names
                     (* Function values are erased to one uncurried `Rc<dyn Fn(..)>`
                        whose parameter list is derived from the full HOL function
@@ -2757,34 +2780,18 @@ fun print_type_param_bound (vname, sort) =
                     val (_, _, some_thm, vars) = prepare_eqn eq;
                     val used_vars = build (Code_Thingol.add_varnames t);
                     val ts' = map (wildcard_unused_pattern used_vars) ts;
-                    fun binding (IVar _, _) = NONE
-                      | binding (pat, param) = SOME
-                          (print_term_pattern is_pseudo_fun some_thm vars NOBR pat,
-                           param);
-                    val binding_pairs = map_filter binding
-                      (ListPair.zip (ts', dummy_parms));
-                    (* Bind several irrefutable parameter patterns simultaneously.
-                       Sequential lets can let a field from an earlier pattern
-                       shadow a still-pending signature parameter (for example
-                       x1), causing the next pattern to inspect that field rather
-                       than the original argument.  Tuple destructuring evaluates
-                       every RHS parameter before introducing any field binder. *)
+                    (* Consume all signature arguments before any source pattern
+                       binder enters scope. A sequence of lets could shadow a later
+                       parameter with an earlier constructor field of the same name. *)
                     val bindings =
-                      (case binding_pairs of
-                        [] => []
-                      | [(pat, param)] =>
-                          [rust_open [str "let ", pat, str " = ", param, str ";"]]
-                      | _ =>
-                          let
-                            val (pats, params) = split_list binding_pairs;
-                          in
-                            [rust_open
-                              [str "let ",
-                               to_tuple pats (Pretty.block (commas_append pats)),
-                               str " = ",
-                               to_tuple params (Pretty.block (commas_append params)),
-                               str ";"]]
-                          end);
+                      if forall (fn IVar _ => true | _ => false) ts' then []
+                      else
+                        let
+                          val pats = map
+                            (print_term_pattern is_pseudo_fun some_thm vars NOBR) ts';
+                        in [rust_open [str "let ",
+                          to_tuple pats (Pretty.block (commas_append pats)),
+                          str " = ", scrutinee, str ";"]] end;
                   in Pretty.chunks (bindings @ print_eqn_body eq) end;
                 val body =
                   (case eqs

@@ -8,11 +8,17 @@ ownership-aware source-to-source optimizations.
 
 The project was tested with:
 
-- Ubuntu 22.04 under WSL2
+**Hardware and operating systems**
+
+- Linux: Ubuntu 22.04 under WSL2, Intel Core Ultra 9 185H, 15 GiB memory
+- macOS: macOS 26.5.1, Apple M5 (arm64), 16 GiB memory
+
+**Software dependencies**
+
 - Isabelle/HOL 2025
 - Rust 1.94.0
-- OCaml 4.11.2
-- Intel Core Ultra 9 185H and 15 GiB memory
+- Python 3 (3.9.6 on the macOS test machine)
+- OCaml: 4.11.2 on Linux; 4.14.2 on macOS (Apple Silicon)
 
 ## 2. Repository Structure
 
@@ -38,7 +44,9 @@ RustLightAST/               # RustLight AST
 
 ## 3. Installation
 
-Install the system packages:
+#### Install the system packages:
+
+**Linux (Ubuntu / WSL2)**
 
 ```bash
 sudo apt update
@@ -48,8 +56,18 @@ sudo apt install -y \
   cloc time libxi6 libxtst6 libxrender1 fontconfig
 ```
 
-Install [Isabelle/HOL 2025](https://isabelle.in.tum.de/website-Isabelle2025/index.html)
-and add its `bin` directory to `PATH`:
+**macOS**
+
+#### Install the Xcode Command Line Tools and the packages through [Homebrew](https://brew.sh/):
+
+```bash
+xcode-select --install
+brew install python git make perl pkg-config jansson gmp opam m4 cloc gnu-time
+```
+
+#### Install [Isabelle/HOL 2025](https://isabelle.in.tum.de/website-Isabelle2025/index.html) and add its `bin` directory to `PATH`:
+
+**Linux**
 
 ```bash
 tar -xzf Isabelle2025_linux.tar.gz -C /YOUR/PATH
@@ -58,7 +76,22 @@ source ~/.bashrc
 isabelle version  # Isabelle2025
 ```
 
-Install [Rust](https://rust-lang.org/tools/install/):
+**macOS**
+
+```bash
+tar -xzf Isabelle2025_macos.tar.gz -C /Applications
+echo 'export PATH="/Applications/Isabelle2025.app/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+isabelle version  # Isabelle2025
+```
+
+#### Install the [AFP release for Isabelle2025](https://isa-afp.org/download/) for the `Word_Lib` session, then register its theories directory on either platform:
+
+```bash
+isabelle components -u /YOUR/PATH/afp/thys
+```
+
+#### Install [Rust](https://rust-lang.org/tools/install/):
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -71,19 +104,36 @@ cargo +1.94.0 clippy --version  # clippy 0.1.94
 rustfmt +1.94.0 --version       # rustfmt 1.8.0
 ```
 
-Install OCaml for the SBPF and x86-64 experiments:
+#### Install OCaml for the SBPF and x86-64 experiments:
+
+**Linux**
 
 ```bash
-opam init -y
+opam init -y --bare
 opam switch create isabelle2rust ocaml-base-compiler.4.11.2
+```
+
+**macOS**
+
+```bash
+opam init -y --bare
+opam switch create isabelle2rust ocaml-base-compiler.4.14.2
+```
+
+On both platforms, activate the switch and install the libraries:
+
+```bash
 eval "$(opam env --switch=isabelle2rust)"
 opam install -y ocamlfind zarith yojson
 
-ocamlopt -version             # 4.11.2
+ocamlopt -version             # Linux: 4.11.2; macOS: 4.14.2
 ocamlfind query zarith        # path ending in /zarith
 ocamlfind query yojson        # path ending in /yojson
 pkg-config --libs jansson     # contains -ljansson
+export OCAML_VERSION="$(ocamlopt -version)"
 ```
+
+`OCAML_VERSION` selects the version expected by the SBPF test runners.
 
 Clone the two repositories into the required layout:
 
