@@ -4,7 +4,6 @@
 - `Makefile`: local build targets.
 - `src/lib.rs`: optimizer entry point and pass orchestration.
 - `src/bin/`: command-line binaries.
-- `src/rustlight_parser.rs`: RustLight parsing and serialization interface.
 - `src/copy_analysis.rs`: copyability inference.
 - `src/last_use_analysis.rs`: last-use analysis and rewriting.
 - `src/borrow_analysis.rs`: borrow analysis and rewriting.

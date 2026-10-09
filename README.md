@@ -141,8 +141,7 @@ Clone the two repositories into the required layout:
 mkdir Isabelle2Rust-workspace
 cd Isabelle2Rust-workspace
 
-git clone https://github.com/OpenSourceVerif/RustLightAST.git
-git -C RustLightAST checkout bec5b614d70afbb67041e12d800f7a8c2be502cc
+git clone -b main https://github.com/OpenSourceVerif/RustLightAST.git
 
 git clone -b main https://github.com/OpenSourceVerif/Isabelle2Rust.git
 cd Isabelle2Rust
