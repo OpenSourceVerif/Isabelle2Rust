@@ -12,7 +12,5 @@ name = "cargo-opt"
 path = "src/bin/cargo-opt.rs"
 
 [dependencies]
-proc-macro2 = "1"
-quote = "1"
 syn = { version = "2", features = ["full"] }
-rustlightast = { path = "../../RustLightAST" }
+rustlightast = { path = "../../../Rocq2Rust-workspace/RustLightAST" }

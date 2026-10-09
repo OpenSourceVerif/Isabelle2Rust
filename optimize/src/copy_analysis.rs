@@ -133,6 +133,13 @@ pub fn optimize_copy_modules_with_paths(
     modules: &mut [(Vec<String>, &mut RustModule)],
     options: CopyOptions,
 ) -> CopyAnalysis {
+    if modules
+        .iter()
+        .any(|(_, module)| crate::utils::control_flow::module_needs_control_flow_analysis(module))
+    {
+        return CopyAnalysis::default();
+    }
+
     let mut ctx = CopyContext::from_modules(modules);
 
     // Infer the package-wide fixed point before adding derives or rewriting
@@ -947,6 +954,11 @@ impl CopyContext {
     ) {
         for stmt in &mut block.stmts {
             match stmt {
+                Statement::Return(value) => {
+                    if let Some(expr) = value {
+                        self.rewrite_expr(expr, env, scope, copy_generics);
+                    }
+                }
                 Statement::Let(let_stmt) => {
                     if let Some(init) = &mut let_stmt.init {
                         self.rewrite_expr(init, env, scope, copy_generics);
@@ -988,6 +1000,7 @@ impl CopyContext {
         copy_generics: &HashSet<String>,
     ) {
         match expr {
+            Expr::While { .. } | Expr::For { .. } => {}
             Expr::Array(items) | Expr::Tuple(items) => {
                 for item in items {
                     self.rewrite_expr(item, env, scope, copy_generics);
@@ -1159,6 +1172,7 @@ impl CopyContext {
 
         for stmt in &block.stmts {
             match stmt {
+                Statement::Return(_) => {}
                 Statement::Let(let_stmt) => {
                     if let Some(init) = &let_stmt.init {
                         self.collect_clone_demands_expr(
@@ -1227,6 +1241,7 @@ impl CopyContext {
         out: &mut HashSet<String>,
     ) {
         match expr {
+            Expr::While { .. } | Expr::For { .. } => {}
             Expr::Array(items) | Expr::Tuple(items) => {
                 for item in items {
                     self.collect_clone_demands_expr(
@@ -2292,6 +2307,11 @@ fn rewrite_specialization_calls_in_block(
 ) {
     for statement in &mut block.stmts {
         match statement {
+            Statement::Return(value) => {
+                if let Some(expr) = value {
+                    rewrite_specialization_calls_in_expr(expr, scope, replacements);
+                }
+            }
             Statement::Let(let_stmt) => {
                 if let Some(init) = &mut let_stmt.init {
                     rewrite_specialization_calls_in_expr(init, scope, replacements);
@@ -2319,6 +2339,15 @@ fn rewrite_specialization_calls_in_expr(
     replacements: &HashMap<ItemId, ItemId>,
 ) {
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => {
+            rewrite_specialization_calls_in_expr(condition, scope, replacements);
+            rewrite_specialization_calls_in_block(body, scope, replacements);
+        }
         Expr::Call(callee, args) => {
             rewrite_specialization_calls_in_expr(callee, scope, replacements);
             for arg in args {
@@ -2420,6 +2449,7 @@ fn count_clone_calls_in_block(block: &Block) -> usize {
         .stmts
         .iter()
         .map(|statement| match statement {
+            Statement::Return(value) => value.as_ref().map_or(0, count_clone_calls_in_expr),
             Statement::Let(let_stmt) => let_stmt
                 .init
                 .as_ref()
@@ -2464,6 +2494,12 @@ fn count_clone_calls_in_item(item: &Item) -> usize {
 
 fn count_clone_calls_in_expr(expr: &Expr) -> usize {
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => count_clone_calls_in_expr(condition) + count_clone_calls_in_block(body),
         Expr::MethodCall(receiver, method, args) => {
             usize::from(method == "clone" && args.is_empty())
                 + count_clone_calls_in_expr(receiver)
@@ -2660,6 +2696,11 @@ fn collect_generated_calls_block(
 ) {
     for stmt in &block.stmts {
         match stmt {
+            Statement::Return(value) => {
+                if let Some(expr) = value {
+                    collect_generated_calls_expr(expr, scope, generated, out);
+                }
+            }
             Statement::Let(let_stmt) => {
                 if let Some(init) = &let_stmt.init {
                     collect_generated_calls_expr(init, scope, generated, out);
@@ -2683,6 +2724,15 @@ fn collect_generated_calls_expr(
     out: &mut HashSet<ItemId>,
 ) {
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => {
+            collect_generated_calls_expr(condition, scope, generated, out);
+            collect_generated_calls_block(body, scope, generated, out);
+        }
         Expr::Call(callee, args) => {
             let callee_id = match callee.as_ref() {
                 Expr::Ident(name) => Some(scope.resolve_name_path(name)),

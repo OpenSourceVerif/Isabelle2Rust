@@ -6,6 +6,22 @@ use super::patterns::{closure_param_name, remove_pattern_bindings};
 
 pub(crate) fn substitute_idents(expr: &Expr, substitutions: &HashMap<String, Expr>) -> Expr {
     match expr {
+        Expr::While { condition, body } => Expr::While {
+            condition: Box::new(substitute_idents(condition, substitutions)),
+            body: substitute_idents_in_block(body, substitutions),
+        },
+        Expr::For {
+            pattern,
+            iter,
+            body,
+        } => Expr::For {
+            pattern: pattern.clone(),
+            iter: Box::new(substitute_idents(iter, substitutions)),
+            body: substitute_idents_in_block(
+                body,
+                &without_pattern_bindings(substitutions, pattern),
+            ),
+        },
         Expr::Ident(name) => substitutions
             .get(name)
             .cloned()
@@ -169,6 +185,9 @@ fn substitute_idents_in_block(block: &Block, substitutions: &HashMap<String, Exp
             Statement::Expr(expr) => {
                 statements.push(Statement::Expr(substitute_idents(expr, &inner)))
             }
+            Statement::Return(value) => statements.push(Statement::Return(
+                value.as_ref().map(|expr| substitute_idents(expr, &inner)),
+            )),
             other => statements.push(other.clone()),
         }
     }

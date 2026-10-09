@@ -33,6 +33,10 @@ fn optimize_module(module: &mut RustModule) {
 /// not be used as evidence for changing its origin to a shared parameter.  The
 /// emitted function is left untouched until the dedicated Last-Use pass runs.
 pub(crate) fn rewrite_last_use_clones_in_function(function: &mut FunctionDef) {
+    if crate::utils::control_flow::block_needs_control_flow_analysis(&function.body) {
+        return;
+    }
+
     // A scoped backward-liveness pass turns `v.clone()` into
     // `v` when `v` is owned and not read afterwards. Isabelle2Rust treats its
     // generated clone calls as ownership adaptations that preserve the
@@ -56,6 +60,10 @@ pub(crate) fn rewrite_last_use_clones_in_function(function: &mut FunctionDef) {
 /// adapt an owned pattern binding from clones that must remain materialized.
 /// The emitted expression is never passed here.
 pub(crate) fn rewrite_last_use_clones_in_owned_expr(expr: &mut Expr, owned: &HashSet<String>) {
+    if crate::utils::control_flow::expr_needs_control_flow_analysis(expr) {
+        return;
+    }
+
     let mut live = HashSet::new();
     rewrite_lastuse_expr(expr, &mut live, owned);
 }
@@ -137,6 +145,11 @@ fn rewrite_lastuse_block(block: &mut Block, live: &mut HashSet<String>, owned: &
     for (idx, stmt) in block.stmts.iter_mut().enumerate().rev() {
         let stmt_owned = owned_at.get(idx).unwrap_or(owned);
         match stmt {
+            Statement::Return(value) => {
+                if let Some(expr) = value {
+                    collect_live_expr(expr, live);
+                }
+            }
             Statement::Let(let_stmt) => {
                 // The binding kills the name for everything before it.
                 remove_pattern_bindings_from_live(&let_stmt.name, live);
@@ -160,6 +173,15 @@ fn rewrite_lastuse_block(block: &mut Block, live: &mut HashSet<String>, owned: &
 
 fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &HashSet<String>) {
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => {
+            collect_live_expr(condition, live);
+            collect_live_block(body, live);
+        }
         Expr::Ident(name) => {
             live.insert(name.clone());
         }
@@ -359,6 +381,15 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
 // borrows syntactically contained in the surrounding call.
 fn collect_call_borrow_sources(expr: &Expr, live: &mut HashSet<String>) {
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => {
+            collect_call_borrow_sources(condition, live);
+            collect_call_borrow_sources_block(body, live);
+        }
         Expr::Reference(inner, _, _) => collect_live_expr(inner, live),
         Expr::MethodCall(receiver, method, args) => {
             if method == "as_ref" && args.is_empty() {
@@ -444,6 +475,11 @@ fn collect_call_borrow_sources(expr: &Expr, live: &mut HashSet<String>) {
 fn collect_call_borrow_sources_block(block: &Block, live: &mut HashSet<String>) {
     for stmt in &block.stmts {
         match stmt {
+            Statement::Return(value) => {
+                if let Some(expr) = value {
+                    collect_call_borrow_sources(expr, live);
+                }
+            }
             Statement::Let(let_stmt) => {
                 if let Some(init) = &let_stmt.init {
                     collect_call_borrow_sources(init, live);
@@ -468,6 +504,15 @@ fn union(mut a: HashSet<String>, b: HashSet<String>) -> HashSet<String> {
 /// processed conservatively).
 fn collect_live_expr(expr: &Expr, live: &mut HashSet<String>) {
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => {
+            collect_live_expr(condition, live);
+            collect_live_block(body, live);
+        }
         Expr::Ident(name) => {
             live.insert(name.clone());
         }
@@ -552,7 +597,7 @@ fn collect_live_block(block: &Block, live: &mut HashSet<String>) {
                     collect_live_expr(init, live);
                 }
             }
-            Statement::Expr(expr) => collect_live_expr(expr, live),
+            Statement::Expr(expr) | Statement::Return(Some(expr)) => collect_live_expr(expr, live),
             _ => {}
         }
     }

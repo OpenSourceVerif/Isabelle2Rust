@@ -21,6 +21,22 @@ pub(crate) fn count_ident_reads_in_expr(
     options: AstQueryOptions,
 ) -> usize {
     match expr {
+        Expr::While { condition, body } => {
+            count_ident_reads_in_expr(condition, name, options)
+                + count_ident_reads_in_block(body, name, options)
+        }
+        Expr::For {
+            pattern,
+            iter,
+            body,
+        } => {
+            count_ident_reads_in_expr(iter, name, options)
+                + if options.respect_bindings && pattern_binds_name(pattern, name) {
+                    0
+                } else {
+                    count_ident_reads_in_block(body, name, options)
+                }
+        }
         Expr::Ident(id) => usize::from(id == name),
         Expr::Path(path, PathType::Member) => {
             usize::from(path.first().is_some_and(|id| id == name))
@@ -128,6 +144,11 @@ pub(crate) fn count_ident_reads_in_block(
     let mut shadowed = false;
     for stmt in &block.stmts {
         match stmt {
+            Statement::Return(value) => {
+                if let Some(expr) = value {
+                    count += count_ident_reads_in_expr(expr, name, options);
+                }
+            }
             Statement::Let(let_stmt) => {
                 if let Some(init) = &let_stmt.init {
                     count += count_ident_reads_in_expr(init, name, options);
@@ -152,6 +173,19 @@ pub(crate) fn count_ident_reads_in_block(
 
 pub(crate) fn count_bindings_in_expr(expr: &Expr, name: &str, visit_builder_chains: bool) -> usize {
     match expr {
+        Expr::While { condition, body } => {
+            count_bindings_in_expr(condition, name, visit_builder_chains)
+                + count_bindings_in_block(body, name, visit_builder_chains)
+        }
+        Expr::For {
+            pattern,
+            iter,
+            body,
+        } => {
+            usize::from(pattern_binds_name(pattern, name))
+                + count_bindings_in_expr(iter, name, visit_builder_chains)
+                + count_bindings_in_block(body, name, visit_builder_chains)
+        }
         Expr::Closure(params, body, _) | Expr::TypedClosure(params, _, body, _) => {
             usize::from(params.iter().any(|param| closure_param_name(param) == name))
                 + count_bindings_in_expr(body, name, visit_builder_chains)
@@ -250,6 +284,9 @@ pub(crate) fn count_bindings_in_block(
         .stmts
         .iter()
         .map(|stmt| match stmt {
+            Statement::Return(value) => value.as_ref().map_or(0, |expr| {
+                count_bindings_in_expr(expr, name, visit_builder_chains)
+            }),
             Statement::Let(let_stmt) => {
                 usize::from(pattern_binds_name(&let_stmt.name, name))
                     + let_stmt.init.as_ref().map_or(0, |init| {

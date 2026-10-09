@@ -169,6 +169,7 @@ fn bound_mentions_generic(bound: &str, generic_name: &str) -> bool {
 
 fn block_is_bound_independent(block: &Block, generic_name: &str, kind: BoundKind) -> bool {
     block.stmts.iter().all(|stmt| match stmt {
+        Statement::Return(_) => false,
         Statement::Let(let_stmt) => {
             let_stmt
                 .ty
@@ -190,6 +191,7 @@ fn block_is_bound_independent(block: &Block, generic_name: &str, kind: BoundKind
 
 fn expr_is_bound_independent(expr: &Expr, generic_name: &str, kind: BoundKind) -> bool {
     match expr {
+        Expr::While { .. } | Expr::For { .. } => false,
         Expr::Ident(_) | Expr::Literal(_) => true,
         Expr::Array(items) | Expr::Tuple(items) => items
             .iter()

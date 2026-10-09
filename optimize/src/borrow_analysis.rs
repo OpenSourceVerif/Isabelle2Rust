@@ -452,6 +452,13 @@ pub fn optimize_borrow_modules_with_paths_and_options(
     inferred_copy_types: &HashSet<String>,
     options: BorrowOptions,
 ) -> BorrowAnalysis {
+    if modules
+        .iter()
+        .any(|(_, module)| crate::utils::control_flow::module_needs_control_flow_analysis(module))
+    {
+        return BorrowAnalysis::default();
+    }
+
     let (mut ctx, functions) =
         BorrowContext::from_modules_with_options(modules, inferred_copy_types, options);
 
@@ -866,6 +873,9 @@ impl BorrowContext {
 
         for stmt in &block.stmts {
             match stmt {
+                Statement::Return(_) => {
+                    demands.insert(Demand::Unk);
+                }
                 Statement::Let(let_stmt) => {
                     let inferred_ty = let_stmt.ty.clone().or_else(|| {
                         let_stmt
@@ -1008,6 +1018,9 @@ impl BorrowContext {
             scope,
         } = site;
         match expr {
+            Expr::While { .. } | Expr::For { .. } => {
+                demands.insert(Demand::Unk);
+            }
             // ── Ident: a direct use of a variable ────────────────────────────
             Expr::Ident(name) => {
                 if derived.contains(name) {
@@ -2270,6 +2283,9 @@ impl BorrowContext {
 
         for (stmt_idx, stmt) in block.stmts.iter().enumerate() {
             match stmt {
+                Statement::Return(_) => {
+                    stmts.push(stmt.clone());
+                }
                 Statement::Let(let_stmt) => {
                     let original_ty = let_stmt.ty.clone().or_else(|| {
                         let_stmt
@@ -2424,6 +2440,7 @@ impl BorrowContext {
         in_return_ctx: bool,
     ) -> Expr {
         match expr {
+            Expr::While { .. } | Expr::For { .. } => expr.clone(),
             // ── Direct use of a borrowed variable in own context ──────────────
             Expr::Ident(name) => {
                 if let Some(bty) = borrow_env.get(name) {
@@ -4086,6 +4103,12 @@ fn collect_closure_binding_usage_stmt(
     usage: &mut ClosureBindingUsage,
 ) -> bool {
     match stmt {
+        Statement::Return(value) => {
+            if let Some(expr) = value {
+                collect_closure_binding_usage_expr(expr, name, usage);
+            }
+            false
+        }
         Statement::Let(ls) => {
             if let Some(init) = &ls.init {
                 collect_closure_binding_usage_expr(init, name, usage);
@@ -4127,6 +4150,20 @@ fn collect_closure_binding_usage_expr(expr: &Expr, name: &str, usage: &mut Closu
     }
 
     match expr {
+        Expr::While { condition, body } => {
+            collect_closure_binding_usage_expr(condition, name, usage);
+            collect_closure_binding_usage_block(body, name, usage);
+        }
+        Expr::For {
+            pattern,
+            iter,
+            body,
+        } => {
+            collect_closure_binding_usage_expr(iter, name, usage);
+            if !pattern_binds_name(pattern, name) {
+                collect_closure_binding_usage_block(body, name, usage);
+            }
+        }
         Expr::Ident(ident) => {
             if ident == name {
                 usage.escapes = true;
@@ -4234,6 +4271,21 @@ fn expr_is_ident_named(expr: &Expr, name: &str) -> bool {
 /// shadowing from inner `let` bindings or match patterns.
 fn expr_has_free_var_from(expr: &Expr, vars: &HashSet<String>) -> bool {
     match expr {
+        Expr::While { condition, body } => {
+            expr_has_free_var_from(condition, vars) || block_has_free_var_from(body, vars)
+        }
+        Expr::For {
+            pattern,
+            iter,
+            body,
+        } => {
+            let outer = vars
+                .iter()
+                .filter(|name| !pattern_binds_name(pattern, name))
+                .cloned()
+                .collect();
+            expr_has_free_var_from(iter, vars) || block_has_free_var_from(body, &outer)
+        }
         Expr::Ident(name) => vars.contains(name),
         Expr::Macro(_) | Expr::Path(_, _) | Expr::Literal(_) => false,
         Expr::MethodCall(recv, _, args) => {
@@ -4319,7 +4371,7 @@ fn block_has_free_var_from(block: &Block, vars: &HashSet<String>) -> bool {
                     return true;
                 }
             }
-            Statement::Expr(e) => {
+            Statement::Expr(e) | Statement::Return(Some(e)) => {
                 if expr_has_free_var_from(e, vars) {
                     return true;
                 }
@@ -4860,6 +4912,11 @@ fn collect_pattern_binding_names(pattern: &str, out: &mut HashSet<String>) {
 fn collect_deref_ident_uses_block(block: &Block, out: &mut HashSet<String>) {
     for stmt in &block.stmts {
         match stmt {
+            Statement::Return(value) => {
+                if let Some(expr) = value {
+                    collect_deref_ident_uses_expr(expr, out);
+                }
+            }
             Statement::Let(let_stmt) => {
                 if let Some(init) = &let_stmt.init {
                     collect_deref_ident_uses_expr(init, out);
@@ -4877,6 +4934,15 @@ fn collect_deref_ident_uses_block(block: &Block, out: &mut HashSet<String>) {
 
 fn collect_deref_ident_uses_expr(expr: &Expr, out: &mut HashSet<String>) {
     match expr {
+        Expr::While { condition, body }
+        | Expr::For {
+            iter: condition,
+            body,
+            ..
+        } => {
+            collect_deref_ident_uses_expr(condition, out);
+            collect_deref_ident_uses_block(body, out);
+        }
         Expr::UnaryOp(op, inner) if op == "*" => {
             if let Expr::Ident(name) = inner.as_ref() {
                 out.insert(name.clone());
