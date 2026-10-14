@@ -85,10 +85,12 @@ source ~/.zshrc
 isabelle version  # Isabelle2025
 ```
 
-#### Install the [AFP release for Isabelle2025](https://isa-afp.org/download/) for the `Word_Lib` session, then register its theories directory on either platform:
+#### Install the [complete AFP release for Isabelle2025](https://isa-afp.org/release/afp-2025-03-17.tar.gz), then register its theories directory on either platform:
+
+Extract the archive and rename its directory to `afp-Isabelle2025`.
 
 ```bash
-isabelle components -u /YOUR/PATH/afp/thys
+isabelle components -u /YOUR/PATH/afp-Isabelle2025/thys
 ```
 
 #### Install [Rust](https://rust-lang.org/tools/install/):
