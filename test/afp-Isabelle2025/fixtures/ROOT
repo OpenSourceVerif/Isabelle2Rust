@@ -1,0 +1,10 @@
+(* Independent scanner regression: it loads real theories, not a mocked AST. *)
+session "AFP-Scan-Fixture" = HOL +
+  options [document = false]
+  theories
+    Origin
+    Later
+    Other
+    Branch_Base
+    Branch_Left
+    Branch_Right
