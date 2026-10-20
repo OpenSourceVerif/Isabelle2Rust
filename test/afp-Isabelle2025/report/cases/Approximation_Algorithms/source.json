@@ -1,0 +1,75 @@
+{
+  "entry": "Approximation_Algorithms",
+  "afp_source": "afp-2025-03-17.tar.gz/thys/Approximation_Algorithms",
+  "manifest": {
+    "dependencies": [],
+    "required_sessions": [
+      "Pure",
+      "Tools",
+      "HOL",
+      "HOL-Hoare",
+      "HOL-Library",
+      "Approximation_Algorithms"
+    ],
+    "session_requirements": {
+      "Approximation_Algorithms": [
+        "Pure",
+        "Tools",
+        "HOL",
+        "HOL-Hoare",
+        "HOL-Library"
+      ]
+    },
+    "sessions": [
+      "Approximation_Algorithms"
+    ],
+    "source_errors": [],
+    "theories": [
+      {
+        "conditions": [],
+        "name": "Approximation_Algorithms.Approx_BP_Hoare",
+        "path": "Approx_BP_Hoare.thy",
+        "session": "Approximation_Algorithms"
+      },
+      {
+        "conditions": [],
+        "name": "Approximation_Algorithms.Approx_LB_Hoare",
+        "path": "Approx_LB_Hoare.thy",
+        "session": "Approximation_Algorithms"
+      },
+      {
+        "conditions": [],
+        "name": "Approximation_Algorithms.Approx_MIS_Hoare",
+        "path": "Approx_MIS_Hoare.thy",
+        "session": "Approximation_Algorithms"
+      },
+      {
+        "conditions": [],
+        "name": "Approximation_Algorithms.Approx_SC_Hoare",
+        "path": "Approx_SC_Hoare.thy",
+        "session": "Approximation_Algorithms"
+      },
+      {
+        "conditions": [],
+        "name": "Approximation_Algorithms.Approx_VC_Hoare",
+        "path": "Approx_VC_Hoare.thy",
+        "session": "Approximation_Algorithms"
+      },
+      {
+        "conditions": [],
+        "name": "Approximation_Algorithms.Center_Selection",
+        "path": "Center_Selection.thy",
+        "session": "Approximation_Algorithms"
+      }
+    ]
+  },
+  "source_sha256": {
+    "ROOT": "c57de13c5a6104e5b9217ab8b1e299696003c17544f00c5e4eab4097af15a910",
+    "Approx_BP_Hoare.thy": "8726f523d9a9976447ee9fa6f0ac91f97391be87540dc4722e9608dd3f6053d0",
+    "Approx_LB_Hoare.thy": "e58bb9e1a7be45fd1e9312e81871bddd09f24ffa98d00bcbf5b988a356160ee3",
+    "Approx_MIS_Hoare.thy": "401701142ab0bad26fa9af044d1e43b2cf5d7edc7f3632db83d4878304887309",
+    "Approx_SC_Hoare.thy": "d4db816c1145a2609f525a24994ca5d90400365758a69c7a0d2fa45bd57e1491",
+    "Approx_VC_Hoare.thy": "476104658e4852da944fd68ea1c80ec7c56769c236ace6ecfb12acb12a1ad2bc",
+    "Center_Selection.thy": "249baccaf721e0f0d0bdf93a572034121677fa1b47a22aa016332d4e07f23fbc"
+  }
+}

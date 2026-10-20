@@ -1,0 +1,1 @@
+<scan><theory name="List-Index.List_Index"><constant name="List_Index.find_index"/><constant name="List_Index.index"/><constant name="List_Index.insert_nth"/><constant name="List_Index.last_index"/><constant name="List_Index.map_index&apos;"/><constant name="List_Index.remove_nth"/></theory></scan>

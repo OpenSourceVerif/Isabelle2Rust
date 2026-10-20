@@ -1,0 +1,16 @@
+Cleaning temp files and generated output...
+find . -type f \( -name '*.thy~' -o -name '*.cmi' -o -name '*.cmo' \) -delete
+find . -type d -name '__pycache__' -prune -exec rm -rf {} +
+find test -type d \( -name stage1 -o -name stage2 \) -prune -exec rm -rf {} +
+rm -rf evaluation/.work
+rm -rf test/sbpf/tests/exec_semantics/_build test/sbpf/tests/exec_semantics/sbpf_ocaml/_build test/sbpf/tests/exec_semantics/sbpf_rust/_build
+rm -f test/x64/x64-validation/2-exec-assembler/exec test/x64/x64-validation/4-x64-stepper-c/ptrace_exec test/x64/x64-validation/5-exec-semantics/exec
+# x64 stage1/stage2 exports and correctness copies are reproducible build
+# products.  Fixed 0-data vectors are intentionally retained.
+rm -rf test/x64/theory/stage1 test/x64/theory/stage2
+rm -rf test/x64/x64-validation/_build
+rm -rf test/x64/theory/performance
+rm -rf test/x64/x64-validation/1-x64-ins-gen/target test/x64/x64-validation/3-x64-map-gen/target
+rm -rf optimize/tests/stage1 optimize/tests/stage2
+rm -rf test/HOL_Codegenerator/Hol_Test/target
+rm -rf test-root

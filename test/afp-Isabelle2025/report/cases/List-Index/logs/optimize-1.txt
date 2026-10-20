@@ -1,0 +1,9 @@
+$ sh /home/spring/Isabelle2Rust/Isabelle2Rust/scripts/with-stack.sh 65536 cargo +1.94.0 run -q --manifest-path /home/spring/Isabelle2Rust/Isabelle2Rust/optimize/Cargo.toml --bin cargo-opt -- /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/List-Index/stage1/List-Index_Rust_Export/export1 --out-dir /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/List-Index/stage2/List-Index_Rust_Export/export1
+optimized src/Arith.rs
+optimized src/HOL.rs
+optimized src/List.rs
+optimized src/List_Index.rs
+optimized src/lib.rs
+opt finished: optimized 5 file(s) into /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/List-Index/stage2/List-Index_Rust_Export/export1
+generated /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/List-Index/stage2/List-Index_Rust_Export/export1/Cargo.toml
+run optimized code with: cargo run-opt

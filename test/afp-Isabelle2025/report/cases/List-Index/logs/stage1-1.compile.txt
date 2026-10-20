@@ -1,0 +1,7 @@
+$ cargo +1.94.0 build --locked --manifest-path /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/List-Index/stage1/List-Index_Rust_Export/export1/Cargo.toml
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling num-integer v0.1.46
+   Compiling num-bigint v0.4.6
+   Compiling isabelle_exported v0.1.0 (/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/List-Index/stage1/List-Index_Rust_Export/export1)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.49s

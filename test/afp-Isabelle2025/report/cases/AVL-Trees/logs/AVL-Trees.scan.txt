@@ -1,0 +1,7 @@
+$ isabelle process -l AVL-Trees -d /home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys -f /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/scan.ML -o threads=1
+/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/scan.ML:57: warning: Handler catches all exceptions.
+Found near
+  inspect thy name
+  handle
+     exn =>
+     if Exn.is_interrupt exn then Exn.reraise exn else failure name exn

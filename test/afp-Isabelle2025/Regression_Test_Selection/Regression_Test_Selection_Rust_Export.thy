@@ -26,7 +26,46 @@ val _ = let val dir = getenv "AFP_RUST_MARKERS" in
 end;
 \<close>
 
-(* No discovered code equations: no export_code command is issued.
-   In particular, an empty candidate list is never a wildcard export. *)
+export_code
+  "ClassesChanged.class_changed"
+  "ClassesChanged.classes_changed"
+  "JVMCollectionBasedRTS.Test"
+  "JVMCollectionBasedRTS.coll_init_class"
+  "JVMCollectionBasedRTS.is_ptr"
+  "JVMCollectionBasedRTS.jvm_deselect"
+  "JVMCollectionBasedRTS.jvm_naive_out"
+  "JVMCollectionBasedRTS.jvm_progs"
+  "JVMCollectionBasedRTS.jvm_smart_out"
+  "JVMCollectionBasedRTS.jvm_tests"
+  "JVMCollectionBasedRTS.main"
+  "JVMCollectionBasedRTS.stack_safe"
+  "JVMCollectionBasedRTS.test_oracle"
+  "JVMCollectionSemantics.JVMNaiveCollect"
+  "JVMCollectionSemantics.JVMSmartCollect"
+  "JVMCollectionSemantics.JVMexec_ncollect"
+  "JVMCollectionSemantics.JVMexec_scollect"
+  "JVMCollectionSemantics.JVMinstr_ncollect"
+  "JVMCollectionSemantics.JVMinstr_scollect"
+  "JVMCollectionSemantics.JVMstep_ncollect"
+  "JVMCollectionSemantics.JVMstep_scollect"
+  "JVMCollectionSemantics.classes_above_frames"
+  "JVMExecStepInductive.equal_step_input_inst.equal_step_input"
+  "JVMExecStepInductive.exec_step_input"
+  "JVMExecStepInductive.full_exhaustive_step_input_inst.full_exhaustive_step_input"
+  "JVMExecStepInductive.narrowing_step_input_inst.narrowing_step_input"
+  "JVMExecStepInductive.partial_term_of_step_input_inst.partial_term_of_step_input"
+  "JVMExecStepInductive.random_aux_step_input"
+  "JVMExecStepInductive.random_step_input_inst.random_step_input"
+  "JVMExecStepInductive.size_step_input_inst.size_step_input"
+  "JVMExecStepInductive.step_input.case_step_input"
+  "JVMExecStepInductive.step_input.rec_step_input"
+  "JVMExecStepInductive.step_input.size_step_input"
+  "JVMExecStepInductive.step_input.typerep_step_input_IITN_step_input_inst.typerep_step_input_IITN_step_input"
+  "JVMExecStepInductive.step_input.typerep_step_input_pre_step_input_inst.typerep_step_input_pre_step_input"
+  "JVMExecStepInductive.term_of_step_input_inst.term_of_step_input"
+  "JVMExecStepInductive.typerep_step_input_inst.typerep_step_input"
+  "JVMSemantics.JVMendset"
+  "JVMSemantics.JVMsmall"
+  in Rust
 
 end

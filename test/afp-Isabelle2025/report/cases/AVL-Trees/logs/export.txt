@@ -1,0 +1,20 @@
+$ isabelle build -e -j 1 -o threads=1 -o parallel_proofs=0 -o document=false -o timeout=180 -o skip_proofs=false -d /home/spring/Isabelle2Rust/Isabelle2Rust -d /home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys AFP-Rust-AVL-Trees
+Running AFP-Rust-AVL-Trees ...
+AFP-Rust-AVL-Trees FAILED (see also "isabelle build_log -H Error AFP-Rust-AVL-Trees")
+*** No code equations for ??.Quickcheck_Narrowing.toEnum, ??.Quickcheck_Narrowing.marker, ??.Quickcheck_Narrowing.error, ??.Quickcheck_Narrowing.nth,
+*** requested by dependencies
+*** "narrowing [AVL.tree]" -> "narrowing [nat]" -> "Quickcheck_Narrowing.apply" -> "??.Quickcheck_Narrowing.conv" -> "??.Quickcheck_Narrowing.toEnum"
+*** "narrowing [AVL.tree]" -> "narrowing [nat]" -> "Quickcheck_Narrowing.apply" -> "??.Quickcheck_Narrowing.conv" -> "??.Quickcheck_Narrowing.marker"
+*** "narrowing [AVL.tree]" -> "narrowing [nat]" -> "Quickcheck_Narrowing.apply" -> "??.Quickcheck_Narrowing.conv" -> "??.Quickcheck_Narrowing.error"
+*** "narrowing [AVL.tree]" -> "narrowing [nat]" -> "Quickcheck_Narrowing.apply" -> "??.Quickcheck_Narrowing.conv" -> "??.Quickcheck_Narrowing.nth"
+*** "narrowing [tree⇩0]" -> "Quickcheck_Narrowing.apply" -> "??.Quickcheck_Narrowing.conv" -> "??.Quickcheck_Narrowing.toEnum"
+*** "narrowing [tree⇩0]" -> "Quickcheck_Narrowing.apply" -> "??.Quickcheck_Narrowing.conv" -> "??.Quickcheck_Narrowing.marker"
+*** "narrowing [tree⇩0]" -> "Quickcheck_Narrowing.apply" -> "??.Quickcheck_Narrowing.conv" -> "??.Quickcheck_Narrowing.error"
+*** "narrowing [tree⇩0]" -> "Quickcheck_Narrowing.apply" -> "??.Quickcheck_Narrowing.conv" -> "??.Quickcheck_Narrowing.nth"
+*** "narrowing [AVL2.tree]" -> "narrowing [nat]" -> "Quickcheck_Narrowing.apply" -> "??.Quickcheck_Narrowing.conv" -> "??.Quickcheck_Narrowing.toEnum"
+*** "narrowing [AVL2.tree]" -> "narrowing [nat]" -> "Quickcheck_Narrowing.apply" -> "??.Quickcheck_Narrowing.conv" -> "??.Quickcheck_Narrowing.marker"
+*** "narrowing [AVL2.tree]" -> "narrowing [nat]" -> "Quickcheck_Narrowing.apply" -> "??.Quickcheck_Narrowing.conv" -> "??.Quickcheck_Narrowing.error"
+*** "narrowing [AVL2.tree]" -> "narrowing [nat]" -> "Quickcheck_Narrowing.apply" -> "??.Quickcheck_Narrowing.conv" -> "??.Quickcheck_Narrowing.nth"
+*** At command "export_code" (line 19 of "~/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/AVL-Trees/AVL-Trees_Rust_Export.thy")
+Unfinished session(s): AFP-Rust-AVL-Trees
+0:00:08 elapsed time, 0:00:03 cpu time, factor 0.46

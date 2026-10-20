@@ -1,0 +1,2 @@
+$ cargo +1.94.0 run --quiet --locked --manifest-path /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/_build/runtime/stage1/Cargo.toml
+2166 independent List-Index assertions passed

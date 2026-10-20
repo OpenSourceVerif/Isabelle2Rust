@@ -1,0 +1,2 @@
+$ /usr/bin/python3 /home/spring/Isabelle2Rust/Isabelle2Rust/scripts/ensure-cargo-lock.py /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/_build/runtime/stage2/Cargo.toml /home/spring/Isabelle2Rust/Isabelle2Rust/scripts/isabelle-exported.Cargo.lock
+     Locking 5 packages to latest Rust 1.94.0 compatible versions

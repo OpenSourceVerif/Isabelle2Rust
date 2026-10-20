@@ -168,58 +168,24 @@ Generated export theories, exports.json, results.json, and logs survive make cle
 Stage-1/Stage-2 crates do not. Artifact paths in reports identify where the
 corresponding successful build was performed, even after cleanup.
 
-## Recorded batch: 2026-10-20
+## Recorded rerun: 20261020T074609Z
 
-The checked-in reports cover the complete 2025-03-17 release: **893 entries,
-922 original sessions and 9,122 owned theories**. Discovery inspected 3,449 of
-those theories and retained **38,936 distinct full HOL constant names** across
-400 nonempty entry scopes. All 893 aggregate theories and independent ROOT
-sessions were generated, including explicit empty/incomplete entry records.
-Proof checking remained enabled throughout.
+The current checked-in JSON reports come from a fresh full rerun with proof
+checking enabled and existing Isabelle heaps reused. See the [Chinese experiment
+report](report/README.md) for the entry-to-export flow, exact configuration,
+human-readable statistics, limitations and five retained case studies.
 
-| Phase | Passed entries | Other outcomes |
-| --- | ---: | --- |
-| Discovery | 436 | 19 failed; 438 blocked |
-| Rust export | 41 | 348 failed; 2 timed out; 464 blocked; 38 empty scopes |
-| Stage-1 compilation | 26 | 15 failed; 852 not run |
-| Optimization | 26 | 867 not run |
-| Stage-2 compilation | 26 | 867 not run |
-| Independent runtime harness | 1 | 892 not run |
+The rerun visited all 893 entries. Discovery completed for 438 entries and
+retained 39,100 distinct full HOL constant names across 402 nonempty
+entry scopes. Rust export succeeded for 41 entries; 26 compiled before and
+after optimization. Compilation covers 153 distinct candidates. List-Index additionally
+passed 2,166 independent assertions per stage (4,332 total).
 
-The final entry statuses are 25 passed, 1 partial, 38 no_candidates, 373 failed
-and 456 blocked. The partial entry is Go: both Rust stages compiled its two
-collected candidates, but four conditional theories require ISABELLE_GOEXE.
-Each successful compilation stage covers **153 distinct candidates**. The
-List-Index runtime check covers six of those candidates with 2,166 independent
-assertions per stage, **4,332 total**. Compilation and this finite runtime test
-are separate evidence; neither establishes correctness of all AFP exports.
-
-The initial full scan used a 180-second per-command bound, and the 718-entry
-retry used 600 seconds. Export, Cargo and optimization commands used 180 seconds.
-HOL-Library was prepared separately with an 1,800-second bound and 4,500 MiB ML
-heap, completing in 403.78 seconds; ordinary commands retained the 3,000 MiB ML
-limit. Java used 768 MiB; Isabelle and Cargo remained serial. The 512 MiB
-available-memory guard stopped Posix-Lexing rather than allowing an OOM crash.
-HOL-Analysis exceeded its 600-second preparation bound, blocking 434 subsequent
-entries. These failures were retained rather than reported as empty successes.
-
-The remaining failures include missing dependency equations (notably generated
-Quickcheck narrowing support), incompatible theory branches, code-generator
-errors and Rust type/trait errors. No candidates were filtered to improve the
-reported success rate. The four entries affected by incompatible synthetic
-merges were re-scanned after adding branch-context discovery; their aggregate
-export outcomes remain independent of discovery success.
-
-Validation also passed 21 tooling regression tests and two actual Isabelle
-scanner cases. The scanner cases check declaration provenance, later-added
-code equations, abbreviations, absent equations and conflicting class instances
-in independent branches. The tooling tests check scope invalidation, failure
-isolation, retained import diagnostics, conditional theories, safe cleanup and
-termination of detached child processes. The final audit verified all scopes,
-phase states, coverage, artifact manifests and preservation of the original ROOT.
-
-results.json includes the dated batch snapshot, prerequisite preparation,
-execution return codes, resource bounds, compiler conditions and validation
-records. Generated crates and raw _build data are cleaned after verification;
-theories, reports and local logs remain. Logs are not committed. Re-run the
-scripts to regenerate crates before inspecting or executing their artifacts.
+The report includes a filterable [893-entry table](report/entries.csv),
+[run provenance and commands](report/run.json), and [case evidence](report/cases/).
+Original AFP theories, generated aggregate theories, raw diagnostics, Cargo
+manifests/lockfiles and actual Rust sources are preserved for candidate-empty,
+export-failed, compile-failed and successful examples. These copies use
+rust-before/rust-after directories and survive make clean; target directories
+and temporary phase work are removed. Raw batch console logs are retained as
+text evidence inside the report; ordinary logs/ remains ignored.

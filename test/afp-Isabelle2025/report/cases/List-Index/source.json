@@ -1,0 +1,36 @@
+{
+  "entry": "List-Index",
+  "afp_source": "afp-2025-03-17.tar.gz/thys/List-Index",
+  "manifest": {
+    "dependencies": [],
+    "required_sessions": [
+      "Pure",
+      "Tools",
+      "HOL",
+      "List-Index"
+    ],
+    "session_requirements": {
+      "List-Index": [
+        "Pure",
+        "Tools",
+        "HOL"
+      ]
+    },
+    "sessions": [
+      "List-Index"
+    ],
+    "source_errors": [],
+    "theories": [
+      {
+        "conditions": [],
+        "name": "List-Index.List_Index",
+        "path": "List_Index.thy",
+        "session": "List-Index"
+      }
+    ]
+  },
+  "source_sha256": {
+    "ROOT": "fbc8be613524edfac9a319241eb2678877665d170947cc17831d06f187321aea",
+    "List_Index.thy": "2083bbee03a3ff793b96882d4571b206bbd86755f9a140efa9133526f98cdcf9"
+  }
+}

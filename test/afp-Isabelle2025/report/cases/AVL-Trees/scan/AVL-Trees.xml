@@ -1,0 +1,381 @@
+<scan><theory name="AVL-Trees.AVL"><constant name="AVL.avl"/><constant name="AVL.delete"/><constant name="AVL.delete_max"/><constant name="AVL.delete_root"/><constant name="AVL.equal_tree_inst.equal_tree"/><constant name="AVL.full_exhaustive_tree_inst.full_exhaustive_tree"/><constant name="AVL.height"/><constant name="AVL.ht"/><constant name="AVL.insert"/><constant name="AVL.is_in"/><constant name="AVL.is_ord"/><constant name="AVL.mkt"/><constant name="AVL.mkt_bal_l"/><constant name="AVL.mkt_bal_r"/><constant name="AVL.narrowing_tree_inst.narrowing_tree"/><constant name="AVL.partial_term_of_tree_inst.partial_term_of_tree"/><error name="AVL.partial_term_of_tree_inst.partial_term_of_tree">&quot;Code_Numeral.one_integer_inst.one_integer&quot; is not a constructor, on left hand side of equation, in theorem:
+AVL.partial_term_of_tree_inst.partial_term_of_tree ?ty
+ (narrowing_term.Narrowing_constructor one_integer_inst.one_integer
+   [?d, ?c, ?b, ?a]) \&lt;equiv&gt;
+Code_Evaluation.App
+ (Code_Evaluation.App
+   (Code_Evaluation.App
+     (Code_Evaluation.App
+       (Code_Evaluation.Const
+         (String.Literal True False False False False False True
+           (String.Literal False True True False True False True
+             (String.Literal False False True True False False True
+               (String.Literal False True True True False True False
+                 (String.Literal False False True False True True True
+                   (String.Literal False True False False True True True
+                     (String.Literal True False True False False True True
+                       (String.Literal True False True False False True True
+                         (String.Literal False True True True False True
+                           False
+                           (String.Literal True False True True False False
+                             True
+                             (String.Literal True True False True False
+                               False True
+                               (String.Literal False False True False True
+                                 False True
+                                 zero_literal_inst.zero_literal))))))))))))
+         (typerep.Typerep
+           (String.Literal False True True False False True True
+             (String.Literal True False True False True True True
+               (String.Literal False True True True False True True
+                 zero_literal_inst.zero_literal)))
+           [TYPEREP(?&apos;a),
+            typerep.Typerep
+             (String.Literal False True True False False True True
+               (String.Literal True False True False True True True
+                 (String.Literal False True True True False True True
+                   zero_literal_inst.zero_literal)))
+             [typerep.Typerep
+               (String.Literal True False False False False False True
+                 (String.Literal False True True False True False True
+                   (String.Literal False False True True False False True
+                     (String.Literal False True True True False True False
+                       (String.Literal False False True False True True True
+                         (String.Literal False True False False True True
+                           True
+                           (String.Literal True False True False False True
+                             True
+                             (String.Literal True False True False False
+                               True True
+                               zero_literal_inst.zero_literal))))))))
+               [TYPEREP(?&apos;a)],
+              typerep.Typerep
+               (String.Literal False True True False False True True
+                 (String.Literal True False True False True True True
+                   (String.Literal False True True True False True True
+                     zero_literal_inst.zero_literal)))
+               [typerep.Typerep
+                 (String.Literal True False False False False False True
+                   (String.Literal False True True False True False True
+                     (String.Literal False False True True False False True
+                       (String.Literal False True True True False True False
+                         (String.Literal False False True False True True
+                           True
+                           (String.Literal False True False False True True
+                             True
+                             (String.Literal True False True False False
+                               True True
+                               (String.Literal True False True False False
+                                 True True
+                                 zero_literal_inst.zero_literal))))))))
+                 [TYPEREP(?&apos;a)],
+                typerep.Typerep
+                 (String.Literal False True True False False True True
+                   (String.Literal True False True False True True True
+                     (String.Literal False True True True False True True
+                       zero_literal_inst.zero_literal)))
+                 [typerep.Typerep
+                   (String.Literal False True True True False False True
+                     (String.Literal True False False False False True True
+                       (String.Literal False False True False True True True
+                         (String.Literal False True True True False True
+                           False
+                           (String.Literal False True True True False True
+                             True
+                             (String.Literal True False False False False
+                               True True
+                               (String.Literal False False True False True
+                                 True True
+                                 zero_literal_inst.zero_literal)))))))
+                   [],
+                  typerep.Typerep
+                   (String.Literal True False False False False False True
+                     (String.Literal False True True False True False True
+                       (String.Literal False False True True False False
+                         True
+                         (String.Literal False True True True False True
+                           False
+                           (String.Literal False False True False True True
+                             True
+                             (String.Literal False True False False True
+                               True True
+                               (String.Literal True False True False False
+                                 True True
+                                 (String.Literal True False True False False
+                                   True True
+                                   zero_literal_inst.zero_literal))))))))
+                   [TYPEREP(?&apos;a)]]]]]))
+       (partial_term_of TYPE(?&apos;a) ?a))
+     (AVL.partial_term_of_tree_inst.partial_term_of_tree TYPE(?&apos;a AVL.tree)
+       ?b))
+   (AVL.partial_term_of_tree_inst.partial_term_of_tree TYPE(?&apos;a AVL.tree)
+     ?c))
+ (partial_term_of_nat_inst.partial_term_of_nat TYPE(nat) ?d)</error><constant name="AVL.random_aux_tree"/><constant name="AVL.random_tree_inst.random_tree"/><constant name="AVL.rightmost_item"/><constant name="AVL.size_tree_inst.size_tree"/><constant name="AVL.term_of_tree_inst.term_of_tree"/><constant name="AVL.tree.case_tree"/><constant name="AVL.tree.map_tree"/><constant name="AVL.tree.rec_tree"/><constant name="AVL.tree.rel_tree"/><constant name="AVL.tree.set_of"/><constant name="AVL.tree.size_tree"/><constant name="AVL.tree.typerep_tree_IITN_tree_inst.typerep_tree_IITN_tree"/><constant name="AVL.tree.typerep_tree_pre_tree_inst.typerep_tree_pre_tree"/><constant name="AVL.typerep_tree_inst.typerep_tree"/></theory><theory name="AVL-Trees.AVL2"><constant name="AVL2.avl"/><constant name="AVL2.equal_tree\&lt;^sub&gt;0_inst.equal_tree\&lt;^sub&gt;0"/><constant name="AVL2.equal_tree_inst.equal_tree"/><constant name="AVL2.erase"/><constant name="AVL2.full_exhaustive_tree\&lt;^sub&gt;0_inst.full_exhaustive_tree\&lt;^sub&gt;0"/><constant name="AVL2.full_exhaustive_tree_inst.full_exhaustive_tree"/><constant name="AVL2.height"/><constant name="AVL2.hinv"/><constant name="AVL2.ht"/><constant name="AVL2.insrt"/><constant name="AVL2.insrt\&lt;^sub&gt;0"/><constant name="AVL2.is_bal"/><constant name="AVL2.is_in"/><constant name="AVL2.is_in\&lt;^sub&gt;0"/><constant name="AVL2.is_ord"/><constant name="AVL2.l_bal"/><constant name="AVL2.l_bal\&lt;^sub&gt;0"/><constant name="AVL2.mkt"/><constant name="AVL2.narrowing_tree\&lt;^sub&gt;0_inst.narrowing_tree\&lt;^sub&gt;0"/><constant name="AVL2.narrowing_tree_inst.narrowing_tree"/><constant name="AVL2.partial_term_of_tree\&lt;^sub&gt;0_inst.partial_term_of_tree\&lt;^sub&gt;0"/><error name="AVL2.partial_term_of_tree\&lt;^sub&gt;0_inst.partial_term_of_tree\&lt;^sub&gt;0">&quot;Code_Numeral.one_integer_inst.one_integer&quot; is not a constructor, on left hand side of equation, in theorem:
+partial_term_of_tree\&lt;^sub&gt;0_inst.partial_term_of_tree\&lt;^sub&gt;0 ?ty
+ (narrowing_term.Narrowing_constructor one_integer_inst.one_integer
+   [?c, ?b, ?a]) \&lt;equiv&gt;
+Code_Evaluation.App
+ (Code_Evaluation.App
+   (Code_Evaluation.App
+     (Code_Evaluation.Const
+       (String.Literal True False False False False False True
+         (String.Literal False True True False True False True
+           (String.Literal False False True True False False True
+             (String.Literal False True False False True True False
+               (String.Literal False True True True False True False
+                 (String.Literal False False True False True True True
+                   (String.Literal False True False False True True True
+                     (String.Literal True False True False False True True
+                       (String.Literal True False True False False True True
+                         (String.Literal False False True True True False
+                           True
+                           (String.Literal False False True True True True
+                             False
+                             (String.Literal False True True True True False
+                               True
+                               (String.Literal True True False False True
+                                 True True
+                                 (String.Literal True False True False True
+                                   True True
+                                   (String.Literal False True False False
+                                     False True True
+                                     (String.Literal False True True True
+ True True False
+ (String.Literal False False False False True True False
+   (String.Literal False True True True False True False
+     (String.Literal True False True True False False True
+       (String.Literal True True False True False False True
+         (String.Literal False False True False True False True
+           (String.Literal False False True True True False True
+             (String.Literal False False True True True True False
+               (String.Literal False True True True True False True
+                 (String.Literal True True False False True True True
+                   (String.Literal True False True False True True True
+                     (String.Literal False True False False False True True
+                       (String.Literal False True True True True True False
+                         (String.Literal False False False False True True
+                           False
+                           zero_literal_inst.zero_literal)))))))))))))))))))))))))))))
+       (typerep.Typerep
+         (String.Literal False True True False False True True
+           (String.Literal True False True False True True True
+             (String.Literal False True True True False True True
+               zero_literal_inst.zero_literal)))
+         [TYPEREP(?&apos;a),
+          typerep.Typerep
+           (String.Literal False True True False False True True
+             (String.Literal True False True False True True True
+               (String.Literal False True True True False True True
+                 zero_literal_inst.zero_literal)))
+           [typerep.Typerep
+             (String.Literal True False False False False False True
+               (String.Literal False True True False True False True
+                 (String.Literal False False True True False False True
+                   (String.Literal False True False False True True False
+                     (String.Literal False True True True False True False
+                       (String.Literal False False True False True True True
+                         (String.Literal False True False False True True
+                           True
+                           (String.Literal True False True False False True
+                             True
+                             (String.Literal True False True False False
+                               True True
+                               (String.Literal False False True True True
+                                 False True
+                                 (String.Literal False False True True True
+                                   True False
+                                   (String.Literal False True True True True
+                                     False True
+                                     (String.Literal True True False False
+ True True True
+ (String.Literal True False True False True True True
+   (String.Literal False True False False False True True
+     (String.Literal False True True True True True False
+       (String.Literal False False False False True True False
+         zero_literal_inst.zero_literal)))))))))))))))))
+             [TYPEREP(?&apos;a)],
+            typerep.Typerep
+             (String.Literal False True True False False True True
+               (String.Literal True False True False True True True
+                 (String.Literal False True True True False True True
+                   zero_literal_inst.zero_literal)))
+             [typerep.Typerep
+               (String.Literal True False False False False False True
+                 (String.Literal False True True False True False True
+                   (String.Literal False False True True False False True
+                     (String.Literal False True False False True True False
+                       (String.Literal False True True True False True False
+                         (String.Literal False False True False True True
+                           True
+                           (String.Literal False True False False True True
+                             True
+                             (String.Literal True False True False False
+                               True True
+                               (String.Literal True False True False False
+                                 True True
+                                 (String.Literal False False True True True
+                                   False True
+                                   (String.Literal False False True True
+                                     True True False
+                                     (String.Literal False True True True
+ True False True
+ (String.Literal True True False False True True True
+   (String.Literal True False True False True True True
+     (String.Literal False True False False False True True
+       (String.Literal False True True True True True False
+         (String.Literal False False False False True True False
+           zero_literal_inst.zero_literal)))))))))))))))))
+               [TYPEREP(?&apos;a)],
+              typerep.Typerep
+               (String.Literal True False False False False False True
+                 (String.Literal False True True False True False True
+                   (String.Literal False False True True False False True
+                     (String.Literal False True False False True True False
+                       (String.Literal False True True True False True False
+                         (String.Literal False False True False True True
+                           True
+                           (String.Literal False True False False True True
+                             True
+                             (String.Literal True False True False False
+                               True True
+                               (String.Literal True False True False False
+                                 True True
+                                 (String.Literal False False True True True
+                                   False True
+                                   (String.Literal False False True True
+                                     True True False
+                                     (String.Literal False True True True
+ True False True
+ (String.Literal True True False False True True True
+   (String.Literal True False True False True True True
+     (String.Literal False True False False False True True
+       (String.Literal False True True True True True False
+         (String.Literal False False False False True True False
+           zero_literal_inst.zero_literal)))))))))))))))))
+               [TYPEREP(?&apos;a)]]]]))
+     (partial_term_of TYPE(?&apos;a) ?a))
+   (partial_term_of_tree\&lt;^sub&gt;0_inst.partial_term_of_tree\&lt;^sub&gt;0
+     TYPE(?&apos;a tree\&lt;^sub&gt;0) ?b))
+ (partial_term_of_tree\&lt;^sub&gt;0_inst.partial_term_of_tree\&lt;^sub&gt;0
+   TYPE(?&apos;a tree\&lt;^sub&gt;0) ?c)</error><constant name="AVL2.partial_term_of_tree_inst.partial_term_of_tree"/><error name="AVL2.partial_term_of_tree_inst.partial_term_of_tree">&quot;Code_Numeral.one_integer_inst.one_integer&quot; is not a constructor, on left hand side of equation, in theorem:
+AVL2.partial_term_of_tree_inst.partial_term_of_tree ?ty
+ (narrowing_term.Narrowing_constructor one_integer_inst.one_integer
+   [?d, ?c, ?b, ?a]) \&lt;equiv&gt;
+Code_Evaluation.App
+ (Code_Evaluation.App
+   (Code_Evaluation.App
+     (Code_Evaluation.App
+       (Code_Evaluation.Const
+         (String.Literal True False False False False False True
+           (String.Literal False True True False True False True
+             (String.Literal False False True True False False True
+               (String.Literal False True False False True True False
+                 (String.Literal False True True True False True False
+                   (String.Literal False False True False True True True
+                     (String.Literal False True False False True True True
+                       (String.Literal True False True False False True True
+                         (String.Literal True False True False False True
+                           True
+                           (String.Literal False True True True False True
+                             False
+                             (String.Literal True False True True False
+                               False True
+                               (String.Literal True True False True False
+                                 False True
+                                 (String.Literal False False True False True
+                                   False True
+                                   zero_literal_inst.zero_literal)))))))))))))
+         (typerep.Typerep
+           (String.Literal False True True False False True True
+             (String.Literal True False True False True True True
+               (String.Literal False True True True False True True
+                 zero_literal_inst.zero_literal)))
+           [TYPEREP(?&apos;a),
+            typerep.Typerep
+             (String.Literal False True True False False True True
+               (String.Literal True False True False True True True
+                 (String.Literal False True True True False True True
+                   zero_literal_inst.zero_literal)))
+             [typerep.Typerep
+               (String.Literal True False False False False False True
+                 (String.Literal False True True False True False True
+                   (String.Literal False False True True False False True
+                     (String.Literal False True False False True True False
+                       (String.Literal False True True True False True False
+                         (String.Literal False False True False True True
+                           True
+                           (String.Literal False True False False True True
+                             True
+                             (String.Literal True False True False False
+                               True True
+                               (String.Literal True False True False False
+                                 True True
+                                 zero_literal_inst.zero_literal)))))))))
+               [TYPEREP(?&apos;a)],
+              typerep.Typerep
+               (String.Literal False True True False False True True
+                 (String.Literal True False True False True True True
+                   (String.Literal False True True True False True True
+                     zero_literal_inst.zero_literal)))
+               [typerep.Typerep
+                 (String.Literal True False False False False False True
+                   (String.Literal False True True False True False True
+                     (String.Literal False False True True False False True
+                       (String.Literal False True False False True True
+                         False
+                         (String.Literal False True True True False True
+                           False
+                           (String.Literal False False True False True True
+                             True
+                             (String.Literal False True False False True
+                               True True
+                               (String.Literal True False True False False
+                                 True True
+                                 (String.Literal True False True False False
+                                   True True
+                                   zero_literal_inst.zero_literal)))))))))
+                 [TYPEREP(?&apos;a)],
+                typerep.Typerep
+                 (String.Literal False True True False False True True
+                   (String.Literal True False True False True True True
+                     (String.Literal False True True True False True True
+                       zero_literal_inst.zero_literal)))
+                 [typerep.Typerep
+                   (String.Literal False True True True False False True
+                     (String.Literal True False False False False True True
+                       (String.Literal False False True False True True True
+                         (String.Literal False True True True False True
+                           False
+                           (String.Literal False True True True False True
+                             True
+                             (String.Literal True False False False False
+                               True True
+                               (String.Literal False False True False True
+                                 True True
+                                 zero_literal_inst.zero_literal)))))))
+                   [],
+                  typerep.Typerep
+                   (String.Literal True False False False False False True
+                     (String.Literal False True True False True False True
+                       (String.Literal False False True True False False
+                         True
+                         (String.Literal False True False False True True
+                           False
+                           (String.Literal False True True True False True
+                             False
+                             (String.Literal False False True False True
+                               True True
+                               (String.Literal False True False False True
+                                 True True
+                                 (String.Literal True False True False False
+                                   True True
+                                   (String.Literal True False True False
+                                     False True True
+                                     zero_literal_inst.zero_literal)))))))))
+                   [TYPEREP(?&apos;a)]]]]]))
+       (partial_term_of TYPE(?&apos;a) ?a))
+     (AVL2.partial_term_of_tree_inst.partial_term_of_tree
+       TYPE(?&apos;a AVL2.tree) ?b))
+   (AVL2.partial_term_of_tree_inst.partial_term_of_tree TYPE(?&apos;a AVL2.tree)
+     ?c))
+ (partial_term_of_nat_inst.partial_term_of_nat TYPE(nat) ?d)</error><constant name="AVL2.r_bal"/><constant name="AVL2.r_bal\&lt;^sub&gt;0"/><constant name="AVL2.random_aux_tree"/><constant name="AVL2.random_aux_tree\&lt;^sub&gt;0"/><constant name="AVL2.random_tree\&lt;^sub&gt;0_inst.random_tree\&lt;^sub&gt;0"/><constant name="AVL2.random_tree_inst.random_tree"/><constant name="AVL2.size_tree\&lt;^sub&gt;0_inst.size_tree\&lt;^sub&gt;0"/><constant name="AVL2.size_tree_inst.size_tree"/><constant name="AVL2.term_of_tree\&lt;^sub&gt;0_inst.term_of_tree\&lt;^sub&gt;0"/><constant name="AVL2.term_of_tree_inst.term_of_tree"/><constant name="AVL2.tree.case_tree"/><constant name="AVL2.tree.map_tree"/><constant name="AVL2.tree.rec_tree"/><constant name="AVL2.tree.rel_tree"/><constant name="AVL2.tree.set_tree"/><constant name="AVL2.tree.size_tree"/><constant name="AVL2.tree.typerep_tree_IITN_tree_inst.typerep_tree_IITN_tree"/><constant name="AVL2.tree.typerep_tree_pre_tree_inst.typerep_tree_pre_tree"/><constant name="AVL2.tree\&lt;^sub&gt;0.case_tree\&lt;^sub&gt;0"/><constant name="AVL2.tree\&lt;^sub&gt;0.map_tree\&lt;^sub&gt;0"/><constant name="AVL2.tree\&lt;^sub&gt;0.rec_tree\&lt;^sub&gt;0"/><constant name="AVL2.tree\&lt;^sub&gt;0.rel_tree\&lt;^sub&gt;0"/><constant name="AVL2.tree\&lt;^sub&gt;0.set_of"/><constant name="AVL2.tree\&lt;^sub&gt;0.size_tree\&lt;^sub&gt;0"/><constant name="AVL2.tree\&lt;^sub&gt;0.typerep_tree\&lt;^sub&gt;0_IITN_tree\&lt;^sub&gt;0_inst.typerep_tree\&lt;^sub&gt;0_IITN_tree\&lt;^sub&gt;0"/><constant name="AVL2.tree\&lt;^sub&gt;0.typerep_tree\&lt;^sub&gt;0_pre_tree\&lt;^sub&gt;0_inst.typerep_tree\&lt;^sub&gt;0_pre_tree\&lt;^sub&gt;0"/><constant name="AVL2.typerep_tree\&lt;^sub&gt;0_inst.typerep_tree\&lt;^sub&gt;0"/><constant name="AVL2.typerep_tree_inst.typerep_tree"/></theory></scan>

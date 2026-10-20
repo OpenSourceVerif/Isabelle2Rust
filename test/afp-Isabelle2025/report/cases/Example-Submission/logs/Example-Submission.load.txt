@@ -1,0 +1,2 @@
+$ isabelle build -b -j 1 -o threads=1 -o parallel_proofs=0 -o document=false -o timeout=600 -o skip_proofs=false -d /home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys Example-Submission
+0:00:02 elapsed time

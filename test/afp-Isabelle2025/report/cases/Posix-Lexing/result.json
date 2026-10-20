@@ -1,0 +1,132 @@
+{
+  "artifacts": {
+    "logs": "test/afp-Isabelle2025/logs/Posix-Lexing",
+    "stage1": "test/afp-Isabelle2025/Posix-Lexing/stage1/Posix-Lexing_Rust_Export",
+    "stage2": "test/afp-Isabelle2025/Posix-Lexing/stage2/Posix-Lexing_Rust_Export",
+    "theory": "test/afp-Isabelle2025/Posix-Lexing/Posix-Lexing_Rust_Export.thy"
+  },
+  "candidate_count": 0,
+  "optimization": {
+    "status": "not_run"
+  },
+  "runtime_validation": {
+    "reason": "No semantic correctness harness supplied",
+    "status": "not_run"
+  },
+  "rust_export": {
+    "reason": "AFP session loading failed",
+    "status": "blocked"
+  },
+  "scan": {
+    "candidate_count": 0,
+    "certificate_errors": [],
+    "context_merge_errors": [],
+    "errors": [],
+    "inspections": [],
+    "loading": [
+      {
+        "command": [
+          "isabelle",
+          "build",
+          "-b",
+          "-j",
+          "1",
+          "-o",
+          "threads=1",
+          "-o",
+          "parallel_proofs=0",
+          "-o",
+          "document=false",
+          "-o",
+          "timeout=600",
+          "-o",
+          "skip_proofs=false",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "Posix-Lexing"
+        ],
+        "error_excerpt": "$ isabelle build -b -j 1 -o threads=1 -o parallel_proofs=0 -o document=false -o timeout=600 -o skip_proofs=false -d /home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys Posix-Lexing\nBuilding Posix-Lexing ...",
+        "failed_sessions": [
+          "Posix-Lexing"
+        ],
+        "log": "test/afp-Isabelle2025/logs/Posix-Lexing/Posix-Lexing.load.log",
+        "min_available_mb": 441,
+        "returncode": -15,
+        "seconds": 105.13,
+        "session": "Posix-Lexing",
+        "started": "2026-10-20T10:06:47+00:00",
+        "status": "memory_limit"
+      }
+    ],
+    "missing_theories": [
+      {
+        "conditions": [],
+        "missing_conditions": [],
+        "path": "Extensions/Derivatives3.thy"
+      },
+      {
+        "conditions": [],
+        "missing_conditions": [],
+        "path": "Extensions/Lexer3.thy"
+      },
+      {
+        "conditions": [],
+        "missing_conditions": [],
+        "path": "Extensions/LexicalVals3.thy"
+      },
+      {
+        "conditions": [],
+        "missing_conditions": [],
+        "path": "Extensions/Positions3.thy"
+      },
+      {
+        "conditions": [],
+        "missing_conditions": [],
+        "path": "Extensions/Regular_Exps3.thy"
+      },
+      {
+        "conditions": [],
+        "missing_conditions": [],
+        "path": "Extensions/Simplifying3.thy"
+      },
+      {
+        "conditions": [],
+        "missing_conditions": [],
+        "path": "Lexer.thy"
+      },
+      {
+        "conditions": [],
+        "missing_conditions": [],
+        "path": "LexicalVals.thy"
+      },
+      {
+        "conditions": [],
+        "missing_conditions": [],
+        "path": "Positions.thy"
+      },
+      {
+        "conditions": [],
+        "missing_conditions": [],
+        "path": "Simplifying.thy"
+      }
+    ],
+    "status": "failed",
+    "theories": [],
+    "theory_loading": {
+      "status": "failed"
+    }
+  },
+  "scope_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stage1_compile": {
+    "status": "not_run"
+  },
+  "stage2_compile": {
+    "status": "not_run"
+  },
+  "status": "blocked",
+  "theory_count": 10,
+  "theory_loading": {
+    "source": "scan",
+    "status": "failed"
+  }
+}

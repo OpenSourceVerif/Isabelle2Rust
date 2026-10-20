@@ -1,0 +1,14 @@
+{
+  "sha256": {
+    "test/afp-Isabelle2025/scan.py": "3050a715ae11c90a6d95ebff360b8b47bcfcf37652d87085badd2f2dd7fd09e8",
+    "test/afp-Isabelle2025/scan.ML": "bd7f537c397523f9024dcd5074844b7b7e2f7c30abd699f527beacc4c29cdcd6",
+    "test/afp-Isabelle2025/sessions.scala": "06a18384c54fa430a67d20aa772fb170e25752d6451a5998a95ac3c986f8bffa",
+    "test/afp-Isabelle2025/run.py": "0a1d56ac69a5354afeab1c8c2f518929003596791dd251bea41f5e4421ccc39d",
+    "test/afp-Isabelle2025/afp_common.py": "c7ce1fa2eec38b60fb5feabb3747ac5c5f01b7aa0490d6451979975dc4dca3bf",
+    "translate/code_rust.ML": "4d9f2e26c1d3ee1767d1351fab7f3a6c3e179c1586a570ac759d16fa04d6d528",
+    "translate/Rust_BigInt_Setup.thy": "3de8e36c49eb9e6f80d9b7e09aaf7af1605cdb1e6c86f118567f7ecc0cfc2ba4",
+    "optimize/src/bin/cargo-opt.rs": "6457a723c91ad5981b7dfa8f0580fac0eede5b1439f5800054f6c9a203100169",
+    "scripts/isabelle-exported.Cargo.lock": "dc326ab95e9d24927611bedc7585238783d7f1bf56ada6c9edce80dfd6348e92"
+  },
+  "rustlightast_worktree_status": ""
+}
