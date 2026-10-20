@@ -1,0 +1,147 @@
+{
+  "artifacts": {
+    "logs": "test/afp-Isabelle2025/logs/List_Inversions",
+    "stage1": "test/afp-Isabelle2025/List_Inversions/stage1/List_Inversions_Rust_Export",
+    "stage2": "test/afp-Isabelle2025/List_Inversions/stage2/List_Inversions_Rust_Export",
+    "theory": "test/afp-Isabelle2025/List_Inversions/List_Inversions_Rust_Export.thy"
+  },
+  "candidate_count": 9,
+  "optimization": {
+    "status": "not_run"
+  },
+  "runtime_validation": {
+    "reason": "No semantic correctness harness supplied",
+    "status": "not_run"
+  },
+  "rust_export": {
+    "command": [
+      "isabelle",
+      "build",
+      "-e",
+      "-j",
+      "1",
+      "-o",
+      "threads=1",
+      "-o",
+      "parallel_proofs=0",
+      "-o",
+      "document=false",
+      "-o",
+      "timeout=180",
+      "-o",
+      "skip_proofs=false",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+      "AFP-Rust-List_Inversions"
+    ],
+    "log": "test/afp-Isabelle2025/logs/List_Inversions/export.log",
+    "min_available_mb": 6273,
+    "returncode": 0,
+    "seconds": 5.0,
+    "started": "2026-10-20T12:26:04+00:00",
+    "status": "passed"
+  },
+  "scan": {
+    "candidate_count": 9,
+    "certificate_errors": [],
+    "context_merge_errors": [],
+    "errors": [],
+    "inspections": [
+      {
+        "command": [
+          "isabelle",
+          "process",
+          "-l",
+          "List_Inversions",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "-f",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/scan.ML",
+          "-o",
+          "threads=1"
+        ],
+        "data": "test/afp-Isabelle2025/_build/List_Inversions/List_Inversions.xml",
+        "log": "test/afp-Isabelle2025/logs/List_Inversions/List_Inversions.scan.log",
+        "min_available_mb": 6327,
+        "returncode": 0,
+        "seconds": 3.5,
+        "session": "List_Inversions",
+        "started": "2026-10-20T10:56:12+00:00",
+        "status": "passed"
+      }
+    ],
+    "loading": [
+      {
+        "command": [
+          "isabelle",
+          "build",
+          "-b",
+          "-j",
+          "1",
+          "-o",
+          "threads=1",
+          "-o",
+          "parallel_proofs=0",
+          "-o",
+          "document=false",
+          "-o",
+          "timeout=600",
+          "-o",
+          "skip_proofs=false",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "List_Inversions"
+        ],
+        "log": "test/afp-Isabelle2025/logs/List_Inversions/List_Inversions.load.log",
+        "min_available_mb": 6316,
+        "returncode": 0,
+        "seconds": 4.5,
+        "session": "List_Inversions",
+        "started": "2026-10-20T10:56:08+00:00",
+        "status": "passed"
+      }
+    ],
+    "missing_theories": [],
+    "status": "passed",
+    "theories": [
+      "List_Inversions.thy"
+    ],
+    "theory_loading": {
+      "status": "passed"
+    }
+  },
+  "scope_sha256": "4d0f82206538fe16e0af6fbe4c7d98ee33fe0deeb7e1e73326116a1ed40c26a0",
+  "stage1_compile": {
+    "checks": [
+      {
+        "command": [
+          "cargo",
+          "+1.94.0",
+          "build",
+          "--locked",
+          "--manifest-path",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/List_Inversions/stage1/List_Inversions_Rust_Export/export1/Cargo.toml"
+        ],
+        "error_excerpt": "help: the trait `HOL::Equal` is implemented for `(A, B)`\n   --> src/Product_Type.rs:14:1\n    |\n 14 | / impl <A : Clone + Equal + 'static,  B : Clone + Equal + 'static> Equal for\n 15 | |     (A, B) {\n    | |__________^\nnote: required for `(num_bigint::BigInt, num_bigint::BigInt)` to implement `HOL::Equal`\n   --> src/Product_Type.rs:14:66\n    |\n 14 | impl <A : Clone + Equal + 'static,  B : Clone + Equal + 'static> Equal for\n    |                   ----- unsatisfied trait bound introduced here  ^^^^^\n 15 |     (A, B) {\n    |     ^^^^^^\nnote: required by a bound in `card`\n   --> src/Finite_Set.rs:12:17\n    |\n 10 | pub fn card <A> (x0: Set<A>) -> BigInt\n    |        ---- required by a bound in this function\n 11 | where\n 12 |     A : Clone + Equal + 'static\n    |                 ^^^^^ required by this bound in `card`\n\nFor more information about this error, try `rustc --explain E0277`.\nerror: could not compile `isabelle_exported` (lib) due to 4 previous errors",
+        "log": "test/afp-Isabelle2025/logs/List_Inversions/stage1-1.compile.log",
+        "min_available_mb": 6787,
+        "returncode": 101,
+        "seconds": 2.0,
+        "started": "2026-10-20T12:26:10+00:00",
+        "status": "failed"
+      }
+    ],
+    "status": "failed"
+  },
+  "stage2_compile": {
+    "status": "not_run"
+  },
+  "status": "failed",
+  "theory_count": 1,
+  "theory_loading": {
+    "log": "test/afp-Isabelle2025/logs/List_Inversions/export.log",
+    "status": "passed"
+  }
+}

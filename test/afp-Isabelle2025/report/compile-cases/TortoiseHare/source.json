@@ -1,0 +1,348 @@
+{
+  "run_id": "20261020T074609Z",
+  "preserved_at_utc": "2026-10-20T16:41:25.317796+00:00",
+  "method": "Read-only SQLite isabelle_exports; Zstandard decompression when compressed=1. No Isabelle or Cargo rerun.",
+  "cache_note": "Database predates this run. This run used isabelle build -e to export the validated cached session. Local backend/setup/export-theory bytes were checked against cached isabelle_sources.",
+  "database": {
+    "path": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+    "sha256": "f98c8df9292202a4eb69fad8858ed75b5acaa3c454f88f11b583c7994e518bcf",
+    "mtime_utc": "2026-10-19T19:34:00.384724+00:00",
+    "session_name": "AFP-Rust-TortoiseHare",
+    "session_uuid": "7c371c65-914c-4b6f-990c-f420403231a5",
+    "return_code": 0
+  },
+  "cached_local_sources": [
+    {
+      "path": "test/afp-Isabelle2025/TortoiseHare/TortoiseHare_Rust_Export.thy",
+      "cached_sha1": "21d6060c55950654cd0923457375bde146d2db64",
+      "sha256": "9a3b7b72aabd3e1677496ef01406234d2088c869d1384d6150927d53a38b0aba",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/code_debug_info.ML",
+      "cached_sha1": "535028443685bda0640c050464f40d026bfa94b3",
+      "sha256": "613e0cd700651312fc5068d273f7ecfceb3bc4b260f2c5e1cf3be1379a411d96",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/code_rust.ML",
+      "cached_sha1": "f7336e8e2f218a94a259b3f3037b357f704ca343",
+      "sha256": "4d9f2e26c1d3ee1767d1351fab7f3a6c3e179c1586a570ac759d16fa04d6d528",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Integer_BigInt_Layer.thy",
+      "cached_sha1": "27229b09930c33de2d093e476559432ce84972a9",
+      "sha256": "0940b3b15ffc9b50cd998f5959f56b2004b971395c3401bb1d94bb430654cc9c",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_BigInt_Setup.thy",
+      "cached_sha1": "85e7b37bd85e025baf41fa17f9814b376dc00737",
+      "sha256": "3de8e36c49eb9e6f80d9b7e09aaf7af1605cdb1e6c86f118567f7ecc0cfc2ba4",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Target.thy",
+      "cached_sha1": "ff9206d8572eb1061145df62848d1998fd1162cd",
+      "sha256": "18fd87878d31222f752997a4bd8c8892858541dd5fd01574e2f50d89ec65dc9b",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Base_Setup.thy",
+      "cached_sha1": "5378c0a4770ba3cf8b4b67c5e0ddd4b4e3f7333c",
+      "sha256": "41351b8900ef420f7f7f12611a26b5955b4cc79735e6f6e2f8d24219ecbe5dea",
+      "equal_to_current": true
+    }
+  ],
+  "cargo_lock_note": "No Cargo.lock is stored by the Isabelle export database. Preserved files are the original export rows; use the recorded lock helper and pinned template for reproduction. An original Approximation_Algorithms lock is already preserved under report/cases.",
+  "files": [
+    {
+      "path": "rust-before/export1/Cargo.toml",
+      "bytes": 221,
+      "sha256": "9f3de0f598654ed5470eddbf0d967dba0fa9ddd4d2368a01ba77a40bff03dcab",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/Cargo.toml",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Arith.rs",
+      "bytes": 35217,
+      "sha256": "2b800f23261fc5a904940fb9fec93b70590f2e694f6c40215ae81e1d816ed2da",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Arith.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Basis.rs",
+      "bytes": 806,
+      "sha256": "01681fcb3900e7bf52755e4bb5d345a5f64ad06f8d9b950b25ad600a4d4eb7b9",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Basis.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Brent.rs",
+      "bytes": 14479,
+      "sha256": "1e373ec6255ede0a5181f45ccd191b022fee45a2e297ac3fd3f87a4d905b1efb",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Brent.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Code_Evaluation.rs",
+      "bytes": 1113,
+      "sha256": "310c65ac535859d37d8ec01258a451b7b26d8468fad63817bc1b587140126b6d",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Code_Evaluation.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Enum.rs",
+      "bytes": 297,
+      "sha256": "40c7fa2d041f9d728bd858a08da57d75433e8641f4c83872a298f1d8c76b2c81",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Enum.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Euclidean_Rings.rs",
+      "bytes": 186,
+      "sha256": "f8804eac62defaa963fa8096ee77e7ec014890d44d65eefc3a350b7a39d71663",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Euclidean_Rings.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Finite_Set.rs",
+      "bytes": 51,
+      "sha256": "e4bc8c9f15bdb5b1dc2d9c150fde8e405b40193c1695d3b6a6ca5846d451b56d",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Finite_Set.rs",
+      "zstd_compressed": false
+    },
+    {
+      "path": "rust-before/export1/src/Fun.rs",
+      "bytes": 455,
+      "sha256": "1c1d296316c2024706bc7a5ad9a8e67880a5a84b1dd8b2ac83dbcb83a64cd8bc",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Fun.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/HOL.rs",
+      "bytes": 676,
+      "sha256": "b7f0d3c62d49c1ef7c71d2254100d73ba8bb177bf289abc5c38af6e9b123e144",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/HOL.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/List.rs",
+      "bytes": 74,
+      "sha256": "a1c1d2dfb324d2de5ceeebc3b3ec4eccc4c65567f017d0205217d08bf144f046",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/List.rs",
+      "zstd_compressed": false
+    },
+    {
+      "path": "rust-before/export1/src/Option.rs",
+      "bytes": 63,
+      "sha256": "5b19b0b3ed037232f03387e3ce9df2551244707f5dbca0a81df2218df646b8ea",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Option.rs",
+      "zstd_compressed": false
+    },
+    {
+      "path": "rust-before/export1/src/Orderings.rs",
+      "bytes": 321,
+      "sha256": "08463a4c6e38f221807f6b73d412473775fecc2226428e76d1c58304bd536499",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Orderings.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Product_Type.rs",
+      "bytes": 1285,
+      "sha256": "fdb03cf915acf4c6d24d5839b7734276e00799bc836d8d4b23ad37bbeb6b6b73",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Product_Type.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Pure.rs",
+      "bytes": 97,
+      "sha256": "9b9e32a2c4226e5503795715163d5e6e07904e569a9d4e77e7bf237c7f6318bb",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Pure.rs",
+      "zstd_compressed": false
+    },
+    {
+      "path": "rust-before/export1/src/Quickcheck_Exhaustive.rs",
+      "bytes": 2947,
+      "sha256": "12399a0ad0c49c10ade72527b48851127c880fd28845f085f0debe3bcbcddc86",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Quickcheck_Exhaustive.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Quickcheck_Narrowing.rs",
+      "bytes": 580,
+      "sha256": "0f86f58415052302efb711a3ecc3c4c96e10e7ea687f4365d8f532f5b8ff0284",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Quickcheck_Narrowing.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Quickcheck_Random.rs",
+      "bytes": 1986,
+      "sha256": "0887569a8f78c4f41935af2d2f25dfc562d1ee672492458e971ce44ede7dc430",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Quickcheck_Random.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Random.rs",
+      "bytes": 6179,
+      "sha256": "18d972d0b70593ee1c2b65df3a91ddffbdcb3aa0ed920390d197aed94675348b",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Random.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/String.rs",
+      "bytes": 124,
+      "sha256": "cb4d1a06211e895d70f9b3edbc67545bfd7b1ef7c03978ebe09107ba2c1e2e9d",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/String.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/TortoiseHare.rs",
+      "bytes": 66335,
+      "sha256": "0cdf9e9c9f41366992c169b95cce1c5283e74243fe25dfcd3e143380f438a0e9",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/TortoiseHare.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Typerep.rs",
+      "bytes": 247,
+      "sha256": "8e8e4ac9a829b5636396a6687f789e6b29936e611be0d4d6e55c1e6db729ba7f",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/Typerep.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/While_Combinator.rs",
+      "bytes": 247,
+      "sha256": "3f48ec9ec816a66178d147aa8b6c2479963ab958a851b54df2f99f5a403d34ff",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/While_Combinator.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/lib.rs",
+      "bytes": 426,
+      "sha256": "2a7ed312dfaa2ab13cc3dd40714cc9d358c87c6425453a949c9331a7ac94f404",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-TortoiseHare.db",
+      "theory": "AFP-Rust-TortoiseHare.TortoiseHare_Rust_Export",
+      "export_name": "code/export1/src/lib.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "original/ROOT",
+      "bytes": 175,
+      "sha256": "3364d1ac1610d816e49e2c5d9b7b8b5f41baeb5ca3efa0c7930aac5a02b87653",
+      "origin": "temp/afp-Isabelle2025/thys/TortoiseHare/ROOT",
+      "cached_session_sha1": null,
+      "cached_session_hash_equal": null
+    },
+    {
+      "path": "original/Basis.thy",
+      "bytes": 10973,
+      "sha256": "22f0f1e5054b44b2d7d934758619d5a4613d7f489b047d9a2f0fa364a55b061a",
+      "origin": "temp/afp-Isabelle2025/thys/TortoiseHare/Basis.thy",
+      "cached_session_sha1": "403ff3da5342555a72dd0b65cc087f9931455273",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Brent.thy",
+      "bytes": 9730,
+      "sha256": "32948d04274f6ff0b7e3278473043c1030a6db02de9fdd7947f07d039d6881f5",
+      "origin": "temp/afp-Isabelle2025/thys/TortoiseHare/Brent.thy",
+      "cached_session_sha1": "ea148fbafed94b3741c62f9aa1e9e8c51614ca1b",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/TortoiseHare.thy",
+      "bytes": 13331,
+      "sha256": "49a83f453945fa7da2090fcc1910fee48f3761ddbccc6e3d27a520d2bb2459a0",
+      "origin": "temp/afp-Isabelle2025/thys/TortoiseHare/TortoiseHare.thy",
+      "cached_session_sha1": "1510c40c6670227ffd9c7f6eaaaeac49c6bce07d",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "logs/export.txt",
+      "bytes": 307,
+      "sha256": "28be5dc946d037be576a5cead79a8e32ca90abdd4494d0df2e7ecfa178010f48",
+      "origin": "test/afp-Isabelle2025/logs/TortoiseHare/export.log",
+      "source_mtime_utc": "2026-10-20T12:13:52.413102+00:00"
+    },
+    {
+      "path": "logs/stage1-1.lock.txt",
+      "bytes": 294,
+      "sha256": "4c5679eb08898d7cf63e968ee1021acb080a759dfe1420515cea007125da7123",
+      "origin": "test/afp-Isabelle2025/logs/TortoiseHare/stage1-1.lock.log",
+      "source_mtime_utc": "2026-10-20T12:13:52.661102+00:00"
+    },
+    {
+      "path": "logs/stage1-1.compile.txt",
+      "bytes": 2248,
+      "sha256": "c7ae410e44ad954189bbd72ca9eecb1077b3218991fcb33eb19f82f13b894d9d",
+      "origin": "test/afp-Isabelle2025/logs/TortoiseHare/stage1-1.compile.log",
+      "source_mtime_utc": "2026-10-20T12:13:55.161102+00:00"
+    },
+    {
+      "path": "export/TortoiseHare_Rust_Export.thy",
+      "bytes": 2418,
+      "sha256": "9a3b7b72aabd3e1677496ef01406234d2088c869d1384d6150927d53a38b0aba",
+      "origin": "test/afp-Isabelle2025/TortoiseHare/TortoiseHare_Rust_Export.thy"
+    },
+    {
+      "path": "scope.json",
+      "bytes": 1979,
+      "sha256": "a0c4608563ae43204a217468be43686c83a5aaa7b5cfe85de5e35be882ae2ade",
+      "origin": "test/afp-Isabelle2025/exports.json"
+    },
+    {
+      "path": "result.json",
+      "bytes": 4968,
+      "sha256": "b804e37e23c9984bf315f10d808b56ffa7ab20fd791f06008b411fb1d9fe890a",
+      "origin": "test/afp-Isabelle2025/results.json"
+    }
+  ]
+}

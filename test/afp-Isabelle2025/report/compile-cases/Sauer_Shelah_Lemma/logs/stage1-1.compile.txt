@@ -1,0 +1,71 @@
+$ cargo +1.94.0 build --locked --manifest-path /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/Sauer_Shelah_Lemma/stage1/Sauer_Shelah_Lemma_Rust_Export/export1/Cargo.toml
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling num-integer v0.1.46
+   Compiling num-bigint v0.4.6
+   Compiling isabelle_exported v0.1.0 (/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/Sauer_Shelah_Lemma/stage1/Sauer_Shelah_Lemma_Rust_Export/export1)
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+  --> src/Conditionally_Complete_Lattices.rs:10:9
+   |
+10 |     if <Set<BigInt> as Equal>::equal(x.clone(), bot_set::<BigInt>()) {
+   |         ^^^^^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+   |
+help: the trait `HOL::Equal` is implemented for `Set::Set<A>`
+  --> src/Set.rs:66:1
+   |
+66 | impl <A : Clone + Equal + 'static> Equal for Set<A> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required for `Set::Set<num_bigint::BigInt>` to implement `HOL::Equal`
+  --> src/Set.rs:66:36
+   |
+66 | impl <A : Clone + Equal + 'static> Equal for Set<A> {
+   |                   -----            ^^^^^     ^^^^^^
+   |                   |
+   |                   unsatisfied trait bound introduced here
+
+error[E0277]: the trait bound `num_bigint::BigInt: Linorder` is not satisfied
+  --> src/Conditionally_Complete_Lattices.rs:13:13
+   |
+13 |         max(x.clone())
+   |         --- ^^^^^^^^^ the trait `Orderings::Ord` is not implemented for `num_bigint::BigInt`
+   |         |
+   |         required by a bound introduced by this call
+   |
+   = note: `num_bigint::BigInt` implements similarly named trait `std::cmp::Ord`, but not `Orderings::Ord`
+help: the trait `Orderings::Ord` is implemented for `Set::Set<A>`
+  --> src/Set.rs:33:1
+   |
+33 | impl <A : Clone + Equal + 'static> Ord for Set<A> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required for `num_bigint::BigInt` to implement `Preorder`
+  --> src/Orderings.rs:10:15
+   |
+10 | impl<T : Ord> Preorder for T {}
+   |          ---  ^^^^^^^^     ^
+   |          |
+   |          unsatisfied trait bound introduced here
+note: required for `num_bigint::BigInt` to implement `Order`
+  --> src/Orderings.rs:16:20
+   |
+16 | impl<T : Preorder> Order for T {}
+   |          --------  ^^^^^     ^
+   |          |
+   |          unsatisfied trait bound introduced here
+note: required for `num_bigint::BigInt` to implement `Linorder`
+  --> src/Orderings.rs:22:17
+   |
+22 | impl<T : Order> Linorder for T {}
+   |          -----  ^^^^^^^^     ^
+   |          |
+   |          unsatisfied trait bound introduced here
+note: required by a bound in `Lattices_Big::max`
+  --> src/Lattices_Big.rs:10:17
+   |
+ 8 | pub fn max <A> (x0: Set<A>) -> A
+   |        --- required by a bound in this function
+ 9 | where
+10 |     A : Clone + Linorder + 'static
+   |                 ^^^^^^^^ required by this bound in `max`
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `isabelle_exported` (lib) due to 2 previous errors

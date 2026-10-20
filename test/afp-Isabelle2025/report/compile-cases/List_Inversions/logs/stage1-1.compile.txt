@@ -1,0 +1,119 @@
+$ cargo +1.94.0 build --locked --manifest-path /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/List_Inversions/stage1/List_Inversions_Rust_Export/export1/Cargo.toml
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling num-integer v0.1.46
+   Compiling num-bigint v0.4.6
+   Compiling isabelle_exported v0.1.0 (/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/List_Inversions/stage1/List_Inversions_Rust_Export/export1)
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+  --> src/List_Inversions.rs:75:5
+   |
+75 |     sigma(
+   |     ^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+   |
+help: the trait `HOL::Equal` is implemented for `(A, B)`
+  --> src/Product_Type.rs:14:1
+   |
+14 | / impl <A : Clone + Equal + 'static,  B : Clone + Equal + 'static> Equal for
+15 | |     (A, B) {
+   | |__________^
+note: required by a bound in `sigma`
+  --> src/Product_Type.rs:28:17
+   |
+26 | pub fn sigma <B, A> (a: Set<A>, b: Rc<dyn Fn(A) -> Set<B>>) -> Set<(A, B)>
+   |        ----- required by a bound in this function
+27 | where
+28 |     A : Clone + Equal + 'static,
+   |                 ^^^^^ required by this bound in `sigma`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+  --> src/List_Inversions.rs:77:9
+   |
+75 |       sigma(
+   |       ----- required by a bound introduced by this call
+76 |           Set::Set (upt(BigInt::ZERO, size_list(xs.clone()))),
+77 | /         (({
+78 | |             let xs_cap = xs.clone();
+79 | |             Rc::new(move |i: BigInt| -> Set<BigInt> {
+80 | |                 filter(
+...  |
+90 | |             })
+91 | |         }) as Rc<dyn Fn(BigInt) -> Set<BigInt>>)
+   | |________________________________________________^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+   |
+help: the trait `HOL::Equal` is implemented for `(A, B)`
+  --> src/Product_Type.rs:14:1
+   |
+14 | / impl <A : Clone + Equal + 'static,  B : Clone + Equal + 'static> Equal for
+15 | |     (A, B) {
+   | |__________^
+note: required by a bound in `sigma`
+  --> src/Product_Type.rs:29:17
+   |
+26 | pub fn sigma <B, A> (a: Set<A>, b: Rc<dyn Fn(A) -> Set<B>>) -> Set<(A, B)>
+   |        ----- required by a bound in this function
+...
+29 |     B : Clone + Equal + 'static
+   |                 ^^^^^ required by this bound in `sigma`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+  --> src/List_Inversions.rs:99:10
+   |
+99 |     card(inversions(xs.clone()))
+   |     ---- ^^^^^^^^^^^^^^^^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+   |     |
+   |     required by a bound introduced by this call
+   |
+help: the trait `HOL::Equal` is implemented for `(A, B)`
+  --> src/Product_Type.rs:14:1
+   |
+14 | / impl <A : Clone + Equal + 'static,  B : Clone + Equal + 'static> Equal for
+15 | |     (A, B) {
+   | |__________^
+note: required for `(num_bigint::BigInt, num_bigint::BigInt)` to implement `HOL::Equal`
+  --> src/Product_Type.rs:14:66
+   |
+14 | impl <A : Clone + Equal + 'static,  B : Clone + Equal + 'static> Equal for
+   |                   ----- unsatisfied trait bound introduced here  ^^^^^
+15 |     (A, B) {
+   |     ^^^^^^
+note: required by a bound in `card`
+  --> src/Finite_Set.rs:12:17
+   |
+10 | pub fn card <A> (x0: Set<A>) -> BigInt
+   |        ---- required by a bound in this function
+11 | where
+12 |     A : Clone + Equal + 'static
+   |                 ^^^^^ required by this bound in `card`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+   --> src/List_Inversions.rs:123:10
+    |
+123 |     card(inversions_between(xs.clone(), ys.clone()))
+    |     ---- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+    |     |
+    |     required by a bound introduced by this call
+    |
+help: the trait `HOL::Equal` is implemented for `(A, B)`
+   --> src/Product_Type.rs:14:1
+    |
+ 14 | / impl <A : Clone + Equal + 'static,  B : Clone + Equal + 'static> Equal for
+ 15 | |     (A, B) {
+    | |__________^
+note: required for `(num_bigint::BigInt, num_bigint::BigInt)` to implement `HOL::Equal`
+   --> src/Product_Type.rs:14:66
+    |
+ 14 | impl <A : Clone + Equal + 'static,  B : Clone + Equal + 'static> Equal for
+    |                   ----- unsatisfied trait bound introduced here  ^^^^^
+ 15 |     (A, B) {
+    |     ^^^^^^
+note: required by a bound in `card`
+   --> src/Finite_Set.rs:12:17
+    |
+ 10 | pub fn card <A> (x0: Set<A>) -> BigInt
+    |        ---- required by a bound in this function
+ 11 | where
+ 12 |     A : Clone + Equal + 'static
+    |                 ^^^^^ required by this bound in `card`
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `isabelle_exported` (lib) due to 4 previous errors

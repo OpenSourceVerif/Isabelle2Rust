@@ -1,0 +1,149 @@
+{
+  "artifacts": {
+    "logs": "test/afp-Isabelle2025/logs/Gray_Codes",
+    "stage1": "test/afp-Isabelle2025/Gray_Codes/stage1/Gray_Codes_Rust_Export",
+    "stage2": "test/afp-Isabelle2025/Gray_Codes/stage2/Gray_Codes_Rust_Export",
+    "theory": "test/afp-Isabelle2025/Gray_Codes/Gray_Codes_Rust_Export.thy"
+  },
+  "candidate_count": 12,
+  "optimization": {
+    "status": "not_run"
+  },
+  "runtime_validation": {
+    "reason": "No semantic correctness harness supplied",
+    "status": "not_run"
+  },
+  "rust_export": {
+    "command": [
+      "isabelle",
+      "build",
+      "-e",
+      "-j",
+      "1",
+      "-o",
+      "threads=1",
+      "-o",
+      "parallel_proofs=0",
+      "-o",
+      "document=false",
+      "-o",
+      "timeout=180",
+      "-o",
+      "skip_proofs=false",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+      "AFP-Rust-Gray_Codes"
+    ],
+    "log": "test/afp-Isabelle2025/logs/Gray_Codes/export.log",
+    "min_available_mb": 6293,
+    "returncode": 0,
+    "seconds": 5.0,
+    "started": "2026-10-20T11:46:51+00:00",
+    "status": "passed"
+  },
+  "scan": {
+    "candidate_count": 12,
+    "certificate_errors": [],
+    "context_merge_errors": [],
+    "errors": [],
+    "inspections": [
+      {
+        "command": [
+          "isabelle",
+          "process",
+          "-l",
+          "Gray_Codes",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "-f",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/scan.ML",
+          "-o",
+          "threads=1"
+        ],
+        "data": "test/afp-Isabelle2025/_build/Gray_Codes/Gray_Codes.xml",
+        "log": "test/afp-Isabelle2025/logs/Gray_Codes/Gray_Codes.scan.log",
+        "min_available_mb": 6198,
+        "returncode": 0,
+        "seconds": 3.0,
+        "session": "Gray_Codes",
+        "started": "2026-10-20T08:04:35+00:00",
+        "status": "passed"
+      }
+    ],
+    "loading": [
+      {
+        "command": [
+          "isabelle",
+          "build",
+          "-b",
+          "-j",
+          "1",
+          "-o",
+          "threads=1",
+          "-o",
+          "parallel_proofs=0",
+          "-o",
+          "document=false",
+          "-o",
+          "timeout=600",
+          "-o",
+          "skip_proofs=false",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "Gray_Codes"
+        ],
+        "log": "test/afp-Isabelle2025/logs/Gray_Codes/Gray_Codes.load.log",
+        "min_available_mb": 6100,
+        "returncode": 0,
+        "seconds": 4.0,
+        "session": "Gray_Codes",
+        "started": "2026-10-20T08:04:31+00:00",
+        "status": "passed"
+      }
+    ],
+    "missing_theories": [],
+    "status": "passed",
+    "theories": [
+      "Code_Word_Dist.thy",
+      "Encoding_Nat.thy",
+      "Non_Boolean_Gray.thy"
+    ],
+    "theory_loading": {
+      "status": "passed"
+    }
+  },
+  "scope_sha256": "565f227b36a2bbb85ecc4d361256f41004a8ea5902a8296ae9fe9a1f3cb27a6f",
+  "stage1_compile": {
+    "checks": [
+      {
+        "command": [
+          "cargo",
+          "+1.94.0",
+          "build",
+          "--locked",
+          "--manifest-path",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/Gray_Codes/stage1/Gray_Codes_Rust_Export/export1/Cargo.toml"
+        ],
+        "error_excerpt": "52 | /                 if ! (a.clone() == b.clone()) {\n53 | |                       one_nat()\n54 | |                   } else {\n55 | |                       BigInt::ZERO\n   | |                       ^^^^^^^^^^^^ expected `()`, found `BigInt`\n56 | |                   } + hamming(v.clone(), w.clone())\n   | |___________________- expected this to be `()`\n   |\nhelp: parentheses are required to parse this as an expression\n   |\n52 ~                 (if ! (a.clone() == b.clone()) {\n53 |                       one_nat()\n54 |                   } else {\n55 |                       BigInt::ZERO\n56 ~                   }) + hamming(v.clone(), w.clone())\n   |\nhelp: you might have meant to return this value\n   |\n55 |                       return BigInt::ZERO;\n   |                       ++++++             +\n\nSome errors have detailed explanations: E0277, E0308.\nFor more information about an error, try `rustc --explain E0277`.\nerror: could not compile `isabelle_exported` (lib) due to 7 previous errors",
+        "log": "test/afp-Isabelle2025/logs/Gray_Codes/stage1-1.compile.log",
+        "min_available_mb": 6797,
+        "returncode": 101,
+        "seconds": 2.0,
+        "started": "2026-10-20T11:46:56+00:00",
+        "status": "failed"
+      }
+    ],
+    "status": "failed"
+  },
+  "stage2_compile": {
+    "status": "not_run"
+  },
+  "status": "failed",
+  "theory_count": 3,
+  "theory_loading": {
+    "log": "test/afp-Isabelle2025/logs/Gray_Codes/export.log",
+    "status": "passed"
+  }
+}

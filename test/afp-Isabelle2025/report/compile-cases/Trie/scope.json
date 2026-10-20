@@ -1,0 +1,35 @@
+{
+  "Trie.thy": [
+    "Trie.all_trie",
+    "Trie.delete_trie",
+    "Trie.empty_trie",
+    "Trie.equal_trie_inst.equal_trie",
+    "Trie.invar_trie",
+    "Trie.is_empty_trie",
+    "Trie.lookup_trie",
+    "Trie.partial_term_of_trie_inst.partial_term_of_trie",
+    "Trie.size_trie_inst.size_trie",
+    "Trie.term_of_trie_inst.term_of_trie",
+    "Trie.trie.case_trie",
+    "Trie.trie.map_trie",
+    "Trie.trie.rec_trie",
+    "Trie.trie.rel_trie",
+    "Trie.trie.set1_trie",
+    "Trie.trie.set2_trie",
+    "Trie.trie.size_trie",
+    "Trie.trie.typerep_trie_IITN_trie_inst.typerep_trie_IITN_trie",
+    "Trie.trie.typerep_trie_pre_trie_inst.typerep_trie_pre_trie",
+    "Trie.typerep_trie_inst.typerep_trie",
+    "Trie.update_trie",
+    "Trie.update_with_trie"
+  ],
+  "Tries.thy": [
+    "Tries.all_tries",
+    "Tries.insert_tries",
+    "Tries.inserts_tries",
+    "Tries.lookup_tries",
+    "Tries.set_tries",
+    "Tries.tries_of_list",
+    "Tries.update_with_tries"
+  ]
+}

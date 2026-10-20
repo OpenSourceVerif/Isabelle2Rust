@@ -1,0 +1,159 @@
+{
+  "artifacts": {
+    "logs": "test/afp-Isabelle2025/logs/Vickrey_Clarke_Groves",
+    "stage1": "test/afp-Isabelle2025/Vickrey_Clarke_Groves/stage1/Vickrey_Clarke_Groves_Rust_Export",
+    "stage2": "test/afp-Isabelle2025/Vickrey_Clarke_Groves/stage2/Vickrey_Clarke_Groves_Rust_Export",
+    "theory": "test/afp-Isabelle2025/Vickrey_Clarke_Groves/Vickrey_Clarke_Groves_Rust_Export.thy"
+  },
+  "candidate_count": 74,
+  "optimization": {
+    "status": "not_run"
+  },
+  "runtime_validation": {
+    "reason": "No semantic correctness harness supplied",
+    "status": "not_run"
+  },
+  "rust_export": {
+    "command": [
+      "isabelle",
+      "build",
+      "-e",
+      "-j",
+      "1",
+      "-o",
+      "threads=1",
+      "-o",
+      "parallel_proofs=0",
+      "-o",
+      "document=false",
+      "-o",
+      "timeout=180",
+      "-o",
+      "skip_proofs=false",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+      "AFP-Rust-Vickrey_Clarke_Groves"
+    ],
+    "log": "test/afp-Isabelle2025/logs/Vickrey_Clarke_Groves/export.log",
+    "min_available_mb": 6286,
+    "returncode": 0,
+    "seconds": 5.0,
+    "started": "2026-10-20T12:14:02+00:00",
+    "status": "passed"
+  },
+  "scan": {
+    "candidate_count": 74,
+    "certificate_errors": [],
+    "context_merge_errors": [],
+    "errors": [],
+    "inspections": [
+      {
+        "command": [
+          "isabelle",
+          "process",
+          "-l",
+          "Vickrey_Clarke_Groves",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "-f",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/scan.ML",
+          "-o",
+          "threads=1"
+        ],
+        "data": "test/afp-Isabelle2025/_build/Vickrey_Clarke_Groves/Vickrey_Clarke_Groves.xml",
+        "log": "test/afp-Isabelle2025/logs/Vickrey_Clarke_Groves/Vickrey_Clarke_Groves.scan.log",
+        "min_available_mb": 6020,
+        "returncode": 0,
+        "seconds": 4.0,
+        "session": "Vickrey_Clarke_Groves",
+        "started": "2026-10-20T10:21:31+00:00",
+        "status": "passed"
+      }
+    ],
+    "loading": [
+      {
+        "command": [
+          "isabelle",
+          "build",
+          "-b",
+          "-j",
+          "1",
+          "-o",
+          "threads=1",
+          "-o",
+          "parallel_proofs=0",
+          "-o",
+          "document=false",
+          "-o",
+          "timeout=600",
+          "-o",
+          "skip_proofs=false",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "Vickrey_Clarke_Groves"
+        ],
+        "log": "test/afp-Isabelle2025/logs/Vickrey_Clarke_Groves/Vickrey_Clarke_Groves.load.log",
+        "min_available_mb": 5979,
+        "returncode": 0,
+        "seconds": 4.5,
+        "session": "Vickrey_Clarke_Groves",
+        "started": "2026-10-20T10:21:27+00:00",
+        "status": "passed"
+      }
+    ],
+    "missing_theories": [],
+    "status": "passed",
+    "theories": [
+      "Argmax.thy",
+      "CombinatorialAuction.thy",
+      "CombinatorialAuctionCodeExtraction.thy",
+      "CombinatorialAuctionExamples.thy",
+      "FirstPrice.thy",
+      "MiscTools.thy",
+      "Partitions.thy",
+      "RelationOperators.thy",
+      "RelationProperties.thy",
+      "SetUtils.thy",
+      "StrictCombinatorialAuction.thy",
+      "UniformTieBreaking.thy",
+      "Universes.thy"
+    ],
+    "theory_loading": {
+      "status": "passed"
+    }
+  },
+  "scope_sha256": "46340c85fbda8170ef7fcd718910f8de5e86334ee88e10924114378add406e66",
+  "stage1_compile": {
+    "checks": [
+      {
+        "command": [
+          "cargo",
+          "+1.94.0",
+          "build",
+          "--locked",
+          "--manifest-path",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/Vickrey_Clarke_Groves/stage1/Vickrey_Clarke_Groves_Rust_Export/export1/Cargo.toml"
+        ],
+        "error_excerpt": "$ cargo +1.94.0 build --locked --manifest-path /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/Vickrey_Clarke_Groves/stage1/Vickrey_Clarke_Groves_Rust_Export/export1/Cargo.toml\n   Compiling autocfg v1.5.1\n   Compiling num-traits v0.2.19\n   Compiling num-integer v0.1.46\n   Compiling num-bigint v0.4.6\n   Compiling isabelle_exported v0.1.0 (/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/Vickrey_Clarke_Groves/stage1/Vickrey_Clarke_Groves_Rust_Export/export1)\nerror[E0614]: type `Set::Set<Set::Set<(A, Set::Set<B>)>>` cannot be dereferenced\n  --> src/CombinatorialAuction.rs:74:35\n   |\n74 |                   member(x.clone(), (*(*comp(((Rc::new(move |boundary_arg: Rc<dyn Fn(Set<(A, Set<B>)>) -> C>| {\n   |  ___________________________________^\n75 | |                     (({\n76 | |                         let boundary_arg_cap = boundary_arg.clone();\n77 | |                         Rc::new(move |a: Set<Set<(A, Set<B>)>>| -> Set<Set<(A, Set<B>)>> {\n...  |\n87 | |                     }) as Rc<dyn Fn(Set<(A, Set<B>)>) -> C>)\n88 | |                 })) as Rc<dyn Fn(Rc<dyn Fn((A, Set<B>)) -> C>) -> Rc<dyn Fn(Set<(A, Set<B>)>) -> C>>)))(b_cap.clone()))(Set::Set (...\n   | |_______________________________________________________________________________________________________________________^ can't be dereferenced\n\nFor more information about this error, try `rustc --explain E0614`.\nerror: could not compile `isabelle_exported` (lib) due to 1 previous error",
+        "log": "test/afp-Isabelle2025/logs/Vickrey_Clarke_Groves/stage1-1.compile.log",
+        "min_available_mb": 6797,
+        "returncode": 101,
+        "seconds": 2.0,
+        "started": "2026-10-20T12:14:08+00:00",
+        "status": "failed"
+      }
+    ],
+    "status": "failed"
+  },
+  "stage2_compile": {
+    "status": "not_run"
+  },
+  "status": "failed",
+  "theory_count": 13,
+  "theory_loading": {
+    "log": "test/afp-Isabelle2025/logs/Vickrey_Clarke_Groves/export.log",
+    "status": "passed"
+  }
+}

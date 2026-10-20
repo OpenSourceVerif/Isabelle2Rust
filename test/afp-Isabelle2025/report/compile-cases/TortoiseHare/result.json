@@ -1,0 +1,149 @@
+{
+  "artifacts": {
+    "logs": "test/afp-Isabelle2025/logs/TortoiseHare",
+    "stage1": "test/afp-Isabelle2025/TortoiseHare/stage1/TortoiseHare_Rust_Export",
+    "stage2": "test/afp-Isabelle2025/TortoiseHare/stage2/TortoiseHare_Rust_Export",
+    "theory": "test/afp-Isabelle2025/TortoiseHare/TortoiseHare_Rust_Export.thy"
+  },
+  "candidate_count": 49,
+  "optimization": {
+    "status": "not_run"
+  },
+  "runtime_validation": {
+    "reason": "No semantic correctness harness supplied",
+    "status": "not_run"
+  },
+  "rust_export": {
+    "command": [
+      "isabelle",
+      "build",
+      "-e",
+      "-j",
+      "1",
+      "-o",
+      "threads=1",
+      "-o",
+      "parallel_proofs=0",
+      "-o",
+      "document=false",
+      "-o",
+      "timeout=180",
+      "-o",
+      "skip_proofs=false",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+      "AFP-Rust-TortoiseHare"
+    ],
+    "log": "test/afp-Isabelle2025/logs/TortoiseHare/export.log",
+    "min_available_mb": 6295,
+    "returncode": 0,
+    "seconds": 5.0,
+    "started": "2026-10-20T12:13:47+00:00",
+    "status": "passed"
+  },
+  "scan": {
+    "candidate_count": 49,
+    "certificate_errors": [],
+    "context_merge_errors": [],
+    "errors": [],
+    "inspections": [
+      {
+        "command": [
+          "isabelle",
+          "process",
+          "-l",
+          "TortoiseHare",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "-f",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/scan.ML",
+          "-o",
+          "threads=1"
+        ],
+        "data": "test/afp-Isabelle2025/_build/TortoiseHare/TortoiseHare.xml",
+        "log": "test/afp-Isabelle2025/logs/TortoiseHare/TortoiseHare.scan.log",
+        "min_available_mb": 6218,
+        "returncode": 0,
+        "seconds": 3.5,
+        "session": "TortoiseHare",
+        "started": "2026-10-20T10:11:07+00:00",
+        "status": "passed"
+      }
+    ],
+    "loading": [
+      {
+        "command": [
+          "isabelle",
+          "build",
+          "-b",
+          "-j",
+          "1",
+          "-o",
+          "threads=1",
+          "-o",
+          "parallel_proofs=0",
+          "-o",
+          "document=false",
+          "-o",
+          "timeout=600",
+          "-o",
+          "skip_proofs=false",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "TortoiseHare"
+        ],
+        "log": "test/afp-Isabelle2025/logs/TortoiseHare/TortoiseHare.load.log",
+        "min_available_mb": 6353,
+        "returncode": 0,
+        "seconds": 4.5,
+        "session": "TortoiseHare",
+        "started": "2026-10-20T10:11:02+00:00",
+        "status": "passed"
+      }
+    ],
+    "missing_theories": [],
+    "status": "passed",
+    "theories": [
+      "Basis.thy",
+      "Brent.thy",
+      "TortoiseHare.thy"
+    ],
+    "theory_loading": {
+      "status": "passed"
+    }
+  },
+  "scope_sha256": "8726f49b5935fa02c557a2d9ed91f444481edf6499e0b739fa11118313090d7a",
+  "stage1_compile": {
+    "checks": [
+      {
+        "command": [
+          "cargo",
+          "+1.94.0",
+          "build",
+          "--locked",
+          "--manifest-path",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/TortoiseHare/stage1/TortoiseHare_Rust_Export/export1/Cargo.toml"
+        ],
+        "error_excerpt": "\nerror[E0277]: the trait bound `num_bigint::BigInt: Orderings::Ord` is not satisfied\n   --> src/Arith.rs:268:19\n    |\n268 |     Natural::Nat (max(BigInt::ZERO, integer_of_natural(m.clone()) -\n    |                   ^^^ the trait `Orderings::Ord` is not implemented for `num_bigint::BigInt`\n    |\n    = note: `num_bigint::BigInt` implements similarly named trait `std::cmp::Ord`, but not `Orderings::Ord`\nhelp: the trait `Orderings::Ord` is implemented for `Natural`\n   --> src/Arith.rs:272:1\n    |\n272 | impl Ord for Natural {\n    | ^^^^^^^^^^^^^^^^^^^^\nnote: required by a bound in `Orderings::max`\n   --> src/Orderings.rs:8:17\n    |\n  6 | pub fn max <A> (a: A, b: A) -> A\n    |        --- required by a bound in this function\n  7 | where\n  8 |     A : Clone + Ord + 'static\n    |                 ^^^ required by this bound in `max`\n\nFor more information about this error, try `rustc --explain E0277`.\nerror: could not compile `isabelle_exported` (lib) due to 2 previous errors",
+        "log": "test/afp-Isabelle2025/logs/TortoiseHare/stage1-1.compile.log",
+        "min_available_mb": 6809,
+        "returncode": 101,
+        "seconds": 2.01,
+        "started": "2026-10-20T12:13:53+00:00",
+        "status": "failed"
+      }
+    ],
+    "status": "failed"
+  },
+  "stage2_compile": {
+    "status": "not_run"
+  },
+  "status": "failed",
+  "theory_count": 3,
+  "theory_loading": {
+    "log": "test/afp-Isabelle2025/logs/TortoiseHare/export.log",
+    "status": "passed"
+  }
+}

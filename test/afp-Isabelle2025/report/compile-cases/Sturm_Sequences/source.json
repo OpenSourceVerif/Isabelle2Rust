@@ -1,0 +1,434 @@
+{
+  "run_id": "20261020T074609Z",
+  "preserved_at_utc": "2026-10-20T16:41:25.317796+00:00",
+  "method": "Read-only SQLite isabelle_exports; Zstandard decompression when compressed=1. No Isabelle or Cargo rerun.",
+  "cache_note": "Database predates this run. This run used isabelle build -e to export the validated cached session. Local backend/setup/export-theory bytes were checked against cached isabelle_sources.",
+  "database": {
+    "path": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+    "sha256": "8618b1009364e68e714ab6774e43c9010e389aeaf004c1cef835e791db000376",
+    "mtime_utc": "2026-10-19T19:19:54.280779+00:00",
+    "session_name": "AFP-Rust-Sturm_Sequences",
+    "session_uuid": "a8bf44eb-62bc-422b-bf12-d0e65cb8d7fe",
+    "return_code": 0
+  },
+  "cached_local_sources": [
+    {
+      "path": "test/afp-Isabelle2025/Sturm_Sequences/Sturm_Sequences_Rust_Export.thy",
+      "cached_sha1": "cd2c740f0cb62d39b498f5bbe910828cbf1729cd",
+      "sha256": "a0ff61f2eac23608a803c6e8bbcd844ecdfe40d1ca81facfd0ce1a080515ac59",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/code_debug_info.ML",
+      "cached_sha1": "535028443685bda0640c050464f40d026bfa94b3",
+      "sha256": "613e0cd700651312fc5068d273f7ecfceb3bc4b260f2c5e1cf3be1379a411d96",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/code_rust.ML",
+      "cached_sha1": "f7336e8e2f218a94a259b3f3037b357f704ca343",
+      "sha256": "4d9f2e26c1d3ee1767d1351fab7f3a6c3e179c1586a570ac759d16fa04d6d528",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Integer_BigInt_Layer.thy",
+      "cached_sha1": "27229b09930c33de2d093e476559432ce84972a9",
+      "sha256": "0940b3b15ffc9b50cd998f5959f56b2004b971395c3401bb1d94bb430654cc9c",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_BigInt_Setup.thy",
+      "cached_sha1": "85e7b37bd85e025baf41fa17f9814b376dc00737",
+      "sha256": "3de8e36c49eb9e6f80d9b7e09aaf7af1605cdb1e6c86f118567f7ecc0cfc2ba4",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Target.thy",
+      "cached_sha1": "ff9206d8572eb1061145df62848d1998fd1162cd",
+      "sha256": "18fd87878d31222f752997a4bd8c8892858541dd5fd01574e2f50d89ec65dc9b",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Base_Setup.thy",
+      "cached_sha1": "5378c0a4770ba3cf8b4b67c5e0ddd4b4e3f7333c",
+      "sha256": "41351b8900ef420f7f7f12611a26b5955b4cc79735e6f6e2f8d24219ecbe5dea",
+      "equal_to_current": true
+    }
+  ],
+  "cargo_lock_note": "No Cargo.lock is stored by the Isabelle export database. Preserved files are the original export rows; use the recorded lock helper and pinned template for reproduction. An original Approximation_Algorithms lock is already preserved under report/cases.",
+  "files": [
+    {
+      "path": "rust-before/export1/Cargo.toml",
+      "bytes": 221,
+      "sha256": "9f3de0f598654ed5470eddbf0d967dba0fa9ddd4d2368a01ba77a40bff03dcab",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/Cargo.toml",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Arith.rs",
+      "bytes": 7854,
+      "sha256": "d396ee10551693f67f52f7aecbe63f283c43d26c75914e193cd491f2aa63817c",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Arith.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Euclidean_Algorithm.rs",
+      "bytes": 1886,
+      "sha256": "6bfadb46bb3bbaa956d41f7399501ecfa5f9d147f19660151a0cccbb8b993739",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Euclidean_Algorithm.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Euclidean_Rings.rs",
+      "bytes": 728,
+      "sha256": "5ca849e078b00f21151790b318230f926ebc99bd900a2300ad05586d29ef0e0b",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Euclidean_Rings.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Factorial_Ring.rs",
+      "bytes": 556,
+      "sha256": "f438209db70245a6e19e9f386d9afdd5dc2ec6847e36ab989b7b7836d93f6d61",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Factorial_Ring.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Field_as_Ring.rs",
+      "bytes": 3143,
+      "sha256": "bf7fb9806321501a3a09a3bfb42b709d9f58ff91172e21385556db932627dbdb",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Field_as_Ring.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Fields.rs",
+      "bytes": 479,
+      "sha256": "e2104aba85bd8859d8dc341952cf735b059668f7bed3e8ea50ce1ebe91783c29",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Fields.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Filter.rs",
+      "bytes": 191,
+      "sha256": "2d04901ca5624c3db181079bfe9b523370744069fe91fca7406428affb1bfaaf",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Filter.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Fun.rs",
+      "bytes": 455,
+      "sha256": "1c1d296316c2024706bc7a5ad9a8e67880a5a84b1dd8b2ac83dbcb83a64cd8bc",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Fun.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/GCD.rs",
+      "bytes": 1559,
+      "sha256": "75574049c43d7969bae60fbdd7dae3c12edbe341e27c973ba265816984c36584",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/GCD.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Groups_List.rs",
+      "bytes": 662,
+      "sha256": "83ba52857f00c906fc5463f9fb103799f37132eb7e5896894f5b23a896666a4d",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Groups_List.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/HOL.rs",
+      "bytes": 205,
+      "sha256": "e2d904874b531afa818a69924b8a23b621d9beee723f25f720a08b0031cbab98",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/HOL.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Limits.rs",
+      "bytes": 870,
+      "sha256": "d63dfc6e0e3587671d56b86e0d9840a27f7350d61fbf8e7672a4ccc330abf5a5",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Limits.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/List.rs",
+      "bytes": 7664,
+      "sha256": "787080437d27d78c0286caa4edfc63203442cfc37049a4467f2bbd15e399a67b",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/List.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Misc_Polynomial.rs",
+      "bytes": 854,
+      "sha256": "c7df51c419d01a03b024d5395fadb47a98393e3f7d6c3a1f449e7f7fcc269fa0",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Misc_Polynomial.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/More_List.rs",
+      "bytes": 1483,
+      "sha256": "07cae3fa0228976aeedc82ac98f2ca940e7c4ee7840733d514d801b07fe6c345",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/More_List.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Polynomial.rs",
+      "bytes": 16337,
+      "sha256": "3e8269e5429759bc4537fe5ec6f7bd001331df2feb2f8e1b1d42157532b93b5c",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Polynomial.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Polynomial_Factorial.rs",
+      "bytes": 1790,
+      "sha256": "60c184dd395d4d089a6c832201068fb2bfca369db7de9e9461c39e5e8c9d985f",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Polynomial_Factorial.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Product_Type.rs",
+      "bytes": 1194,
+      "sha256": "86c70b137e75ce3031c4dad66ff2845ee6ea117c9f6158665446377295595a39",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Product_Type.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Rat.rs",
+      "bytes": 5621,
+      "sha256": "4eaf2beaa35dab3e6178cf375e5b500be4ee291c9ae94212e95260d0ce567b0f",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Rat.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Real.rs",
+      "bytes": 4152,
+      "sha256": "53d7c46bc477ac2a573dfb8bb792e9930e02af469bb5401b42f3270db5d02975",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Real.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Real_Vector_Spaces.rs",
+      "bytes": 5187,
+      "sha256": "c8521a00ecd9ffd91f3d2e613a147d6490b7683b6d78bee6691a865bcb905949",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Real_Vector_Spaces.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Rings.rs",
+      "bytes": 5653,
+      "sha256": "3cd1cac674e1e09edda87412ca42dc383a120959851b7335b3865c3ced88d1bc",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Rings.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Semiring_Normalization.rs",
+      "bytes": 185,
+      "sha256": "d3efbdf09d4ad51a8b6f93d6adeefc1444b9fa8c2bbffa5182a68a17d9bb906a",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Semiring_Normalization.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Set.rs",
+      "bytes": 100,
+      "sha256": "0751b7432660c19e1b7072ab1297616709f227a50cd0e438a23fdfa85223da28",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Set.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/String.rs",
+      "bytes": 213,
+      "sha256": "09ef62ce590ce3d5b29226494365141332283b60d6d0ea8810838eeb20035c73",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/String.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Sturm_Method.rs",
+      "bytes": 78,
+      "sha256": "1f5acb295fc62b85f3c430d65b42ee7aa6c4ac92c17d6707dfd6ca1eac44e1d4",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Sturm_Method.rs",
+      "zstd_compressed": false
+    },
+    {
+      "path": "rust-before/export1/src/Sturm_Theorem.rs",
+      "bytes": 8752,
+      "sha256": "21b81e5911d453570cba8e0fe966d6e34561309d7faf517c05615dce1efe0357",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Sturm_Theorem.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Topological_Spaces.rs",
+      "bytes": 892,
+      "sha256": "6082b22ce6a3e34b7236aa977715f6bb4c778ad3ebdd4285188b3fb88236fd88",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/Topological_Spaces.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/lib.rs",
+      "bytes": 559,
+      "sha256": "082df9656590546c3de8cdc8d4a4d0bcc2728d81bd83940836b101d5184e5674",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Sturm_Sequences.db",
+      "theory": "AFP-Rust-Sturm_Sequences.Sturm_Sequences_Rust_Export",
+      "export_name": "code/export1/src/lib.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "original/ROOT",
+      "bytes": 490,
+      "sha256": "501eb0d9a9f3fd8a7a618ad074e7030979ed1ae27ea8845c257135ddefbe2658",
+      "origin": "temp/afp-Isabelle2025/thys/Sturm_Sequences/ROOT",
+      "cached_session_sha1": null,
+      "cached_session_hash_equal": null
+    },
+    {
+      "path": "original/Examples/Sturm_Ex.thy",
+      "bytes": 1656,
+      "sha256": "9024b7825e9938ae66fe382aec052075a399fb0439aaca8ec2c1938f4eba02af",
+      "origin": "temp/afp-Isabelle2025/thys/Sturm_Sequences/Examples/Sturm_Ex.thy",
+      "cached_session_sha1": "70cd4400e4fd16ab7f307931842aa4f634d053f0",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Lib/Misc_Polynomial.thy",
+      "bytes": 44732,
+      "sha256": "cb6edb4c49c958f952ddbbf80041745dce6c9f5e1d529be7cd04f98a15e93494",
+      "origin": "temp/afp-Isabelle2025/thys/Sturm_Sequences/Lib/Misc_Polynomial.thy",
+      "cached_session_sha1": "5fa2fc0e508516aaf30da96b39ddd022a921f8b6",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Lib/Sturm_Library.thy",
+      "bytes": 92,
+      "sha256": "d711fed76234f082088ff3299a9b2c9aeea31d4a20ce389612fd2debb99ab366",
+      "origin": "temp/afp-Isabelle2025/thys/Sturm_Sequences/Lib/Sturm_Library.thy",
+      "cached_session_sha1": "ff6c1392c2170fdf37e158b67894965ba4f6eac6",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Lib/Sturm_Library_Document.thy",
+      "bytes": 102,
+      "sha256": "f6d516e6a6e24b9a8d5ada2440a15981bf37d2ced15331be76c7a31bf0ea801f",
+      "origin": "temp/afp-Isabelle2025/thys/Sturm_Sequences/Lib/Sturm_Library_Document.thy",
+      "cached_session_sha1": "830373883063acd434bb6f285b4fcb397837d7de",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Sturm.thy",
+      "bytes": 192,
+      "sha256": "6aafa997555c8f19d0f5b127783c3e7d8decc27f11a678c6ad8ea8338b1dae95",
+      "origin": "temp/afp-Isabelle2025/thys/Sturm_Sequences/Sturm.thy",
+      "cached_session_sha1": "39b58487db2a4057ff69f7d5e07f55293f7efbdf",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Sturm_Method.thy",
+      "bytes": 29261,
+      "sha256": "58b634722df425912de2d87b30495e953c0ab0f312f4916c3c20d169ba7da6a9",
+      "origin": "temp/afp-Isabelle2025/thys/Sturm_Sequences/Sturm_Method.thy",
+      "cached_session_sha1": "b4fbc28e26bcc05dfdf1c8ccfa84cbb6bc3829b6",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Sturm_Theorem.thy",
+      "bytes": 80234,
+      "sha256": "b69a54a9d14036edaa933cefe5c0899390cf756bce3ff52252a22df18b83ae09",
+      "origin": "temp/afp-Isabelle2025/thys/Sturm_Sequences/Sturm_Theorem.thy",
+      "cached_session_sha1": "29dcb379e975d78fc03e8e09195718b71f2d5557",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "logs/export.txt",
+      "bytes": 313,
+      "sha256": "277c068663f0d0406906d21164682d2e44f700a3b0e73fb36a6509df31286a37",
+      "origin": "test/afp-Isabelle2025/logs/Sturm_Sequences/export.log",
+      "source_mtime_utc": "2026-10-20T12:00:36.193155+00:00"
+    },
+    {
+      "path": "logs/stage1-1.lock.txt",
+      "bytes": 300,
+      "sha256": "8fcc3543f1f1c97f34044857c2ce9e74c7406983aee1f94e0646daca413674b6",
+      "origin": "test/afp-Isabelle2025/logs/Sturm_Sequences/stage1-1.lock.log",
+      "source_mtime_utc": "2026-10-20T12:00:36.589155+00:00"
+    },
+    {
+      "path": "logs/stage1-1.compile.txt",
+      "bytes": 5331,
+      "sha256": "e91afbf02cb487bb0a953c2b285bc48e5de24b72bb6f7fa004e3ceca59505ccd",
+      "origin": "test/afp-Isabelle2025/logs/Sturm_Sequences/stage1-1.compile.log",
+      "source_mtime_utc": "2026-10-20T12:00:39.057155+00:00"
+    },
+    {
+      "path": "export/Sturm_Sequences_Rust_Export.thy",
+      "bytes": 1320,
+      "sha256": "a0ff61f2eac23608a803c6e8bbcd844ecdfe40d1ca81facfd0ce1a080515ac59",
+      "origin": "test/afp-Isabelle2025/Sturm_Sequences/Sturm_Sequences_Rust_Export.thy"
+    },
+    {
+      "path": "scope.json",
+      "bytes": 752,
+      "sha256": "16e647364ef74240801eebbbda238a155efc158c0fee88d4a779fee81f1b7780",
+      "origin": "test/afp-Isabelle2025/exports.json"
+    },
+    {
+      "path": "result.json",
+      "bytes": 5523,
+      "sha256": "ca806c97c8007f17f18c208fec84b2d4218b5056b6b5cb1cbc8c65942f4b6c17",
+      "origin": "test/afp-Isabelle2025/results.json"
+    }
+  ]
+}

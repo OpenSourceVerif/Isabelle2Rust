@@ -1,0 +1,518 @@
+{
+  "run_id": "20261020T074609Z",
+  "preserved_at_utc": "2026-10-20T16:41:25.317796+00:00",
+  "method": "Read-only SQLite isabelle_exports; Zstandard decompression when compressed=1. No Isabelle or Cargo rerun.",
+  "cache_note": "Database predates this run. This run used isabelle build -e to export the validated cached session. Local backend/setup/export-theory bytes were checked against cached isabelle_sources.",
+  "database": {
+    "path": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+    "sha256": "6513dfd7ed917913beff4674fad86451f00eaf1340a7cb0863d739e771e0a9cf",
+    "mtime_utc": "2026-10-19T19:34:24.980722+00:00",
+    "session_name": "AFP-Rust-Vickrey_Clarke_Groves",
+    "session_uuid": "47adae65-0060-438e-86e2-af9c789aee28",
+    "return_code": 0
+  },
+  "cached_local_sources": [
+    {
+      "path": "test/afp-Isabelle2025/Vickrey_Clarke_Groves/Vickrey_Clarke_Groves_Rust_Export.thy",
+      "cached_sha1": "c7603d3b8e89f610e3d5812640e1b821b708c945",
+      "sha256": "010691bc90b2733c545b9e009852012d36b5d3f58b242c08d871b309d802cfc6",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/code_debug_info.ML",
+      "cached_sha1": "535028443685bda0640c050464f40d026bfa94b3",
+      "sha256": "613e0cd700651312fc5068d273f7ecfceb3bc4b260f2c5e1cf3be1379a411d96",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/code_rust.ML",
+      "cached_sha1": "f7336e8e2f218a94a259b3f3037b357f704ca343",
+      "sha256": "4d9f2e26c1d3ee1767d1351fab7f3a6c3e179c1586a570ac759d16fa04d6d528",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Integer_BigInt_Layer.thy",
+      "cached_sha1": "27229b09930c33de2d093e476559432ce84972a9",
+      "sha256": "0940b3b15ffc9b50cd998f5959f56b2004b971395c3401bb1d94bb430654cc9c",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_BigInt_Setup.thy",
+      "cached_sha1": "85e7b37bd85e025baf41fa17f9814b376dc00737",
+      "sha256": "3de8e36c49eb9e6f80d9b7e09aaf7af1605cdb1e6c86f118567f7ecc0cfc2ba4",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Target.thy",
+      "cached_sha1": "ff9206d8572eb1061145df62848d1998fd1162cd",
+      "sha256": "18fd87878d31222f752997a4bd8c8892858541dd5fd01574e2f50d89ec65dc9b",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Base_Setup.thy",
+      "cached_sha1": "5378c0a4770ba3cf8b4b67c5e0ddd4b4e3f7333c",
+      "sha256": "41351b8900ef420f7f7f12611a26b5955b4cc79735e6f6e2f8d24219ecbe5dea",
+      "equal_to_current": true
+    }
+  ],
+  "cargo_lock_note": "No Cargo.lock is stored by the Isabelle export database. Preserved files are the original export rows; use the recorded lock helper and pinned template for reproduction. An original Approximation_Algorithms lock is already preserved under report/cases.",
+  "files": [
+    {
+      "path": "rust-before/export1/Cargo.toml",
+      "bytes": 221,
+      "sha256": "9f3de0f598654ed5470eddbf0d967dba0fa9ddd4d2368a01ba77a40bff03dcab",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/Cargo.toml",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Argmax.rs",
+      "bytes": 2981,
+      "sha256": "39f7a774af5588cdcefb60982a95d154164ae4d5823e843cf8c73ec1cf487545",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Argmax.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Arith.rs",
+      "bytes": 6763,
+      "sha256": "292dc118eec4d789b745e1fab2960160e60496cb64c8a9350e49e13e61fb48d5",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Arith.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/CombinatorialAuction.rs",
+      "bytes": 14625,
+      "sha256": "f9367dbea084e5faf6704e2837c1c20f3daa37d4090366b6fcf80a420a7c648e",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/CombinatorialAuction.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/CombinatorialAuctionCodeExtraction.rs",
+      "bytes": 4439,
+      "sha256": "31c3ca8b8ee9ed70b33a06289611dd87c83282c3c497099b1638ecceac1d9df7",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/CombinatorialAuctionCodeExtraction.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/CombinatorialAuctionExamples.rs",
+      "bytes": 9105,
+      "sha256": "93074568588addd0dcd6c25bdc04c5608405c6af05d5a924fcdcaaf2f18c1a32",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/CombinatorialAuctionExamples.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Complete_Lattices.rs",
+      "bytes": 567,
+      "sha256": "237bbb35355bdf419ef87d7ad2d8ec50f85aa22bf138d382d9e8229a717bdfe0",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Complete_Lattices.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Enum.rs",
+      "bytes": 2592,
+      "sha256": "478523c2463e46e97fbdc1070ed52ffa328cd91c54fc6480493d6fb8d3e874e8",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Enum.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Euclidean_Rings.rs",
+      "bytes": 414,
+      "sha256": "93870ad377922d0024fc0d59818d3ad52be83adde1123cc1498c4f2b3ab50d7c",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Euclidean_Rings.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Finite_Set.rs",
+      "bytes": 456,
+      "sha256": "fb21ea6b4c412d36a23856aa1fbb26312ec99ee90f7d312b77106b798550a70e",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Finite_Set.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Fun.rs",
+      "bytes": 455,
+      "sha256": "1c1d296316c2024706bc7a5ad9a8e67880a5a84b1dd8b2ac83dbcb83a64cd8bc",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Fun.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/GCD.rs",
+      "bytes": 522,
+      "sha256": "cad0a46f21f03be61b623cefd6fcc1a5b788075f45fc20300f9db336d616aae5",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/GCD.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Groups_Big.rs",
+      "bytes": 516,
+      "sha256": "80c0551bb65cef6ebef8c614e4c032c4c6f6d78053c90e02550b22b391cc670e",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Groups_Big.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Groups_List.rs",
+      "bytes": 392,
+      "sha256": "a50e1e4979210bcaa02f4b67bd7d0554448db90506f919f5e20b34c5013c7f46",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Groups_List.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/HOL.rs",
+      "bytes": 1416,
+      "sha256": "abeb12bf6d049484ef7a3f427b86d985a161cccb3578945c2997c80ec84876ed",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/HOL.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Lattices.rs",
+      "bytes": 418,
+      "sha256": "86dac6433d77c72d9a27a31f65268668c4670888c1e816e4ce5f8684a034fd95",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Lattices.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Lattices_Big.rs",
+      "bytes": 563,
+      "sha256": "b1f1aaa702a176eda653bde26e922025075fd8696066f4da5cf22b940f2ca740",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Lattices_Big.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/List.rs",
+      "bytes": 14496,
+      "sha256": "3058475f7ecf6e7cd31b4a63e6546fecd3ba714f36226e9e0b12d6cd16232834",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/List.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/MiscTools.rs",
+      "bytes": 5250,
+      "sha256": "0e62af146a88fb1ea06d2340c0f279bcfbc6ff8aa871da713b369e8add6adfdc",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/MiscTools.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Option.rs",
+      "bytes": 63,
+      "sha256": "5b19b0b3ed037232f03387e3ce9df2551244707f5dbca0a81df2218df646b8ea",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Option.rs",
+      "zstd_compressed": false
+    },
+    {
+      "path": "rust-before/export1/src/Orderings.rs",
+      "bytes": 533,
+      "sha256": "39322643d9b66caaf3d81e85c57dfb926727a0ad73daa551ce66479cb5c324df",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Orderings.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Partitions.rs",
+      "bytes": 5535,
+      "sha256": "64564f8b7349847c5a2464c68dcd7855f9523fa6564b94fd121f6c3a932ed6a8",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Partitions.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Product_Type.rs",
+      "bytes": 2448,
+      "sha256": "f25e4964d7d92af86452d9fc9344de621e984be0814cfb057e111c2224ee66a6",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Product_Type.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Rat.rs",
+      "bytes": 3560,
+      "sha256": "9a6bca162b7c97d10825e45fca41fb9248d52a6329381fa0aa6069a5da044eb6",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Rat.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Real.rs",
+      "bytes": 1256,
+      "sha256": "a4ff8a3d08a5f5e29644dd51fd8396218b5d6044142c064346fa1bbfe7cc7ed8",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Real.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Relation.rs",
+      "bytes": 1477,
+      "sha256": "f98f275db1100e60a640fb79596dc0830b183df285f8dc86a8b174295874130f",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Relation.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/RelationOperators.rs",
+      "bytes": 2262,
+      "sha256": "4ac67521e98e27ac58efb850418a59e7ef9f31d439e8fc475dc4982b19fc2b01",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/RelationOperators.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/RelationProperties.rs",
+      "bytes": 4947,
+      "sha256": "15d1f9a41b831582da4f07bf00af03720aedf53ca7bf79b20f0f78bae724e731",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/RelationProperties.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Set.rs",
+      "bytes": 7980,
+      "sha256": "52ea70df92096f46b83606fe4ebb99e3895311657fcff0419eec4320da632e22",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Set.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/SetUtils.rs",
+      "bytes": 313,
+      "sha256": "abfe6061601eab0605c20ee76e646c1220f282f83d0d831cb6e177dcc968425c",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/SetUtils.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/StrictCombinatorialAuction.rs",
+      "bytes": 6818,
+      "sha256": "c8b1bfe5c0238d091bd817d442b172d7a17f41a918635b229f510b7b209fce60",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/StrictCombinatorialAuction.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/UniformTieBreaking.rs",
+      "bytes": 1675,
+      "sha256": "adfbbfa8d1a7374c4bb037288f2a18f235c3e02a87d984359dde9da7047bfdae",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/UniformTieBreaking.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Universes.rs",
+      "bytes": 1796,
+      "sha256": "7d7e757b0f7eb059a033c3596103e0a588754761c1fac2ca457122920a66b7c9",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/Universes.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/lib.rs",
+      "bytes": 674,
+      "sha256": "35373b4ae4dc915091e2da8d54a73a51fbf7758f3c0b11f6063214befb8183d1",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Vickrey_Clarke_Groves.db",
+      "theory": "AFP-Rust-Vickrey_Clarke_Groves.Vickrey_Clarke_Groves_Rust_Export",
+      "export_name": "code/export1/src/lib.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "original/ROOT",
+      "bytes": 262,
+      "sha256": "ab79398ffa6daf15c8990d907bbcdecf3bf9eceb268d8484d49239e949490466",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/ROOT",
+      "cached_session_sha1": null,
+      "cached_session_hash_equal": null
+    },
+    {
+      "path": "original/Argmax.thy",
+      "bytes": 8213,
+      "sha256": "2a9fc8dc1f91f219c75c4e211c24210658cdf339f9e96eca303d2ac04fdbcc62",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/Argmax.thy",
+      "cached_session_sha1": "7b69026ec74335e9cdd8524ea8928b3aef45d936",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/CombinatorialAuction.thy",
+      "bytes": 40861,
+      "sha256": "22af7b307393041c4be63d1b64d791276e8e3fa079bb4f27e14c37c5cee3d22c",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/CombinatorialAuction.thy",
+      "cached_session_sha1": "80555f708b0437ca557149d991969e2c8d599506",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/CombinatorialAuctionCodeExtraction.thy",
+      "bytes": 2917,
+      "sha256": "566264b66be14cb5827bd335f5ef750394c69ee9d2db0267c71e0fc05dcce23c",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/CombinatorialAuctionCodeExtraction.thy",
+      "cached_session_sha1": "98a0e85922185334980a53235a1438e3e154ccfb",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/CombinatorialAuctionExamples.thy",
+      "bytes": 3641,
+      "sha256": "7e7bf172f6c956d0f752aa6298a489bff9653008d3b795e4d492c1d5a430b03b",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/CombinatorialAuctionExamples.thy",
+      "cached_session_sha1": "f6b1b60388222f5a199811942b061e1b5d897fb5",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/FirstPrice.thy",
+      "bytes": 1135,
+      "sha256": "2ba71ca342b2ef21defce57a3ab936262de5b22f7339f236e80c798bd40eb84c",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/FirstPrice.thy",
+      "cached_session_sha1": "3045c71b6cfe0a2858ebf35af39f2d079303f9e5",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/MiscTools.thy",
+      "bytes": 41826,
+      "sha256": "b7bed8940eb58d99dc9900aa6f1bc5a76821fc529266a610d767f00b93ac4d3a",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/MiscTools.thy",
+      "cached_session_sha1": "7503d9e45f0cfe8d148f497bf867089e432300bd",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Partitions.thy",
+      "bytes": 39325,
+      "sha256": "2137c701ad1ab1785cfd394dd03cbe81d12f305c9eb5b98031148febd67bfbd2",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/Partitions.thy",
+      "cached_session_sha1": "c24126da9e9b9f8fa2f6a65d387fc7d78d00de08",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/RelationOperators.thy",
+      "bytes": 8417,
+      "sha256": "04b7d3e95e99a5e1359a89dc484f5d447ed81d72d8d06e684dc46dae9e61e6eb",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/RelationOperators.thy",
+      "cached_session_sha1": "7a55998316d0a014eb76d700c49297d4b957b277",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/RelationProperties.thy",
+      "bytes": 10205,
+      "sha256": "629b77ae4d83fa97031c88631abd0710771ce446c5a1b9a1debd1b8072f61ef0",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/RelationProperties.thy",
+      "cached_session_sha1": "4a58e9172a859e4dd659be512cdc93c1b6f717c7",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/SetUtils.thy",
+      "bytes": 6566,
+      "sha256": "a7566e7a0382047b787dfa24100e6593cf20250d3a081205edb56d0f16496a4c",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/SetUtils.thy",
+      "cached_session_sha1": "a656c4542fcc0abc7eaf9141314bb5337fdacfd6",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/StrictCombinatorialAuction.thy",
+      "bytes": 4727,
+      "sha256": "a8c3e15cda57fce6ef83695d56822e39e9edb9e9b44cdee93bc31c8934d2c6d4",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/StrictCombinatorialAuction.thy",
+      "cached_session_sha1": "32d41dd81ca34927fc952232e41dacfb8c356a4c",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/UniformTieBreaking.thy",
+      "bytes": 42638,
+      "sha256": "29bcaeda33f76c138b88f707cbc310e4d7cad9ec6bf872dededb18b032acc4a9",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/UniformTieBreaking.thy",
+      "cached_session_sha1": "fd5a7581b211b61db2ae573d26fcb8414bba4d90",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Universes.thy",
+      "bytes": 52505,
+      "sha256": "e9b7dd394eff488c1cee431c4619f5dfd39733e30d2f194f62d9ec3b31ff027a",
+      "origin": "temp/afp-Isabelle2025/thys/Vickrey_Clarke_Groves/Universes.thy",
+      "cached_session_sha1": "b92fcdfe8ca348b2ba5f38966cd1b9306af8b805",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "logs/export.txt",
+      "bytes": 325,
+      "sha256": "a71c52121ec2fd370c3ad1813a4e62887b7eb3c61f15efdbab88d5370906b3d2",
+      "origin": "test/afp-Isabelle2025/logs/Vickrey_Clarke_Groves/export.log",
+      "source_mtime_utc": "2026-10-20T12:14:07.713102+00:00"
+    },
+    {
+      "path": "logs/stage1-1.lock.txt",
+      "bytes": 312,
+      "sha256": "f1bf8905f1bed57f2b59a5784833e56ef76d6d05558863bd63977ee7ba65094b",
+      "origin": "test/afp-Isabelle2025/logs/Vickrey_Clarke_Groves/stage1-1.lock.log",
+      "source_mtime_utc": "2026-10-20T12:14:07.865102+00:00"
+    },
+    {
+      "path": "logs/stage1-1.compile.txt",
+      "bytes": 1490,
+      "sha256": "0c984dbf58ec8be870daa618195033f1e83b4e92bd529b9792f6734e4e043e7e",
+      "origin": "test/afp-Isabelle2025/logs/Vickrey_Clarke_Groves/stage1-1.compile.log",
+      "source_mtime_utc": "2026-10-20T12:14:10.285102+00:00"
+    },
+    {
+      "path": "export/Vickrey_Clarke_Groves_Rust_Export.thy",
+      "bytes": 3825,
+      "sha256": "010691bc90b2733c545b9e009852012d36b5d3f58b242c08d871b309d802cfc6",
+      "origin": "test/afp-Isabelle2025/Vickrey_Clarke_Groves/Vickrey_Clarke_Groves_Rust_Export.thy"
+    },
+    {
+      "path": "scope.json",
+      "bytes": 3296,
+      "sha256": "05e4f19e2ef1d8935b733244d8ecb62a4798b899d097c1c2da5606f9f320cdca",
+      "origin": "test/afp-Isabelle2025/exports.json"
+    },
+    {
+      "path": "result.json",
+      "bytes": 6013,
+      "sha256": "7cbaed4fc2167e855a807e7c38e3d129fab14fc034bb9df356b23d1556d449a1",
+      "origin": "test/afp-Isabelle2025/results.json"
+    }
+  ]
+}

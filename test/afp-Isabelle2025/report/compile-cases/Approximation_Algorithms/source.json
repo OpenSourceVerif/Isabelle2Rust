@@ -1,0 +1,408 @@
+{
+  "run_id": "20261020T074609Z",
+  "preserved_at_utc": "2026-10-20T16:41:25.317796+00:00",
+  "method": "Read-only SQLite isabelle_exports; Zstandard decompression when compressed=1. No Isabelle or Cargo rerun.",
+  "cache_note": "Database predates this run. This run used isabelle build -e to export the validated cached session. Local backend/setup/export-theory bytes were checked against cached isabelle_sources.",
+  "database": {
+    "path": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+    "sha256": "1d64b9ed50576a3569e43bed29ffd15699a1626d5086468c38c7f217e4dfda5f",
+    "mtime_utc": "2026-10-19T19:06:29.252829+00:00",
+    "session_name": "AFP-Rust-Approximation_Algorithms",
+    "session_uuid": "7f3939a9-a778-4af6-bd0f-b94435521e0d",
+    "return_code": 0
+  },
+  "cached_local_sources": [
+    {
+      "path": "translate/code_debug_info.ML",
+      "cached_sha1": "535028443685bda0640c050464f40d026bfa94b3",
+      "sha256": "613e0cd700651312fc5068d273f7ecfceb3bc4b260f2c5e1cf3be1379a411d96",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/code_rust.ML",
+      "cached_sha1": "f7336e8e2f218a94a259b3f3037b357f704ca343",
+      "sha256": "4d9f2e26c1d3ee1767d1351fab7f3a6c3e179c1586a570ac759d16fa04d6d528",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Integer_BigInt_Layer.thy",
+      "cached_sha1": "27229b09930c33de2d093e476559432ce84972a9",
+      "sha256": "0940b3b15ffc9b50cd998f5959f56b2004b971395c3401bb1d94bb430654cc9c",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_BigInt_Setup.thy",
+      "cached_sha1": "85e7b37bd85e025baf41fa17f9814b376dc00737",
+      "sha256": "3de8e36c49eb9e6f80d9b7e09aaf7af1605cdb1e6c86f118567f7ecc0cfc2ba4",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Target.thy",
+      "cached_sha1": "ff9206d8572eb1061145df62848d1998fd1162cd",
+      "sha256": "18fd87878d31222f752997a4bd8c8892858541dd5fd01574e2f50d89ec65dc9b",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Base_Setup.thy",
+      "cached_sha1": "5378c0a4770ba3cf8b4b67c5e0ddd4b4e3f7333c",
+      "sha256": "41351b8900ef420f7f7f12611a26b5955b4cc79735e6f6e2f8d24219ecbe5dea",
+      "equal_to_current": true
+    },
+    {
+      "path": "test/afp-Isabelle2025/Approximation_Algorithms/Approximation_Algorithms_Rust_Export.thy",
+      "cached_sha1": "632129336ed6ccb9f8aea16f0c63e7615bf38920",
+      "sha256": "3ee9aff9f0068675b1ac9289cedcb2bb351fec9e995fded5686f319e5e7593aa",
+      "equal_to_current": true
+    }
+  ],
+  "cargo_lock_note": "No Cargo.lock is stored by the Isabelle export database. Preserved files are the original export rows; use the recorded lock helper and pinned template for reproduction. An original Approximation_Algorithms lock is already preserved under report/cases.",
+  "files": [
+    {
+      "path": "rust-before/export1/Cargo.toml",
+      "bytes": 221,
+      "sha256": "9f3de0f598654ed5470eddbf0d967dba0fa9ddd4d2368a01ba77a40bff03dcab",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/Cargo.toml",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Approx_BP_Hoare.rs",
+      "bytes": 328,
+      "sha256": "4142ca1b34c89c9b8652412fa2bf388482e7bb69358b885438ec6c95ab18b38c",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Approx_BP_Hoare.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Approx_LB_Hoare.rs",
+      "bytes": 575,
+      "sha256": "d69c0f728563940fb6228f1e7630fda0bd119035d73b19efa61e18a26e4a06fc",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Approx_LB_Hoare.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Approx_MIS_Hoare.rs",
+      "bytes": 1226,
+      "sha256": "e9a5a4ccb2a70e510a5b19a8e672cfdaa753f0ec3dc4fd850ee744aceec23c47",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Approx_MIS_Hoare.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Approx_SC_Hoare.rs",
+      "bytes": 630,
+      "sha256": "21d2b6ef5f3ec5537e3b431eda473da8e8d52b4d350dd5000dd8889172dde855",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Approx_SC_Hoare.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Approx_VC_Hoare.rs",
+      "bytes": 488,
+      "sha256": "d36efad002d7f0b6eafcbe88c360aa750d19f444c5bb8e15b52ccf5c6c9f40b6",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Approx_VC_Hoare.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Arith.rs",
+      "bytes": 4663,
+      "sha256": "f3c9b48ee29e33cdc124b4643cdd145ddec0e37fb74c0d4924ccd503d935174b",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Arith.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Complete_Lattices.rs",
+      "bytes": 567,
+      "sha256": "237bbb35355bdf419ef87d7ad2d8ec50f85aa22bf138d382d9e8229a717bdfe0",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Complete_Lattices.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Enum.rs",
+      "bytes": 297,
+      "sha256": "40c7fa2d041f9d728bd858a08da57d75433e8641f4c83872a298f1d8c76b2c81",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Enum.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Euclidean_Rings.rs",
+      "bytes": 1109,
+      "sha256": "ca758a9fc876af27e9ee6c53437bbb24f1ae47427bf98a596adf7ea793061ea7",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Euclidean_Rings.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Fields.rs",
+      "bytes": 608,
+      "sha256": "d720be486a22b5e96e9c2d2801e6a0e11d1020bdef58575c7ffb68ecb88dc88f",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Fields.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Filter.rs",
+      "bytes": 191,
+      "sha256": "2d04901ca5624c3db181079bfe9b523370744069fe91fca7406428affb1bfaaf",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Filter.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Finite_Set.rs",
+      "bytes": 51,
+      "sha256": "e4bc8c9f15bdb5b1dc2d9c150fde8e405b40193c1695d3b6a6ca5846d451b56d",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Finite_Set.rs",
+      "zstd_compressed": false
+    },
+    {
+      "path": "rust-before/export1/src/Fun.rs",
+      "bytes": 455,
+      "sha256": "1c1d296316c2024706bc7a5ad9a8e67880a5a84b1dd8b2ac83dbcb83a64cd8bc",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Fun.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Groups_List.rs",
+      "bytes": 392,
+      "sha256": "a50e1e4979210bcaa02f4b67bd7d0554448db90506f919f5e20b34c5013c7f46",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Groups_List.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/HOL.rs",
+      "bytes": 676,
+      "sha256": "b7f0d3c62d49c1ef7c71d2254100d73ba8bb177bf289abc5c38af6e9b123e144",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/HOL.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Limits.rs",
+      "bytes": 1306,
+      "sha256": "d1fbc3af7b27436e19e0197468c9242477d4202e831407099ce8aca2d411d95a",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Limits.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/List.rs",
+      "bytes": 5089,
+      "sha256": "5402c119ccbf135f7c777fb366115a4a4418ca2b577deea00f34644786620aa9",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/List.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Orderings.rs",
+      "bytes": 321,
+      "sha256": "08463a4c6e38f221807f6b73d412473775fecc2226428e76d1c58304bd536499",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Orderings.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Product_Type.rs",
+      "bytes": 434,
+      "sha256": "cb0d1c6023a76765053cfd4e3ac203bab38052b46f625dc65c48e4702d855f06",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Product_Type.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Rat.rs",
+      "bytes": 117,
+      "sha256": "708749b948b1884b5ea403aae5e921342346903a69c5876e301a7670e3c35f4d",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Rat.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Real.rs",
+      "bytes": 75,
+      "sha256": "5168cbfee16b30e45246c4181acbf7f4f9ad392d6143b184b84b2db1a0efb038",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Real.rs",
+      "zstd_compressed": false
+    },
+    {
+      "path": "rust-before/export1/src/Real_Vector_Spaces.rs",
+      "bytes": 2971,
+      "sha256": "b79665de18c596d567c89962352c3aeb5d1957c99a420adb1c96aa54c63805d8",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Real_Vector_Spaces.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Rings.rs",
+      "bytes": 4292,
+      "sha256": "1e172bde387a1fd4afc0982f3949bde9a9cbae92801bfde01f6e9aa10c23db0d",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Rings.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Semiring_Normalization.rs",
+      "bytes": 185,
+      "sha256": "d3efbdf09d4ad51a8b6f93d6adeefc1444b9fa8c2bbffa5182a68a17d9bb906a",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Semiring_Normalization.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Set.rs",
+      "bytes": 4773,
+      "sha256": "2507bd6a41045e72320bdac79078a83326ea615cc2d6ac2f3081c7f8c7ee3a84",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Set.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Topological_Spaces.rs",
+      "bytes": 994,
+      "sha256": "d60076fdedc1e943ffc25692e148569ca52f1baace96986ccb546bf82c76a11d",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/Topological_Spaces.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/lib.rs",
+      "bytes": 521,
+      "sha256": "5348685b9aadf11cb710c2a20a8e27b8f53de51a16e4618e12816f6075a77b97",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Approximation_Algorithms.db",
+      "theory": "AFP-Rust-Approximation_Algorithms.Approximation_Algorithms_Rust_Export",
+      "export_name": "code/export1/src/lib.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "original/ROOT",
+      "bytes": 305,
+      "sha256": "c57de13c5a6104e5b9217ab8b1e299696003c17544f00c5e4eab4097af15a910",
+      "origin": "temp/afp-Isabelle2025/thys/Approximation_Algorithms/ROOT",
+      "cached_session_sha1": null,
+      "cached_session_hash_equal": null
+    },
+    {
+      "path": "original/Approx_BP_Hoare.thy",
+      "bytes": 119324,
+      "sha256": "8726f523d9a9976447ee9fa6f0ac91f97391be87540dc4722e9608dd3f6053d0",
+      "origin": "temp/afp-Isabelle2025/thys/Approximation_Algorithms/Approx_BP_Hoare.thy",
+      "cached_session_sha1": "9d74bcea8143ccb5f2aeabc433b2d4239da98c28",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Approx_LB_Hoare.thy",
+      "bytes": 27287,
+      "sha256": "e58bb9e1a7be45fd1e9312e81871bddd09f24ffa98d00bcbf5b988a356160ee3",
+      "origin": "temp/afp-Isabelle2025/thys/Approximation_Algorithms/Approx_LB_Hoare.thy",
+      "cached_session_sha1": "8de4a93502cb9f097c64c4a96833756e902e07e8",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Approx_MIS_Hoare.thy",
+      "bytes": 24722,
+      "sha256": "401701142ab0bad26fa9af044d1e43b2cf5d7edc7f3632db83d4878304887309",
+      "origin": "temp/afp-Isabelle2025/thys/Approximation_Algorithms/Approx_MIS_Hoare.thy",
+      "cached_session_sha1": "985fbd8e47936b5124531037152b81a0af9a0542",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Approx_SC_Hoare.thy",
+      "bytes": 16936,
+      "sha256": "d4db816c1145a2609f525a24994ca5d90400365758a69c7a0d2fa45bd57e1491",
+      "origin": "temp/afp-Isabelle2025/thys/Approximation_Algorithms/Approx_SC_Hoare.thy",
+      "cached_session_sha1": "b377255c8df2bf08fffb0c699b277965bb76e5bf",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Approx_VC_Hoare.thy",
+      "bytes": 8653,
+      "sha256": "476104658e4852da944fd68ea1c80ec7c56769c236ace6ecfb12acb12a1ad2bc",
+      "origin": "temp/afp-Isabelle2025/thys/Approximation_Algorithms/Approx_VC_Hoare.thy",
+      "cached_session_sha1": "df7cdfe027b3a9cd32b1a91057f3886189534933",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Center_Selection.thy",
+      "bytes": 20839,
+      "sha256": "249baccaf721e0f0d0bdf93a572034121677fa1b47a22aa016332d4e07f23fbc",
+      "origin": "temp/afp-Isabelle2025/thys/Approximation_Algorithms/Center_Selection.thy",
+      "cached_session_sha1": "21e640d9c635099a686a670d6d6c6c861ff65a2c",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "logs/export.txt",
+      "bytes": 331,
+      "sha256": "49458a2dce119df46defa733b755fee92c658473861b35b234971bbdc637a56f",
+      "origin": "test/afp-Isabelle2025/logs/Approximation_Algorithms/export.log",
+      "source_mtime_utc": "2026-10-20T11:48:01.877200+00:00"
+    },
+    {
+      "path": "logs/stage1-1.lock.txt",
+      "bytes": 318,
+      "sha256": "cbcb9096134bfc8b8408fbfb82bb97ca97a1ae7c51e2fd02671b96aa111f5339",
+      "origin": "test/afp-Isabelle2025/logs/Approximation_Algorithms/stage1-1.lock.log",
+      "source_mtime_utc": "2026-10-20T11:48:02.181200+00:00"
+    },
+    {
+      "path": "logs/stage1-1.compile.txt",
+      "bytes": 1586,
+      "sha256": "77afd9604b5aea14d4967475460e48b5916eeb37784b917ddee7afb462d78f5d",
+      "origin": "test/afp-Isabelle2025/logs/Approximation_Algorithms/stage1-1.compile.log",
+      "source_mtime_utc": "2026-10-20T11:48:04.629200+00:00"
+    },
+    {
+      "path": "export/Approximation_Algorithms_Rust_Export.thy",
+      "bytes": 1032,
+      "sha256": "3ee9aff9f0068675b1ac9289cedcb2bb351fec9e995fded5686f319e5e7593aa",
+      "origin": "test/afp-Isabelle2025/Approximation_Algorithms/Approximation_Algorithms_Rust_Export.thy"
+    },
+    {
+      "path": "scope.json",
+      "bytes": 364,
+      "sha256": "31956e238908c46d6942ec2ef2de09ec643920ccb7b593641a8300465f9bcbaf",
+      "origin": "test/afp-Isabelle2025/exports.json"
+    },
+    {
+      "path": "result.json",
+      "bytes": 5887,
+      "sha256": "183a556cb71d91f7d2b88e5133360bad600f8556fa91002df119d4a2e6f07eb1",
+      "origin": "test/afp-Isabelle2025/results.json"
+    }
+  ]
+}

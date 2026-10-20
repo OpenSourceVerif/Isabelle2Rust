@@ -1,0 +1,1213 @@
+$ cargo +1.94.0 build --locked --manifest-path /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/FeatherweightJava/stage1/FeatherweightJava_Rust_Export/export1/Cargo.toml
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling num-integer v0.1.46
+   Compiling num-bigint v0.4.6
+   Compiling isabelle_exported v0.1.0 (/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/FeatherweightJava/stage1/FeatherweightJava_Rust_Export/export1)
+error[E0277]: the trait bound `A: PartialTermOf` is not satisfied
+   --> src/List.rs:333:48
+    |
+333 | impl <A : Clone + Random + 'static> Random for List<A> {
+    |                                                ^^^^^^^ the trait `PartialTermOf` is not implemented for `A`
+    |
+note: required for `List::List<A>` to implement `Typerep::Typerep`
+   --> src/List.rs:37:44
+    |
+ 37 | impl <A : Clone + PartialTermOf + 'static> Typerep for List<A> {
+    |                   -------------            ^^^^^^^     ^^^^^^^
+    |                   |
+    |                   unsatisfied trait bound introduced here
+note: required by a bound in `Quickcheck_Random::Random`
+   --> src/Quickcheck_Random.rs:53:20
+    |
+ 53 | pub trait Random : Typerep {
+    |                    ^^^^^^^ required by this bound in `Random`
+help: consider further restricting type parameter `A` with trait `PartialTermOf`
+    |
+333 | impl <A : Clone + Random + 'static + Quickcheck_Narrowing::PartialTermOf> Random for List<A> {
+    |                                    +++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `A: PartialTermOf` is not satisfied
+   --> src/List.rs:341:48
+    |
+341 | impl <A : Clone + TermOf + 'static> TermOf for List<A> {
+    |                                                ^^^^^^^ the trait `PartialTermOf` is not implemented for `A`
+    |
+note: required for `List::List<A>` to implement `Typerep::Typerep`
+   --> src/List.rs:37:44
+    |
+ 37 | impl <A : Clone + PartialTermOf + 'static> Typerep for List<A> {
+    |                   -------------            ^^^^^^^     ^^^^^^^
+    |                   |
+    |                   unsatisfied trait bound introduced here
+note: required by a bound in `TermOf`
+   --> src/Code_Evaluation.rs:17:20
+    |
+ 17 | pub trait TermOf : Typerep {
+    |                    ^^^^^^^ required by this bound in `TermOf`
+help: consider further restricting type parameter `A` with trait `PartialTermOf`
+    |
+341 | impl <A : Clone + TermOf + 'static + Quickcheck_Narrowing::PartialTermOf> TermOf for List<A> {
+    |                                    +++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `A: PartialTermOf` is not satisfied
+   --> src/List.rs:358:5
+    |
+358 |     List<A> {
+    |     ^^^^^^^ the trait `PartialTermOf` is not implemented for `A`
+    |
+note: required for `List::List<A>` to implement `Typerep::Typerep`
+   --> src/List.rs:37:44
+    |
+ 37 | impl <A : Clone + PartialTermOf + 'static> Typerep for List<A> {
+    |                   -------------            ^^^^^^^     ^^^^^^^
+    |                   |
+    |                   unsatisfied trait bound introduced here
+note: required for `List::List<A>` to implement `TermOf`
+   --> src/Code_Evaluation.rs:17:11
+    |
+ 17 | pub trait TermOf : Typerep {
+    |           ^^^^^^
+note: required by a bound in `FullExhaustive`
+   --> src/Quickcheck_Exhaustive.rs:78:28
+    |
+ 78 | pub trait FullExhaustive : TermOf {
+    |                            ^^^^^^ required by this bound in `FullExhaustive`
+help: consider further restricting type parameter `A` with trait `PartialTermOf`
+    |
+357 | impl <A : Clone + TermOf + FullExhaustive + 'static + Quickcheck_Narrowing::PartialTermOf> FullExhaustive for
+    |                                                     +++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `Exp: HOL::Equal` is not satisfied
+   --> src/FJDefs.rs:252:17
+    |
+252 |               (<Exp as Equal>::equal(mBodya.clone(), mBody.clone()) &&
+    |                 ^^^ unsatisfied trait bound
+    |
+help: the trait `HOL::Equal` is not implemented for `Exp`
+   --> src/FJDefs.rs:49:1
+    |
+ 49 | pub enum Exp {
+    | ^^^^^^^^^^^^
+    = help: the following other types implement trait `HOL::Equal`:
+              ClassDefExt<A>
+              ConstructorDefExt<A>
+              List::List<A>
+              MethodDefExt<A>
+              Natural
+              Option::Option<A>
+              Unit
+              VarDefExt<A>
+
+error[E0277]: the trait bound `Exp: TermOf` is not satisfied
+   --> src/FJDefs.rs:266:12527
+    |
+266 | ...it>> as TermOf>::term_of(c.clone())))), Box::new(<Exp as TermOf>::term_of(d.clone())))), Box::new(<A as TermOf>::term_of(e.clone...
+    |                                                      ^^^ unsatisfied trait bound
+    |
+help: the trait `TermOf` is not implemented for `Exp`
+   --> src/FJDefs.rs:49:1
+    |
+ 49 | pub enum Exp {
+    | ^^^^^^^^^^^^
+    = help: the following other types implement trait `TermOf`:
+              Arith::Num
+              ClassDefExt<A>
+              ConstructorDefExt<A>
+              List::List<A>
+              MethodDefExt<A>
+              Natural
+              Unit
+              VarDefExt<A>
+              num_bigint::BigInt
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/FJDefs.rs:1116:15
+     |
+1116 |             (<List<BigInt> as Equal>::equal(kSupera.clone(), kSuper.clone()) &&
+     |               ^^^^^^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required for `List::List<num_bigint::BigInt>` to implement `HOL::Equal`
+    --> src/List.rs:47:36
+     |
+  47 | impl <A : Clone + Equal + 'static> Equal for List<A> {
+     |                   -----            ^^^^^     ^^^^^^^
+     |                   |
+     |                   unsatisfied trait bound introduced here
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/FJDefs.rs:1117:17
+     |
+1117 |               (<List<BigInt> as Equal>::equal(kInitsa.clone(), kInits.clone()) &&
+     |                 ^^^^^^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required for `List::List<num_bigint::BigInt>` to implement `HOL::Equal`
+    --> src/List.rs:47:36
+     |
+  47 | impl <A : Clone + Equal + 'static> Equal for List<A> {
+     |                   -----            ^^^^^     ^^^^^^^
+     |                   |
+     |                   unsatisfied trait bound introduced here
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+   --> src/Execute.rs:232:37
+    |
+232 | ...                   eq_i_i(c_super(cDef.clone()), d_cap.clone()),
+    |                       ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+    |
+    = help: the following other types implement trait `HOL::Equal`:
+              ClassDefExt<A>
+              ConstructorDefExt<A>
+              List::List<A>
+              MethodDefExt<A>
+              Natural
+              Option::Option<A>
+              Unit
+              VarDefExt<A>
+note: required by a bound in `eq_i_i`
+   --> src/Execute.rs:111:17
+    |
+109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+    |        ------ required by a bound in this function
+110 | where
+111 |     A : Clone + Equal + 'static
+    |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+   --> src/Execute.rs:611:31
+    |
+611 | ...                   (*map_upds(
+    |                         ^^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+    |
+    = help: the following other types implement trait `HOL::Equal`:
+              ClassDefExt<A>
+              ConstructorDefExt<A>
+              List::List<A>
+              MethodDefExt<A>
+              Natural
+              Option::Option<A>
+              Unit
+              VarDefExt<A>
+note: required by a bound in `map_upds`
+   --> src/Map.rs:57:17
+    |
+ 53 | pub fn map_upds <B, A>
+    |        -------- required by a bound in this function
+...
+ 57 |     A : Clone + Equal + 'static,
+    |                 ^^^^^ required by this bound in `map_upds`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+   --> src/Execute.rs:607:23
+    |
+607 |                     (*fun_upd((({
+    |                       ^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+    |
+    = help: the following other types implement trait `HOL::Equal`:
+              ClassDefExt<A>
+              ConstructorDefExt<A>
+              List::List<A>
+              MethodDefExt<A>
+              Natural
+              Option::Option<A>
+              Unit
+              VarDefExt<A>
+note: required by a bound in `fun_upd`
+   --> src/Fun.rs:31:17
+    |
+ 29 | pub fn fun_upd <B, A> (f: Rc<dyn Fn(A) -> B>, a: A, b: B) -> Rc<dyn Fn(A) -> B>
+    |        ------- required by a bound in this function
+ 30 | where
+ 31 |     A : Clone + Equal + 'static,
+    |                 ^^^^^ required by this bound in `fun_upd`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+   --> src/Execute.rs:919:15
+    |
+919 |             (*fun_upd(
+    |               ^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+    |
+    = help: the following other types implement trait `HOL::Equal`:
+              ClassDefExt<A>
+              ConstructorDefExt<A>
+              List::List<A>
+              MethodDefExt<A>
+              Natural
+              Option::Option<A>
+              Unit
+              VarDefExt<A>
+note: required by a bound in `fun_upd`
+   --> src/Fun.rs:31:17
+    |
+ 29 | pub fn fun_upd <B, A> (f: Rc<dyn Fn(A) -> B>, a: A, b: B) -> Rc<dyn Fn(A) -> B>
+    |        ------- required by a bound in this function
+ 30 | where
+ 31 |     A : Clone + Equal + 'static,
+    |                 ^^^^^ required by this bound in `fun_upd`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+   --> src/Execute.rs:918:11
+    |
+918 |         (*fun_upd(((Rc::new(move |aa: BigInt| -> Option<ClassDefExt<Unit>> {
+    |           ^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+    |
+    = help: the following other types implement trait `HOL::Equal`:
+              ClassDefExt<A>
+              ConstructorDefExt<A>
+              List::List<A>
+              MethodDefExt<A>
+              Natural
+              Option::Option<A>
+              Unit
+              VarDefExt<A>
+note: required by a bound in `fun_upd`
+   --> src/Fun.rs:31:17
+    |
+ 29 | pub fn fun_upd <B, A> (f: Rc<dyn Fn(A) -> B>, a: A, b: B) -> Rc<dyn Fn(A) -> B>
+    |        ------- required by a bound in this function
+ 30 | where
+ 31 |     A : Clone + Equal + 'static,
+    |                 ^^^^^ required by this bound in `fun_upd`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+   --> src/Execute.rs:917:7
+    |
+917 |     (*fun_upd(((Rc::new(move |a: BigInt| -> Option<ClassDefExt<Unit>> {
+    |       ^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+    |
+    = help: the following other types implement trait `HOL::Equal`:
+              ClassDefExt<A>
+              ConstructorDefExt<A>
+              List::List<A>
+              MethodDefExt<A>
+              Natural
+              Option::Option<A>
+              Unit
+              VarDefExt<A>
+note: required by a bound in `fun_upd`
+   --> src/Fun.rs:31:17
+    |
+ 29 | pub fn fun_upd <B, A> (f: Rc<dyn Fn(A) -> B>, a: A, b: B) -> Rc<dyn Fn(A) -> B>
+    |        ------- required by a bound in this function
+ 30 | where
+ 31 |     A : Clone + Equal + 'static,
+    |                 ^^^^^ required by this bound in `fun_upd`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:1225:17
+     |
+1225 |                 eq_i_i(var_defs_types(m_params(mDef.clone())), bs_capa.clone()),
+     |                 ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required for `List::List<num_bigint::BigInt>` to implement `HOL::Equal`
+    --> src/List.rs:47:36
+     |
+  47 | impl <A : Clone + Equal + 'static> Equal for List<A> {
+     |                   -----            ^^^^^     ^^^^^^^
+     |                   |
+     |                   unsatisfied trait bound introduced here
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:1486:25
+     |
+1486 |                         eq_i_i(size_lista(es_capb.clone()), size_lista(xab.clone())),
+     |                         ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:1539:41
+     |
+1539 | ...                   eq_i_i(size_lista(es_cap.clone()), size_lista(x.clone())),
+     |                       ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:1760:17
+     |
+1760 |                 eq_i_i(m_return(mDef.clone()), b_capa.clone()),
+     |                 ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:1849:25
+     |
+1849 |                         eq_i_i((*gamma)(x.clone()), Option::Some (c.clone())),
+     |                         ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required for `Option::Option<num_bigint::BigInt>` to implement `HOL::Equal`
+    --> src/Option.rs:10:36
+     |
+  10 | impl <A : Clone + Equal + 'static> Equal for Option<A> {
+     |                   -----            ^^^^^     ^^^^^^^^^
+     |                   |
+     |                   unsatisfied trait bound introduced here
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:1906:33
+     |
+1906 | ...                   eq_i_i(vd_type(fDef.clone()), ci_capb.clone()),
+     |                       ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:1963:13
+     |
+1963 |             eq_i_i(size_lista(es_capa.clone()), size_lista(xe.clone())),
+     |             ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:2025:5
+     |
+2025 |     eq_i_i(size_lista(es_cap.clone()), size_lista(x.clone())),
+     |     ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:2248:17
+     |
+2248 |                 eq_i_i(var_defs_names(m_params(mDef.clone())), xs_capa.clone()),
+     |                 ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required for `List::List<num_bigint::BigInt>` to implement `HOL::Equal`
+    --> src/List.rs:47:36
+     |
+  47 | impl <A : Clone + Equal + 'static> Equal for List<A> {
+     |                   -----            ^^^^^     ^^^^^^^
+     |                   |
+     |                   unsatisfied trait bound introduced here
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `Exp: HOL::Equal` is not satisfied
+    --> src/Execute.rs:2254:29
+     |
+2254 | ...                   eq_i_i(m_body(mDef_cap.clone()), e_capb.clone()),
+     |                       ^^^^^^ unsatisfied trait bound
+     |
+help: the trait `HOL::Equal` is not implemented for `Exp`
+    --> src/FJDefs.rs:49:1
+     |
+  49 | pub enum Exp {
+     | ^^^^^^^^^^^^
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:2371:17
+     |
+2371 |                 eq_i_i(var_defs_names(m_params(mDef.clone())), xs_capa.clone()),
+     |                 ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required for `List::List<num_bigint::BigInt>` to implement `HOL::Equal`
+    --> src/List.rs:47:36
+     |
+  47 | impl <A : Clone + Equal + 'static> Equal for List<A> {
+     |                   -----            ^^^^^     ^^^^^^^
+     |                   |
+     |                   unsatisfied trait bound introduced here
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `Exp: HOL::Equal` is not satisfied
+    --> src/Execute.rs:2484:17
+     |
+2484 |                 eq_i_i(m_body(mDef.clone()), e_capa.clone()),
+     |                 ^^^^^^ unsatisfied trait bound
+     |
+help: the trait `HOL::Equal` is not implemented for `Exp`
+    --> src/FJDefs.rs:49:1
+     |
+  49 | pub enum Exp {
+     | ^^^^^^^^^^^^
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:2599:17
+     |
+2599 |                 eq_i_i(var_defs_types(m_params(mDef.clone())), bs_capa.clone()),
+     |                 ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required for `List::List<num_bigint::BigInt>` to implement `HOL::Equal`
+    --> src/List.rs:47:36
+     |
+  47 | impl <A : Clone + Equal + 'static> Equal for List<A> {
+     |                   -----            ^^^^^     ^^^^^^^
+     |                   |
+     |                   unsatisfied trait bound introduced here
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:2605:29
+     |
+2605 | ...                   eq_i_i(m_return(mDef_cap.clone()), b_capb.clone()),
+     |                       ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `Exp: HOL::Equal` is not satisfied
+    --> src/Execute.rs:2835:25
+     |
+2835 |                         eq_i_i(lookup2(
+     |                         ^^^^^^ unsatisfied trait bound
+     |
+help: the trait `HOL::Equal` is not implemented for `Exp`
+    --> src/FJDefs.rs:49:1
+     |
+  49 | pub enum Exp {
+     | ^^^^^^^^^^^^
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required for `Option::Option<Exp>` to implement `HOL::Equal`
+    --> src/Option.rs:10:36
+     |
+  10 | impl <A : Clone + Equal + 'static> Equal for Option<A> {
+     |                   -----            ^^^^^     ^^^^^^^^^
+     |                   |
+     |                   unsatisfied trait bound introduced here
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:2917:43
+     |
+2917 | ...                   (*map_upds(
+     |                         ^^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `map_upds`
+    --> src/Map.rs:57:17
+     |
+  53 | pub fn map_upds <B, A>
+     |        -------- required by a bound in this function
+...
+  57 |     A : Clone + Equal + 'static,
+     |                 ^^^^^ required by this bound in `map_upds`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:2913:35
+     |
+2913 | ...                   (*fun_upd((({
+     |                         ^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `fun_upd`
+    --> src/Fun.rs:31:17
+     |
+  29 | pub fn fun_upd <B, A> (f: Rc<dyn Fn(A) -> B>, a: A, b: B) -> Rc<dyn Fn(A) -> B>
+     |        ------- required by a bound in this function
+  30 | where
+  31 |     A : Clone + Equal + 'static,
+     |                 ^^^^^ required by this bound in `fun_upd`
+
+error[E0277]: the trait bound `Exp: HOL::Equal` is not satisfied
+    --> src/Execute.rs:2907:25
+     |
+2907 |                         eq_i_i(substs((({
+     |                         ^^^^^^ unsatisfied trait bound
+     |
+help: the trait `HOL::Equal` is not implemented for `Exp`
+    --> src/FJDefs.rs:49:1
+     |
+  49 | pub enum Exp {
+     | ^^^^^^^^^^^^
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `Exp: HOL::Equal` is not satisfied
+    --> src/Execute.rs:2991:21
+     |
+2991 |                 if <List<Exp> as Equal>::equal(es.clone(), esa.clone()) &&
+     |                     ^^^^^^^^^ unsatisfied trait bound
+     |
+help: the trait `HOL::Equal` is not implemented for `Exp`
+    --> src/FJDefs.rs:49:1
+     |
+  49 | pub enum Exp {
+     | ^^^^^^^^^^^^
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required for `List::List<Exp>` to implement `HOL::Equal`
+    --> src/List.rs:47:36
+     |
+  47 | impl <A : Clone + Equal + 'static> Equal for List<A> {
+     |                   -----            ^^^^^     ^^^^^^^
+     |                   |
+     |                   unsatisfied trait bound introduced here
+
+error[E0277]: the trait bound `Exp: HOL::Equal` is not satisfied
+    --> src/Execute.rs:3080:29
+     |
+3080 |                         if <List<Exp> as Equal>::equal(es.clone(), esa.clone()) &&
+     |                             ^^^^^^^^^ unsatisfied trait bound
+     |
+help: the trait `HOL::Equal` is not implemented for `Exp`
+    --> src/FJDefs.rs:49:1
+     |
+  49 | pub enum Exp {
+     | ^^^^^^^^^^^^
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required for `List::List<Exp>` to implement `HOL::Equal`
+    --> src/List.rs:47:36
+     |
+  47 | impl <A : Clone + Equal + 'static> Equal for List<A> {
+     |                   -----            ^^^^^     ^^^^^^^
+     |                   |
+     |                   unsatisfied trait bound introduced here
+
+error[E0277]: the trait bound `Exp: HOL::Equal` is not satisfied
+    --> src/Execute.rs:3123:31
+     |
+3123 | ...                   <Exp as Equal>::equal(e.clone(), eb.clone()) {
+     |                        ^^^ unsatisfied trait bound
+     |
+help: the trait `HOL::Equal` is not implemented for `Exp`
+    --> src/FJDefs.rs:49:1
+     |
+  49 | pub enum Exp {
+     | ^^^^^^^^^^^^
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+
+error[E0277]: the trait bound `Exp: HOL::Equal` is not satisfied
+    --> src/Execute.rs:3144:29
+     |
+3144 | ...                   append_i_i_i(el_cap.clone(), List::Cons (xc.clone(), Box::new(er_cap.clone())), ec_capa.clone()),
+     |                       ^^^^^^^^^^^^ unsatisfied trait bound
+     |
+help: the trait `HOL::Equal` is not implemented for `Exp`
+    --> src/FJDefs.rs:49:1
+     |
+  49 | pub enum Exp {
+     | ^^^^^^^^^^^^
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `append_i_i_i`
+    --> src/Execute.rs:54:17
+     |
+  52 | pub fn append_i_i_i <A> (xa: List<A>, xb: List<A>, xc: List<A>) -> Pred<Unit>
+     |        ------------ required by a bound in this function
+  53 | where
+  54 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `append_i_i_i`
+
+error[E0277]: the trait bound `Exp: HOL::Equal` is not satisfied
+    --> src/Execute.rs:3216:29
+     |
+3216 | ...                   append_i_i_i(el_cap.clone(), List::Cons (xc.clone(), Box::new(er_cap.clone())), e_capa.clone()),
+     |                       ^^^^^^^^^^^^ unsatisfied trait bound
+     |
+help: the trait `HOL::Equal` is not implemented for `Exp`
+    --> src/FJDefs.rs:49:1
+     |
+  49 | pub enum Exp {
+     | ^^^^^^^^^^^^
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `append_i_i_i`
+    --> src/Execute.rs:54:17
+     |
+  52 | pub fn append_i_i_i <A> (xa: List<A>, xb: List<A>, xc: List<A>) -> Pred<Unit>
+     |        ------------ required by a bound in this function
+  53 | where
+  54 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `append_i_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:3352:40
+     |
+3352 | ...                   if_pred(! <List<BigInt> as Equal>::equal(cs_cap.clone(), ds.clone())),
+     |                                  ^^^^^^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required for `List::List<num_bigint::BigInt>` to implement `HOL::Equal`
+    --> src/List.rs:47:36
+     |
+  47 | impl <A : Clone + Equal + 'static> Equal for List<A> {
+     |                   -----            ^^^^^     ^^^^^^^
+     |                   |
+     |                   unsatisfied trait bound introduced here
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:3400:37
+     |
+3400 | ...                   eq_i_i(c_name(cDef.clone()), c_cap.clone()),
+     |                       ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:3510:15
+     |
+3510 |             (*map_upds(
+     |               ^^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `map_upds`
+    --> src/Map.rs:57:17
+     |
+  53 | pub fn map_upds <B, A>
+     |        -------- required by a bound in this function
+...
+  57 |     A : Clone + Equal + 'static,
+     |                 ^^^^^ required by this bound in `map_upds`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:3506:7
+     |
+3506 |     (*fun_upd((({
+     |       ^^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `fun_upd`
+    --> src/Fun.rs:31:17
+     |
+  29 | pub fn fun_upd <B, A> (f: Rc<dyn Fn(A) -> B>, a: A, b: B) -> Rc<dyn Fn(A) -> B>
+     |        ------- required by a bound in this function
+  30 | where
+  31 |     A : Clone + Equal + 'static,
+     |                 ^^^^^ required by this bound in `fun_upd`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:3660:13
+     |
+3660 |             eq_i_i(k_name(xba.clone()), x_capa.clone()),
+     |             ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:3689:21
+     |
+3689 |                     eq_i_i(k_super(xb_capc.clone()), var_defs_names(xd.clone())),
+     |                     ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required for `List::List<num_bigint::BigInt>` to implement `HOL::Equal`
+    --> src/List.rs:47:36
+     |
+  47 | impl <A : Clone + Equal + 'static> Equal for List<A> {
+     |                   -----            ^^^^^     ^^^^^^^
+     |                   |
+     |                   unsatisfied trait bound introduced here
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `num_bigint::BigInt: HOL::Equal` is not satisfied
+    --> src/Execute.rs:3700:5
+     |
+3700 |     eq_i_i(k_inits(xb_cape.clone()), var_defs_names(xe.clone())),
+     |     ^^^^^^ the trait `HOL::Equal` is not implemented for `num_bigint::BigInt`
+     |
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+note: required for `List::List<num_bigint::BigInt>` to implement `HOL::Equal`
+    --> src/List.rs:47:36
+     |
+  47 | impl <A : Clone + Equal + 'static> Equal for List<A> {
+     |                   -----            ^^^^^     ^^^^^^^
+     |                   |
+     |                   unsatisfied trait bound introduced here
+note: required by a bound in `eq_i_i`
+    --> src/Execute.rs:111:17
+     |
+ 109 | pub fn eq_i_i <A> (xa: A, xb: A) -> Pred<Unit>
+     |        ------ required by a bound in this function
+ 110 | where
+ 111 |     A : Clone + Equal + 'static
+     |                 ^^^^^ required by this bound in `eq_i_i`
+
+error[E0277]: the trait bound `Exp: HOL::Equal` is not satisfied
+    --> src/Execute.rs:3742:17
+     |
+3742 |             if <Exp as Equal>::equal(e.clone(), ea.clone()) {
+     |                 ^^^ unsatisfied trait bound
+     |
+help: the trait `HOL::Equal` is not implemented for `Exp`
+    --> src/FJDefs.rs:49:1
+     |
+  49 | pub enum Exp {
+     | ^^^^^^^^^^^^
+     = help: the following other types implement trait `HOL::Equal`:
+               ClassDefExt<A>
+               ConstructorDefExt<A>
+               List::List<A>
+               MethodDefExt<A>
+               Natural
+               Option::Option<A>
+               Unit
+               VarDefExt<A>
+
+error[E0277]: the trait bound `A: PartialTermOf` is not satisfied
+   --> src/List.rs:349:3521
+    |
+349 | ...:term_of(a.clone())))), Box::new(<List<A> as TermOf>::term_of(b.clone())))
+    |                                      ^^^^^^^ the trait `PartialTermOf` is not implemented for `A`
+    |
+note: required for `List::List<A>` to implement `Typerep::Typerep`
+   --> src/List.rs:37:44
+    |
+ 37 | impl <A : Clone + PartialTermOf + 'static> Typerep for List<A> {
+    |                   -------------            ^^^^^^^     ^^^^^^^
+    |                   |
+    |                   unsatisfied trait bound introduced here
+note: required by a bound in `TermOf::term_of`
+   --> src/Code_Evaluation.rs:17:20
+    |
+ 17 | pub trait TermOf : Typerep {
+    |                    ^^^^^^^ required by this bound in `TermOf::term_of`
+ 18 |     fn term_of (x0: Self) -> Term where Self: Sized;
+    |        ------- required by a bound in this associated function
+help: consider further restricting type parameter `A` with trait `PartialTermOf`
+    |
+341 | impl <A : Clone + TermOf + 'static + Quickcheck_Narrowing::PartialTermOf> TermOf for List<A> {
+    |                                    +++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `num_bigint::BigInt: Orderings::Ord` is not satisfied
+   --> src/Arith.rs:217:19
+    |
+217 |     Natural::Nat (max(BigInt::ZERO, k.clone()))
+    |                   ^^^ the trait `Orderings::Ord` is not implemented for `num_bigint::BigInt`
+    |
+    = note: `num_bigint::BigInt` implements similarly named trait `std::cmp::Ord`, but not `Orderings::Ord`
+help: the trait `Orderings::Ord` is implemented for `Natural`
+   --> src/Arith.rs:284:1
+    |
+284 | impl Ord for Natural {
+    | ^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `Orderings::max`
+   --> src/Orderings.rs:8:17
+    |
+  6 | pub fn max <A> (a: A, b: A) -> A
+    |        --- required by a bound in this function
+  7 | where
+  8 |     A : Clone + Ord + 'static
+    |                 ^^^ required by this bound in `max`
+
+error[E0277]: the trait bound `num_bigint::BigInt: Orderings::Ord` is not satisfied
+   --> src/Arith.rs:280:19
+    |
+280 |     Natural::Nat (max(BigInt::ZERO, integer_of_natural(m.clone()) -
+    |                   ^^^ the trait `Orderings::Ord` is not implemented for `num_bigint::BigInt`
+    |
+    = note: `num_bigint::BigInt` implements similarly named trait `std::cmp::Ord`, but not `Orderings::Ord`
+help: the trait `Orderings::Ord` is implemented for `Natural`
+   --> src/Arith.rs:284:1
+    |
+284 | impl Ord for Natural {
+    | ^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `Orderings::max`
+   --> src/Orderings.rs:8:17
+    |
+  6 | pub fn max <A> (a: A, b: A) -> A
+    |        --- required by a bound in this function
+  7 | where
+  8 |     A : Clone + Ord + 'static
+    |                 ^^^ required by this bound in `max`
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `isabelle_exported` (lib) due to 47 previous errors

@@ -1,4 +1,5 @@
 # Preserve the exact bytes of copied AFP sources and experiment evidence.
 # Their upstream whitespace and line endings are part of the recorded hashes.
 cases/** -text -whitespace
+compile-cases/** -text -whitespace
 batch-logs/** -text -whitespace

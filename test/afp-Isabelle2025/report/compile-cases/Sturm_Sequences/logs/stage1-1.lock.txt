@@ -1,0 +1,1 @@
+$ /usr/bin/python3 /home/spring/Isabelle2Rust/Isabelle2Rust/scripts/ensure-cargo-lock.py /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/Sturm_Sequences/stage1/Sturm_Sequences_Rust_Export/export1/Cargo.toml /home/spring/Isabelle2Rust/Isabelle2Rust/scripts/isabelle-exported.Cargo.lock

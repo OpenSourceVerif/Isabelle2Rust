@@ -1,0 +1,156 @@
+{
+  "artifacts": {
+    "logs": "test/afp-Isabelle2025/logs/Pairing_Heap",
+    "stage1": "test/afp-Isabelle2025/Pairing_Heap/stage1/Pairing_Heap_Rust_Export",
+    "stage2": "test/afp-Isabelle2025/Pairing_Heap/stage2/Pairing_Heap_Rust_Export",
+    "theory": "test/afp-Isabelle2025/Pairing_Heap/Pairing_Heap_Rust_Export.thy"
+  },
+  "candidate_count": 57,
+  "optimization": {
+    "status": "not_run"
+  },
+  "runtime_validation": {
+    "reason": "No semantic correctness harness supplied",
+    "status": "not_run"
+  },
+  "rust_export": {
+    "command": [
+      "isabelle",
+      "build",
+      "-e",
+      "-j",
+      "1",
+      "-o",
+      "threads=1",
+      "-o",
+      "parallel_proofs=0",
+      "-o",
+      "document=false",
+      "-o",
+      "timeout=180",
+      "-o",
+      "skip_proofs=false",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+      "AFP-Rust-Pairing_Heap"
+    ],
+    "log": "test/afp-Isabelle2025/logs/Pairing_Heap/export.log",
+    "min_available_mb": 6314,
+    "returncode": 0,
+    "seconds": 5.5,
+    "started": "2026-10-20T12:07:48+00:00",
+    "status": "passed"
+  },
+  "scan": {
+    "candidate_count": 57,
+    "certificate_errors": [
+      {
+        "detail": "test/afp-Isabelle2025/_build/Pairing_Heap/Pairing_Heap.xml",
+        "message": "\"Code_Numeral.one_integer_inst.one_integer\" is not a constructor, on left hand side of equation, in theorem:\npartial_term_of_heap_inst.partial_term_of_heap ?ty\n (narrowing_term.Narrowing_constructor one_integer_inst.one_integer\n   [?b, ?a]) \\<equiv>\nCode_Evaluation.App\n (Code_Evaluation.App\n   (Code_Evaluation.Const\n     (String.Literal False False False False True False True\n       (String.Literal True False False False False True True\n         (String.Literal True False False True False True True\n           (String.Literal False True False False True True True\n             (String.Literal True False False True False True True\n               (String.Literal False True True True False True True\n                 (String.Literal True True True False False True True\n                   (String.Literal True True True True True False True\n                     (String.Literal False False False True False False True\n                       (String.Literal True False True False False True True\n                         (String.Literal True False False False False True\n                           True\n                           (String.Literal False False False False True True\n                             True\n                             (String.Literal True True True True True False\n                               True\n                               (String.Literal False False True True False\n                                 False True\n                                 (String.Literal True False False True False\n                                   True True\n                                   (String.Literal True True False False\n                                     True True True\n                                     (String.Literal False False True False\n True True True\n (String.Literal True False False False True True False\n   (String.Literal False True True True False True False\n     (String.Literal False False False True False True True\n       (String.Literal True False True F",
+        "name": "Pairing_Heap_List1.partial_term_of_heap_inst.partial_term_of_heap",
+        "truncated": true
+      }
+    ],
+    "context_merge_errors": [],
+    "errors": [],
+    "inspections": [
+      {
+        "command": [
+          "isabelle",
+          "process",
+          "-l",
+          "Pairing_Heap",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "-f",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/scan.ML",
+          "-o",
+          "threads=1"
+        ],
+        "data": "test/afp-Isabelle2025/_build/Pairing_Heap/Pairing_Heap.xml",
+        "log": "test/afp-Isabelle2025/logs/Pairing_Heap/Pairing_Heap.scan.log",
+        "min_available_mb": 6063,
+        "returncode": 0,
+        "seconds": 4.0,
+        "session": "Pairing_Heap",
+        "started": "2026-10-20T10:03:53+00:00",
+        "status": "passed"
+      }
+    ],
+    "loading": [
+      {
+        "command": [
+          "isabelle",
+          "build",
+          "-b",
+          "-j",
+          "1",
+          "-o",
+          "threads=1",
+          "-o",
+          "parallel_proofs=0",
+          "-o",
+          "document=false",
+          "-o",
+          "timeout=600",
+          "-o",
+          "skip_proofs=false",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "Pairing_Heap"
+        ],
+        "log": "test/afp-Isabelle2025/logs/Pairing_Heap/Pairing_Heap.load.log",
+        "min_available_mb": 6195,
+        "returncode": 0,
+        "seconds": 4.5,
+        "session": "Pairing_Heap",
+        "started": "2026-10-20T10:03:49+00:00",
+        "status": "passed"
+      }
+    ],
+    "missing_theories": [],
+    "status": "passed",
+    "theories": [
+      "Pairing_Heap_List1.thy",
+      "Pairing_Heap_List2.thy",
+      "Pairing_Heap_Tree.thy"
+    ],
+    "theory_loading": {
+      "status": "passed"
+    }
+  },
+  "scope_sha256": "6d149fc3f8c182c3cfae14f8de82bb54b0eae45bb2a37a81fae85b254eccecf2",
+  "stage1_compile": {
+    "checks": [
+      {
+        "command": [
+          "cargo",
+          "+1.94.0",
+          "build",
+          "--locked",
+          "--manifest-path",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/Pairing_Heap/stage1/Pairing_Heap_Rust_Export/export1/Cargo.toml"
+        ],
+        "error_excerpt": "299 | ...:term_of(a.clone())))), Box::new(<List<A> as TermOf>::term_of(b.clone())))\n    |                                      ^^^^^^^ the trait `PartialTermOf` is not implemented for `A`\n    |\nnote: required for `List::List<A>` to implement `Typerep::Typerep`\n   --> src/List.rs:24:44\n    |\n 24 | impl <A : Clone + PartialTermOf + 'static> Typerep for List<A> {\n    |                   -------------            ^^^^^^^     ^^^^^^^\n    |                   |\n    |                   unsatisfied trait bound introduced here\nnote: required by a bound in `TermOf::term_of`\n   --> src/Code_Evaluation.rs:13:20\n    |\n 13 | pub trait TermOf : Typerep {\n    |                    ^^^^^^^ required by this bound in `TermOf::term_of`\n 14 |     fn term_of (x0: Self) -> Term where Self: Sized;\n    |        ------- required by a bound in this associated function\nhelp: consider further restricting type parameter `A` with trait `PartialTermOf`\n    |\n291 | impl <A : Clone + TermOf + 'static + Quickcheck_Narrowing::PartialTermOf> TermOf for List<A> {\n    |                                    +++++++++++++++++++++++++++++++++++++\n\nFor more information about this error, try `rustc --explain E0277`.\nerror: could not compile `isabelle_exported` (lib) due to 2 previous errors",
+        "log": "test/afp-Isabelle2025/logs/Pairing_Heap/stage1-1.compile.log",
+        "min_available_mb": 6802,
+        "returncode": 101,
+        "seconds": 2.5,
+        "started": "2026-10-20T12:07:54+00:00",
+        "status": "failed"
+      }
+    ],
+    "status": "failed"
+  },
+  "stage2_compile": {
+    "status": "not_run"
+  },
+  "status": "failed",
+  "theory_count": 3,
+  "theory_loading": {
+    "log": "test/afp-Isabelle2025/logs/Pairing_Heap/export.log",
+    "status": "passed"
+  }
+}

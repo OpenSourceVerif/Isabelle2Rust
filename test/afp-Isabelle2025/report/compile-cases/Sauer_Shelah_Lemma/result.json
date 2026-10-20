@@ -1,0 +1,150 @@
+{
+  "artifacts": {
+    "logs": "test/afp-Isabelle2025/logs/Sauer_Shelah_Lemma",
+    "stage1": "test/afp-Isabelle2025/Sauer_Shelah_Lemma/stage1/Sauer_Shelah_Lemma_Rust_Export",
+    "stage2": "test/afp-Isabelle2025/Sauer_Shelah_Lemma/stage2/Sauer_Shelah_Lemma_Rust_Export",
+    "theory": "test/afp-Isabelle2025/Sauer_Shelah_Lemma/Sauer_Shelah_Lemma_Rust_Export.thy"
+  },
+  "candidate_count": 2,
+  "optimization": {
+    "status": "not_run"
+  },
+  "runtime_validation": {
+    "reason": "No semantic correctness harness supplied",
+    "status": "not_run"
+  },
+  "rust_export": {
+    "command": [
+      "isabelle",
+      "build",
+      "-e",
+      "-j",
+      "1",
+      "-o",
+      "threads=1",
+      "-o",
+      "parallel_proofs=0",
+      "-o",
+      "document=false",
+      "-o",
+      "timeout=180",
+      "-o",
+      "skip_proofs=false",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+      "AFP-Rust-Sauer_Shelah_Lemma"
+    ],
+    "log": "test/afp-Isabelle2025/logs/Sauer_Shelah_Lemma/export.log",
+    "min_available_mb": 6303,
+    "returncode": 0,
+    "seconds": 5.0,
+    "started": "2026-10-20T12:38:41+00:00",
+    "status": "passed"
+  },
+  "scan": {
+    "candidate_count": 2,
+    "certificate_errors": [],
+    "context_merge_errors": [],
+    "errors": [],
+    "inspections": [
+      {
+        "command": [
+          "isabelle",
+          "process",
+          "-l",
+          "Sauer_Shelah_Lemma",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "-f",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/scan.ML",
+          "-o",
+          "threads=1"
+        ],
+        "data": "test/afp-Isabelle2025/_build/Sauer_Shelah_Lemma/Sauer_Shelah_Lemma.xml",
+        "log": "test/afp-Isabelle2025/logs/Sauer_Shelah_Lemma/Sauer_Shelah_Lemma.scan.log",
+        "min_available_mb": 6501,
+        "returncode": 0,
+        "seconds": 3.0,
+        "session": "Sauer_Shelah_Lemma",
+        "started": "2026-10-20T11:21:07+00:00",
+        "status": "passed"
+      }
+    ],
+    "loading": [
+      {
+        "command": [
+          "isabelle",
+          "build",
+          "-b",
+          "-j",
+          "1",
+          "-o",
+          "threads=1",
+          "-o",
+          "parallel_proofs=0",
+          "-o",
+          "document=false",
+          "-o",
+          "timeout=600",
+          "-o",
+          "skip_proofs=false",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "Sauer_Shelah_Lemma"
+        ],
+        "log": "test/afp-Isabelle2025/logs/Sauer_Shelah_Lemma/Sauer_Shelah_Lemma.load.log",
+        "min_available_mb": 6288,
+        "returncode": 0,
+        "seconds": 4.0,
+        "session": "Sauer_Shelah_Lemma",
+        "started": "2026-10-20T11:21:03+00:00",
+        "status": "passed"
+      }
+    ],
+    "missing_theories": [],
+    "status": "passed",
+    "theories": [
+      "Binomial_Lemmas.thy",
+      "Card_Lemmas.thy",
+      "Sauer_Shelah_Lemma.thy",
+      "Shattering.thy"
+    ],
+    "theory_loading": {
+      "status": "passed"
+    }
+  },
+  "scope_sha256": "066247944aecdbbd819b000f0475af63ee4b93684483e491b82abfa5ae9d2c0d",
+  "stage1_compile": {
+    "checks": [
+      {
+        "command": [
+          "cargo",
+          "+1.94.0",
+          "build",
+          "--locked",
+          "--manifest-path",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/Sauer_Shelah_Lemma/stage1/Sauer_Shelah_Lemma_Rust_Export/export1/Cargo.toml"
+        ],
+        "error_excerpt": "  --> src/Orderings.rs:16:20\n   |\n16 | impl<T : Preorder> Order for T {}\n   |          --------  ^^^^^     ^\n   |          |\n   |          unsatisfied trait bound introduced here\nnote: required for `num_bigint::BigInt` to implement `Linorder`\n  --> src/Orderings.rs:22:17\n   |\n22 | impl<T : Order> Linorder for T {}\n   |          -----  ^^^^^^^^     ^\n   |          |\n   |          unsatisfied trait bound introduced here\nnote: required by a bound in `Lattices_Big::max`\n  --> src/Lattices_Big.rs:10:17\n   |\n 8 | pub fn max <A> (x0: Set<A>) -> A\n   |        --- required by a bound in this function\n 9 | where\n10 |     A : Clone + Linorder + 'static\n   |                 ^^^^^^^^ required by this bound in `max`\n\nFor more information about this error, try `rustc --explain E0277`.\nerror: could not compile `isabelle_exported` (lib) due to 2 previous errors",
+        "log": "test/afp-Isabelle2025/logs/Sauer_Shelah_Lemma/stage1-1.compile.log",
+        "min_available_mb": 6784,
+        "returncode": 101,
+        "seconds": 2.0,
+        "started": "2026-10-20T12:38:46+00:00",
+        "status": "failed"
+      }
+    ],
+    "status": "failed"
+  },
+  "stage2_compile": {
+    "status": "not_run"
+  },
+  "status": "failed",
+  "theory_count": 4,
+  "theory_loading": {
+    "log": "test/afp-Isabelle2025/logs/Sauer_Shelah_Lemma/export.log",
+    "status": "passed"
+  }
+}

@@ -1,0 +1,381 @@
+{
+  "run_id": "20261020T074609Z",
+  "preserved_at_utc": "2026-10-20T16:41:25.317796+00:00",
+  "method": "Read-only SQLite isabelle_exports; Zstandard decompression when compressed=1. No Isabelle or Cargo rerun.",
+  "cache_note": "Database predates this run. This run used isabelle build -e to export the validated cached session. Local backend/setup/export-theory bytes were checked against cached isabelle_sources.",
+  "database": {
+    "path": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+    "sha256": "c8668390c57891b5fe397874ce81b0da5fbe6a34004c28f0b9a51fc881780554",
+    "mtime_utc": "2026-10-19T19:49:27.140665+00:00",
+    "session_name": "AFP-Rust-Nano_JSON",
+    "session_uuid": "dc519d5d-bf99-4222-802f-3148175a3588",
+    "return_code": 0
+  },
+  "cached_local_sources": [
+    {
+      "path": "translate/code_debug_info.ML",
+      "cached_sha1": "535028443685bda0640c050464f40d026bfa94b3",
+      "sha256": "613e0cd700651312fc5068d273f7ecfceb3bc4b260f2c5e1cf3be1379a411d96",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/code_rust.ML",
+      "cached_sha1": "f7336e8e2f218a94a259b3f3037b357f704ca343",
+      "sha256": "4d9f2e26c1d3ee1767d1351fab7f3a6c3e179c1586a570ac759d16fa04d6d528",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Integer_BigInt_Layer.thy",
+      "cached_sha1": "27229b09930c33de2d093e476559432ce84972a9",
+      "sha256": "0940b3b15ffc9b50cd998f5959f56b2004b971395c3401bb1d94bb430654cc9c",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_BigInt_Setup.thy",
+      "cached_sha1": "85e7b37bd85e025baf41fa17f9814b376dc00737",
+      "sha256": "3de8e36c49eb9e6f80d9b7e09aaf7af1605cdb1e6c86f118567f7ecc0cfc2ba4",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Target.thy",
+      "cached_sha1": "ff9206d8572eb1061145df62848d1998fd1162cd",
+      "sha256": "18fd87878d31222f752997a4bd8c8892858541dd5fd01574e2f50d89ec65dc9b",
+      "equal_to_current": true
+    },
+    {
+      "path": "test/afp-Isabelle2025/Nano_JSON/Nano_JSON_Rust_Export.thy",
+      "cached_sha1": "8bddc9a2acdc342bd1cfdfe679bd94b849ead997",
+      "sha256": "781477ada8eb20cbe461e049b8db8e86a66c2812e94d6267b6b2eb93a6abc44d",
+      "equal_to_current": true
+    },
+    {
+      "path": "translate/Rust_Base_Setup.thy",
+      "cached_sha1": "5378c0a4770ba3cf8b4b67c5e0ddd4b4e3f7333c",
+      "sha256": "41351b8900ef420f7f7f12611a26b5955b4cc79735e6f6e2f8d24219ecbe5dea",
+      "equal_to_current": true
+    }
+  ],
+  "cargo_lock_note": "No Cargo.lock is stored by the Isabelle export database. Preserved files are the original export rows; use the recorded lock helper and pinned template for reproduction. An original Approximation_Algorithms lock is already preserved under report/cases.",
+  "files": [
+    {
+      "path": "rust-before/export1/Cargo.toml",
+      "bytes": 221,
+      "sha256": "9f3de0f598654ed5470eddbf0d967dba0fa9ddd4d2368a01ba77a40bff03dcab",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/Cargo.toml",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Arith.rs",
+      "bytes": 3887,
+      "sha256": "20fe395f1052db3b9904cf2ff714edda2ad61e9004a2ad786c473fdcd867c4e3",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Arith.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Basic_BNF_LFPs.rs",
+      "bytes": 457,
+      "sha256": "8b3faf554dbe8387fb589b4b85a1e1fb31e9096419b18dcfc1ce5208fec9de82",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Basic_BNF_LFPs.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Basic_BNFs.rs",
+      "bytes": 1046,
+      "sha256": "c6be2ea9f2989fedd589b0c0be55f2b060f8b60809efbc6805299d1e2913cdc9",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Basic_BNFs.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Code_Evaluation.rs",
+      "bytes": 365,
+      "sha256": "50afaec6168ebf4426f6d44864d6ed41f3d381cbd6fc94755e1951d08401517a",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Code_Evaluation.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Complete_Lattices.rs",
+      "bytes": 567,
+      "sha256": "237bbb35355bdf419ef87d7ad2d8ec50f85aa22bf138d382d9e8229a717bdfe0",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Complete_Lattices.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Euclidean_Rings.rs",
+      "bytes": 186,
+      "sha256": "842c3d77a4e0ff66600751c5ace836800b27c87813c7b9ad62159e3825d174c5",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Euclidean_Rings.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Example.rs",
+      "bytes": 88961,
+      "sha256": "99ce8fb110e65c1a3df20a825ebbfcc6a0dee9e975c6370d44c8b997bbed3eb0",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Example.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Example_Real.rs",
+      "bytes": 79511,
+      "sha256": "e66e6f95001da3d9552f0eb6ad4fb6dd696ee8a76567dee6fbf7b8df24cf39b6",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Example_Real.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Fun.rs",
+      "bytes": 145,
+      "sha256": "9426cc298adb211e9bd7975a2df86097e502d4e716f0b3d0a644b430673acfe6",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Fun.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/GCD.rs",
+      "bytes": 522,
+      "sha256": "cad0a46f21f03be61b623cefd6fcc1a5b788075f45fc20300f9db336d616aae5",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/GCD.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/HOL.rs",
+      "bytes": 4681,
+      "sha256": "8a4d2204ed835da7ab79f37e3305cc4bcbde41f1ea1450026b2f738c1755df64",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/HOL.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/List.rs",
+      "bytes": 13983,
+      "sha256": "788ef12680eebc4846fc0a9d7f71c0089ddb9a7bf947250af9317cf90bdbbb1c",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/List.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Nano_JSON.rs",
+      "bytes": 59455,
+      "sha256": "13c08918ca6223a91e86b48e4b3954489cf1224996d4a456954090ed87dba11f",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Nano_JSON.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Nano_JSON_Query.rs",
+      "bytes": 16184,
+      "sha256": "83ddaf1862d9ca19b3115203204dda4b315836cdc0a1bc70a22ad72fa3f6b046",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Nano_JSON_Query.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Option.rs",
+      "bytes": 63,
+      "sha256": "5b19b0b3ed037232f03387e3ce9df2551244707f5dbca0a81df2218df646b8ea",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Option.rs",
+      "zstd_compressed": false
+    },
+    {
+      "path": "rust-before/export1/src/Product_Type.rs",
+      "bytes": 9992,
+      "sha256": "f6dbb700d3f1e48234deb2e7b0f53b2038aaa2bbe094ca5b234fbc1c4318bdc9",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Product_Type.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Pure.rs",
+      "bytes": 97,
+      "sha256": "9b9e32a2c4226e5503795715163d5e6e07904e569a9d4e77e7bf237c7f6318bb",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Pure.rs",
+      "zstd_compressed": false
+    },
+    {
+      "path": "rust-before/export1/src/Quickcheck_Narrowing.rs",
+      "bytes": 610,
+      "sha256": "d9a8e15c23af1dcf46bb6c4f8c2723f2883b8497f5b7086b8d9d2218d692e4be",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Quickcheck_Narrowing.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Rat.rs",
+      "bytes": 1942,
+      "sha256": "0eb1a880d95c6abe75d49ff93f3dbee526b400cab4a5f2000f2de1395e6bc495",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Rat.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Real.rs",
+      "bytes": 413,
+      "sha256": "8d14419525ec3856e02d4ee8ff2e94f34d970338ca1a36266fd185f4a2692e56",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Real.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Set.rs",
+      "bytes": 2076,
+      "sha256": "7f6d363f25e623508a6d40a337d31ed3d677bb06c137367e2931b3d2764bf822",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Set.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/String.rs",
+      "bytes": 218,
+      "sha256": "fa14e7d9428ef78dc322d10bfb681629c1cc9db6b9fa8bab69665e5345d5177e",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/String.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/Typerep.rs",
+      "bytes": 247,
+      "sha256": "8e8e4ac9a829b5636396a6687f789e6b29936e611be0d4d6e55c1e6db729ba7f",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/Typerep.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "rust-before/export1/src/lib.rs",
+      "bytes": 428,
+      "sha256": "8847e9d485d46e6e3a5db81ed9c3473063c495d985676e0de368c440b332d542",
+      "origin": "/home/spring/.isabelle/Isabelle2025/heaps/polyml-5.9.1_x86_64_32-linux/log/AFP-Rust-Nano_JSON.db",
+      "theory": "AFP-Rust-Nano_JSON.Nano_JSON_Rust_Export",
+      "export_name": "code/export1/src/lib.rs",
+      "zstd_compressed": true
+    },
+    {
+      "path": "original/ROOT",
+      "bytes": 274,
+      "sha256": "5ec1daed81cd32d42834fc3757b8ef59bd2289480e5f39e5d4548465d8d84e25",
+      "origin": "temp/afp-Isabelle2025/thys/Nano_JSON/ROOT",
+      "cached_session_sha1": null,
+      "cached_session_hash_equal": null
+    },
+    {
+      "path": "original/Example.thy",
+      "bytes": 5929,
+      "sha256": "a926da119b3a119298c35b309a597b11f8b2aeb4d4cbbf9dd51ba2305a690c74",
+      "origin": "temp/afp-Isabelle2025/thys/Nano_JSON/Example.thy",
+      "cached_session_sha1": "9f6086958dd01869d74e6204aadfd2b5fa73b300",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Example_Real.thy",
+      "bytes": 5451,
+      "sha256": "fac91332bdff4964d9e152bb31ce678872b42253bc9922808b1bbcd2214bf035",
+      "origin": "temp/afp-Isabelle2025/thys/Nano_JSON/Example_Real.thy",
+      "cached_session_sha1": "f4fd79c4a2a1387f1fad16c0c3e7c51d305dfcee",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Nano_JSON.thy",
+      "bytes": 20419,
+      "sha256": "d3366bbda4ac26a40633d3b3ab8b2463d9efbcb93161a194a8d843974018d2cd",
+      "origin": "temp/afp-Isabelle2025/thys/Nano_JSON/Nano_JSON.thy",
+      "cached_session_sha1": "a6eca7b88080f1bca63595131b7ccffe05374e28",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Nano_JSON_Main.thy",
+      "bytes": 1770,
+      "sha256": "e2e7f60c6f63467f34bb95c27a1f7fd7f9b61afe6045306cd3b0f0065b815c76",
+      "origin": "temp/afp-Isabelle2025/thys/Nano_JSON/Nano_JSON_Main.thy",
+      "cached_session_sha1": "9496414462854e47b622ed9567e9432ca6deaf29",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Nano_JSON_Manual.thy",
+      "bytes": 3792,
+      "sha256": "ea527272685a8ff78fcba7742459aef6276fea0efa34db8c0acee6ed7eff7732",
+      "origin": "temp/afp-Isabelle2025/thys/Nano_JSON/Nano_JSON_Manual.thy",
+      "cached_session_sha1": "9f1c6ecfec6dbbc37f69d0bd5c49e5d0ca91bf15",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "original/Nano_JSON_Query.thy",
+      "bytes": 6477,
+      "sha256": "67afe23398260db418c51c2f269925766fb2c4aca195c9ca7af008913737242a",
+      "origin": "temp/afp-Isabelle2025/thys/Nano_JSON/Nano_JSON_Query.thy",
+      "cached_session_sha1": "b4bbb7b1805c65dbd3f00256f116df31eb04f1fb",
+      "cached_session_hash_equal": true
+    },
+    {
+      "path": "logs/export.txt",
+      "bytes": 301,
+      "sha256": "87d70a1c0165a954bf381fc7448a0d82ddfd841ee8604fde92ebe053e911f128",
+      "origin": "test/afp-Isabelle2025/logs/Nano_JSON/export.log",
+      "source_mtime_utc": "2026-10-20T12:29:03.081046+00:00"
+    },
+    {
+      "path": "logs/stage1-1.lock.txt",
+      "bytes": 288,
+      "sha256": "eb398bf447429a26de165587dba2c1c5017d697a5d4d73d68387f8ed12c72312",
+      "origin": "test/afp-Isabelle2025/logs/Nano_JSON/stage1-1.lock.log",
+      "source_mtime_utc": "2026-10-20T12:29:03.441046+00:00"
+    },
+    {
+      "path": "logs/stage1-1.compile.txt",
+      "bytes": 5468,
+      "sha256": "a2dfe069623b0b422cd89fe58dd07afa21d39e138ee22098e2faebbeb0df5071",
+      "origin": "test/afp-Isabelle2025/logs/Nano_JSON/stage1-1.compile.log",
+      "source_mtime_utc": "2026-10-20T12:29:05.949046+00:00"
+    },
+    {
+      "path": "export/Nano_JSON_Rust_Export.thy",
+      "bytes": 2028,
+      "sha256": "781477ada8eb20cbe461e049b8db8e86a66c2812e94d6267b6b2eb93a6abc44d",
+      "origin": "test/afp-Isabelle2025/Nano_JSON/Nano_JSON_Rust_Export.thy"
+    },
+    {
+      "path": "scope.json",
+      "bytes": 1555,
+      "sha256": "6b29f5ebcbc7917b65c917b27467ef5cdd71f817971d6f550f6397459f7e8bbb",
+      "origin": "test/afp-Isabelle2025/exports.json"
+    },
+    {
+      "path": "result.json",
+      "bytes": 7531,
+      "sha256": "42757b9d404a70fb9583f82541e924cbcbc839c9821c11312dad855a87a19664",
+      "origin": "test/afp-Isabelle2025/results.json"
+    }
+  ]
+}

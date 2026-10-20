@@ -1,0 +1,159 @@
+{
+  "artifacts": {
+    "logs": "test/afp-Isabelle2025/logs/Nano_JSON",
+    "stage1": "test/afp-Isabelle2025/Nano_JSON/stage1/Nano_JSON_Rust_Export",
+    "stage2": "test/afp-Isabelle2025/Nano_JSON/stage2/Nano_JSON_Rust_Export",
+    "theory": "test/afp-Isabelle2025/Nano_JSON/Nano_JSON_Rust_Export.thy"
+  },
+  "candidate_count": 36,
+  "optimization": {
+    "status": "not_run"
+  },
+  "runtime_validation": {
+    "reason": "No semantic correctness harness supplied",
+    "status": "not_run"
+  },
+  "rust_export": {
+    "command": [
+      "isabelle",
+      "build",
+      "-e",
+      "-j",
+      "1",
+      "-o",
+      "threads=1",
+      "-o",
+      "parallel_proofs=0",
+      "-o",
+      "document=false",
+      "-o",
+      "timeout=180",
+      "-o",
+      "skip_proofs=false",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+      "AFP-Rust-Nano_JSON"
+    ],
+    "log": "test/afp-Isabelle2025/logs/Nano_JSON/export.log",
+    "min_available_mb": 6277,
+    "returncode": 0,
+    "seconds": 5.0,
+    "started": "2026-10-20T12:28:58+00:00",
+    "status": "passed"
+  },
+  "scan": {
+    "candidate_count": 36,
+    "certificate_errors": [
+      {
+        "detail": "test/afp-Isabelle2025/_build/Nano_JSON/Nano_JSON.xml",
+        "message": "\"Code_Numeral.one_integer_inst.one_integer\" is not a constructor, on left hand side of equation, in theorem:\npartial_term_of_json_inst.partial_term_of_json ?ty\n (narrowing_term.Narrowing_constructor one_integer_inst.one_integer\n   [?a]) \\<equiv>\nCode_Evaluation.App\n (Code_Evaluation.Const\n   (String.Literal False True True True False False True\n     (String.Literal True False False False False True True\n       (String.Literal False True True True False True True\n         (String.Literal True True True True False True True\n           (String.Literal True True True True True False True\n             (String.Literal False True False True False False True\n               (String.Literal True True False False True False True\n                 (String.Literal True True True True False False True\n                   (String.Literal False True True True False False True\n                     (String.Literal False True True True False True False\n                       (String.Literal False True False True False True True\n                         (String.Literal True True False False True True\n                           True\n                           (String.Literal True True True True False True\n                             True\n                             (String.Literal False True True True False True\n                               True\n                               (String.Literal False True True True False\n                                 True False\n                                 (String.Literal True False False False\n                                   False False True\n                                   (String.Literal False True False False\n                                     True False True\n                                     (String.Literal False True False False\n True False True\n (String.Literal True False False False False False True\n   (String.Literal True False False True True False True\n     zero_literal_inst.zero_literal))))))))))))))))))))\n   (typerep.Typerep",
+        "name": "Nano_JSON.partial_term_of_json_inst.partial_term_of_json",
+        "truncated": true
+      }
+    ],
+    "context_merge_errors": [],
+    "errors": [],
+    "inspections": [
+      {
+        "command": [
+          "isabelle",
+          "process",
+          "-l",
+          "Nano_JSON",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "-f",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/scan.ML",
+          "-o",
+          "threads=1"
+        ],
+        "data": "test/afp-Isabelle2025/_build/Nano_JSON/Nano_JSON.xml",
+        "log": "test/afp-Isabelle2025/logs/Nano_JSON/Nano_JSON.scan.log",
+        "min_available_mb": 6223,
+        "returncode": 0,
+        "seconds": 3.5,
+        "session": "Nano_JSON",
+        "started": "2026-10-20T10:59:17+00:00",
+        "status": "passed"
+      }
+    ],
+    "loading": [
+      {
+        "command": [
+          "isabelle",
+          "build",
+          "-b",
+          "-j",
+          "1",
+          "-o",
+          "threads=1",
+          "-o",
+          "parallel_proofs=0",
+          "-o",
+          "document=false",
+          "-o",
+          "timeout=600",
+          "-o",
+          "skip_proofs=false",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "Nano_JSON"
+        ],
+        "log": "test/afp-Isabelle2025/logs/Nano_JSON/Nano_JSON.load.log",
+        "min_available_mb": 6309,
+        "returncode": 0,
+        "seconds": 4.0,
+        "session": "Nano_JSON",
+        "started": "2026-10-20T10:59:13+00:00",
+        "status": "passed"
+      }
+    ],
+    "missing_theories": [],
+    "status": "passed",
+    "theories": [
+      "Example.thy",
+      "Example_Real.thy",
+      "Nano_JSON.thy",
+      "Nano_JSON_Main.thy",
+      "Nano_JSON_Manual.thy",
+      "Nano_JSON_Query.thy"
+    ],
+    "theory_loading": {
+      "status": "passed"
+    }
+  },
+  "scope_sha256": "2d159a7bbae4a20b4f3403b31b0e6676a03e28e16554849b7372d0d525fde3d5",
+  "stage1_compile": {
+    "checks": [
+      {
+        "command": [
+          "cargo",
+          "+1.94.0",
+          "build",
+          "--locked",
+          "--manifest-path",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/Nano_JSON/stage1/Nano_JSON_Rust_Export/export1/Cargo.toml"
+        ],
+        "error_excerpt": "284 | ...:term_of(a.clone())))), Box::new(<List<A> as TermOf>::term_of(b.clone())))\n    |                                      ^^^^^^^ the trait `PartialTermOf` is not implemented for `A`\n    |\nnote: required for `List::List<A>` to implement `Typerep::Typerep`\n   --> src/List.rs:23:44\n    |\n 23 | impl <A : Clone + PartialTermOf + 'static> Typerep for List<A> {\n    |                   -------------            ^^^^^^^     ^^^^^^^\n    |                   |\n    |                   unsatisfied trait bound introduced here\nnote: required by a bound in `TermOf::term_of`\n   --> src/Code_Evaluation.rs:14:20\n    |\n 14 | pub trait TermOf : Typerep {\n    |                    ^^^^^^^ required by this bound in `TermOf::term_of`\n 15 |     fn term_of (x0: Self) -> Term where Self: Sized;\n    |        ------- required by a bound in this associated function\nhelp: consider further restricting type parameter `A` with trait `PartialTermOf`\n    |\n276 | impl <A : Clone + TermOf + 'static + Quickcheck_Narrowing::PartialTermOf> TermOf for List<A> {\n    |                                    +++++++++++++++++++++++++++++++++++++\n\nFor more information about this error, try `rustc --explain E0277`.\nerror: could not compile `isabelle_exported` (lib) due to 4 previous errors",
+        "log": "test/afp-Isabelle2025/logs/Nano_JSON/stage1-1.compile.log",
+        "min_available_mb": 6780,
+        "returncode": 101,
+        "seconds": 2.5,
+        "started": "2026-10-20T12:29:03+00:00",
+        "status": "failed"
+      }
+    ],
+    "status": "failed"
+  },
+  "stage2_compile": {
+    "status": "not_run"
+  },
+  "status": "failed",
+  "theory_count": 6,
+  "theory_loading": {
+    "log": "test/afp-Isabelle2025/logs/Nano_JSON/export.log",
+    "status": "passed"
+  }
+}

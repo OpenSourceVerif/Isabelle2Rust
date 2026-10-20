@@ -1,0 +1,27 @@
+{
+  "Examples/Sturm_Ex.thy": [],
+  "Lib/Misc_Polynomial.thy": [
+    "Misc_Polynomial.poly_inf",
+    "Misc_Polynomial.poly_neg_inf"
+  ],
+  "Lib/Sturm_Library.thy": [],
+  "Lib/Sturm_Library_Document.thy": [],
+  "Sturm.thy": [],
+  "Sturm_Method.thy": [
+    "Sturm_Method.PR_TAG"
+  ],
+  "Sturm_Theorem.thy": [
+    "Sturm_Theorem.count_roots",
+    "Sturm_Theorem.count_roots_above",
+    "Sturm_Theorem.count_roots_below",
+    "Sturm_Theorem.count_roots_between",
+    "Sturm_Theorem.sign_changes",
+    "Sturm_Theorem.sign_changes_inf",
+    "Sturm_Theorem.sign_changes_neg_inf",
+    "Sturm_Theorem.split_sign_changes",
+    "Sturm_Theorem.sturm",
+    "Sturm_Theorem.sturm_aux",
+    "Sturm_Theorem.sturm_squarefree",
+    "Sturm_Theorem.sturm_squarefree'"
+  ]
+}

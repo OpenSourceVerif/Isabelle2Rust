@@ -1,0 +1,149 @@
+{
+  "artifacts": {
+    "logs": "test/afp-Isabelle2025/logs/Digit_Expansions",
+    "stage1": "test/afp-Isabelle2025/Digit_Expansions/stage1/Digit_Expansions_Rust_Export",
+    "stage2": "test/afp-Isabelle2025/Digit_Expansions/stage2/Digit_Expansions_Rust_Export",
+    "theory": "test/afp-Isabelle2025/Digit_Expansions/Digit_Expansions_Rust_Export.thy"
+  },
+  "candidate_count": 8,
+  "optimization": {
+    "status": "not_run"
+  },
+  "runtime_validation": {
+    "reason": "No semantic correctness harness supplied",
+    "status": "not_run"
+  },
+  "rust_export": {
+    "command": [
+      "isabelle",
+      "build",
+      "-e",
+      "-j",
+      "1",
+      "-o",
+      "threads=1",
+      "-o",
+      "parallel_proofs=0",
+      "-o",
+      "document=false",
+      "-o",
+      "timeout=180",
+      "-o",
+      "skip_proofs=false",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust",
+      "-d",
+      "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+      "AFP-Rust-Digit_Expansions"
+    ],
+    "log": "test/afp-Isabelle2025/logs/Digit_Expansions/export.log",
+    "min_available_mb": 6295,
+    "returncode": 0,
+    "seconds": 5.0,
+    "started": "2026-10-20T11:43:24+00:00",
+    "status": "passed"
+  },
+  "scan": {
+    "candidate_count": 8,
+    "certificate_errors": [],
+    "context_merge_errors": [],
+    "errors": [],
+    "inspections": [
+      {
+        "command": [
+          "isabelle",
+          "process",
+          "-l",
+          "Digit_Expansions",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "-f",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/scan.ML",
+          "-o",
+          "threads=1"
+        ],
+        "data": "test/afp-Isabelle2025/_build/Digit_Expansions/Digit_Expansions.xml",
+        "log": "test/afp-Isabelle2025/logs/Digit_Expansions/Digit_Expansions.scan.log",
+        "min_available_mb": 6162,
+        "returncode": 0,
+        "seconds": 3.0,
+        "session": "Digit_Expansions",
+        "started": "2026-10-20T08:00:51+00:00",
+        "status": "passed"
+      }
+    ],
+    "loading": [
+      {
+        "command": [
+          "isabelle",
+          "build",
+          "-b",
+          "-j",
+          "1",
+          "-o",
+          "threads=1",
+          "-o",
+          "parallel_proofs=0",
+          "-o",
+          "document=false",
+          "-o",
+          "timeout=600",
+          "-o",
+          "skip_proofs=false",
+          "-d",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys",
+          "Digit_Expansions"
+        ],
+        "log": "test/afp-Isabelle2025/logs/Digit_Expansions/Digit_Expansions.load.log",
+        "min_available_mb": 6087,
+        "returncode": 0,
+        "seconds": 4.0,
+        "session": "Digit_Expansions",
+        "started": "2026-10-20T08:00:47+00:00",
+        "status": "passed"
+      }
+    ],
+    "missing_theories": [],
+    "status": "passed",
+    "theories": [
+      "Binary_Operations.thy",
+      "Bits_Digits.thy",
+      "Carries.thy"
+    ],
+    "theory_loading": {
+      "status": "passed"
+    }
+  },
+  "scope_sha256": "7fce898128ab37a08eb4045297b1ac7d98d46003e50b6fbc3834bc894fe59259",
+  "stage1_compile": {
+    "checks": [
+      {
+        "command": [
+          "cargo",
+          "+1.94.0",
+          "build",
+          "--locked",
+          "--manifest-path",
+          "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/Digit_Expansions/stage1/Digit_Expansions_Rust_Export/export1/Cargo.toml"
+        ],
+        "error_excerpt": "   |\nhelp: this trait has no implementations, consider adding one\n  --> src/Arith.rs:27:1\n   |\n27 | pub trait Times {\n   | ^^^^^^^^^^^^^^^\nnote: required for `num_bigint::BigInt` to implement `Power`\n  --> src/Arith.rs:35:23\n   |\n35 | impl<T : One + Times> Power for T {}\n   |                -----  ^^^^^     ^\n   |                |\n   |                unsatisfied trait bound introduced here\nnote: required by a bound in `power`\n  --> src/Arith.rs:43:17\n   |\n41 | pub fn power <A> (a: A, n: BigInt) -> A\n   |        ----- required by a bound in this function\n42 | where\n43 |     A : Clone + Power + 'static\n   |                 ^^^^^ required by this bound in `power`\n\nFor more information about this error, try `rustc --explain E0277`.\nerror: could not compile `isabelle_exported` (lib) due to 11 previous errors",
+        "log": "test/afp-Isabelle2025/logs/Digit_Expansions/stage1-1.compile.log",
+        "min_available_mb": 6807,
+        "returncode": 101,
+        "seconds": 2.0,
+        "started": "2026-10-20T11:43:29+00:00",
+        "status": "failed"
+      }
+    ],
+    "status": "failed"
+  },
+  "stage2_compile": {
+    "status": "not_run"
+  },
+  "status": "failed",
+  "theory_count": 3,
+  "theory_loading": {
+    "log": "test/afp-Isabelle2025/logs/Digit_Expansions/export.log",
+    "status": "passed"
+  }
+}

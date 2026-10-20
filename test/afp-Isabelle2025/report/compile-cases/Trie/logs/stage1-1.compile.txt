@@ -1,0 +1,198 @@
+$ cargo +1.94.0 build --locked --manifest-path /home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/Trie/stage1/Trie_Rust_Export/export1/Cargo.toml
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling num-integer v0.1.46
+   Compiling num-bigint v0.4.6
+   Compiling isabelle_exported v0.1.0 (/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/Trie/stage1/Trie_Rust_Export/export1)
+error[E0277]: the trait bound `A: PartialTermOf` is not satisfied
+   --> src/Option.rs:144:48
+    |
+144 | impl <A : Clone + TermOf + 'static> TermOf for Option<A> {
+    |                                                ^^^^^^^^^ the trait `PartialTermOf` is not implemented for `A`
+    |
+note: required for `Option::Option<A>` to implement `Typerep::Typerep`
+   --> src/Option.rs:26:44
+    |
+ 26 | impl <A : Clone + PartialTermOf + 'static> Typerep for Option<A> {
+    |                   -------------            ^^^^^^^     ^^^^^^^^^
+    |                   |
+    |                   unsatisfied trait bound introduced here
+note: required by a bound in `TermOf`
+   --> src/Code_Evaluation.rs:14:20
+    |
+ 14 | pub trait TermOf : Typerep {
+    |                    ^^^^^^^ required by this bound in `TermOf`
+help: consider further restricting type parameter `A` with trait `PartialTermOf`
+    |
+144 | impl <A : Clone + TermOf + 'static + Quickcheck_Narrowing::PartialTermOf> TermOf for Option<A> {
+    |                                    +++++++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `A: PartialTermOf` is not satisfied
+   --> src/List.rs:249:48
+    |
+249 | impl <A : Clone + TermOf + 'static> TermOf for List<A> {
+    |                                                ^^^^^^^ the trait `PartialTermOf` is not implemented for `A`
+    |
+note: required for `List::List<A>` to implement `Typerep::Typerep`
+   --> src/List.rs:22:44
+    |
+ 22 | impl <A : Clone + PartialTermOf + 'static> Typerep for List<A> {
+    |                   -------------            ^^^^^^^     ^^^^^^^
+    |                   |
+    |                   unsatisfied trait bound introduced here
+note: required by a bound in `TermOf`
+   --> src/Code_Evaluation.rs:14:20
+    |
+ 14 | pub trait TermOf : Typerep {
+    |                    ^^^^^^^ required by this bound in `TermOf`
+help: consider further restricting type parameter `A` with trait `PartialTermOf`
+    |
+249 | impl <A : Clone + TermOf + 'static + Quickcheck_Narrowing::PartialTermOf> TermOf for List<A> {
+    |                                    +++++++++++++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+  --> src/Trie.rs:74:17
+   |
+74 | /                 match v.clone() {
+75 | |                       Option::None =>
+76 | |                           true,
+77 | |                       Option::Some (a) =>
+...  |
+80 | |                           panic!("non-exhaustive match")
+81 | |                   } &&
+   | |___________________^ expected `()`, found `bool`
+   |
+help: parentheses are required to parse this as an expression
+   |
+74 ~                 (match v.clone() {
+75 |                       Option::None =>
+...
+80 |                           panic!("non-exhaustive match")
+81 ~                   }) &&
+   |
+
+error[E0308]: mismatched types
+  --> src/Trie.rs:81:21
+   |
+65 |   pub fn all_trie <A, B> (p: Rc<dyn Fn(A) -> bool>, x1: Trie<B, A>) -> bool
+   |                                                                        ---- expected `bool` because of return type
+...
+81 |                     } &&
+   |  _____________________^
+82 | |                   list_all(
+83 | |                       (({
+84 | |                           let p_cap = p.clone();
+...  |
+89 | |                       ps.clone()
+90 | |                   )
+   | |___________________^ expected `bool`, found `&&bool`
+   |
+help: parentheses are required to parse this as an expression
+   |
+74 ~                 (match v.clone() {
+75 |                       Option::None =>
+...
+80 |                           panic!("non-exhaustive match")
+81 ~                   }) &&
+   |
+
+error[E0277]: the trait bound `Trie::Trie<A, B>: HOL::Equal` is not satisfied
+   --> src/Trie.rs:388:28
+    |
+388 |         B>) -> Set<A>>), (*snds())(uu.clone()))))
+    |                            ^^^^^^ unsatisfied trait bound
+    |
+help: the trait `HOL::Equal` is not implemented for `Trie::Trie<A, B>`
+   --> src/Trie.rs:48:1
+    |
+ 48 | pub enum Trie<A, B> {
+    | ^^^^^^^^^^^^^^^^^^^
+help: the following other types implement trait `HOL::Equal`
+   --> src/Option.rs:127:1
+    |
+127 |   impl <A : Clone + Equal + 'static> Equal for Option<A> {
+    |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Option::Option<A>`
+    |
+   ::: src/List.rs:227:1
+    |
+227 |   impl <A : Clone + Equal + 'static> Equal for List<A> {
+    |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `List::List<A>`
+    |
+   ::: src/Product_Type.rs:18:1
+    |
+ 18 | / impl <A : Clone + Equal + 'static,  B : Clone + Equal + 'static> Equal for
+ 19 | |     (A, B) {
+    | |__________^ `(A, B)`
+note: required by a bound in `snds`
+   --> src/Basic_BNFs.rs:23:17
+    |
+ 20 | pub fn snds <B, A> () -> Rc<dyn Fn((A, B)) -> Set<B>>
+    |        ---- required by a bound in this function
+...
+ 23 |     B : Clone + Equal + 'static
+    |                 ^^^^^ required by this bound in `snds`
+
+error[E0277]: the trait bound `Trie::Trie<A, B>: HOL::Equal` is not satisfied
+   --> src/Trie.rs:413:28
+    |
+413 |         B>) -> Set<B>>), (*snds())(uu.clone())))
+    |                            ^^^^^^ unsatisfied trait bound
+    |
+help: the trait `HOL::Equal` is not implemented for `Trie::Trie<A, B>`
+   --> src/Trie.rs:48:1
+    |
+ 48 | pub enum Trie<A, B> {
+    | ^^^^^^^^^^^^^^^^^^^
+help: the following other types implement trait `HOL::Equal`
+   --> src/Option.rs:127:1
+    |
+127 |   impl <A : Clone + Equal + 'static> Equal for Option<A> {
+    |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Option::Option<A>`
+    |
+   ::: src/List.rs:227:1
+    |
+227 |   impl <A : Clone + Equal + 'static> Equal for List<A> {
+    |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `List::List<A>`
+    |
+   ::: src/Product_Type.rs:18:1
+    |
+ 18 | / impl <A : Clone + Equal + 'static,  B : Clone + Equal + 'static> Equal for
+ 19 | |     (A, B) {
+    | |__________^ `(A, B)`
+note: required by a bound in `snds`
+   --> src/Basic_BNFs.rs:23:17
+    |
+ 20 | pub fn snds <B, A> () -> Rc<dyn Fn((A, B)) -> Set<B>>
+    |        ---- required by a bound in this function
+...
+ 23 |     B : Clone + Equal + 'static
+    |                 ^^^^^ required by this bound in `snds`
+
+error[E0277]: the trait bound `A: PartialTermOf` is not satisfied
+   --> src/List.rs:257:3521
+    |
+257 | ...:term_of(a.clone())))), Box::new(<List<A> as TermOf>::term_of(b.clone())))
+    |                                      ^^^^^^^ the trait `PartialTermOf` is not implemented for `A`
+    |
+note: required for `List::List<A>` to implement `Typerep::Typerep`
+   --> src/List.rs:22:44
+    |
+ 22 | impl <A : Clone + PartialTermOf + 'static> Typerep for List<A> {
+    |                   -------------            ^^^^^^^     ^^^^^^^
+    |                   |
+    |                   unsatisfied trait bound introduced here
+note: required by a bound in `TermOf::term_of`
+   --> src/Code_Evaluation.rs:14:20
+    |
+ 14 | pub trait TermOf : Typerep {
+    |                    ^^^^^^^ required by this bound in `TermOf::term_of`
+ 15 |     fn term_of (x0: Self) -> Term where Self: Sized;
+    |        ------- required by a bound in this associated function
+help: consider further restricting type parameter `A` with trait `PartialTermOf`
+    |
+249 | impl <A : Clone + TermOf + 'static + Quickcheck_Narrowing::PartialTermOf> TermOf for List<A> {
+    |                                    +++++++++++++++++++++++++++++++++++++
+
+Some errors have detailed explanations: E0277, E0308.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `isabelle_exported` (lib) due to 7 previous errors
