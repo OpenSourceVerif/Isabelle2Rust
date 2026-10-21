@@ -189,3 +189,57 @@ export-failed, compile-failed and successful examples. These copies use
 rust-before/rust-after directories and survive make clean; target directories
 and temporary phase work are removed. Raw batch console logs are retained as
 text evidence inside the report; ordinary logs/ remains ignored.
+
+## Exhaustive multilingual experiment
+
+The separate `full/` output root preserves the earlier experiment in
+`full/baseline/`. It is local experiment data, rather than a checked-in result.
+Use the existing candidates, retry incomplete scans with checked proofs and no
+time limit, then inspect each checkpoint before moving to the following stage:
+
+~~~bash
+python3 -B test/afp-Isabelle2025/scan.py --output-dir test/afp-Isabelle2025/full --retry-failed --timeout 0 --max-heap-mb 4500 --stack-space-mb 512 --compiler-settings test/afp-Isabelle2025/full/compiler-settings.json
+python3 -B test/afp-Isabelle2025/full.py scan-checkpoint
+python3 -B test/afp-Isabelle2025/full.py export
+python3 -B test/afp-Isabelle2025/full.py export-checkpoint
+python3 -B test/afp-Isabelle2025/full.py compile
+python3 -B test/afp-Isabelle2025/full_audit.py --data-only
+python3 -B test/afp-Isabelle2025/full_report.py
+python3 -B test/afp-Isabelle2025/full_audit.py
+~~~
+
+Zero disables both the Python watchdog and Isabelle's command timeout. Memory
+monitoring remains active. Compiler settings are an explicit JSON map of
+`ISABELLE_*` environment variables; the full driver reads that file by default.
+The official ML target is SML. Rust, SML, OCaml, Haskell, Scala and Go serialize
+the same Thingol program in each valid context. Failed groups are split until
+individual outcomes have direct evidence. Independent incompatible theory
+branches remain separate, and their aggregate merge error is also preserved.
+
+Every attempt retains its full exception XML, process log and successful
+sources. Failed session databases are copied before printing unfiltered messages;
+their timestamps and return codes must match the referenced failed builds.
+Auxiliary prerequisite builds recorded under `full/prerequisites/` must finish
+successfully before exports begin. A checkpoint refuses unresolved resource,
+environment or tool failures.
+
+Compilation uses actual successful Rust manifests, attempts Stage-1, optimization
+and Stage-2 independently, and never executes generated programs. Exported
+sources in `full/exports/` and optimized sources in `full/rust-stage2/` survive
+the ordinary cleanup rules for directories named `stage1` or `stage2`.
+Preserve those source trees and all evidence when clearing reproducible caches.
+
+The report contains four Markdown documents, entry/candidate/crate CSV catalogs
+and full failure bodies in JSONL. Final generation requires a current independent
+data audit. The completion audit checks physical XML witnesses, source hashes,
+actual Cargo commands, distinct compiled coverage, every report row and every
+failure occurrence. Representative mechanism explanations still require review
+against the original HOL definitions and code-generator implementation.
+`--preview` on either reporting script explicitly marks incomplete output and
+cannot certify completion.
+
+Run the complete lightweight tooling regression suite with:
+
+~~~bash
+python3 -B -m unittest discover -s test/afp-Isabelle2025 -p 'test_*.py' -q
+~~~

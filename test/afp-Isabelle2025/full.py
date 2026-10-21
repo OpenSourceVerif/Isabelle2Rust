@@ -8,13 +8,17 @@ following phase can start.
 """
 
 import collections
+from contextlib import closing
 import copy
+from datetime import datetime
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import shlex
+import shutil
+import sqlite3
 import sys
 import xml.etree.ElementTree as ET
 
@@ -29,13 +33,64 @@ def digest(value):
     return hashlib.sha256(value).hexdigest()
 
 
+def file_digest(path):
+    """Hash large session databases without allocating another ML-sized buffer."""
+    checksum = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            checksum.update(block)
+    return checksum.hexdigest()
+
+
+def prerequisite_records(base):
+    """Read current auxiliary builds separately from archived repair attempts."""
+    root = base / "prerequisites"
+    if root.is_dir():
+        for directory in sorted(p for p in root.iterdir() if p.is_dir()):
+            result = directory / "result.json"
+            running = directory / "running.json"
+            if result.is_file() or running.is_file():
+                yield directory.name, common.read_json(result, {"status": "unfinished"}), result, running
+
+
+def session_database_origin(database, session, references):
+    """Require the failed database to fall within each referenced build interval.
+
+    A later rebuild may replace a session database while an older command log
+    remains. Its messages cannot silently stand in for that earlier failure.
+    """
+    modified = database.stat().st_mtime
+    unmatched = []
+    for reference in references:
+        try:
+            start = datetime.fromisoformat(reference["started"]).timestamp()
+            end = start + float(reference["seconds"])
+            matches = start - 2 <= modified <= end + 2
+        except (KeyError, TypeError, ValueError):
+            matches = False
+        if not matches:
+            unmatched.append(reference)
+    try:
+        with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as connection:
+            row = connection.execute(
+                "SELECT return_code, uuid FROM isabelle_session_info WHERE session_name = ?", (session,)).fetchone()
+        failed = row is not None and row[0] is not None and row[0] != 0
+        database_error = None
+    except sqlite3.Error as error:
+        row, failed, database_error = None, False, str(error)
+    return {"origin_verified": not unmatched and failed,
+            "unmatched_references": unmatched, "database_modified": modified,
+            "session_returncode": row[0] if row else None,
+            "session_uuid": row[1] if row else None, "database_error": database_error}
+
+
 def scope_digest(scope):
     return digest("\n".join(common.candidates(scope)).encode())
 
 
 def inputs(base):
     """Bind gates to both discovery results and the explicit candidate scope."""
-    return {name: digest((base / name).read_bytes())
+    return {name: file_digest(base / name)
             for name in ("exports.json", "results.json")}
 
 
@@ -51,7 +106,33 @@ def load(base):
 
 
 def save(base, result, exports):
-    common.save_results(result, exports, base)
+    # A successful compilation covers the actual Rust batch, independently
+    # for each stage. Distinct full names prevent overlap between groups or
+    # entries from inflating coverage.
+    compiled = {phase: set() for phase in ("stage1_compile", "stage2_compile")}
+    serializer = serializer_signature()
+    for entry, record in result["entries"].items():
+        stage = record.get("full_export", {})
+        if (stage.get("serializer_sha256") != serializer
+                or stage.get("scope_sha256") != scope_digest(exports[entry])
+                or stage.get("scan_sha256") != entry_scan_signature(record)
+                or stage.get("status") != "complete"):
+            continue
+        for run in stage.get("runs", []):
+            for attempt in run["attempts"]:
+                if attempt.get("target") != "Rust" or attempt["status"] != "passed":
+                    continue
+                for manifest in (p for p in attempt["files"] if p.endswith("/Cargo.toml")):
+                    checks = record.get("full_compile", {}).get(manifest, {})
+                    for phase in compiled:
+                        if checks.get(phase, {}).get("status") == "passed":
+                            compiled[phase].update(attempt["constants"])
+    known = {c for scope in exports.values() for c in common.candidates(scope)}
+    result["coverage"] = {"entries": len(result["entries"]), "distinct_candidates": len(known),
+                          "distinct_stage1_compiled_candidates": len(compiled["stage1_compile"]),
+                          "distinct_stage2_compiled_candidates": len(compiled["stage2_compile"])}
+    result["updated"] = common.timestamp()
+    common.write_json(base / "results.json", result)
 
 
 def infrastructure(text):
@@ -70,6 +151,57 @@ def log_text(item):
     log = item.get("log")
     path = common.PROJECT / log if log else None
     return path.read_text(errors="replace") if path and path.is_file() else item.get("error_excerpt", "")
+
+
+def archive_scan_messages(base, result, args, env):
+    """Keep complete failed-session messages before any environment repair.
+
+    Isabelle's build console truncates long messages. The database and the
+    unfiltered build_log output are separate immutable evidence, including
+    warnings and error positions in the original theory.
+    """
+    index = common.read_json(base / "scan-messages/index.json", {})
+    needed = {}
+    for value in index.values():
+        value["current"] = False
+    for entry, record in result["entries"].items():
+        for check in record.get("scan", {}).get("loading", []):
+            if check.get("status") not in {"passed", "blocked"}:
+                for session in check.get("failed_sessions", []):
+                    needed.setdefault(session, []).append(
+                        {"entry": entry, "command_log": check.get("log"), "started": check.get("started"),
+                         "seconds": check.get("seconds")})
+    heap_logs = Path(env["ISABELLE_HEAPS"]) / env["ML_IDENTIFIER"] / "log"
+    for session, references in needed.items():
+        database = heap_logs / (session + ".db")
+        if not database.is_file():
+            index[session] = {"status": "unavailable", "current": True, "reason": "No completed session database",
+                              "references": references}
+            continue
+        checksum = file_digest(database)
+        origin = session_database_origin(database, session, references)
+        old = index.get(session, {})
+        old.update(current=True, references=references, **origin)
+        if (old.get("database_sha256") == checksum and old.get("status") == "passed"
+                and origin["origin_verified"]):
+            continue
+        work = next_attempt(base / "scan-messages" / session)
+        # Read build_log from the retained copy, not the mutable global heap
+        # directory. Its environment points at a self-contained session database.
+        saved_database = work / "heaps" / env["ML_IDENTIFIER"] / "log" / (session + ".db")
+        saved_database.parent.mkdir(parents=True)
+        shutil.copy2(database, saved_database)
+        snapshot_env = dict(env, ISABELLE_HEAPS=str(work / "heaps"))
+        check = common.command([args.isabelle, "build_log", "-v", session],
+                               work / "messages.txt", args, snapshot_env)
+        index[session] = {
+            "status": check["status"] if origin["origin_verified"] else "mismatched",
+            "current": True, "command": check, "references": references, **origin,
+            "database": common.relative(saved_database), "database_sha256": checksum,
+            "messages_sha256": file_digest(work / "messages.txt")}
+        common.write_json(base / "scan-messages/index.json", index)
+    common.write_json(base / "scan-messages/index.json", index)
+    return index
 
 
 def scan_checkpoint(base, data, result, exports):
@@ -95,7 +227,12 @@ def scan_checkpoint(base, data, result, exports):
         for check in scan.get("loading", []) + scan.get("inspections", []):
             if check.get("status") in {"passed", "blocked"}:
                 continue
-            issues = infrastructure(check.get("status", "") + "\n" + log_text(check))
+            message_index = common.read_json(base / "scan-messages/index.json", {})
+            complete_logs = [log_text(message_index[session]["command"])
+                             for session in check.get("failed_sessions", [])
+                             if message_index.get(session, {}).get("status") == "passed"]
+            issues = infrastructure(check.get("status", "") + "\n" + log_text(check)
+                                    + "\n" + "\n".join(complete_logs))
             if issues:
                 problems.append({"entry": entry, "session": check.get("session"),
                                  "issues": issues, "log": check.get("log")})
@@ -103,6 +240,12 @@ def scan_checkpoint(base, data, result, exports):
                      "theories": len(scan.get("theories", [])),
                      "expected_theories": len(data["entries"][entry]["theories"]),
                      "candidates": len(common.candidates(exports[entry]))})
+    # Auxiliary cache builds are part of environment preparation. A pending or
+    # failed build must be reviewed before the main export stage begins.
+    for name, check, path, running in prerequisite_records(base):
+        if check.get("status") != "passed":
+            problems.append({"prerequisite": name, "reason": "prerequisite build unresolved",
+                             "status": check.get("status"), "result": common.relative(path)})
     gate = {"phase": "scan", "checked": common.timestamp(), "inputs": inputs(base),
             "passed": not problems, "infrastructure_failures": problems, "entries": rows,
             "phase_counts": dict(collections.Counter(row["status"] for row in rows))}
@@ -161,7 +304,10 @@ def export_command(session, work, args, env):
 
 def collect_attempts(work):
     records = []
-    for file in sorted(work.glob("attempts/**/*.xml")):
+    files = sorted(work.glob("attempts/**/*.xml"))
+    if (work / "context-merge.xml").is_file():
+        files.append(work / "context-merge.xml")
+    for file in files:
         node = ET.parse(file).getroot()
         value = dict(node.attrib, evidence=common.relative(file),
                      constants=[c.attrib["name"] for c in node.findall("constant")],
@@ -171,6 +317,10 @@ def collect_attempts(work):
                      error_sha256=digest(node.findtext("error", "").encode()),
                      error_truncated=len(node.findtext("error", "")) > 2000,
                      library_only=node.findtext("library_only") == "true")
+        if file.name == "context-merge.xml":
+            # This aggregate import failure is diagnostic even when every
+            # candidate exports successfully in an independent valid branch.
+            value.update(target="aggregate_context", stage="context_merge")
         records.append(value)
     return records
 
@@ -258,7 +408,7 @@ def export_entry(entry, info, record, scope, base, args, env):
     # Keep every generated source; compilation uses this inventory rather than
     # assuming that a whole-entry aggregate produced exactly one Rust crate.
     stage["artifacts"] = [
-        {"path": file, "sha256": digest((common.PROJECT / file).read_bytes()),
+        {"path": file, "sha256": file_digest(common.PROJECT / file),
          "bytes": (common.PROJECT / file).stat().st_size}
         for file in sorted({file for run in stage["runs"] for attempt in run["attempts"]
                             if attempt["status"] == "passed" for file in attempt["files"]})]
@@ -290,9 +440,20 @@ def export_checkpoint(base, data, result, exports):
             if not run.get("finished") or run["command"]["status"] != "passed":
                 problems.append({"entry": entry, "reason": "incomplete process",
                                  "command": run["command"]})
+        for run in stage.get("runs", []):
+            for attempt in run.get("attempts", []):
+                if attempt.get("status") == "failed":
+                    # Serializer errors can exceed the summary excerpt. Inspect
+                    # the immutable complete exception for environment blockers.
+                    evidence = common.PROJECT / attempt["evidence"]
+                    message = ET.parse(evidence).getroot().findtext("error", "")
+                    issues = infrastructure(message)
+                    if issues:
+                        problems.append({"entry": entry, "reason": "export infrastructure failure",
+                                         "issues": issues, "evidence": attempt["evidence"]})
         for artifact in stage.get("artifacts", []):
             path = common.PROJECT / artifact["path"]
-            if not path.is_file() or digest(path.read_bytes()) != artifact["sha256"]:
+            if not path.is_file() or file_digest(path) != artifact["sha256"]:
                 problems.append({"entry": entry, "reason": "missing/changed export", "path": str(path)})
     identity = digest(json.dumps({e: r.get("full_export") for e, r in result["entries"].items()},
                                  sort_keys=True).encode())
@@ -328,6 +489,11 @@ def compile_entry(entry, record, base, args, env, optimizer):
         else:
             item["stage2_compile"] = {"status": "blocked", "reason": "optimization failed",
                                       "log": item["optimization"]["log"]}
+        # Snapshot optimized sources after Cargo has supplied its lockfile.
+        # Global CARGO_TARGET_DIR keeps build caches outside the retained tree.
+        item["stage2_artifacts"] = [
+            {"path": common.relative(p), "sha256": file_digest(p), "bytes": p.stat().st_size}
+            for p in sorted(out.rglob("*")) if p.is_file()] if out.is_dir() else []
         item.update(complete=True, finished=common.timestamp())
 
 
@@ -385,7 +551,14 @@ def main():
         if args.skip_proofs:
             raise ValueError("The full experiment requires checked proofs")
         if args.phase == "scan-checkpoint":
+            messages = archive_scan_messages(base, result, args, env)
             gate = scan_checkpoint(base, data, result, exports)
+            gate["full_session_messages"] = common.relative(base / "scan-messages/index.json")
+            gate["message_archive_failures"] = [
+                session for session, item in messages.items()
+                if item.get("current") and item["status"] != "passed"]
+            if gate["message_archive_failures"]:
+                gate["passed"] = False
             gate["scan_signature"] = scan_signature(result, exports)
             common.write_json(base / "scan-checkpoint.json", gate)
             print(json.dumps({k: v for k, v in gate.items() if k != "entries"}, indent=2))
