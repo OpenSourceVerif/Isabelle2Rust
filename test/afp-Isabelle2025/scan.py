@@ -4,6 +4,7 @@
 import sys
 import re
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 from afp_common import (HERE, arguments, build_lock, build_options, candidates,
                         command, environment, experiment_lock, load_results, manifest, read_json,
@@ -38,9 +39,21 @@ def failed_sessions_in_log(text, status):
 
 def scan_entry(entry, info, args, env, exports):
     """Build all entry sessions; a bad certificate never removes its constant."""
-    work = HERE / "_build" / entry
+    # Separate result roots preserve earlier experiments and their complete logs.
+    base = getattr(args, "output_dir", HERE) or HERE
+    work = base / "_build" / entry
+    logs = base / "logs" / entry
+    if base != HERE:
+        # A repair/retry must keep the exact earlier logs and diagnostic XML.
+        # Isolated output roots use matching immutable attempt directories.
+        number = 1
+        while (logs / f"attempt-{number:04d}").exists():
+            number += 1
+        suffix = f"attempt-{number:04d}"
+        work = work / suffix
+        logs = logs / suffix
+        logs.mkdir(parents=True)
     work.mkdir(parents=True, exist_ok=True)
-    logs = HERE / "logs" / entry
     loading = []
     inspections = []
     errors = []
@@ -68,7 +81,7 @@ def scan_entry(entry, info, args, env, exports):
                 theory["session"] == session and theory.get("conditions")
                 and all(env.get(name) for name in theory["conditions"])
                 for theory in info["theories"])
-            built = command([args.isabelle, "build", "-b", *(["-c"] if refresh else []),
+            built = command([args.isabelle, "build", "-v", "-b", *(["-c"] if refresh else []),
                              *build_options(args),
                              "-d", str(args.afp / "thys"), session],
                             load_log, args, env)
@@ -141,11 +154,15 @@ def scan_entry(entry, info, args, env, exports):
 
 def main():
     parser = arguments(__doc__)
+    parser.add_argument("--output-dir", type=Path,
+                        help="separate experiment directory containing exports.json/results.json")
     args = parser.parse_args()
+    base = args.output_dir.resolve() if args.output_dir else HERE
+    args.output_dir = base
     env, metadata = environment(args)
     data = manifest(args, env)
-    exports = read_json(HERE / "exports.json", {})
-    result = load_results(metadata, data["entries"])
+    exports = read_json(base / "exports.json", {})
+    result = load_results(metadata, data["entries"], base)
     for entry in data["entries"]:
         exports.setdefault(entry, {})
     selected = select(args, data, result, "scan")
@@ -185,6 +202,10 @@ def main():
         failed_sessions.update(session for check in scan.get("loading", [])
                                for session in check.get("failed_sessions", []))
         processed.add(entry)
+        # Keep the preceding scan diagnostics when retrying an incomplete entry.
+        # Each output root is snapshotted before a retry, so those log paths remain valid.
+        if "scan" in record:
+            record.setdefault("scan_history", []).append(record["scan"])
         record["scan"] = scan
         record["candidate_count"] = len(candidates(exports[entry]))
         record["theory_count"] = len(info["theories"])
@@ -197,8 +218,8 @@ def main():
                       "runtime_validation"):
             if phase in record:
                 record[phase]["status"] = "stale"
-        write_json(HERE / "exports.json", exports)
-        save_results(result, exports)
+        write_json(base / "exports.json", exports)
+        save_results(result, exports, base)
         print(f"  {scan['status']}: {record['candidate_count']} candidates", flush=True)
     return int(any(result["entries"][entry]["scan"]["status"] != "passed"
                    for entry in selected))

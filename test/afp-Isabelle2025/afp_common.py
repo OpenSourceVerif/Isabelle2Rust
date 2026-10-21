@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared, bounded execution and reporting for the AFP 2025 experiment."""
+"""Shared execution, resource monitoring and reporting for the AFP 2025 experiment."""
 
 import argparse
 from contextlib import contextmanager
@@ -57,7 +57,12 @@ def arguments(description):
     parser.add_argument("--afp", type=Path, help="complete AFP 2025 root or its thys/ directory")
     parser.add_argument("--entries", nargs="+", help="entry directory names (default: all)")
     parser.add_argument("--retry-failed", action="store_true", help="retry incomplete/failed entries only")
-    parser.add_argument("--timeout", type=int, default=600, help="seconds per build/process (default: 600)")
+    parser.add_argument("--timeout", type=int, default=600,
+                        help="seconds per build/process; 0 disables both watchdog and session timeout")
+    parser.add_argument("--stack-space-mb", type=int, default=512,
+                        help="Poly/ML stack reserve; avoids the small default on large code certificates")
+    parser.add_argument("--compiler-settings", type=Path,
+                        help="JSON environment settings for AFP conditional external compilers")
     parser.add_argument("--max-heap-mb", type=int, default=3000)
     parser.add_argument("--java-heap-mb", type=int, default=768)
     parser.add_argument("--min-available-mb", type=int, default=512,
@@ -70,7 +75,9 @@ def arguments(description):
 
 def environment(args):
     """Reject wrong releases before interpreting ROOT files or reusing reports."""
-    for name in ("timeout", "max_heap_mb", "java_heap_mb"):
+    if args.timeout < 0:
+        raise ValueError("timeout must be nonnegative")
+    for name in ("max_heap_mb", "java_heap_mb", "stack_space_mb"):
         if getattr(args, name) <= 0:
             raise ValueError(name.replace("_", "-") + " must be positive")
     if args.min_available_mb < 0:
@@ -102,7 +109,15 @@ def environment(args):
     env = dict(os.fsdecode(item).split("=", 1) for item in initialized.split(b"\0")
                if b"=" in item)
     env.pop("RUSTC_BOOTSTRAP", None)
-    env["ML_OPTIONS"] = "--minheap 256 --maxheap " + str(args.max_heap_mb)
+    # Explicit stack space is essential when inspecting deeply nested code equations.
+    env["ML_OPTIONS"] = ("--minheap 256 --maxheap " + str(args.max_heap_mb)
+                         + " --stackspace " + str(args.stack_space_mb))
+    compiler_settings = read_json(args.compiler_settings) if args.compiler_settings else {}
+    if not isinstance(compiler_settings, dict) or any(
+            not isinstance(k, str) or not k.startswith("ISABELLE_") or not isinstance(v, str)
+            for k, v in compiler_settings.items()):
+        raise ValueError("compiler-settings must map ISABELLE_* names to string values")
+    env.update(compiler_settings)
     env["ISABELLE_TOOL_JAVA_OPTIONS"] = (
         "-Djava.awt.headless=true -Xms128m -Xmx" + str(args.java_heap_mb) + "m -Xss16m")
     env["CARGO_BUILD_JOBS"] = "1"
@@ -111,7 +126,8 @@ def environment(args):
                 "afp_roots_sha256": hashlib.sha256(roots.read_bytes()).hexdigest(),
                 "proofs": "skipped" if args.skip_proofs else "checked",
                 "threads": 1, "ml_heap_mb": args.max_heap_mb,
-                "java_heap_mb": args.java_heap_mb, "command_timeout_seconds": args.timeout}
+                "java_heap_mb": args.java_heap_mb, "command_timeout_seconds": args.timeout,
+                "stack_space_mb": args.stack_space_mb, "compiler_settings": compiler_settings}
     return env, metadata
 
 
@@ -198,7 +214,7 @@ def stop_process(process):
 
 
 def command(argv, log, args, env):
-    """Bound time and memory, kill the whole process group, and retain diagnostics."""
+    """Monitor memory and optional time limits, clean descendants, and retain diagnostics."""
     log.parent.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
     outcome = {"status": "running", "command": argv, "log": relative(log), "started": timestamp()}
@@ -214,7 +230,8 @@ def command(argv, log, args, env):
                 memory = available_mb()
                 if memory is not None:
                     minimum = min(minimum, memory) if minimum is not None else memory
-                if time.monotonic() - start > args.timeout:
+                # Zero is Isabelle's unlimited timeout and must also disable our watchdog.
+                if args.timeout and time.monotonic() - start > args.timeout:
                     reason = "timeout"
                 elif memory is not None and memory < args.min_available_mb:
                     reason = "memory_limit"
@@ -263,8 +280,9 @@ def candidates(theories):
     return sorted({constant for constants in theories.values() for constant in constants})
 
 
-def load_results(metadata, entries):
-    result = read_json(HERE / "results.json", {"schema_version": 1, "entries": {}})
+def load_results(metadata, entries, directory=None):
+    directory = HERE if directory is None else directory
+    result = read_json(directory / "results.json", {"schema_version": 1, "entries": {}})
     previous = result.get("environment", {})
     for key in ("isabelle", "afp_version", "afp_roots_sha256", "proofs"):
         if key in previous and previous[key] != metadata[key]:
@@ -276,7 +294,7 @@ def load_results(metadata, entries):
     return result
 
 
-def save_results(result, exports):
+def save_results(result, exports, directory=None):
     """Use full HOL names for coverage; count successful compilation separately."""
     known = {c for theories in exports.values() for c in candidates(theories)}
     compiled = set()
@@ -293,7 +311,7 @@ def save_results(result, exports):
     result["coverage"] = {"entries": len(result["entries"]), "distinct_candidates": len(known),
                           "distinct_stage1_compiled_candidates": len(compiled)}
     result["updated"] = timestamp()
-    write_json(HERE / "results.json", result)
+    write_json((HERE if directory is None else directory) / "results.json", result)
 
 
 def select(args, data, result, phase, required_phases=()):

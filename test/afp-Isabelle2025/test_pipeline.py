@@ -409,6 +409,21 @@ class FailureTests(unittest.TestCase):
 
 
 class ExecutionTests(unittest.TestCase):
+    def test_zero_timeout_allows_process_and_isabelle_session_to_finish(self):
+        # An unlimited scan must survive longer than zero seconds in both the
+        # Python watchdog and the generated Isabelle build options.
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            args = SimpleNamespace(timeout=0, min_available_mb=0, skip_proofs=False)
+            with patch.object(common, "PROJECT", project):
+                result = common.command(
+                    [sys.executable, "-c", "import time; time.sleep(0.7); print('finished')"],
+                    project / "unlimited.log", args, os.environ.copy())
+            self.assertEqual(result["status"], "passed")
+            self.assertIn("finished", (project / "unlimited.log").read_text())
+            self.assertIn("timeout=0", common.build_options(args))
+
+
     @unittest.skipUnless(Path("/proc/meminfo").exists(), "Linux process cleanup regression")
     def test_timeout_also_stops_detached_children(self):
         # Isabelle's bash_process can create a separate process session.
