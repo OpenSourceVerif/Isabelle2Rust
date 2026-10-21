@@ -215,7 +215,7 @@ def main():
         # their diagnostics available for comparison with the new scope.
         record["status"] = "pending" if scan["status"] == "passed" else scan["status"]
         for phase in ("rust_export", "stage1_compile", "optimization", "stage2_compile",
-                      "runtime_validation"):
+                      "runtime_validation", "full_export"):
             if phase in record:
                 record[phase]["status"] = "stale"
         write_json(base / "exports.json", exports)

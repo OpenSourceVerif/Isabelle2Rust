@@ -204,6 +204,12 @@ def resolve_candidates(names, runs):
     return outcomes
 
 
+def entry_scan_signature(record):
+    # Later code-equation theories can change behavior without adding a name.
+    # Bind exports to their discovery contexts as well as their constant list.
+    return digest(json.dumps(record["scan"], sort_keys=True).encode())
+
+
 def serializer_signature():
     paths = sorted(list((common.PROJECT / "translate").glob("*.ML"))
                    + list((common.PROJECT / "translate").glob("*.thy"))
@@ -214,8 +220,10 @@ def serializer_signature():
 
 def export_entry(entry, info, record, scope, base, args, env):
     names = common.candidates(scope)
+    if record.get("full_compile"):
+        record.setdefault("full_compile_history", []).append(record.pop("full_compile"))
     stage = {"scope_sha256": scope_digest(scope), "serializer_sha256": serializer_signature(),
-             "started": common.timestamp(), "runs": []}
+             "scan_sha256": entry_scan_signature(record), "started": common.timestamp(), "runs": []}
     record["full_export"] = stage
     if not names:
         stage.update(status="no_candidates" if record["scan"]["status"] == "passed" else "blocked",
@@ -268,6 +276,8 @@ def export_checkpoint(base, data, result, exports):
     for entry in data["order"]:
         record = result["entries"][entry]
         stage = record.get("full_export", {})
+        if stage.get("scan_sha256") != entry_scan_signature(record):
+            problems.append({"entry": entry, "reason": "discovery context changed"})
         if stage.get("serializer_sha256") != serializer_signature():
             problems.append({"entry": entry, "reason": "serializer changed"})
         if stage.get("scope_sha256") != scope_digest(exports[entry]):
@@ -394,7 +404,8 @@ def main():
                 record = result["entries"][entry]
                 old = record.get("full_export", {})
                 if (old.get("scope_sha256") == scope_digest(exports[entry])
-                        and old.get("serializer_sha256") == serializer_signature()) and old.get("status") in {
+                        and old.get("serializer_sha256") == serializer_signature()
+                        and old.get("scan_sha256") == entry_scan_signature(record)) and old.get("status") in {
                         "complete", "no_candidates"}:
                     continue
                 if old:
