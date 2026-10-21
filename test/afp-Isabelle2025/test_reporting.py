@@ -218,8 +218,20 @@ class ReportingTests(unittest.TestCase):
                 self.assertEqual(events[0]["stage"], "prerequisite")
                 self.assertEqual(collections.Counter(map(full_audit.failure_key, events)),
                                  full_audit.required_failure_inventory(base, data, result))
+                # Repairing the current build must clear its gate without
+                # dropping the complete earlier infrastructure failure.
+                history = auxiliary / "history/attempt-0001"
+                history.mkdir(parents=True)
+                common.write_json(history / "result.json", check)
                 common.write_json(auxiliary / "result.json", {"status": "passed"})
                 self.assertTrue(full.scan_checkpoint(base, data, result, exports)["passed"])
+                events = list(full_report.failure_events(base, data, result))
+                self.assertEqual(len(events), 1)
+                self.assertTrue(events[0]["historical"])
+                self.assertEqual(collections.Counter(map(full_audit.failure_key, events)),
+                                 full_audit.required_failure_inventory(base, data, result))
+                self.assertEqual(full_report.category(
+                    "java.lang.OutOfMemoryError: Java heap space")[0], "infrastructure")
 
     def test_report_audit_detects_wrong_compile_cell_and_omitted_failure(self):
         # Consistent totals do not prove catalog coverage: independently enumerate

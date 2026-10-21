@@ -353,10 +353,12 @@ def audit_reports(base, data, result, exports, audit):
     if (report / "failures.jsonl").is_file():
         actual, categories = collections.Counter(), collections.Counter()
         events = 0
+        historical = 0
         with (report / "failures.jsonl").open() as stream:
             for line in stream:
                 value = json.loads(line)
                 events += 1
+                historical += bool(value.get("historical"))
                 actual[failure_key(value)] += 1
                 categories[(value["phase"], value["category"], value.get("target") or "", value["status"])] += 1
                 need(value.get("error_sha256") == full.digest(value["error"].encode()),
@@ -368,6 +370,9 @@ def audit_reports(base, data, result, exports, audit):
         need(actual == required_failure_inventory(base, data, result),
              "failure catalog covers every actual failed command and diagnostic")
         need(events == summary.get("failure_events"), "failure event count consistent")
+        need(historical == summary.get("historical_failure_events", 0)
+             and events - historical == summary.get("current_failure_events", events),
+             "historical and current failure counts consistent")
         if (report / "failure-categories.csv").is_file():
             with (report / "failure-categories.csv").open() as stream:
                 rows = list(csv.DictReader(stream))
