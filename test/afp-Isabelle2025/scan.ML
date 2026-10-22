@@ -30,7 +30,16 @@ local
   fun inspect thy name =
     let
       val space = Sign.const_space thy;
-      val ctxt = Proof_Context.init_global thy;
+      (* Registered code equations are normalized with the code generator's
+         preprocessor simpset, not the ordinary HOL simp rules. The latter can
+         rewrite constructor patterns into non-constructors or expand logical
+         definitions unrelated to code generation. map_pre exposes the existing
+         simpset to an identity callback; its returned persistent theory value
+         is discarded, so no declaration or equation is changed. *)
+      val pre = Unsynchronized.ref (NONE : simpset option);
+      val _ = Code_Preproc.map_pre (fn current =>
+        (pre := SOME (simpset_of current); current)) thy;
+      val ctxt = put_simpset (the (!pre)) (Proof_Context.init_global thy);
       (* Abbreviations share the namespace but are not logical constants and
          cannot carry code equations. Only genuine Const declarations qualify. *)
       val own = #constants (Consts.dest (Sign.consts_of thy))
@@ -53,11 +62,15 @@ local
               else [element "constant" [("name", c)] [], failure c exn])
         end;
     in element "theory" [("name", name)] (maps candidate own) end;
+  (* Preserve interrupts and full diagnostics without an unrestricted ML
+     handler: theory-context compilation checks catch-all handlers strictly. *)
   fun safe_inspect thy name =
-    (inspect thy name handle exn =>
-      if Exn.is_interrupt exn then Exn.reraise exn else failure name exn);
+    (case Exn.capture (inspect thy) name of
+      Exn.Res result => result
+    | Exn.Exn exn =>
+        if Exn.is_interrupt exn then Exn.reraise exn else failure name exn);
   val body = maps (fn thy => map (safe_inspect thy) names) contexts @ diagnostics;
 in
   val _ = File.write (Path.explode (getenv "AFP_SCAN_OUTPUT"))
-    (XML.string_of (element "scan" [] body));
+    (XML.string_of (element "scan" [("certificate_context", "code_preprocessing_simpset")] body));
 end;

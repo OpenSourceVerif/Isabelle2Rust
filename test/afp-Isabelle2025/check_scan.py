@@ -5,6 +5,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 from afp_common import (HERE, arguments, build_lock, build_options, command, environment)
+import scan
 
 
 def main():
@@ -37,14 +38,17 @@ def main():
                         for name, values in expected.items()}
             names.write_text("\n".join(expected) + "\n")
             output.unlink(missing_ok=True)
-            inspected = command(
-                [args.isabelle, "process", "-l", "AFP-Scan-Fixture", "-d", str(fixtures),
-                 "-f", str(HERE / "scan.ML"), "-o", "threads=1"],
-                logs / (case + ".scan.log"), args,
-                dict(env, AFP_SCAN_THEORIES=str(names), AFP_SCAN_OUTPUT=str(output)))
+            # Use the production entry so the code preprocessor ML namespace
+            # and certificate simpset match real AFP scans, including branches.
+            inspected = scan.inspect_session(
+                "AFP-Scan-Fixture", args,
+                dict(env, AFP_SCAN_THEORIES=str(names), AFP_SCAN_OUTPUT=str(output)),
+                logs / (case + ".scan.log"), directories=[fixtures])
             if inspected["status"] != "passed":
                 raise RuntimeError("Fixture inspection failed: " + inspected["log"])
             document = ET.parse(output).getroot()
+            if document.attrib.get("certificate_context") != scan.CERTIFICATE_CONTEXT:
+                raise AssertionError("Unexpected certificate preprocessing context")
             actual = {}
             for theory in document.findall("theory"):
                 actual.setdefault(theory.attrib["name"], set()).update(

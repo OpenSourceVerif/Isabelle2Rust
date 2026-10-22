@@ -8,8 +8,31 @@ from pathlib import Path
 
 from afp_common import (HERE, arguments, build_lock, build_options, candidates,
                         command, environment, experiment_lock, load_results, manifest, read_json,
-                        relative, save_results, select, write_json)
+                        quote, relative, save_results, select, write_json)
 
+
+CERTIFICATE_CONTEXT = "code_preprocessing_simpset"
+
+
+def inspect_session(session, args, env, log, *, directories=()):
+    """Inspect original theories with the code generator's ML namespace.
+
+    Tools.Code_Generator supplies the Code_Preproc structure even for heaps
+    whose default ML environment is Pure. Loading that support theory does not
+    add it to the entry-owned theory list or merge it into the inspected
+    contexts; scan.ML still queries only the original loaded theories. Extra
+    session directories let native fixtures use this same production entry.
+    """
+    expression = (
+        'Context.setmp_generic_context (SOME (Context.Theory '
+        '(Thy_Info.get_theory "Tools.Code_Generator"))) '
+        '(ML_Context.eval_file ML_Compiler.flags) (Path.explode '
+        + quote(str(HERE / "scan.ML")) + ')')
+    extra = [option for directory in directories for option in ("-d", str(directory))]
+    return command(
+        [args.isabelle, "process", "-l", session, "-d", str(args.afp / "thys"), *extra,
+         "-o", "threads=1", "-o", "parallel_proofs=0",
+         "-T", "Tools.Code_Generator", "-e", expression], log, args, env)
 
 
 def failed_sessions_in_log(text, status):
@@ -102,10 +125,8 @@ def scan_entry(entry, info, args, env, exports):
         output.unlink(missing_ok=True)
         scan_env = dict(env, AFP_SCAN_THEORIES=str(names), AFP_SCAN_OUTPUT=str(output))
         with build_lock():
-            inspected = command([args.isabelle, "process", "-l", session,
-                                 "-d", str(args.afp / "thys"), "-f", str(HERE / "scan.ML"),
-                                 "-o", "threads=1"],
-                                logs / (session + ".scan.log"), args, scan_env)
+            inspected = inspect_session(
+                session, args, scan_env, logs / (session + ".scan.log"))
         inspected["session"] = session
         inspected["data"] = relative(output)
         inspections.append(inspected)
@@ -140,7 +161,8 @@ def scan_entry(entry, info, args, env, exports):
     loaded = bool(loading) and all(item["status"] == "passed" for item in loading)
     complete = loaded and len(set(scanned)) == len(info["theories"])
     status = "passed" if complete and not errors else "failed"
-    return {"status": status, "theories": sorted(set(scanned)), "loading": loading,
+    return {"status": status, "certificate_context": CERTIFICATE_CONTEXT,
+            "theories": sorted(set(scanned)), "loading": loading,
             "inspections": inspections, "errors": errors, "certificate_errors": certificate_errors,
             "context_merge_errors": context_merge_errors,
             "candidate_count": len(candidates(theories)),
@@ -206,6 +228,9 @@ def main():
         # Each output root is snapshotted before a retry, so those log paths remain valid.
         if "scan" in record:
             record.setdefault("scan_history", []).append(record["scan"])
+        # Keep the inspection policy explicit for successful and blocked
+        # entries so a resumed experiment can refresh incompatible old scans.
+        scan["certificate_context"] = CERTIFICATE_CONTEXT
         record["scan"] = scan
         record["candidate_count"] = len(candidates(exports[entry]))
         record["theory_count"] = len(info["theories"])

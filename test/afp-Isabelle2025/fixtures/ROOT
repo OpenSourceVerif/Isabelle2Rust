@@ -1,6 +1,9 @@
 (* Independent scanner/export regressions load real theories, not mocked ASTs. *)
 session "AFP-Scan-Fixture" = HOL +
   options [document = false]
+  (* Code_Context imports the library integer code-constructor setup. *)
+  sessions
+    "HOL-Library"
   theories
     Origin
     Later
@@ -9,3 +12,4 @@ session "AFP-Scan-Fixture" = HOL +
     Branch_Left
     Branch_Right
     Hidden_Constant
+    Code_Context
