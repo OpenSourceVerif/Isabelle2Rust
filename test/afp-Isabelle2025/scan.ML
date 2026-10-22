@@ -1,8 +1,58 @@
+(* Frozen discovery records real declarations before any code preprocessing.
+   Executability is a later diagnostic: target-only mappings, constructors,
+   aborting functions and declarations without equations must remain visible.
+   Each original theory is inspected in its own namespace; equation additions
+   in a descendant cannot change whether that declaration exists. *)
+local
+  fun element name props body = XML.Elem ((name, props), body);
+  fun catalogue () =
+    let
+      val requested = split_lines
+        (File.read (Path.explode (getenv_strict "AFP_SCAN_THEORIES")))
+        |> filter_out (fn name => name = "") |> distinct (op =);
+      val names = filter (is_some o Thy_Info.lookup_theory) requested;
+      val theories = map Thy_Info.get_theory names;
+      val maximal = filter_out (fn thy =>
+        exists (fn other => Context.proper_subthy (thy, other)) theories) theories;
+      fun own thy name =
+        #constants (Consts.dest (Sign.consts_of thy))
+        |> filter (fn (c, _) =>
+          Name_Space.theory_name {long = true} (Sign.const_space thy) c = name)
+        |> sort_by #1;
+      fun declaration name (c, (_, abbreviation)) =
+        element (if is_none abbreviation then "constant" else "abbreviation")
+          [("name", c), ("owner", name)] [];
+      fun inspect (name, thy) =
+        let val declarations = own thy name in
+          element "theory"
+            [("name", name), ("context", name),
+             ("declared", string_of_int (length declarations))]
+            (map (declaration name) declarations)
+        end;
+      fun context thy =
+        element "context" [("name", Context.theory_long_name thy)]
+          (map_filter (fn (name, original) =>
+            if Context.subthy (original, thy)
+            then SOME (element "covers" [("theory", name)] []) else NONE)
+            (names ~~ theories));
+      val body =
+        map (fn name => element "requested" [("name", name)] []) requested @
+        map (fn name => element "loaded" [("name", name)] []) names @
+        map context maximal @ map inspect (names ~~ theories);
+    in
+      File.write (Path.explode (getenv_strict "AFP_SCAN_OUTPUT"))
+        (XML.string_of (element "scan"
+          [("schema", "2"), ("policy", "owned-constants-v1"),
+           ("method", "declaration-catalogue-v1"),
+           ("unit", getenv_strict "AFP_SCAN_UNIT")] body))
+    end;
+
 (* Inspect actual loaded theories, never source-level definition keywords.
    Namespace provenance assigns locale/instance/generated constants to their
    defining theory even when their long names do not start with its basename.
    Code certificates include ordinary, abstract and projection equations. *)
-local
+fun certificate_probe () =
+let
   val names = split_lines (File.read (Path.explode (getenv "AFP_SCAN_THEORIES")))
     |> filter_out (fn s => s = "")
     |> filter (is_some o Thy_Info.lookup_theory);
@@ -71,6 +121,13 @@ local
         if Exn.is_interrupt exn then Exn.reraise exn else failure name exn);
   val body = maps (fn thy => map (safe_inspect thy) names) contexts @ diagnostics;
 in
-  val _ = File.write (Path.explode (getenv "AFP_SCAN_OUTPUT"))
-    (XML.string_of (element "scan" [("certificate_context", "code_preprocessing_simpset")] body));
+  File.write (Path.explode (getenv "AFP_SCAN_OUTPUT"))
+    (XML.string_of (element "scan" [("certificate_context", "code_preprocessing_simpset")] body))
+end;
+
+in
+  val _ =
+    if getenv "AFP_SCAN_POLICY" = "owned-constants-v1"
+    then catalogue ()
+    else certificate_probe ();
 end;

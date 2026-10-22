@@ -207,6 +207,22 @@ def archive_scan_messages(base, result, args, env):
 
 def scan_checkpoint(base, data, result, exports):
     """Inspect failed commands and conditions before permitting any exports."""
+    if (base / "scan-contract.json").is_file():
+        # Frozen stores derive completion from validated session receipts.
+        # The compatibility pair must agree with that authoritative snapshot.
+        from scan_frozen import checkpoint
+        from scan_store import Store, aggregate
+        units = common.read_json(base / "units.json")
+        store = Store(base)
+        actual, scope = aggregate(store, data, units, result["environment"])
+        if scope != exports or any(
+                actual["entries"][e]["scan"] != result["entries"][e]["scan"]
+                for e in data["entries"]):
+            raise ValueError("summary does not match frozen receipts; recover the joint snapshot")
+        gate = checkpoint(store, data, units, result["environment"])
+        gate["scan_signature"] = scan_signature(result, exports)
+        common.write_json(base / "scan-checkpoint.json", gate)
+        return gate
     problems = []
     rows = []
     for entry in data["order"]:
@@ -215,6 +231,17 @@ def scan_checkpoint(base, data, result, exports):
         status = scan.get("status", "pending")
         if status not in {"passed", "failed", "blocked"}:
             problems.append({"entry": entry, "reason": "scan has not finished"})
+        # A legacy status string alone is not evidence of loaded contexts.
+        info = data["entries"][entry]
+        if status == "passed":
+            loaded = {c.get("session") for c in scan.get("loading", []) if c.get("status") == "passed"}
+            inspected = {c.get("session") for c in scan.get("inspections", []) if c.get("status") == "passed"}
+            if (set(scan.get("theories", [])) != {t["path"] for t in info["theories"]}
+                    or loaded != set(info.get("sessions", [])) or inspected != loaded
+                    or any(c.get("status") != "passed" for c in scan.get("inspections", []))):
+                problems.append({"entry": entry, "reason": "unproven session/theory coverage"})
+        elif status in {"failed", "blocked"} and not scan.get("source_review"):
+            problems.append({"entry": entry, "reason": "failure requires explicit source/dependency review"})
         # Reused successful scans can still contain failed code certificates.
         # A truncated excerpt is insufficient when its original XML was cleaned.
         for diagnostic in scan.get("certificate_errors", []) + scan.get("context_merge_errors", []):
@@ -255,9 +282,9 @@ def scan_checkpoint(base, data, result, exports):
 
 
 def scan_signature(result, exports):
-    # Export and compilation records change results.json. The scope and scan
-    # evidence, rather than unrelated downstream fields, define discovery identity.
-    return digest(json.dumps({"scan": {e: r["scan"] for e, r in result["entries"].items()},
+    # Only semantic input/context facts and the retained scope bind exports.
+    return digest(json.dumps({"scan": {e: entry_scan_signature(r)
+                                      for e, r in result["entries"].items()},
                               "exports": exports}, sort_keys=True).encode())
 
 
@@ -356,9 +383,16 @@ def resolve_candidates(names, runs):
 
 
 def entry_scan_signature(record):
-    # Later code-equation theories can change behavior without adding a name.
-    # Bind exports to their discovery contexts as well as their constant list.
-    return digest(json.dumps(record["scan"], sort_keys=True).encode())
+    """Ignore timings/PIDs/diagnostic text without discarding source identity."""
+    scan = record["scan"]
+    facts = {key: scan.get(key) for key in
+             ("semantic_identity", "policy", "theories", "contexts", "unit_ids", "unit_states")}
+    if not scan.get("semantic_identity"):
+        # Preserve the weaker historical evidence as historical evidence.
+        facts["legacy_contexts"] = {
+            phase: [(c.get("session"), c.get("status")) for c in scan.get(phase, [])]
+            for phase in ("loading", "inspections")}
+    return digest(json.dumps(facts, sort_keys=True).encode())
 
 
 def serializer_signature():

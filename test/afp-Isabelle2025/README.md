@@ -5,6 +5,65 @@ AFP for Isabelle2025**, creates one explicit Rust export per entry, and records
 loading, export, compilation, optimization and runtime validation separately.
 It does not change the translator or optimizer.
 
+## Frozen candidate scanning
+
+Use `scan_frozen.py` for the resumable, scanning-only full experiment. The
+older `scan.py` / `run.py` commands below describe the legacy certificate/Rust
+experiment and must not operate on a frozen or retired output root.
+
+~~~bash
+# Initialize once in a new empty directory, checking inputs without scanning.
+python3 test/afp-Isabelle2025/scan_frozen.py \
+  --output-dir test/afp-Isabelle2025/full/new-scan \
+  --compiler-settings test/afp-Isabelle2025/full/compiler-settings.json \
+  --max-heap-mb 4000 --java-heap-mb 1536 --initialize --prepare-only
+
+# Start or resume the same run. Already committed sessions are reused.
+python3 test/afp-Isabelle2025/scan_frozen.py \
+  --output-dir test/afp-Isabelle2025/full/new-scan \
+  --compiler-settings test/afp-Isabelle2025/full/compiler-settings.json \
+  --max-heap-mb 4000 --java-heap-mb 1536
+~~~
+
+The compiler settings file is local experiment configuration; all ROOT compiler
+conditions must be available before initialization. Its keys are limited to
+external compiler settings. The driver enforces checked proofs, timeout=0 and
+timeout_build=false, checks the exact 893-entry/922-session/9122-theory universe,
+and stops after scanning. It never launches the export or compilation phases.
+
+The frozen policy `owned-constants-v1` retains every genuine entry-owned Const,
+using declaration provenance and internal names. Abbreviations are recorded
+separately. Constructors, target-only mappings, aborting functions and constants
+without equations are all present; inclusion is not a claim of executability.
+Discovery visits original theory namespaces and records their maximal-context
+coverage without merging incompatible branches or evaluating certificates.
+The historical certificate probe remains available for diagnostic regressions.
+
+Each immutable session attempt retains its tool/runtime identity, full command
+logs, XML and checksums. A durable receipt commits candidates and coverage
+together. After interruption, the driver validates existing receipts and can
+adopt a successful XML/sidecar before executing any unfinished work. A completed
+session cannot automatically re-enter the queue. At most the uncommitted current
+session is repeated. Native descendants of a lost driver are detected through a
+run marker even after reparenting.
+
+`scan-current.json` points at a single joint results/exports snapshot.
+`results.json` and `exports.json` are compatibility views, not independent
+completion facts. Retain the entire output root; do not clean its logs, XML,
+receipts, tool snapshots or failed-session databases.
+
+Unexplained failures remain unresolved. `--repair-plan` accepts an explicit
+bounded list of session names, a reason and evidence paths mapped to SHA256
+digests; tool changes also require a candidate-compatibility explanation.
+Completed sessions cannot be selected by this mechanism. Source/compiler changes
+close the gate for bounded impact review; they never invalidate all receipts.
+Resource limits and execution metadata are separate from candidate identity.
+
+Run the default tooling tests with `python3 -B -m unittest discover -s
+test/afp-Isabelle2025 -p 'test_*.py' -v`. Set `AFP_TEST_FROZEN_SCAN=1` for
+the native declaration and real session-recovery fixtures. These checks do not
+run generated target programs.
+
 ## Dependencies
 
 Follow the project README for Isabelle2025, Rust 1.94.0, and the sibling

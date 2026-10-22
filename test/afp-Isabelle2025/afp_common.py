@@ -14,6 +14,7 @@ import shlex
 import signal
 import subprocess
 import time
+import tempfile
 
 HERE = Path(__file__).resolve().parent
 PROJECT = HERE.parents[1]
@@ -30,11 +31,24 @@ def read_json(path, default=None):
 
 
 def write_json(path, value):
-    """Replace reports atomically: an interrupted batch keeps valid JSON."""
+    """Durably replace one record; callers use one receipt as a transaction."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
-    temporary.replace(path)
+    # A unique temporary also avoids two unrelated sidecars sharing a .tmp.
+    # fsync both the bytes and directory entry before acknowledging a commit.
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8",
+                                     dir=path.parent, prefix=path.name + ".",
+                                     suffix=".tmp", delete=False) as stream:
+        temporary = Path(stream.name)
+        json.dump(value, stream, ensure_ascii=False, indent=2, sort_keys=True)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+    descriptor = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def relative(path):
@@ -119,6 +133,14 @@ def environment(args):
             not isinstance(k, str) or not k.startswith("ISABELLE_") or not isinstance(v, str)
             for k, v in compiler_settings.items()):
         raise ValueError("compiler-settings must map ISABELLE_* names to string values")
+    # This file configures external conditional compilers, not arbitrary
+    # Isabelle state, heap locations or proof/executor options.
+    allowed_compilers = {"ISABELLE_CC", "ISABELLE_OCAMLFIND", "ISABELLE_GOEXE",
+                         "ISABELLE_GOROOT", "ISABELLE_SMLNJ", "ISABELLE_CAKEML_HOME",
+                         "ISABELLE_GHC", "ISABELLE_MLTON"}
+    if set(compiler_settings) - allowed_compilers:
+        raise ValueError("unsupported compiler setting: " +
+                         ", ".join(sorted(set(compiler_settings) - allowed_compilers)))
     env.update(compiler_settings)
     env["ISABELLE_TOOL_JAVA_OPTIONS"] = (
         "-Djava.awt.headless=true -Xms128m -Xmx" + str(args.java_heap_mb) + "m -Xss16m"
@@ -166,52 +188,73 @@ def build_lock():
 
 
 def process_identity(pid):
-    """Record Linux process birth time so cleanup cannot signal a reused PID."""
+    """Stable boot/PID/birth identity; reparenting is not a process restart."""
     try:
         fields = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
-        return int(fields[1]), fields[19]
+        boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        return boot, pid, fields[19]
     except (OSError, IndexError, ValueError):
         return None
 
 
-def stop_process(process):
-    """Also stop detached Isabelle bash_process descendants, not just Java's group."""
-    identities = {}
+def process_parent(pid):
+    """PPID is topology used to find descendants, never an identity field."""
     try:
-        for path in Path("/proc").iterdir():
-            if path.name.isdigit():
-                identity = process_identity(int(path.name))
-                if identity:
-                    identities[int(path.name)] = identity
-    except OSError:
-        pass
+        return int(Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[1])
+    except (OSError, IndexError, ValueError):
+        return None
+
+
+def identity_matches(record):
+    """Read old sidecars without rewriting their original identity format."""
+    actual = process_identity(record.get("pid", -1))
+    old = record.get("identity")
+    if not actual or not old:
+        return False
+    if len(old) == 3:
+        return list(actual) == list(old)
+    # Legacy records store (PPID, birth). Ignore reparenting but require the
+    # separately recorded boot ID; absent historical boot evidence is unknown.
+    return record.get("boot_id") == actual[0] and str(old[-1]) == actual[-1]
+
+
+def stop_process(process):
+    """Stop detached Isabelle descendants while guarding against PID reuse."""
+    identities = {}
+    parents = {}
+    for path in Path("/proc").iterdir():
+        if path.name.isdigit():
+            pid = int(path.name)
+            identity = process_identity(pid)
+            if identity:
+                identities[pid] = identity
+                parents[pid] = process_parent(pid)
     children = {process.pid}
     while True:
-        found = {pid for pid, (parent, _) in identities.items() if parent in children}
+        found = {pid for pid, parent in parents.items() if parent in children}
         if found <= children:
             break
         children.update(found)
+
     def send(pid, sig):
-        current = process_identity(pid)
-        # Detached children can be reparented after Java exits. Their birth
-        # time, rather than their current parent, identifies the same process.
-        if pid != process.pid and (
-                current is None or current[1] != identities.get(pid, (None, None))[1]):
+        if process_identity(pid) != identities.get(pid) or pid not in identities:
             return
         try:
             os.kill(pid, sig)
         except ProcessLookupError:
             pass
-    try:
-        os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        pass
+
+    if process_identity(process.pid) == identities.get(process.pid):
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
     for pid in children - {process.pid}:
         send(pid, signal.SIGTERM)
     try:
         process.wait(timeout=10)
     except subprocess.TimeoutExpired:
-        process.kill()
+        send(process.pid, signal.SIGKILL)
         process.wait()
     for pid in children - {process.pid}:
         send(pid, signal.SIGKILL)
@@ -292,17 +335,38 @@ def build_options(args):
     return options
 
 
+def manifest_identity(args):
+    """Invalidate discovery caches on ROOT, import/source or parser changes.
+
+    Content hashing is read-only input verification, not candidate discovery.
+    Include all AFP files because ML_file and external assets can change imports
+    without changing ROOTS or a .thy suffix.
+    """
+    root = args.afp / "thys"
+    sha = hashlib.sha256()
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        sha.update(str(path.relative_to(root)).encode())
+        sha.update(b"\0")
+        sha.update(hashlib.sha256(path.read_bytes()).digest())
+    return {"manifest_version": 4, "afp_root": str(args.afp),
+            "sources_sha256": sha.hexdigest(),
+            "parser_sha256": hashlib.sha256((HERE / "sessions.scala").read_bytes()).hexdigest()}
+
+
 def manifest(args, env):
-    path = HERE / "_build/manifest.json"
-    identity = {"manifest_version": 3, "afp_root": str(args.afp),
-                "roots_sha256": hashlib.sha256((args.afp / "thys/ROOTS").read_bytes()).hexdigest()}
+    # Isolated runs retain their discovery inputs/logs without overwriting
+    # the manifest evidence belonging to an earlier experiment.
+    directory = getattr(args, "manifest_dir", HERE / "_build")
+    path = directory / "manifest.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    identity = manifest_identity(args)
     cached = read_json(path)
     if cached is not None and cached.get("identity") == identity and not args.refresh_manifest:
         return cached
     manifest_env = dict(env, AFP_THYS=str(args.afp / "thys"), AFP_MANIFEST=str(path))
     with build_lock():
         result = command([args.isabelle, "scala", str(HERE / "sessions.scala")],
-                         HERE / "logs/manifest.log", args, manifest_env)
+                         directory / "manifest.log", args, manifest_env)
     if result["status"] != "passed":
         raise RuntimeError("Isabelle session discovery failed; see " + result["log"])
     value = read_json(path)

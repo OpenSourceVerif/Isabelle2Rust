@@ -1,0 +1,4 @@
+(* Complete declaration catalogue, independent of certificate preprocessing. *)
+session "AFP-Catalogue-Fixture" = HOL +
+  options [document = false]
+  theories Catalogue_Coverage

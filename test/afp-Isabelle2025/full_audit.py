@@ -55,7 +55,7 @@ def audit_data(base, data, result, exports):
     for label, value in processes.items():
         actual = common.process_identity(value["pid"])
         old = value.get("identity")
-        live = actual is not None and old is not None and actual[1] == old[1]
+        live = common.identity_matches(value)
         need(not live, "recorded upstream process finished", process=label, pid=value["pid"])
     messages = common.read_json(base / "scan-messages/index.json", {})
     for session, value in messages.items():
@@ -81,7 +81,7 @@ def audit_data(base, data, result, exports):
         identity = common.read_json(running, {})
         actual = common.process_identity(identity.get("pid", -1))
         old = identity.get("identity")
-        need(not (actual and old and actual[1] == old[1]),
+        need(not common.identity_matches(identity),
              "auxiliary prerequisite process finished", prerequisite=name)
     artifact_count = 0
     compiled = {"stage1_compile": set(), "stage2_compile": set()}
