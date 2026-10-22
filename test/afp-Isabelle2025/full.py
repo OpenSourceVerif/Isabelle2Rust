@@ -139,6 +139,7 @@ def infrastructure(text):
     """Keep configuration failures out of backend defect statistics."""
     patterns = {
         "timeout": r"(?m)^timeout$|timed out|Timeout\.TIMEOUT|\*\*\*.*timeout|Timeout after",
+        "interruption": r"(?m)^(?:interrupted|running|starting)$|host_restart",
         "memory_or_stack": r"memory_limit|out of memory|unable to increase stack|Interrupt_Breakdown|cannot allocate|java heap space",
         "missing_dependency": r"command not found|no such file or directory|missing .*installation|missing .*compiler|cannot find.*(?:ocaml|ghc|sml|go)|Bad session",
         "tooling": r"Protocol_Message|has not been declared|Static Errors|ML error",

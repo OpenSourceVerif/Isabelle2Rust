@@ -244,6 +244,11 @@ def required_failure_inventory(base, data, result):
         if check.get("status") not in {"passed", None}:
             add("@prerequisite/" + path.relative_to(root).parts[0], "scan", "prerequisite",
                 check["status"], [check["log"]] if check.get("log") else [common.relative(path)])
+    for path in sorted((base / "recovery").glob("*/result.json")):
+        check = common.read_json(path, {})
+        if check.get("status") not in {"passed", None}:
+            add(check.get("entry", "@execution"), check.get("phase", "scan"),
+                "process_interruption", check["status"], [check["log"]])
     for entry in data["order"]:
         record = result["entries"][entry]
         scan = record["scan"]

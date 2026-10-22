@@ -20,7 +20,7 @@ import full
 
 CATEGORIES = (
     ("infrastructure", "资源、工具或依赖",
-     r"(?m)^timeout$|memory_limit|Interrupt_Breakdown|Unable to increase stack|out of memory|OutOfMemoryError|Java heap space|GC overhead limit|command not found|Protocol_Message",
+     r"(?m)^(?:timeout|interrupted)$|host_restart|memory_limit|Interrupt_Breakdown|Unable to increase stack|out of memory|OutOfMemoryError|Java heap space|GC overhead limit|command not found|Protocol_Message",
      "资源或外部工具条件尚未满足，不能据此归因于 HOL 构造或目标打印规则；必须在阶段检查点处理。"),
     ("class_constraints", "代码类型类约束", r"Wellsortedness|No type arity|No type class|Missing.*arity",
      "Thingol 前端推导可执行代码的类型类字典时，依赖类型没有要求的实例。逻辑定义、量化和相等不自动给出 enum、equal 或 partial_term_of 的可执行实现。"),
@@ -95,6 +95,15 @@ def failure_events(base, data, result):
                    "constants": [], "target": None, "error": full.log_text(check),
                    "historical": "history" in path.relative_to(prerequisite_root).parts,
                    "evidence": [check["log"]] if check.get("log") else [common.relative(path)]}
+    # Host interruption can occur before an entry has a result row. Its
+    # recovery observation and partial original logs remain historical evidence.
+    for path in sorted((base / "recovery").glob("*/result.json")):
+        check = common.read_json(path, {})
+        if check.get("status") not in {"passed", None}:
+            yield {"entry": check.get("entry", "@execution"), "phase": check.get("phase", "scan"),
+                   "stage": "process_interruption", "status": check["status"], "constants": [],
+                   "target": None, "historical": True, "error": full.log_text(check),
+                   "evidence": [check["log"], *check.get("evidence", [])]}
     for entry in data["order"]:
         record = result["entries"][entry]
         scan = record["scan"]
@@ -333,7 +342,7 @@ def build_report(base, data, result, exports, verified=False):
         "- [完整失败正文及原始证据索引](failures.jsonl)、[分类统计](failure-categories.csv)、[机器统计](summary.json)。\n\n",
         "成功源码保存在 full/exports；Stage-2 源码保存在 full/rust-stage2。",
         "完整异常 XML、进程日志及扫描会话数据库原样保留。",
-        f"失败事件目录包含 {historical} 个已归档的前置构建尝试（historical=true）；",
+        f"失败事件目录包含 {historical} 个已归档的执行或前置构建尝试（historical=true）；",
         "当前是否受阻由阶段检查点判定，历史故障不会因修复而删除。旧 baseline/report 仅作历史来源，",
         "不计作本轮最终结果。\n"]
     (report / "README.md").write_text("".join(overview))
@@ -342,7 +351,7 @@ def build_report(base, data, result, exports, verified=False):
             ("export", "export-failures.md", "六语言导出错误"),
             ("compile", "compile-failures.md", "Rust 两阶段编译错误")):
         parts = ["# " + title + "\n\n", header,
-                 "按实际失败/阻断事件计数，保留重复上下文、递归拆分和已归档的前置构建尝试。",
+                 "按实际失败/阻断事件计数，保留重复上下文、递归拆分和已归档的执行尝试。",
                  "historical=true 的事件属于先前尝试，不代表当前检查点仍失败。",
                  "候选失败率使用 candidates.csv 的单常量证据；条目状态分母见 entries.csv。\n\n",
                  table(["类别", "目标", "状态", "事件数"],

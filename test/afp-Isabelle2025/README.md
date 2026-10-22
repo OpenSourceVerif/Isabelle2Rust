@@ -243,3 +243,13 @@ Run the complete lightweight tooling regression suite with:
 ~~~bash
 python3 -B -m unittest discover -s test/afp-Isabelle2025 -p 'test_*.py' -q
 ~~~
+
+Long commands also write an atomic JSON sidecar beside their text log before
+waiting for completion. It includes the command, PID, Linux birth identity and
+boot ID; terminal outcomes preserve interruption and resource failures. A
+sidecar marked running is evidence of intent only: verify its process identity
+before resuming. Archived host-interruption observations belong to historical
+infrastructure events and do not condemn any HOL candidate.
+
+Use --java-active-processors to bound JVM worker and native-thread memory
+(default: 2), independently of the existing one-thread ML proof setting.

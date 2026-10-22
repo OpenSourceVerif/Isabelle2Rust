@@ -65,6 +65,8 @@ def arguments(description):
                         help="JSON environment settings for AFP conditional external compilers")
     parser.add_argument("--max-heap-mb", type=int, default=3000)
     parser.add_argument("--java-heap-mb", type=int, default=768)
+    parser.add_argument("--java-active-processors", type=int, default=2,
+                        help="bound JVM worker/native-thread memory independently of ML proof threads")
     parser.add_argument("--min-available-mb", type=int, default=512,
                         help="stop a command below this available-memory threshold; 0 disables")
     parser.add_argument("--skip-proofs", action="store_true",
@@ -77,7 +79,7 @@ def environment(args):
     """Reject wrong releases before interpreting ROOT files or reusing reports."""
     if args.timeout < 0:
         raise ValueError("timeout must be nonnegative")
-    for name in ("max_heap_mb", "java_heap_mb", "stack_space_mb"):
+    for name in ("max_heap_mb", "java_heap_mb", "stack_space_mb", "java_active_processors"):
         if getattr(args, name) <= 0:
             raise ValueError(name.replace("_", "-") + " must be positive")
     if args.min_available_mb < 0:
@@ -119,14 +121,16 @@ def environment(args):
         raise ValueError("compiler-settings must map ISABELLE_* names to string values")
     env.update(compiler_settings)
     env["ISABELLE_TOOL_JAVA_OPTIONS"] = (
-        "-Djava.awt.headless=true -Xms128m -Xmx" + str(args.java_heap_mb) + "m -Xss16m")
+        "-Djava.awt.headless=true -Xms128m -Xmx" + str(args.java_heap_mb) + "m -Xss16m"
+        + " -XX:ActiveProcessorCount=" + str(args.java_active_processors))
     env["CARGO_BUILD_JOBS"] = "1"
     env["ISABELLE_CARGO"] = str(Path.home() / ".cargo/bin/cargo")
     metadata = {"isabelle": version, "afp_version": "2025", "afp_root": str(root),
                 "afp_roots_sha256": hashlib.sha256(roots.read_bytes()).hexdigest(),
                 "proofs": "skipped" if args.skip_proofs else "checked",
                 "threads": 1, "ml_heap_mb": args.max_heap_mb,
-                "java_heap_mb": args.java_heap_mb, "command_timeout_seconds": args.timeout,
+                "java_heap_mb": args.java_heap_mb, "java_active_processors": args.java_active_processors,
+                "command_timeout_seconds": args.timeout,
                 "stack_space_mb": args.stack_space_mb, "compiler_settings": compiler_settings}
     return env, metadata
 
@@ -214,39 +218,63 @@ def stop_process(process):
 
 
 def command(argv, log, args, env):
-    """Monitor memory and optional time limits, clean descendants, and retain diagnostics."""
+    """Monitor resources and retain command identity even across host shutdowns."""
     log.parent.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
-    outcome = {"status": "running", "command": argv, "log": relative(log), "started": timestamp()}
+    outcome = {"status": "starting", "command": argv, "log": relative(log), "started": timestamp()}
+    evidence = log.with_suffix(log.suffix + ".json")
+    # A session may spend hours proving before its entry checkpoint is written.
+    # Its independent sidecar survives loss of the driver or WSL environment,
+    # while the text log remains the complete unmodified subprocess output.
+    write_json(evidence, outcome)
     minimum = available_mb()
     with log.open("w") as stream:
         stream.write("$ " + shlex.join(argv) + "\n")
         stream.flush()
-        process = subprocess.Popen(argv, cwd=PROJECT, env=env, stdout=stream,
-                                   stderr=subprocess.STDOUT, start_new_session=True)
+        try:
+            process = subprocess.Popen(argv, cwd=PROJECT, env=env, stdout=stream,
+                                       stderr=subprocess.STDOUT, start_new_session=True)
+        except OSError as error:
+            outcome.update(status="failed", finished=timestamp(), error=str(error))
+            write_json(evidence, outcome)
+            raise
         reason = None
         try:
-            while process.poll() is None:
-                memory = available_mb()
-                if memory is not None:
-                    minimum = min(minimum, memory) if minimum is not None else memory
-                # Zero is Isabelle's unlimited timeout and must also disable our watchdog.
-                if args.timeout and time.monotonic() - start > args.timeout:
-                    reason = "timeout"
-                elif memory is not None and memory < args.min_available_mb:
-                    reason = "memory_limit"
-                if reason:
-                    break
-                time.sleep(0.5)
-        finally:
-            # Interruptions and time/memory limits must not leave Poly/ML children.
-            if process.poll() is None:
-                stop_process(process)
+            try:
+                # Keep startup-record writes within descendant cleanup too:
+                # an interrupted checkpoint write must not orphan its process.
+                boot = Path("/proc/sys/kernel/random/boot_id")
+                outcome.update(status="running", pid=process.pid, identity=process_identity(process.pid),
+                               boot_id=boot.read_text().strip() if boot.is_file() else None)
+                write_json(evidence, outcome)
+                while process.poll() is None:
+                    memory = available_mb()
+                    if memory is not None:
+                        minimum = min(minimum, memory) if minimum is not None else memory
+                    # Zero disables both watchdog and Isabelle's session timeout.
+                    if args.timeout and time.monotonic() - start > args.timeout:
+                        reason = "timeout"
+                    elif memory is not None and memory < args.min_available_mb:
+                        reason = "memory_limit"
+                    if reason:
+                        break
+                    time.sleep(0.5)
+            finally:
+                # Interruptions and resource limits must not leave ML children.
+                if process.poll() is None:
+                    stop_process(process)
+        except BaseException as error:
+            outcome.update(status="interrupted", returncode=process.returncode, finished=timestamp(),
+                           seconds=round(time.monotonic() - start, 2), min_available_mb=minimum,
+                           interruption=type(error).__name__)
+            write_json(evidence, outcome)
+            raise
         outcome.update(status=reason or ("passed" if process.returncode == 0 else "failed"),
-                       returncode=process.returncode, seconds=round(time.monotonic() - start, 2),
-                       min_available_mb=minimum)
+                       returncode=process.returncode, finished=timestamp(),
+                       seconds=round(time.monotonic() - start, 2), min_available_mb=minimum)
     if outcome["status"] != "passed":
         outcome["error_excerpt"] = ("\n".join(log.read_text(errors="replace").splitlines()[-24:]))[-12000:]
+    write_json(evidence, outcome)
     return outcome
 
 
