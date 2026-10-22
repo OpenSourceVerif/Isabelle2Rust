@@ -1,4 +1,4 @@
-(* Independent scanner regression: it loads real theories, not a mocked AST. *)
+(* Independent scanner/export regressions load real theories, not mocked ASTs. *)
 session "AFP-Scan-Fixture" = HOL +
   options [document = false]
   theories
@@ -8,3 +8,4 @@ session "AFP-Scan-Fixture" = HOL +
     Branch_Base
     Branch_Left
     Branch_Right
+    Hidden_Constant
