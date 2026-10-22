@@ -280,9 +280,16 @@ def command(argv, log, args, env):
 
 def build_options(args):
     # Disable document production, but check proofs unless explicitly requested.
-    return ["-j", "1", "-o", "threads=1", "-o", "parallel_proofs=0",
-            "-o", "document=false", "-o", "timeout=" + str(args.timeout),
-            "-o", "skip_proofs=" + str(args.skip_proofs).lower()]
+    options = ["-j", "1", "-o", "threads=1", "-o", "parallel_proofs=0",
+               "-o", "document=false", "-o", "timeout=" + str(args.timeout),
+               "-o", "skip_proofs=" + str(args.skip_proofs).lower()]
+    # ROOT session options take precedence over the system's timeout default.
+    # Disable Isabelle's build timer explicitly for unlimited experiments: a
+    # local timeout otherwise survives timeout=0, while timeout_scale=0 would
+    # schedule termination immediately instead of disabling the timer.
+    if args.timeout == 0:
+        options += ["-o", "timeout_build=false"]
+    return options
 
 
 def manifest(args, env):
