@@ -141,7 +141,10 @@ def failure_events(base, data, result):
                 yield {"entry": entry, "phase": "scan", "stage": kind, "status": "failed",
                        "constants": [value["name"]] if value.get("name") else [], "target": None,
                        "error": message, "full_message_available": complete,
-                       "evidence": [evidence] if evidence else [common.relative(base / "results.json")]}
+                       # A complete legacy exception can outlive its temporary XML.
+                       "message_source": "scan_xml" if path and path.is_file() else "result_record",
+                       "evidence": [evidence] if path and path.is_file()
+                       else [common.relative(base / "results.json")]}
         if scan["status"] == "blocked":
             dependencies = scan.get("session_dependencies", scan.get("dependencies", []))
             yield {"entry": entry, "phase": "scan", "stage": "dependency", "status": "blocked",
@@ -341,7 +344,8 @@ def build_report(base, data, result, exports, verified=False):
         "- [全条目表](entries.csv)、[全候选及六语言证据](candidates.csv)、[全部 Rust crate 编译表](compilation.csv)。\n",
         "- [完整失败正文及原始证据索引](failures.jsonl)、[分类统计](failure-categories.csv)、[机器统计](summary.json)。\n\n",
         "成功源码保存在 full/exports；Stage-2 源码保存在 full/rust-stage2。",
-        "完整异常 XML、进程日志及扫描会话数据库原样保留。",
+        "本轮新尝试的异常 XML、进程日志及补取的扫描会话数据库均保留。",
+        "复用的未截断证书正文可直接取自 results.json 原记录，目录注明 message_source；",
         f"失败事件目录包含 {historical} 个已归档的执行或前置构建尝试（historical=true）；",
         "当前是否受阻由阶段检查点判定，历史故障不会因修复而删除。旧 baseline/report 仅作历史来源，",
         "不计作本轮最终结果。\n"]

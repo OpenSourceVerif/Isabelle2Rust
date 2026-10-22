@@ -259,8 +259,12 @@ def required_failure_inventory(base, data, result):
         for kind in ("certificate_errors", "context_merge_errors", "errors"):
             for value in scan.get(kind, []):
                 diagnostic = value if isinstance(value, dict) else {}
-                add(entry, "scan", kind, "failed",
-                    [diagnostic.get("detail") or common.relative(base / "results.json")],
+                detail = diagnostic.get("detail")
+                # Complete short messages can survive solely in results.json;
+                # the catalog must reference those bytes, not a cleaned XML.
+                evidence = detail if detail and (common.PROJECT / detail).is_file() else common.relative(
+                    base / "results.json")
+                add(entry, "scan", kind, "failed", [evidence],
                     [diagnostic["name"]] if diagnostic.get("name") else [])
         if scan["status"] == "blocked":
             add(entry, "scan", "dependency", "blocked", [common.relative(base / "results.json")])

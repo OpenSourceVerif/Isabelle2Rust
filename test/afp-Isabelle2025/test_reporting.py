@@ -39,6 +39,28 @@ class ReportingTests(unittest.TestCase):
             self.assertEqual(events[0]["error"], message)
             self.assertTrue(events[0]["full_message_available"])
 
+    def test_complete_short_diagnostic_survives_cleaned_xml_with_valid_evidence(self):
+        # Legacy scans retained full short exception bodies in results.json.
+        # Cite that surviving original record when the temporary XML was cleaned,
+        # while preserving the exact full message and candidate association.
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            base = project / "full"
+            message = '"List.append" is not a constructor, on left hand side of equation'
+            data = {"order": ["E"]}
+            result = {"entries": {"E": {"scan": {"status": "passed", "certificate_errors": [{
+                "name": "A.f", "message": message, "truncated": False,
+                "detail": "full/cleaned.xml"}]}}}}
+            common.write_json(base / "results.json", result)
+            with patch.object(common, "PROJECT", project):
+                events = list(full_report.failure_events(base, data, result))
+                inventory = full_audit.required_failure_inventory(base, data, result)
+            self.assertEqual(events[0]["error"], message)
+            self.assertTrue(events[0]["full_message_available"])
+            self.assertEqual(events[0]["message_source"], "result_record")
+            self.assertEqual(events[0]["evidence"], ["full/results.json"])
+            self.assertEqual(list(inventory), [full_audit.failure_key(events[0])])
+
     def test_performance_excludes_failed_paths_and_requires_equal_scopes(self):
         # A fast rejection is not successful serializer throughput. Six
         # successful samples must refer to exactly the same requested constants.
