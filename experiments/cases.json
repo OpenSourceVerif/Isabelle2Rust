@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "list-index",
+      "title": "List-Index",
+      "target": "List_Index.last_index",
+      "source_root": "test/afp/list-index",
+      "rounds": [
+        {
+          "id": "R001",
+          "title": "首次直接生成",
+          "batch_id": "20261023-01-list-index-smoke"
+        },
+        {
+          "id": "R002",
+          "title": "重复生成与性能测量",
+          "batch_id": "20261023-02-two-task-pilot",
+          "measurements": [
+            "results/20261023-list-index-diagnostic.json"
+          ]
+        }
+      ],
+      "performance_records": [
+        {
+          "id": "M001",
+          "round_id": "R002",
+          "sequence": 1,
+          "kind": "batch",
+          "source": "results/20261023-02-two-task-pilot.json",
+          "scope": "end_to_end"
+        },
+        {
+          "id": "M002",
+          "round_id": "R002",
+          "sequence": 2,
+          "kind": "diagnostic",
+          "source": "results/20261023-list-index-diagnostic.json",
+          "candidate_run_id": "run-001",
+          "scope": "end_to_end"
+        }
+      ]
+    },
+    {
+      "id": "skew-heap",
+      "title": "Skew Heap",
+      "target": "Skew_Heap.merge",
+      "source_root": "test/afp/skew-heap",
+      "rounds": [
+        {
+          "id": "R001",
+          "title": "首次直接生成与重复测试",
+          "batch_id": "20261023-02-two-task-pilot"
+        }
+      ],
+      "performance_records": []
+    }
+  ]
+}
