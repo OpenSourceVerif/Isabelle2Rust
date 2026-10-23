@@ -1,0 +1,9 @@
+session Direct_List_Index = HOL +
+  options [timeout = 600]
+  sessions
+    Rust
+    "List-Index"
+  theories
+    Direct_List_Index
+  export_files (in "generated") [2]
+    "Direct_List_Index.Direct_List_Index:code/**"

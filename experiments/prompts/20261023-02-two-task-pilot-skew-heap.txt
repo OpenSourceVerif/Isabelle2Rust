@@ -1,0 +1,34 @@
+Translate the Isabelle/HOL merge function below directly into safe Rust.
+Return only the full content of candidate.rs, without Markdown fences or explanations.
+Define exactly this public data type and function (additional helpers are allowed):
+pub enum Tree<T> { Leaf, Node(Box<Tree<T>>, T, Box<Tree<T>>) }
+pub fn merge<T: Ord>(a: Tree<T>, b: Tree<T>) -> Tree<T>
+Node fields are LEFT SUBTREE, VALUE, RIGHT SUBTREE, in that order.
+The input trees are owned. Do not require Clone or Copy bounds on T.
+Preserve the exact output tree shape and values for all finite trees, not only heaps.
+Equal keys use the <= branch, exactly as in the Isabelle definition.
+Isabelle pattern aliases such as (Node l1 a1 r1 =: t1) bind t1 to that whole tree.
+Use Rust edition 2024 and std; no unsafe, filesystem/network/process access, or main.
+No reference implementation source is supplied. The following is the exact AFP source excerpt:
+
+function merge :: "('a::linorder) tree \<Rightarrow> 'a tree \<Rightarrow> 'a tree" where
+"merge Leaf t = t" |
+"merge t Leaf = t" |
+"merge (Node l1 a1 r1 =: t1) (Node l2 a2 r2 =: t2) =
+   (if a1 \<le> a2 then Node (merge t2 r1) a1 l1
+    else Node (merge t1 r2) a2 l2)" 
+by pat_completeness auto
+termination
+by (relation "measure (\<lambda>(x, y). size x + size y)") auto
+
+lemma merge_code: "merge t1 t2 =
+  (case t1 of
+   Leaf \<Rightarrow> t2 |
+   Node l1 a1 r1 \<Rightarrow> (case t2 of
+     Leaf \<Rightarrow> t1 |
+     Node l2 a2 r2 \<Rightarrow> 
+       (if a1 \<le> a2
+        then Node (merge t2 r1) a1 l1
+        else Node (merge t1 r2) a2 l2)))"
+by(auto split: tree.split)
+

@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "suite_id": "afp-pilot-v1",
+  "status": "superseded_do_not_run",
+  "superseded_by": "experiments/plans/paper-01-v0.1.md",
+  "supersession_note": "保留 AFP 历史筛选与任务信息；B/C 条件、重复次数、30 次运行及准入协议均不是当前直接生成路线的执行配置。",
+  "purpose": "开发集预实验：比较相同上下文与预算下局部优化 B 和结构重写 C；不作为最终独立测试集。",
+  "provenance": {
+    "remote": "git@github.com:shenghaoyuan/Isabelle2Rust.git",
+    "branch": "afp",
+    "snapshot_commit": "4974408f4948c2d86c7665bd719874ec24c3dba4",
+    "historical_run_id": "20261020T074609Z",
+    "historical_source_commit": "6f0a58d367f4cd192c920962da14c1f1e253b40e",
+    "historical_rustlightast_commit": "897fec3808d9053337e9cea54ff77b3a7e1d3e60",
+    "local_rustlightast_commit": "1d25bd1ac5b406cfc08c4554ab9980ce5986db8f",
+    "afp_archive_url": "https://isa-afp.org/release/afp-2025-03-17.tar.gz",
+    "afp_archive_sha256": "c41fbd7b48d1023ddf6b34501eceb5480caf6e5bb6985905eeea0aef203ee4e3",
+    "snapshot_file_sha256": {
+      "report/entries.csv": "70f6803b01945b73a65af09046ad140e60d454e58eb9bb00b21e8bdd8ec004bd",
+      "report/summary.json": "a0bfe64bb4a0fa43b4385c986e65c06b1c49640a588f56b887dbb1bc8e6917bd",
+      "report/run.json": "3f076cb433b6d14678fc4bfd6420de75ea46c0c4dfce0bac748f7546deb65536",
+      "exports.json": "fdb01e478f600d66b595c064431fd2a6ea89bd28ae4e9e180ac52b5b93b75b7c"
+    }
+  },
+  "unit_of_analysis": "task (one selected kernel per AFP entry), with repeated model runs nested within task",
+  "conditions": [
+    "B_local",
+    "C_structural"
+  ],
+  "repeats_per_condition": 3,
+  "planned_runs": 30,
+  "common_constraints": [
+    "相同 Isabelle 定义、相关依赖、Stage-2 参考实现与接口契约。",
+    "相同模型、调用与 token 上限、反馈工具和候选选择规则。",
+    "固定外部接口与完整可观察行为，safe Rust；内部表示转换的成本计入性能。",
+    "生成测试、适配器、参照与最终测试不可由模型修改。",
+    "按入口依赖显式确定可编辑文件；函数级返回结构可观察时保持结构等价。"
+  ],
+  "admission_gates": [
+    "在当前环境重新生成/构建 Stage-1 与完整 Stage-2。",
+    "两阶段通过独立开发 oracle 和冻结的最终语义测试。",
+    "准备可复现 release 性能与分配量基线；规定转换、克隆、销毁的计时边界。",
+    "冻结任务包、B/C 提示词、预算、合法输入域、开发/最终数据划分与候选选择规则。"
+  ],
+  "tasks": [
+    {
+      "id": "list-index-last",
+      "onboarding_order": 1,
+      "entry": "List-Index",
+      "target_constants": [
+        "List_Index.last_index"
+      ],
+      "family": "列表查找和递归遍历",
+      "source_files_inspected": [
+        {
+          "afp_relative_path": "List-Index/List_Index.thy",
+          "local_inspected_sha256": "2083bbee03a3ff793b96882d4571b206bbd86755f9a140efa9133526f98cdcf9"
+        }
+      ],
+      "historical_entry_candidate_count": 6,
+      "historical_stage1_compile": "passed",
+      "historical_stage2_compile": "passed",
+      "historical_runtime_validation": "passed",
+      "local_revalidation": "not_run",
+      "admission_status": "pending_harness_and_baseline_validation",
+      "domain": "全部列表；未命中返回列表长度。",
+      "equivalence_contract": "精确比较自然数结果；Vec.rposition 加未命中长度作为独立 oracle。",
+      "workload_plan": [
+        "空列表、未命中、重复元素、首尾命中",
+        "长列表与不同命中位置；保留已有六入口 smoke 测试"
+      ],
+      "scope_note": "一个任务可包含入口的必要依赖，但不把全条目自动生成常量作为模型改写范围；新任务包须重新编译。"
+    },
+    {
+      "id": "skew-heap-merge",
+      "onboarding_order": 2,
+      "entry": "Skew_Heap",
+      "target_constants": [
+        "Skew_Heap.merge"
+      ],
+      "family": "递归树合并和所有权转移",
+      "source_files_inspected": [
+        {
+          "afp_relative_path": "Skew_Heap/Skew_Heap.thy",
+          "local_inspected_sha256": "212435f75ba99eb103c274cae4909ee4ac272add055ac3ffd1665eda7ea3a114"
+        }
+      ],
+      "historical_entry_candidate_count": 2,
+      "historical_stage1_compile": "passed",
+      "historical_stage2_compile": "passed",
+      "historical_runtime_validation": "not_run",
+      "local_revalidation": "not_run",
+      "admission_status": "pending_harness_and_baseline_validation",
+      "domain": "函数级检查覆盖任意有限树；性能主负载使用合法最小堆。",
+      "equivalence_contract": "比较完整树形和节点值；多重集守恒及堆不变量只是附加检查。merge2 不是可直接替换的结构等价 oracle。",
+      "workload_plan": [
+        "空树、单节点、相等键、两树大小悬殊",
+        "退化右链与不同形状；合法堆由独立构造器生成"
+      ],
+      "scope_note": "一个任务可包含入口的必要依赖，但不把全条目自动生成常量作为模型改写范围；新任务包须重新编译。"
+    },
+    {
+      "id": "splay-tree-splay",
+      "onboarding_order": 3,
+      "entry": "Splay_Tree",
+      "target_constants": [
+        "Splay_Tree.splay"
+      ],
+      "family": "多分支树旋转和递归路径",
+      "source_files_inspected": [
+        {
+          "afp_relative_path": "Splay_Tree/Splay_Tree.thy",
+          "local_inspected_sha256": "1f922b404850d90b4fee6345577c945e297948dde7efe03e58886ed3df24beab"
+        }
+      ],
+      "historical_entry_candidate_count": 15,
+      "historical_stage1_compile": "passed",
+      "historical_stage2_compile": "passed",
+      "historical_runtime_validation": "not_run",
+      "local_revalidation": "not_run",
+      "admission_status": "pending_harness_and_baseline_validation",
+      "domain": "函数级精确差分覆盖有限树；应用负载使用合法 BST。",
+      "equivalence_contract": "比较完整返回树；中序序列和 BST 不变量只是附加检查。不能把另一种 splay 算法的不同树形当成精确等价。",
+      "workload_plan": [
+        "命中和未命中、单/双旋转、空树",
+        "递增/递减建树、热点查询；构造输入与计时分离"
+      ],
+      "scope_note": "一个任务可包含入口的必要依赖，但不把全条目自动生成常量作为模型改写范围；新任务包须重新编译。"
+    },
+    {
+      "id": "shearsort-list",
+      "onboarding_order": 4,
+      "entry": "Parallel_Shear_Sort",
+      "target_constants": [
+        "Parallel_Shear_Sort.shearsort_list"
+      ],
+      "family": "嵌套列表、转置和中间分配",
+      "source_files_inspected": [
+        {
+          "afp_relative_path": "Parallel_Shear_Sort/Parallel_Shear_Sort.thy",
+          "local_inspected_sha256": "e8b907de5633b5b07ce4aacbdeb70f5fda4d769cb29ed871c08b46dafb946ea4"
+        }
+      ],
+      "historical_entry_candidate_count": 9,
+      "historical_stage1_compile": "passed",
+      "historical_stage2_compile": "passed",
+      "historical_runtime_validation": "not_run",
+      "local_revalidation": "not_run",
+      "admission_status": "pending_harness_and_baseline_validation",
+      "domain": "精确差分覆盖有限嵌套列表及两种方向；性能主负载使用矩形矩阵。",
+      "equivalence_contract": "比较完整嵌套列表和顺序；排序/多重集性质仅在满足源定理前提时使用，不能替代精确比较。",
+      "workload_plan": [
+        "空矩阵、空行、单行/列、重复值、两种方向",
+        "矩形主负载；不规则行用于语义边界；独立数组版本复现每步规则"
+      ],
+      "scope_note": "一个任务可包含入口的必要依赖，但不把全条目自动生成常量作为模型改写范围；新任务包须重新编译。"
+    },
+    {
+      "id": "karatsuba-sqrt",
+      "onboarding_order": 5,
+      "entry": "Karatsuba_Sqrt",
+      "target_constants": [
+        "Karatsuba_Sqrt.karatsuba_sqrt_default"
+      ],
+      "family": "大整数分治和数值语义",
+      "source_files_inspected": [
+        {
+          "afp_relative_path": "Karatsuba_Sqrt/Karatsuba_Sqrt.thy",
+          "local_inspected_sha256": "1c6fcc86e9e335d9fa92a81978b84aacac8c6861fc1c0c3d770199c3e0fd9189"
+        }
+      ],
+      "historical_entry_candidate_count": 17,
+      "historical_stage1_compile": "passed",
+      "historical_stage2_compile": "passed",
+      "historical_runtime_validation": "not_run",
+      "local_revalidation": "not_run",
+      "admission_status": "pending_harness_and_baseline_validation",
+      "domain": "非负任意精度整数；保持 nat 语义，不缩窄为 u64。",
+      "equivalence_contract": "精确比较 (s,r)，并独立检查 n=s*s+r 且 0<=r<2*s+1；Python math.isqrt 作为独立 oracle。",
+      "workload_plan": [
+        "0、1、完全平方数及其相邻值",
+        "不同位宽、算法切换附近和大整数；排除浮点区间模块"
+      ],
+      "scope_note": "一个任务可包含入口的必要依赖，但不把全条目自动生成常量作为模型改写范围；新任务包须重新编译。"
+    }
+  ]
+}

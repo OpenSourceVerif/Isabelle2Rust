@@ -1,0 +1,55 @@
+Translate the Isabelle/HOL last_index definition below directly into safe Rust.
+Return only the full content of candidate.rs, without Markdown fences or explanations.
+Required public signature:
+pub fn last_index<T: Eq>(xs: &[T], x: &T) -> num_bigint::BigInt
+Use Rust edition 2024 and num-bigint 0.4.6. You may choose the implementation and
+use std, but no unsafe, filesystem/network/process access, other dependencies, or main.
+Preserve the source behavior for every finite representable list: index is zero-based;
+when absent return list length. Equality is ordinary element equality. Isabelle nat
+is nonnegative and unbounded, subtraction saturates at zero. rev reverses a list,
+size is its length. Return BigInt, not a machine-sized integer. Do not change the interface.
+The source below is an exact excerpt from AFP List_Index.thy (definitions and commentary).
+No generated OCaml or Rust reference implementation is supplied.
+
+(* Author: Tobias Nipkow, with contributions from Dmitriy Traytel, Lukas Bulwahn, and Peter Lammich *)
+
+section \<open>Index-based manipulation of lists\<close>
+
+theory List_Index imports Main begin
+
+text \<open>\noindent
+This theory collects functions for index-based manipulation of lists.
+\<close>
+
+subsection \<open>Finding an index\<close>
+
+text \<open>
+This subsection defines three functions for finding the index of items in a list:
+\begin{description}
+\item[\<open>find_index P xs\<close>] finds the index of the first element in
+ \<open>xs\<close> that satisfies \<open>P\<close>.
+\item[\<open>index xs x\<close>] finds the index of the first occurrence of
+ \<open>x\<close> in \<open>xs\<close>.
+\item[\<open>last_index xs x\<close>] finds the index of the last occurrence of
+ \<open>x\<close> in \<open>xs\<close>.
+\end{description}
+All functions return @{term "length xs"} if \<open>xs\<close> does not contain a
+suitable element.
+
+The argument order of \<open>find_index\<close> follows the function of the same
+name in the Haskell standard library. For \<open>index\<close> (and \<open>last_index\<close>) the order is intentionally reversed: \<open>index\<close> maps
+lists to a mapping from elements to their indices, almost the inverse of
+function \<open>nth\<close>.\<close>
+
+primrec find_index :: "('a \<Rightarrow> bool) \<Rightarrow> 'a list \<Rightarrow> nat" where
+  "find_index _ [] = 0" |
+  "find_index P (x#xs) = (if P x then 0 else find_index P xs + 1)"
+
+definition index :: "'a list \<Rightarrow> 'a \<Rightarrow> nat" where
+  "index xs = (\<lambda>a. find_index (\<lambda>x. x=a) xs)"
+
+definition last_index :: "'a list \<Rightarrow> 'a \<Rightarrow> nat" where
+  "last_index xs x =
+ (let i = index (rev xs) x; n = size xs
+  in if i = n then i else n - (i+1))"
+

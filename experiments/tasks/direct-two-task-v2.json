@@ -1,0 +1,40 @@
+{
+  "protocol_id": "direct-two-task-v2",
+  "plan_id": "paper-01-v0.1",
+  "tasks": ["list-index", "skew-heap"],
+  "independent_runs_per_task": 3,
+  "model": "deepseek-flash",
+  "thinking": {"type": "disabled"},
+  "temperature": 0.2,
+  "max_tokens": 4096,
+  "max_calls_per_run": 3,
+  "max_calls_batch": 18,
+  "estimated_peak_cost_guard_usd": 0.50,
+  "pricing_source": "https://api-docs.deepseek.com/quick_start/pricing/",
+  "pricing_checked": "2026-10-23",
+  "peak_usd_per_million": {"input_cache_miss": 0.30, "output": 1.20},
+  "candidate_selection": "First candidate passing development tests; final tests never used for repair or selection",
+  "list_index_tests": "Reuse the first pilot's frozen development/final suites; these are development benchmark repetitions, not new external holdout tasks",
+  "skew_heap_tests": {
+    "development_seed": 2026102303,
+    "final_seed": 2026102304,
+    "development_random_cases": 200,
+    "final_exhaustive_samples": 1000,
+    "final_random_cases": 400,
+    "max_random_nodes_per_tree": 64,
+    "equivalence": "Exact tree structure and values; additional multiset and heap checks, not merely set equality"
+  },
+  "performance": {
+    "task": "list-index",
+    "lengths": [32, 128, 512],
+    "queries": ["first", "last", "absent"],
+    "iterations": 500,
+    "warmup_iterations": 10,
+    "rounds": 7,
+    "order": "Rotate implementation order across rounds; run sequentially with no concurrent builds or API calls",
+    "scope": "In-process representation-inclusive calls from prebuilt arrays; Rust input cloning, baseline list construction and function work included; input parsing and printing excluded. OCaml uses array-to-list conversion and ordinary immutable value sharing. This is not an isolated kernel comparison.",
+    "clocks": "Rust Instant monotonic; OCaml Unix.gettimeofday wall clock",
+    "candidate_policy": "Measure every passing independently generated candidate; no best-of selection",
+    "interpretation": "Exploratory local timing, median and min/max across rounds; no universal performance claim"
+  }
+}

@@ -1,0 +1,7 @@
+session Direct_Skew_Heap = HOL +
+  options [timeout = 600]
+  sessions
+    Rust
+    Skew_Heap
+  theories
+    Direct_Skew_Heap
