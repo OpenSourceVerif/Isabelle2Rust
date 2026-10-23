@@ -1,0 +1,161 @@
+{
+  "batch_id": "20261023-01-list-index-smoke",
+  "task": {
+    "schema_version": 1,
+    "task_id": "direct-list-index-smoke-v1",
+    "plan_id": "paper-01-v0.1",
+    "route": "fixed_isabelle_to_rust",
+    "target_constant": "List_Index.last_index",
+    "scope": "流程试跑，单任务单次独立生成；不作为 AFP 总体结果",
+    "model": "deepseek-flash",
+    "thinking": {
+      "type": "disabled"
+    },
+    "temperature": 0.2,
+    "max_tokens": 4096,
+    "max_calls": 3,
+    "independent_runs": 1,
+    "estimated_cost_guard_usd": 0.1,
+    "peak_usd_per_million": {
+      "input_cache_miss": 0.3,
+      "output": 1.2
+    },
+    "pricing_checked": "2026-10-23",
+    "pricing_source": "https://api-docs.deepseek.com/quick_start/pricing/",
+    "candidate_selection": "首个通过开发测试的候选；最终测试不反馈，不重新选择",
+    "source_context": "AFP List_Index.thy 从开头至第一个 lemma 前的原文；标准列表和 nat 语义说明；不提供任何参考实现源码",
+    "interface": "pub fn last_index<T: Eq>(xs: &[T], x: &T) -> num_bigint::BigInt",
+    "dependencies": {
+      "num-bigint": "=0.4.6"
+    },
+    "test_instantiation": "任意精度整数元素；多态性只由 Rust 泛型编译检查，不宣称穷尽所有类型",
+    "development": {
+      "boolean_max_length": 6,
+      "random_cases": 200,
+      "max_random_length": 128,
+      "seed": 2026102301
+    },
+    "final": {
+      "ternary_min_length": 1,
+      "ternary_max_length": 6,
+      "random_cases": 256,
+      "max_random_length": 512,
+      "seed": 2026102302
+    },
+    "performance": "本批不作性能结论；执行耗时仅用于流程诊断",
+    "command_timeout_seconds": 180,
+    "api_timeout_seconds": 180
+  },
+  "run": {
+    "status": "passed",
+    "started_at": "2026-10-22T19:13:03.293428+00:00",
+    "attempts": [
+      {
+        "attempt": 1,
+        "model": "deepseek-flash",
+        "usage": {
+          "prompt_tokens": 732,
+          "completion_tokens": 120,
+          "total_tokens": 852,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "prompt_cache_hit_tokens": 0,
+          "prompt_cache_miss_tokens": 732
+        },
+        "finish_reason": "stop",
+        "api_seconds": 0.9024224590000001,
+        "development": {
+          "status": "passed",
+          "count": 581,
+          "failures": 0,
+          "counterexamples": [],
+          "seconds": 0.37749370900000034
+        }
+      }
+    ],
+    "estimated_peak_cost_usd": 0.0003636,
+    "final_test_feedback": false,
+    "performance": "not_measured_smoke_only",
+    "selected_attempt": 1,
+    "selected_candidate_sha256": "ad9034fb65686e3b1d5af0a0de7b13b79322a45bfc1c33175852b04e35be7080",
+    "final": {
+      "status": "passed",
+      "count": 4129,
+      "failures": 0,
+      "counterexamples": [],
+      "seconds": 0.024576708000000558
+    },
+    "finished_at": "2026-10-22T19:13:08.789793+00:00"
+  },
+  "baseline_checks": {
+    "stage1": {
+      "development": {
+        "status": "passed",
+        "count": 581,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.5073826249999982
+      },
+      "final": {
+        "status": "passed",
+        "count": 4129,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 1.754597582999999
+      }
+    },
+    "stage2": {
+      "development": {
+        "status": "passed",
+        "count": 581,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.38435858399999745
+      },
+      "final": {
+        "status": "passed",
+        "count": 4129,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.04533449999999917
+      }
+    },
+    "ocaml": {
+      "development": {
+        "status": "passed",
+        "count": 581,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.3886876249999993
+      },
+      "final": {
+        "status": "passed",
+        "count": 4129,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.024702292000000625
+      }
+    }
+  },
+  "experiment_id": "EXP-0001",
+  "artifact_root": "test/afp",
+  "candidates": [
+    {
+      "task": "list-index",
+      "run_id": "run-001",
+      "file": "test/afp/list-index/llm/EXP-0001/run-001/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "ad9034fb65686e3b1d5af0a0de7b13b79322a45bfc1c33175852b04e35be7080",
+      "reference": "EXP-0001/list-index/run-001"
+    }
+  ],
+  "artifact_manifest": "experiments/results/artifacts/EXP-0001.json",
+  "baseline_refs": {
+    "list-index": {
+      "directory": "test/afp/list-index",
+      "manifest": "test/afp/list-index/baseline.json",
+      "sha256": "44a3272998f79221e37554b1c0680813f77e556632b62cdb1f9c750b73bac20f"
+    }
+  }
+}

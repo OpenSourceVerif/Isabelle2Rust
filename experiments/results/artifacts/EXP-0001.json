@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "experiment_id": "EXP-0001",
+  "batch_id": "20261023-01-list-index-smoke",
+  "files": [
+    {
+      "path": "test/afp/list-index/isabelle/List_Index.thy",
+      "sha256": "2083bbee03a3ff793b96882d4571b206bbd86755f9a140efa9133526f98cdcf9",
+      "original_path": "experiments/runs/20261023-01-list-index-smoke/source/List_Index.thy"
+    },
+    {
+      "path": "test/afp/list-index/isabelle/session/Direct_List_Index.thy",
+      "sha256": "66253493bb418194b409c946208a3b84efa66df8338c0e81e6bde2158f085dbb",
+      "original_path": "experiments/runs/20261023-01-list-index-smoke/baselines/session/Direct_List_Index.thy"
+    },
+    {
+      "path": "test/afp/list-index/isabelle/session/ROOT",
+      "sha256": "ea7c9e5fff57bac68e3031ed1c83117ea92f2ba670de6f02ddf0109f818142db",
+      "original_path": "experiments/runs/20261023-01-list-index-smoke/baselines/session/ROOT"
+    },
+    {
+      "path": "test/afp/list-index/stage1/Cargo.toml",
+      "sha256": "9f3de0f598654ed5470eddbf0d967dba0fa9ddd4d2368a01ba77a40bff03dcab",
+      "original_path": "experiments/runs/20261023-01-list-index-smoke/baselines/generated/reference/Cargo.toml"
+    },
+    {
+      "path": "test/afp/list-index/stage1/src/Reference.rs",
+      "sha256": "408566cdd722e2f02cfb6d5d5b4d3bb04ac63293a3d1ae9230736a04fb29b673",
+      "original_path": "experiments/runs/20261023-01-list-index-smoke/baselines/generated/reference/src/Reference.rs"
+    },
+    {
+      "path": "test/afp/list-index/stage1/src/lib.rs",
+      "sha256": "7d7aef755cbd40ed44b0c58f6eb5064614e4ec1ab412c70b3164234341c3c04b",
+      "original_path": "experiments/runs/20261023-01-list-index-smoke/baselines/generated/reference/src/lib.rs"
+    },
+    {
+      "path": "test/afp/list-index/stage2/Cargo.toml",
+      "sha256": "9f3de0f598654ed5470eddbf0d967dba0fa9ddd4d2368a01ba77a40bff03dcab",
+      "original_path": "experiments/runs/20261023-01-list-index-smoke/baselines/optimized/Cargo.toml"
+    },
+    {
+      "path": "test/afp/list-index/stage2/src/Reference.rs",
+      "sha256": "ffab342a700700eb2fe0a9f0912bdd10fae076d556cb96cfcde4a990b744b950",
+      "original_path": "experiments/runs/20261023-01-list-index-smoke/baselines/optimized/src/Reference.rs"
+    },
+    {
+      "path": "test/afp/list-index/stage2/src/lib.rs",
+      "sha256": "f9d7cbc29be982383839d6f9bef556a9706e75f3083293391dd4948a07edae6a",
+      "original_path": "experiments/runs/20261023-01-list-index-smoke/baselines/optimized/src/lib.rs"
+    },
+    {
+      "path": "test/afp/list-index/ocaml/reference.ml",
+      "sha256": "ba3782a9d973ec17099879c9a6f63183e4a9677a0c0ce88979da6093b6986ff3",
+      "original_path": "experiments/runs/20261023-01-list-index-smoke/baselines/generated/reference.ocaml"
+    },
+    {
+      "path": "test/afp/list-index/llm/EXP-0001/run-001/attempt-01.rs",
+      "sha256": "ad9034fb65686e3b1d5af0a0de7b13b79322a45bfc1c33175852b04e35be7080",
+      "original_path": "experiments/runs/20261023-01-list-index-smoke/run-001/attempt-01/candidate.rs"
+    }
+  ],
+  "selected_candidates": [
+    {
+      "task": "list-index",
+      "run_id": "run-001",
+      "file": "test/afp/list-index/llm/EXP-0001/run-001/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "ad9034fb65686e3b1d5af0a0de7b13b79322a45bfc1c33175852b04e35be7080",
+      "reference": "EXP-0001/list-index/run-001"
+    }
+  ],
+  "note": "Exact copies of recorded artifacts. isabelle/session contains export theories; AFP/HOL imports require the recorded Isabelle and AFP installation. Rust stages are generated crates; OCaml is the generated module. Harnesses and raw logs remain in the original run archive."
+}

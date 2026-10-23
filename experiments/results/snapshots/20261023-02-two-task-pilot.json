@@ -1,0 +1,135 @@
+{
+  "batch_id": "20261023-02-two-task-pilot",
+  "provenance": "Recovered from frozen run artifacts; original hashes checked.",
+  "config": {
+    "protocol_id": "direct-two-task-v2",
+    "plan_id": "paper-01-v0.1",
+    "tasks": [
+      "list-index",
+      "skew-heap"
+    ],
+    "independent_runs_per_task": 3,
+    "model": "deepseek-flash",
+    "thinking": {
+      "type": "disabled"
+    },
+    "temperature": 0.2,
+    "max_tokens": 4096,
+    "max_calls_per_run": 3,
+    "max_calls_batch": 18,
+    "estimated_peak_cost_guard_usd": 0.5,
+    "pricing_source": "https://api-docs.deepseek.com/quick_start/pricing/",
+    "pricing_checked": "2026-10-23",
+    "peak_usd_per_million": {
+      "input_cache_miss": 0.3,
+      "output": 1.2
+    },
+    "candidate_selection": "First candidate passing development tests; final tests never used for repair or selection",
+    "list_index_tests": "Reuse the first pilot's frozen development/final suites; these are development benchmark repetitions, not new external holdout tasks",
+    "skew_heap_tests": {
+      "development_seed": 2026102303,
+      "final_seed": 2026102304,
+      "development_random_cases": 200,
+      "final_exhaustive_samples": 1000,
+      "final_random_cases": 400,
+      "max_random_nodes_per_tree": 64,
+      "equivalence": "Exact tree structure and values; additional multiset and heap checks, not merely set equality"
+    },
+    "performance": {
+      "task": "list-index",
+      "lengths": [
+        32,
+        128,
+        512
+      ],
+      "queries": [
+        "first",
+        "last",
+        "absent"
+      ],
+      "iterations": 500,
+      "warmup_iterations": 10,
+      "rounds": 7,
+      "order": "Rotate implementation order across rounds; run sequentially with no concurrent builds or API calls",
+      "scope": "In-process representation-inclusive calls from prebuilt arrays; Rust input cloning, baseline list construction and function work included; input parsing and printing excluded. OCaml uses array-to-list conversion and ordinary immutable value sharing. This is not an isolated kernel comparison.",
+      "clocks": "Rust Instant monotonic; OCaml Unix.gettimeofday wall clock",
+      "candidate_policy": "Measure every passing independently generated candidate; no best-of selection",
+      "interpretation": "Exploratory local timing, median and min/max across rounds; no universal performance claim"
+    }
+  },
+  "plans": {
+    "experiments/plans/paper-01-v0.1.md": "# 第一篇 workshop 工作方案 v0.1\n\n记录日期：2026-10-23。方案 ID：`paper-01-v0.1`。\n\n状态：讨论版；当前研究方向已确定，执行参数尚未冻结，框架尚未实现。\n\n## 研究目标与边界\n\n先探索从 Isabelle 模型直接生成 Rust 的可行性、行为一致性和生成结果的质量，通过实际实验形成服务于 Isabelle2Rust 的结论。应用案例先使用 AFP，后续扩大范围，再考虑 Solana/SBPF。\n\n当前不以“必须设计一个不同于现有工作的 workflow”为目标，不为凑方法模块或新颖性强行增加机制。最终贡献与论文论断由实验支持，当前不预先承诺性能改善或正确率。\n\n## 已确定的核心方案\n\n1. 第一条实验路线是 LLM 直接从 Isabelle 模型生成 Rust。\n2. 框架的核心为两个模块：**生成**与**测试**。上下文准备、反馈修复、测试输入构造等属于内部能力，不另列为顶层研究模块。\n3. 测试基线必须包含 Isabelle→OCaml，以及现有 Isabelle2Rust Stage 1、Stage 2。\n4. 先接通实际流程再逐步扩大实验；当前不补齐其他论文的全部机制，不开展为了对齐现有工作的实现。\n5. 测试提供有限范围内的行为一致性证据，不能表述为 Rust 已继承 Isabelle 证明或已获得完整语义等价证明。当前不做 translation validation（TV）。\n\n## 两个模块的初步职责\n\n### 生成\n\n从选定 Isabelle 定义、必要依赖与任务要求产生 Rust 候选，接受编译诊断和开发测试反例后进行修复。\n\n尚需在首批执行配置中确定：一个任务包含多少函数、提供哪些定义/定理/示例、允许使用的依赖、Rust 接口、生成自由度和调用参数。\n\n### 测试\n\n对齐各实现的合法输入与可观察输出，构建并运行候选，与 OCaml、Stage 1、Stage 2 的结果比较。适用时加入独立数学性质或独立参考算法的检查。收集失败、超时和反馈，并在行为测试后测量性能。\n\n参考实现之间出现差异时，记录为待诊断问题，排查后端、数据适配与输入语义；不能通过多数投票认定正确答案。多个后端仍可能共享前端，因此不能声称它们完全独立。\n\n```text\n固定的 Isabelle 模型\n  ├─ Isabelle→OCaml ───────── 参考执行\n  ├─ Isabelle2Rust Stage 1 ── 参考执行\n  ├─ Isabelle2Rust Stage 2 ── 参考执行\n  └─ LLM 直接生成 Rust ───── 候选执行\n                  │\n          对齐输入并比较行为\n                  │\n            失败信息反馈修复\n                  │\n             最终评估与记录\n```\n\n## 第一轮执行建议（尚未冻结）\n\n以下来自讨论中的建议，不能当成已经实施或已经由用户逐项确定的协议：\n\n- 固定原始 Isabelle 模型，只修改候选 Rust；允许修改 Isabelle 模型的路线留到后续比较。\n- 首次生成只提供 Isabelle 任务信息，不提供 Stage 1、Stage 2 或 OCaml 实现；参考实现服务于测试。如果以后开放参考源码，作为不同实验条件单独记录。\n- 开发测试用于反馈；最终测试在候选冻结后运行，不能再用其结果修复或选择候选。\n- 初期用行为测试驱动修复，性能先作为最终测量，不立即加入性能反馈循环。\n- 先用 List-Index 的小任务接通，再考虑其他 AFP 候选。\n\n## AFP 候选与已有证据\n\n此前筛选得到以下五个候选入口：\n\n| AFP 条目 | 入口 |\n| --- | --- |\n| List-Index | `List_Index.last_index` |\n| Skew_Heap | `Skew_Heap.merge` |\n| Splay_Tree | `Splay_Tree.splay` |\n| Parallel_Shear_Sort | `Parallel_Shear_Sort.shearsort_list` |\n| Karatsuba_Sqrt | `Karatsuba_Sqrt.karatsuba_sqrt_default` |\n\n这是之前路线下产生的开发候选池，不是已经准入的直接生成测试集。历史 Stage 1/2 编译通过不等于当前 OCaml 基线、适配器或模型生成流程已经可用。各任务须重新检查准入条件；最终测试集数量和条目尚未冻结。\n\n来源：[AFP 筛选笔记](../notes/2026-10-23-afp-selection.md)、[历史证据](../results/afp-screening-2026-10-23.json)。远端 AFP 快照为 `4974408f4948c2d86c7665bd719874ec24c3dba4`。\n\n## 待确定的执行参数\n\n| 项目 | 当前状态 |\n| --- | --- |\n| API 提供方与模型 | 优先考虑便宜模型，用户提出 DeepSeek；具体 model ID、版本待定 |\n| 任务与输入域 | 候选已筛选，直接生成任务包待准备 |\n| 输入上下文与提示词 | 待定 |\n| 重复次数、修复上限与费用上限 | 待定；旧 B/C 的 3 次重复、30 次运行不适用 |\n| 开发/最终测试划分与随机种子 | 待定 |\n| 候选接受与选择规则 | 待定 |\n| 运行环境、构建参数、性能测量口径 | 待定 |\n\n拟记录构建成功、行为测试结果、反馈次数、token 与调用成本；行为通过后比较执行性能。具体指标定义与统计方式随首批执行协议确定。\n\n## 后续路线（非当前执行范围）\n\n- Stage 1 或 Stage 2 之后的优化，并从大量优化案例中归纳规则、在新样本上检验。\n- 允许修改 Isabelle 模型后生成，与固定模型直接生成比较。\n- 扩大 AFP 任务范围，随后应用到 Solana/SBPF。\n\n## 相关工作的位置\n\n讨论中将 [VERT](https://arxiv.org/html/2404.18852v2) 视为双路径参考结构的近邻，将 [Syzygy](https://syzygy-project.github.io/assets/paper.pdf) 视为测试与生成配套设计的参考。这不是完整文献综述，也不要求当前逐项实现其模块。后续阅读与方案变更分开记录。\n\n## 当前实现状态\n\n已有：远端 AFP 历史筛选、任务候选信息、讨论笔记。\n\n尚无：本路线的 API runner、自动生成与修复循环、OCaml/两阶段 Rust/候选 Rust 的统一测试设施、完整实验批次及结果。本次仅记录方案，没有启动模型调用或新编译/性能实验。\n"
+  },
+  "prompts": {
+    "list-index": "Translate the Isabelle/HOL last_index definition below directly into safe Rust.\nReturn only the full content of candidate.rs, without Markdown fences or explanations.\nRequired public signature:\npub fn last_index<T: Eq>(xs: &[T], x: &T) -> num_bigint::BigInt\nUse Rust edition 2024 and num-bigint 0.4.6. You may choose the implementation and\nuse std, but no unsafe, filesystem/network/process access, other dependencies, or main.\nPreserve the source behavior for every finite representable list: index is zero-based;\nwhen absent return list length. Equality is ordinary element equality. Isabelle nat\nis nonnegative and unbounded, subtraction saturates at zero. rev reverses a list,\nsize is its length. Return BigInt, not a machine-sized integer. Do not change the interface.\nThe source below is an exact excerpt from AFP List_Index.thy (definitions and commentary).\nNo generated OCaml or Rust reference implementation is supplied.\n\n(* Author: Tobias Nipkow, with contributions from Dmitriy Traytel, Lukas Bulwahn, and Peter Lammich *)\n\nsection \\<open>Index-based manipulation of lists\\<close>\n\ntheory List_Index imports Main begin\n\ntext \\<open>\\noindent\nThis theory collects functions for index-based manipulation of lists.\n\\<close>\n\nsubsection \\<open>Finding an index\\<close>\n\ntext \\<open>\nThis subsection defines three functions for finding the index of items in a list:\n\\begin{description}\n\\item[\\<open>find_index P xs\\<close>] finds the index of the first element in\n \\<open>xs\\<close> that satisfies \\<open>P\\<close>.\n\\item[\\<open>index xs x\\<close>] finds the index of the first occurrence of\n \\<open>x\\<close> in \\<open>xs\\<close>.\n\\item[\\<open>last_index xs x\\<close>] finds the index of the last occurrence of\n \\<open>x\\<close> in \\<open>xs\\<close>.\n\\end{description}\nAll functions return @{term \"length xs\"} if \\<open>xs\\<close> does not contain a\nsuitable element.\n\nThe argument order of \\<open>find_index\\<close> follows the function of the same\nname in the Haskell standard library. For \\<open>index\\<close> (and \\<open>last_index\\<close>) the order is intentionally reversed: \\<open>index\\<close> maps\nlists to a mapping from elements to their indices, almost the inverse of\nfunction \\<open>nth\\<close>.\\<close>\n\nprimrec find_index :: \"('a \\<Rightarrow> bool) \\<Rightarrow> 'a list \\<Rightarrow> nat\" where\n  \"find_index _ [] = 0\" |\n  \"find_index P (x#xs) = (if P x then 0 else find_index P xs + 1)\"\n\ndefinition index :: \"'a list \\<Rightarrow> 'a \\<Rightarrow> nat\" where\n  \"index xs = (\\<lambda>a. find_index (\\<lambda>x. x=a) xs)\"\n\ndefinition last_index :: \"'a list \\<Rightarrow> 'a \\<Rightarrow> nat\" where\n  \"last_index xs x =\n (let i = index (rev xs) x; n = size xs\n  in if i = n then i else n - (i+1))\"\n\n",
+    "skew-heap": "Translate the Isabelle/HOL merge function below directly into safe Rust.\nReturn only the full content of candidate.rs, without Markdown fences or explanations.\nDefine exactly this public data type and function (additional helpers are allowed):\npub enum Tree<T> { Leaf, Node(Box<Tree<T>>, T, Box<Tree<T>>) }\npub fn merge<T: Ord>(a: Tree<T>, b: Tree<T>) -> Tree<T>\nNode fields are LEFT SUBTREE, VALUE, RIGHT SUBTREE, in that order.\nThe input trees are owned. Do not require Clone or Copy bounds on T.\nPreserve the exact output tree shape and values for all finite trees, not only heaps.\nEqual keys use the <= branch, exactly as in the Isabelle definition.\nIsabelle pattern aliases such as (Node l1 a1 r1 =: t1) bind t1 to that whole tree.\nUse Rust edition 2024 and std; no unsafe, filesystem/network/process access, or main.\nNo reference implementation source is supplied. The following is the exact AFP source excerpt:\n\nfunction merge :: \"('a::linorder) tree \\<Rightarrow> 'a tree \\<Rightarrow> 'a tree\" where\n\"merge Leaf t = t\" |\n\"merge t Leaf = t\" |\n\"merge (Node l1 a1 r1 =: t1) (Node l2 a2 r2 =: t2) =\n   (if a1 \\<le> a2 then Node (merge t2 r1) a1 l1\n    else Node (merge t1 r2) a2 l2)\" \nby pat_completeness auto\ntermination\nby (relation \"measure (\\<lambda>(x, y). size x + size y)\") auto\n\nlemma merge_code: \"merge t1 t2 =\n  (case t1 of\n   Leaf \\<Rightarrow> t2 |\n   Node l1 a1 r1 \\<Rightarrow> (case t2 of\n     Leaf \\<Rightarrow> t1 |\n     Node l2 a2 r2 \\<Rightarrow> \n       (if a1 \\<le> a2\n        then Node (merge t2 r1) a1 l1\n        else Node (merge t1 r2) a2 l2)))\"\nby(auto split: tree.split)\n\n"
+  },
+  "artifacts": [
+    {
+      "path": "config.json",
+      "sha256": "f393a10dbb02772a648013447c1cb8747ae469e1100cc61c763be6159b77e20f",
+      "verified": true
+    },
+    {
+      "path": "protocol-snapshot/experiments/plans/paper-01-v0.1.md",
+      "sha256": "97b6a235ec2c76cb958daeb04376bfb667943520a2f9e12810e96409f1d6e437",
+      "verified": true
+    },
+    {
+      "path": "list-index/prompt.txt",
+      "sha256": "e56a2e18aa418e3f3ff03babef9824219171fbbebf877606110f195248a77989",
+      "verified": true
+    },
+    {
+      "path": "skew-heap/prompt.txt",
+      "sha256": "905b47af0661ff4c5c0801860273c3df680937a43ebdd4dd93d4ce963b769efb",
+      "verified": true
+    }
+  ],
+  "protocol_sha256": {
+    "experiments/scripts/run_pilot_v2.py": "c2a9e9ccddc9803ad1d172afd0519c38afe7549a90eb1d0b270001a016fc2a4f",
+    "experiments/scripts/run_list_index.py": "225f0ed6fb64bbd6dd010c00b3c51c7b932c8795eebd303e4c61d1b3a23b36ab",
+    "experiments/tasks/direct-two-task-v2.json": "b17a5d63188842e9ce0077a64dbe1520c8c63d735d7471b2dad35a460c2f7384",
+    "experiments/plans/paper-01-v0.1.md": "97b6a235ec2c76cb958daeb04376bfb667943520a2f9e12810e96409f1d6e437",
+    "experiments/harness/list-index-v2/ocaml_main.ml": "25ef27d094d08f5bfcde43e4d116c8b1c07e6f61d69cb5974d8dfd950a6a312c",
+    "experiments/harness/list-index-v2/rust_main.rs": "60168bbdc214e3d086fa4f09d2e3f7036756b71d8d8a2f54c33b6ee2c7ef64a7",
+    "experiments/harness/skew-heap/ocaml_main.ml": "510d08b470e12361b1e9a2f51af24d47d1b46bbb3612b13d056f498bf7154942",
+    "experiments/harness/skew-heap/Direct_Skew_Heap.thy": "b997d6545a16393f88f3f645f48b3f979b9e56a6d76262ee32bc04a1b28724ef",
+    "experiments/harness/skew-heap/ROOT": "0ead7666ac948d1280077987988661c689f0c4c1fa2be347a9519ca282cd2370",
+    "experiments/harness/skew-heap/rust_main.rs": "0555c365b4671867c55b0a6c5e3618a36d118c981bf59ed8a6ffb1e84b82bd33"
+  },
+  "frozen_sha256": {
+    "config.json": "f393a10dbb02772a648013447c1cb8747ae469e1100cc61c763be6159b77e20f",
+    "list-index/prompt.txt": "e56a2e18aa418e3f3ff03babef9824219171fbbebf877606110f195248a77989",
+    "list-index/data/development.json": "7014cd579d5fa65737e0c5890c95e4404b102ec7b67624d0323b198d43927410",
+    "list-index/data/final.json": "3b277705efd9836b0de2ae4fce564131ef11bbbb01aade6479282304f6ccce35",
+    "list-index/prepared.json": "076919c4f13191d4426807f3f6aeb5c802a80aac81f74408e0eb0d1e315796db",
+    "list-index/baselines/stage1-runner/target/release/pilot_runner": "1c36660dcf16aff56c7a838cf4d8c589239fd1a8eaec880e4148563f71084ceb",
+    "list-index/baselines/stage2-runner/target/release/pilot_runner": "94a9091d0e3f9b2fa9924b16d8e7043e1df0458f770c6bbbcb148cda19ea2308",
+    "list-index/baselines/ocaml/reference": "8e904860ea30af9c0f1ec63873865ed0309b19c30f13388eb285585d3cac1285",
+    "list-index/source/List_Index.thy": "2083bbee03a3ff793b96882d4571b206bbd86755f9a140efa9133526f98cdcf9",
+    "list-index/baselines/generated/reference.ocaml": "ba3782a9d973ec17099879c9a6f63183e4a9677a0c0ce88979da6093b6986ff3",
+    "list-index/baselines/generated/reference/Cargo.toml": "9f3de0f598654ed5470eddbf0d967dba0fa9ddd4d2368a01ba77a40bff03dcab",
+    "list-index/baselines/generated/reference/src/lib.rs": "7d7aef755cbd40ed44b0c58f6eb5064614e4ec1ab412c70b3164234341c3c04b",
+    "list-index/baselines/generated/reference/src/Reference.rs": "408566cdd722e2f02cfb6d5d5b4d3bb04ac63293a3d1ae9230736a04fb29b673",
+    "list-index/baselines/optimized/Cargo.toml": "9f3de0f598654ed5470eddbf0d967dba0fa9ddd4d2368a01ba77a40bff03dcab",
+    "list-index/baselines/optimized/src/lib.rs": "f9d7cbc29be982383839d6f9bef556a9706e75f3083293391dd4948a07edae6a",
+    "list-index/baselines/optimized/src/Reference.rs": "ffab342a700700eb2fe0a9f0912bdd10fae076d556cb96cfcde4a990b744b950",
+    "skew-heap/prompt.txt": "905b47af0661ff4c5c0801860273c3df680937a43ebdd4dd93d4ce963b769efb",
+    "skew-heap/data/development.json": "6b63cb5a5b90ccb3f3c5cd2b8a78dbc16468f1a8e97ba3f2e734d71f6d88e0eb",
+    "skew-heap/data/final.json": "08e09ed8cf758823e0ade36762181136326ef42e3f214a46adc242132f802a7a",
+    "skew-heap/prepared.json": "d675de4c504b2165dced7aba55539816965e97c537f20d8a92215fdf73dfe56e",
+    "skew-heap/baselines/stage1-runner/target/release/pilot_runner": "bbf7d848bb2a7f08c127164f011bfa9b858a7684971f392d38de9af95a19a179",
+    "skew-heap/baselines/stage2-runner/target/release/pilot_runner": "4d61c408010c956be33a5d4b9114323942ba2d738335ab5e8dc7d3520cd492d8",
+    "skew-heap/baselines/ocaml/reference": "112b476a843a234203069b0d7351513f085776119337df6d49a56529b8ac5011",
+    "skew-heap/source/Skew_Heap.thy": "212435f75ba99eb103c274cae4909ee4ac272add055ac3ffd1665eda7ea3a114",
+    "skew-heap/source/Tree.thy": "7b13c433fcf9aa908bd8fee4d5ba6d45f64f99985cfe6420c79024771142f84c",
+    "skew-heap/baselines/generated/reference.ocaml": "09bf26d8ea3d3d23e387a9271f7eaed3d085f58e298f1c7c6ba8710a027e4c8d",
+    "skew-heap/baselines/generated/reference/Cargo.toml": "f1a20035e536e89702b6dfabd2254e873cbc795326bd1a821c55db54cab2e10b",
+    "skew-heap/baselines/generated/reference/src/lib.rs": "7d7aef755cbd40ed44b0c58f6eb5064614e4ec1ab412c70b3164234341c3c04b",
+    "skew-heap/baselines/generated/reference/src/Reference.rs": "fca8f12d89fdaf076eea71683abc7ef077b143768512199861c46036a75b8f83",
+    "skew-heap/baselines/optimized/Cargo.toml": "f1a20035e536e89702b6dfabd2254e873cbc795326bd1a821c55db54cab2e10b",
+    "skew-heap/baselines/optimized/src/lib.rs": "f9d7cbc29be982383839d6f9bef556a9706e75f3083293391dd4948a07edae6a",
+    "skew-heap/baselines/optimized/src/Reference.rs": "41e0a06c1adf0b0b3468a7661463210b7065c8bc42282c1293fbf46edab11467"
+  }
+}

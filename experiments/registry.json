@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "experiments": [
+    {
+      "experiment_id": "EXP-0001",
+      "batch_id": "20261023-01-list-index-smoke",
+      "title": "List-Index 直接生成：1 次试跑",
+      "artifact_root": "test/afp",
+      "summary": "experiments/results/20261023-01-list-index-smoke.json",
+      "record": "experiments/batches/20261023-01-list-index-smoke.md",
+      "artifact_manifest": "experiments/results/artifacts/EXP-0001.json"
+    },
+    {
+      "experiment_id": "EXP-0002",
+      "batch_id": "20261023-02-two-task-pilot",
+      "title": "List-Index 与 Skew Heap 直接生成：各 3 次",
+      "artifact_root": "test/afp",
+      "summary": "experiments/results/20261023-02-two-task-pilot.json",
+      "record": "experiments/batches/20261023-02-two-task-pilot.md",
+      "artifact_manifest": "experiments/results/artifacts/EXP-0002.json"
+    }
+  ]
+}

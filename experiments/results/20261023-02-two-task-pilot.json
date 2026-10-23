@@ -1,0 +1,1137 @@
+{
+  "batch_id": "20261023-02-two-task-pilot",
+  "config": {
+    "protocol_id": "direct-two-task-v2",
+    "plan_id": "paper-01-v0.1",
+    "tasks": [
+      "list-index",
+      "skew-heap"
+    ],
+    "independent_runs_per_task": 3,
+    "model": "deepseek-flash",
+    "thinking": {
+      "type": "disabled"
+    },
+    "temperature": 0.2,
+    "max_tokens": 4096,
+    "max_calls_per_run": 3,
+    "max_calls_batch": 18,
+    "estimated_peak_cost_guard_usd": 0.5,
+    "pricing_source": "https://api-docs.deepseek.com/quick_start/pricing/",
+    "pricing_checked": "2026-10-23",
+    "peak_usd_per_million": {
+      "input_cache_miss": 0.3,
+      "output": 1.2
+    },
+    "candidate_selection": "First candidate passing development tests; final tests never used for repair or selection",
+    "list_index_tests": "Reuse the first pilot's frozen development/final suites; these are development benchmark repetitions, not new external holdout tasks",
+    "skew_heap_tests": {
+      "development_seed": 2026102303,
+      "final_seed": 2026102304,
+      "development_random_cases": 200,
+      "final_exhaustive_samples": 1000,
+      "final_random_cases": 400,
+      "max_random_nodes_per_tree": 64,
+      "equivalence": "Exact tree structure and values; additional multiset and heap checks, not merely set equality"
+    },
+    "performance": {
+      "task": "list-index",
+      "lengths": [
+        32,
+        128,
+        512
+      ],
+      "queries": [
+        "first",
+        "last",
+        "absent"
+      ],
+      "iterations": 500,
+      "warmup_iterations": 10,
+      "rounds": 7,
+      "order": "Rotate implementation order across rounds; run sequentially with no concurrent builds or API calls",
+      "scope": "In-process representation-inclusive calls from prebuilt arrays; Rust input cloning, baseline list construction and function work included; input parsing and printing excluded. OCaml uses array-to-list conversion and ordinary immutable value sharing. This is not an isolated kernel comparison.",
+      "clocks": "Rust Instant monotonic; OCaml Unix.gettimeofday wall clock",
+      "candidate_policy": "Measure every passing independently generated candidate; no best-of selection",
+      "interpretation": "Exploratory local timing, median and min/max across rounds; no universal performance claim"
+    }
+  },
+  "environment": {
+    "recorded_at": "2026-10-22T19:24:03.706716+00:00",
+    "os": "macOS-26.5.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.9.6 (default, Dec  2 2025, 07:27:58) \n[Clang 17.0.0 (clang-1700.6.3.2)]",
+    "source_sha256": "2083bbee03a3ff793b96882d4571b206bbd86755f9a140efa9133526f98cdcf9",
+    "repo_head": "30d246c42d55c8fa95862786b01dfe82814a2e71",
+    "rustlightast_head": "1d25bd1ac5b406cfc08c4554ab9980ce5986db8f",
+    "repo_status": "?? experiments/",
+    "rustlightast_status": "",
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+    "ocaml": "4.14.2",
+    "isabelle": "Isabelle2025",
+    "hardware": "hw.model: Mac17,2\nhw.memsize: 17179869184\nhw.ncpu: 10"
+  },
+  "baselines": {
+    "list-index": {
+      "binaries": {
+        "stage1": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/Isabelle2Rust/experiments/runs/20261023-02-two-task-pilot/list-index/baselines/stage1-runner/target/release/pilot_runner",
+        "stage2": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/Isabelle2Rust/experiments/runs/20261023-02-two-task-pilot/list-index/baselines/stage2-runner/target/release/pilot_runner",
+        "ocaml": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/Isabelle2Rust/experiments/runs/20261023-02-two-task-pilot/list-index/baselines/ocaml/reference"
+      },
+      "baseline_checks": {
+        "stage1": {
+          "development": {
+            "status": "passed",
+            "count": 581,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.6175787499999998
+          },
+          "final": {
+            "status": "passed",
+            "count": 4129,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 1.774366209
+          }
+        },
+        "stage2": {
+          "development": {
+            "status": "passed",
+            "count": 581,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.3970523330000004
+          },
+          "final": {
+            "status": "passed",
+            "count": 4129,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.04445191600000076
+          }
+        },
+        "ocaml": {
+          "development": {
+            "status": "passed",
+            "count": 581,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.1381792079999995
+          },
+          "final": {
+            "status": "passed",
+            "count": 4129,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.02160675000000012
+          }
+        }
+      },
+      "negative_control": {
+        "status": "mismatch",
+        "count": 581,
+        "failures": 313,
+        "counterexamples": [
+          {
+            "index": 9,
+            "input": "0 0 0",
+            "expected": "1",
+            "actual": "0"
+          },
+          {
+            "index": 19,
+            "input": "1 1 1",
+            "expected": "1",
+            "actual": "0"
+          },
+          {
+            "index": 21,
+            "input": "0 0 0 0",
+            "expected": "2",
+            "actual": "0"
+          }
+        ],
+        "seconds": 0.19554650000000073
+      }
+    },
+    "skew-heap": {
+      "binaries": {
+        "stage1": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/Isabelle2Rust/experiments/runs/20261023-02-two-task-pilot/skew-heap/baselines/stage1-runner/target/release/pilot_runner",
+        "stage2": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/Isabelle2Rust/experiments/runs/20261023-02-two-task-pilot/skew-heap/baselines/stage2-runner/target/release/pilot_runner",
+        "ocaml": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/Isabelle2Rust/experiments/runs/20261023-02-two-task-pilot/skew-heap/baselines/ocaml/reference"
+      },
+      "baseline_checks": {
+        "stage1": {
+          "development": {
+            "status": "passed",
+            "count": 321,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.381533625000003
+          },
+          "final": {
+            "status": "passed",
+            "count": 1411,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.03489525000000171
+          }
+        },
+        "stage2": {
+          "development": {
+            "status": "passed",
+            "count": 321,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.3750762909999992
+          },
+          "final": {
+            "status": "passed",
+            "count": 1411,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.028615583000000555
+          }
+        },
+        "ocaml": {
+          "development": {
+            "status": "passed",
+            "count": 321,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.3801010419999997
+          },
+          "final": {
+            "status": "passed",
+            "count": 1411,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.0166367919999999
+          }
+        }
+      },
+      "negative_control": {
+        "status": "mismatch",
+        "count": 321,
+        "failures": 115,
+        "counterexamples": [
+          {
+            "index": 14,
+            "input": "0 # # 0 # 0 # #",
+            "expected": "0 0 # 0 # # #",
+            "actual": "0 0 0 # # # #"
+          },
+          {
+            "index": 16,
+            "input": "0 # # 0 # 1 # #",
+            "expected": "0 0 # 1 # # #",
+            "actual": "0 0 1 # # # #"
+          },
+          {
+            "index": 18,
+            "input": "0 # # 0 0 # # #",
+            "expected": "0 0 0 # # # #",
+            "actual": "0 0 # # 0 # #"
+          }
+        ],
+        "seconds": 0.37739324999999724
+      }
+    }
+  },
+  "runs": [
+    {
+      "task": "list-index",
+      "run_id": "run-001",
+      "status": "passed",
+      "started_at": "2026-10-22T19:24:55.070880+00:00",
+      "attempts": [
+        {
+          "attempt": 1,
+          "usage": {
+            "prompt_tokens": 732,
+            "completion_tokens": 120,
+            "total_tokens": 852,
+            "prompt_tokens_details": {
+              "cached_tokens": 512
+            },
+            "prompt_cache_hit_tokens": 512,
+            "prompt_cache_miss_tokens": 220
+          },
+          "model": "deepseek-flash",
+          "api_seconds": 1.0826857090000002,
+          "finish_reason": "stop",
+          "development": {
+            "status": "passed",
+            "count": 581,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.3841430000000008
+          }
+        }
+      ],
+      "final_feedback": false,
+      "selected_attempt": 1,
+      "candidate_sha256": "ad9034fb65686e3b1d5af0a0de7b13b79322a45bfc1c33175852b04e35be7080",
+      "binary": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/Isabelle2Rust/experiments/runs/20261023-02-two-task-pilot/list-index/run-001/attempt-01/crate/target/release/pilot_runner",
+      "final": {
+        "status": "passed",
+        "count": 4129,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.022889165999999683
+      },
+      "finished_at": "2026-10-22T19:24:59.907306+00:00"
+    },
+    {
+      "task": "list-index",
+      "run_id": "run-002",
+      "status": "passed",
+      "started_at": "2026-10-22T19:24:59.907939+00:00",
+      "attempts": [
+        {
+          "attempt": 1,
+          "usage": {
+            "prompt_tokens": 732,
+            "completion_tokens": 120,
+            "total_tokens": 852,
+            "prompt_tokens_details": {
+              "cached_tokens": 512
+            },
+            "prompt_cache_hit_tokens": 512,
+            "prompt_cache_miss_tokens": 220
+          },
+          "model": "deepseek-flash",
+          "api_seconds": 1.3409549169999995,
+          "finish_reason": "stop",
+          "development": {
+            "status": "passed",
+            "count": 581,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.1697198750000002
+          }
+        }
+      ],
+      "final_feedback": false,
+      "selected_attempt": 1,
+      "candidate_sha256": "20750d62e08da9f1c01e9034d20d6f3e2ba32c90f7bced8ec64698d93d7e6057",
+      "binary": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/Isabelle2Rust/experiments/runs/20261023-02-two-task-pilot/list-index/run-002/attempt-01/crate/target/release/pilot_runner",
+      "final": {
+        "status": "passed",
+        "count": 4129,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.021792500000000103
+      },
+      "finished_at": "2026-10-22T19:25:04.665454+00:00"
+    },
+    {
+      "task": "list-index",
+      "run_id": "run-003",
+      "status": "passed",
+      "started_at": "2026-10-22T19:25:04.665860+00:00",
+      "attempts": [
+        {
+          "attempt": 1,
+          "usage": {
+            "prompt_tokens": 732,
+            "completion_tokens": 120,
+            "total_tokens": 852,
+            "prompt_tokens_details": {
+              "cached_tokens": 512
+            },
+            "prompt_cache_hit_tokens": 512,
+            "prompt_cache_miss_tokens": 220
+          },
+          "model": "deepseek-flash",
+          "api_seconds": 1.1839697079999993,
+          "finish_reason": "stop",
+          "development": {
+            "status": "passed",
+            "count": 581,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.166666042000001
+          }
+        }
+      ],
+      "final_feedback": false,
+      "selected_attempt": 1,
+      "candidate_sha256": "20750d62e08da9f1c01e9034d20d6f3e2ba32c90f7bced8ec64698d93d7e6057",
+      "binary": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/Isabelle2Rust/experiments/runs/20261023-02-two-task-pilot/list-index/run-003/attempt-01/crate/target/release/pilot_runner",
+      "final": {
+        "status": "passed",
+        "count": 4129,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.02127316599999851
+      },
+      "finished_at": "2026-10-22T19:25:09.377881+00:00"
+    },
+    {
+      "task": "skew-heap",
+      "run_id": "run-001",
+      "status": "passed",
+      "started_at": "2026-10-22T19:25:09.378547+00:00",
+      "attempts": [
+        {
+          "attempt": 1,
+          "usage": {
+            "prompt_tokens": 501,
+            "completion_tokens": 210,
+            "total_tokens": 711,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "prompt_cache_hit_tokens": 0,
+            "prompt_cache_miss_tokens": 501
+          },
+          "model": "deepseek-flash",
+          "api_seconds": 1.4642775829999994,
+          "finish_reason": "stop",
+          "development": {
+            "status": "passed",
+            "count": 321,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.3765244170000024
+          }
+        }
+      ],
+      "final_feedback": false,
+      "selected_attempt": 1,
+      "candidate_sha256": "eb2bbdd7794aff806a95755f0160b9442926186f70975d4c3fc2ed2abc5081eb",
+      "binary": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/Isabelle2Rust/experiments/runs/20261023-02-two-task-pilot/skew-heap/run-001/attempt-01/crate/target/release/pilot_runner",
+      "final": {
+        "status": "passed",
+        "count": 1411,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.022145500000000595
+      },
+      "finished_at": "2026-10-22T19:25:14.428021+00:00"
+    },
+    {
+      "task": "skew-heap",
+      "run_id": "run-002",
+      "status": "passed",
+      "started_at": "2026-10-22T19:25:14.428827+00:00",
+      "attempts": [
+        {
+          "attempt": 1,
+          "usage": {
+            "prompt_tokens": 501,
+            "completion_tokens": 210,
+            "total_tokens": 711,
+            "prompt_tokens_details": {
+              "cached_tokens": 256
+            },
+            "prompt_cache_hit_tokens": 256,
+            "prompt_cache_miss_tokens": 245
+          },
+          "model": "deepseek-flash",
+          "api_seconds": 1.545637457999998,
+          "finish_reason": "stop",
+          "development": {
+            "status": "passed",
+            "count": 321,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.1656160419999999
+          }
+        }
+      ],
+      "final_feedback": false,
+      "selected_attempt": 1,
+      "candidate_sha256": "eb2bbdd7794aff806a95755f0160b9442926186f70975d4c3fc2ed2abc5081eb",
+      "binary": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/Isabelle2Rust/experiments/runs/20261023-02-two-task-pilot/skew-heap/run-002/attempt-01/crate/target/release/pilot_runner",
+      "final": {
+        "status": "passed",
+        "count": 1411,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.01581629200000023
+      },
+      "finished_at": "2026-10-22T19:25:19.552511+00:00"
+    },
+    {
+      "task": "skew-heap",
+      "run_id": "run-003",
+      "status": "passed",
+      "started_at": "2026-10-22T19:25:19.552972+00:00",
+      "attempts": [
+        {
+          "attempt": 1,
+          "usage": {
+            "prompt_tokens": 501,
+            "completion_tokens": 210,
+            "total_tokens": 711,
+            "prompt_tokens_details": {
+              "cached_tokens": 256
+            },
+            "prompt_cache_hit_tokens": 256,
+            "prompt_cache_miss_tokens": 245
+          },
+          "model": "deepseek-flash",
+          "api_seconds": 1.3337759580000004,
+          "finish_reason": "stop",
+          "development": {
+            "status": "passed",
+            "count": 321,
+            "failures": 0,
+            "counterexamples": [],
+            "seconds": 0.16748008300000095
+          }
+        }
+      ],
+      "final_feedback": false,
+      "selected_attempt": 1,
+      "candidate_sha256": "eb2bbdd7794aff806a95755f0160b9442926186f70975d4c3fc2ed2abc5081eb",
+      "binary": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/Isabelle2Rust/experiments/runs/20261023-02-two-task-pilot/skew-heap/run-003/attempt-01/crate/target/release/pilot_runner",
+      "final": {
+        "status": "passed",
+        "count": 1411,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.015161667000000989
+      },
+      "finished_at": "2026-10-22T19:25:24.280216+00:00"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3699,
+    "completion_tokens": 990,
+    "total_tokens": 4689,
+    "prompt_cache_hit_tokens": 2048
+  },
+  "ledger": {
+    "calls": 6,
+    "estimated_peak_cost_usd": 0.0022976999999999997,
+    "in_flight": null
+  },
+  "candidates": [
+    {
+      "task": "list-index",
+      "run_id": "run-001",
+      "file": "test/afp/list-index/llm/EXP-0002/run-001/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "ad9034fb65686e3b1d5af0a0de7b13b79322a45bfc1c33175852b04e35be7080",
+      "reference": "EXP-0002/list-index/run-001"
+    },
+    {
+      "task": "list-index",
+      "run_id": "run-002",
+      "file": "test/afp/list-index/llm/EXP-0002/run-002/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "20750d62e08da9f1c01e9034d20d6f3e2ba32c90f7bced8ec64698d93d7e6057",
+      "reference": "EXP-0002/list-index/run-002"
+    },
+    {
+      "task": "list-index",
+      "run_id": "run-003",
+      "file": "test/afp/list-index/llm/EXP-0002/run-003/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "20750d62e08da9f1c01e9034d20d6f3e2ba32c90f7bced8ec64698d93d7e6057",
+      "reference": "EXP-0002/list-index/run-003"
+    },
+    {
+      "task": "skew-heap",
+      "run_id": "run-001",
+      "file": "test/afp/skew-heap/llm/EXP-0002/run-001/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "eb2bbdd7794aff806a95755f0160b9442926186f70975d4c3fc2ed2abc5081eb",
+      "reference": "EXP-0002/skew-heap/run-001"
+    },
+    {
+      "task": "skew-heap",
+      "run_id": "run-002",
+      "file": "test/afp/skew-heap/llm/EXP-0002/run-002/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "eb2bbdd7794aff806a95755f0160b9442926186f70975d4c3fc2ed2abc5081eb",
+      "reference": "EXP-0002/skew-heap/run-002"
+    },
+    {
+      "task": "skew-heap",
+      "run_id": "run-003",
+      "file": "test/afp/skew-heap/llm/EXP-0002/run-003/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "eb2bbdd7794aff806a95755f0160b9442926186f70975d4c3fc2ed2abc5081eb",
+      "reference": "EXP-0002/skew-heap/run-003"
+    }
+  ],
+  "protocol_sha256": {
+    "experiments/scripts/run_pilot_v2.py": "c2a9e9ccddc9803ad1d172afd0519c38afe7549a90eb1d0b270001a016fc2a4f",
+    "experiments/scripts/run_list_index.py": "225f0ed6fb64bbd6dd010c00b3c51c7b932c8795eebd303e4c61d1b3a23b36ab",
+    "experiments/tasks/direct-two-task-v2.json": "b17a5d63188842e9ce0077a64dbe1520c8c63d735d7471b2dad35a460c2f7384",
+    "experiments/plans/paper-01-v0.1.md": "97b6a235ec2c76cb958daeb04376bfb667943520a2f9e12810e96409f1d6e437",
+    "experiments/harness/list-index-v2/ocaml_main.ml": "25ef27d094d08f5bfcde43e4d116c8b1c07e6f61d69cb5974d8dfd950a6a312c",
+    "experiments/harness/list-index-v2/rust_main.rs": "60168bbdc214e3d086fa4f09d2e3f7036756b71d8d8a2f54c33b6ee2c7ef64a7",
+    "experiments/harness/skew-heap/ocaml_main.ml": "510d08b470e12361b1e9a2f51af24d47d1b46bbb3612b13d056f498bf7154942",
+    "experiments/harness/skew-heap/Direct_Skew_Heap.thy": "b997d6545a16393f88f3f645f48b3f979b9e56a6d76262ee32bc04a1b28724ef",
+    "experiments/harness/skew-heap/ROOT": "0ead7666ac948d1280077987988661c689f0c4c1fa2be347a9519ca282cd2370",
+    "experiments/harness/skew-heap/rust_main.rs": "0555c365b4671867c55b0a6c5e3618a36d118c981bf59ed8a6ffb1e84b82bd33"
+  },
+  "frozen_sha256": {
+    "config.json": "f393a10dbb02772a648013447c1cb8747ae469e1100cc61c763be6159b77e20f",
+    "list-index/prompt.txt": "e56a2e18aa418e3f3ff03babef9824219171fbbebf877606110f195248a77989",
+    "list-index/data/development.json": "7014cd579d5fa65737e0c5890c95e4404b102ec7b67624d0323b198d43927410",
+    "list-index/data/final.json": "3b277705efd9836b0de2ae4fce564131ef11bbbb01aade6479282304f6ccce35",
+    "list-index/prepared.json": "076919c4f13191d4426807f3f6aeb5c802a80aac81f74408e0eb0d1e315796db",
+    "list-index/baselines/stage1-runner/target/release/pilot_runner": "1c36660dcf16aff56c7a838cf4d8c589239fd1a8eaec880e4148563f71084ceb",
+    "list-index/baselines/stage2-runner/target/release/pilot_runner": "94a9091d0e3f9b2fa9924b16d8e7043e1df0458f770c6bbbcb148cda19ea2308",
+    "list-index/baselines/ocaml/reference": "8e904860ea30af9c0f1ec63873865ed0309b19c30f13388eb285585d3cac1285",
+    "list-index/source/List_Index.thy": "2083bbee03a3ff793b96882d4571b206bbd86755f9a140efa9133526f98cdcf9",
+    "list-index/baselines/generated/reference.ocaml": "ba3782a9d973ec17099879c9a6f63183e4a9677a0c0ce88979da6093b6986ff3",
+    "list-index/baselines/generated/reference/Cargo.toml": "9f3de0f598654ed5470eddbf0d967dba0fa9ddd4d2368a01ba77a40bff03dcab",
+    "list-index/baselines/generated/reference/src/lib.rs": "7d7aef755cbd40ed44b0c58f6eb5064614e4ec1ab412c70b3164234341c3c04b",
+    "list-index/baselines/generated/reference/src/Reference.rs": "408566cdd722e2f02cfb6d5d5b4d3bb04ac63293a3d1ae9230736a04fb29b673",
+    "list-index/baselines/optimized/Cargo.toml": "9f3de0f598654ed5470eddbf0d967dba0fa9ddd4d2368a01ba77a40bff03dcab",
+    "list-index/baselines/optimized/src/lib.rs": "f9d7cbc29be982383839d6f9bef556a9706e75f3083293391dd4948a07edae6a",
+    "list-index/baselines/optimized/src/Reference.rs": "ffab342a700700eb2fe0a9f0912bdd10fae076d556cb96cfcde4a990b744b950",
+    "skew-heap/prompt.txt": "905b47af0661ff4c5c0801860273c3df680937a43ebdd4dd93d4ce963b769efb",
+    "skew-heap/data/development.json": "6b63cb5a5b90ccb3f3c5cd2b8a78dbc16468f1a8e97ba3f2e734d71f6d88e0eb",
+    "skew-heap/data/final.json": "08e09ed8cf758823e0ade36762181136326ef42e3f214a46adc242132f802a7a",
+    "skew-heap/prepared.json": "d675de4c504b2165dced7aba55539816965e97c537f20d8a92215fdf73dfe56e",
+    "skew-heap/baselines/stage1-runner/target/release/pilot_runner": "bbf7d848bb2a7f08c127164f011bfa9b858a7684971f392d38de9af95a19a179",
+    "skew-heap/baselines/stage2-runner/target/release/pilot_runner": "4d61c408010c956be33a5d4b9114323942ba2d738335ab5e8dc7d3520cd492d8",
+    "skew-heap/baselines/ocaml/reference": "112b476a843a234203069b0d7351513f085776119337df6d49a56529b8ac5011",
+    "skew-heap/source/Skew_Heap.thy": "212435f75ba99eb103c274cae4909ee4ac272add055ac3ffd1665eda7ea3a114",
+    "skew-heap/source/Tree.thy": "7b13c433fcf9aa908bd8fee4d5ba6d45f64f99985cfe6420c79024771142f84c",
+    "skew-heap/baselines/generated/reference.ocaml": "09bf26d8ea3d3d23e387a9271f7eaed3d085f58e298f1c7c6ba8710a027e4c8d",
+    "skew-heap/baselines/generated/reference/Cargo.toml": "f1a20035e536e89702b6dfabd2254e873cbc795326bd1a821c55db54cab2e10b",
+    "skew-heap/baselines/generated/reference/src/lib.rs": "7d7aef755cbd40ed44b0c58f6eb5064614e4ec1ab412c70b3164234341c3c04b",
+    "skew-heap/baselines/generated/reference/src/Reference.rs": "fca8f12d89fdaf076eea71683abc7ef077b143768512199861c46036a75b8f83",
+    "skew-heap/baselines/optimized/Cargo.toml": "f1a20035e536e89702b6dfabd2254e873cbc795326bd1a821c55db54cab2e10b",
+    "skew-heap/baselines/optimized/src/lib.rs": "f9d7cbc29be982383839d6f9bef556a9706e75f3083293391dd4948a07edae6a",
+    "skew-heap/baselines/optimized/src/Reference.rs": "41e0a06c1adf0b0b3468a7661463210b7065c8bc42282c1293fbf46edab11467"
+  },
+  "performance": {
+    "protocol": {
+      "task": "list-index",
+      "lengths": [
+        32,
+        128,
+        512
+      ],
+      "queries": [
+        "first",
+        "last",
+        "absent"
+      ],
+      "iterations": 500,
+      "warmup_iterations": 10,
+      "rounds": 7,
+      "order": "Rotate implementation order across rounds; run sequentially with no concurrent builds or API calls",
+      "scope": "In-process representation-inclusive calls from prebuilt arrays; Rust input cloning, baseline list construction and function work included; input parsing and printing excluded. OCaml uses array-to-list conversion and ordinary immutable value sharing. This is not an isolated kernel comparison.",
+      "clocks": "Rust Instant monotonic; OCaml Unix.gettimeofday wall clock",
+      "candidate_policy": "Measure every passing independently generated candidate; no best-of selection",
+      "interpretation": "Exploratory local timing, median and min/max across rounds; no universal performance claim"
+    },
+    "aggregates": [
+      {
+        "implementation": "stage1",
+        "length": 32,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 92139.166,
+        "min_ns": 90703.584,
+        "max_ns": 93250.166
+      },
+      {
+        "implementation": "stage1",
+        "length": 32,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 73261.918,
+        "min_ns": 72380.25,
+        "max_ns": 75060.334
+      },
+      {
+        "implementation": "stage1",
+        "length": 32,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 91355.916,
+        "min_ns": 89758.25,
+        "max_ns": 94185.084
+      },
+      {
+        "implementation": "stage1",
+        "length": 128,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 1476379.332,
+        "min_ns": 1445194.5,
+        "max_ns": 1565683.916
+      },
+      {
+        "implementation": "stage1",
+        "length": 128,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 1193530.084,
+        "min_ns": 1179322.334,
+        "max_ns": 1197040.082
+      },
+      {
+        "implementation": "stage1",
+        "length": 128,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 1513079.5,
+        "min_ns": 1491631.834,
+        "max_ns": 1522632.916
+      },
+      {
+        "implementation": "stage1",
+        "length": 512,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 25264083.75,
+        "min_ns": 24755423.668,
+        "max_ns": 25722856.75
+      },
+      {
+        "implementation": "stage1",
+        "length": 512,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 20614653.666,
+        "min_ns": 20414822.416,
+        "max_ns": 20928680.334
+      },
+      {
+        "implementation": "stage1",
+        "length": 512,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 25721436.5,
+        "min_ns": 25431291.334,
+        "max_ns": 26327181.584
+      },
+      {
+        "implementation": "stage2",
+        "length": 32,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 6322.75,
+        "min_ns": 5891.25,
+        "max_ns": 6892.082
+      },
+      {
+        "implementation": "stage2",
+        "length": 32,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 5016.5,
+        "min_ns": 4916.0,
+        "max_ns": 5326.334
+      },
+      {
+        "implementation": "stage2",
+        "length": 32,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 6511.584,
+        "min_ns": 6333.25,
+        "max_ns": 6624.0
+      },
+      {
+        "implementation": "stage2",
+        "length": 128,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 27253.918,
+        "min_ns": 26016.332,
+        "max_ns": 29534.168
+      },
+      {
+        "implementation": "stage2",
+        "length": 128,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 22819.25,
+        "min_ns": 22667.584,
+        "max_ns": 23921.916
+      },
+      {
+        "implementation": "stage2",
+        "length": 128,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 29423.334,
+        "min_ns": 28903.166,
+        "max_ns": 31329.416
+      },
+      {
+        "implementation": "stage2",
+        "length": 512,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 113404.25,
+        "min_ns": 111761.168,
+        "max_ns": 115462.25
+      },
+      {
+        "implementation": "stage2",
+        "length": 512,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 94934.834,
+        "min_ns": 93969.666,
+        "max_ns": 96737.666
+      },
+      {
+        "implementation": "stage2",
+        "length": 512,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 122748.75,
+        "min_ns": 119554.666,
+        "max_ns": 124151.334
+      },
+      {
+        "implementation": "ocaml",
+        "length": 32,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 329.972,
+        "min_ns": 311.852,
+        "max_ns": 339.984
+      },
+      {
+        "implementation": "ocaml",
+        "length": 32,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 213.624,
+        "min_ns": 195.98,
+        "max_ns": 228.404
+      },
+      {
+        "implementation": "ocaml",
+        "length": 32,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 338.078,
+        "min_ns": 301.838,
+        "max_ns": 383.854
+      },
+      {
+        "implementation": "ocaml",
+        "length": 128,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 1438.14,
+        "min_ns": 1385.688,
+        "max_ns": 1562.118
+      },
+      {
+        "implementation": "ocaml",
+        "length": 128,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 674.248,
+        "min_ns": 623.704,
+        "max_ns": 721.932
+      },
+      {
+        "implementation": "ocaml",
+        "length": 128,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 1475.812,
+        "min_ns": 1448.154,
+        "max_ns": 1582.146
+      },
+      {
+        "implementation": "ocaml",
+        "length": 512,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 5375.862,
+        "min_ns": 5147.934,
+        "max_ns": 5506.038
+      },
+      {
+        "implementation": "ocaml",
+        "length": 512,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 2115.726,
+        "min_ns": 2068.042,
+        "max_ns": 2344.132
+      },
+      {
+        "implementation": "ocaml",
+        "length": 512,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 5511.76,
+        "min_ns": 5470.276,
+        "max_ns": 5749.702
+      },
+      {
+        "implementation": "run-001",
+        "length": 32,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 494.418,
+        "min_ns": 465.75,
+        "max_ns": 604.25
+      },
+      {
+        "implementation": "run-001",
+        "length": 32,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 534.332,
+        "min_ns": 507.5,
+        "max_ns": 583.416
+      },
+      {
+        "implementation": "run-001",
+        "length": 32,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 558.5,
+        "min_ns": 546.75,
+        "max_ns": 639.418
+      },
+      {
+        "implementation": "run-001",
+        "length": 128,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 1897.666,
+        "min_ns": 1817.166,
+        "max_ns": 2168.168
+      },
+      {
+        "implementation": "run-001",
+        "length": 128,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 1957.5,
+        "min_ns": 1889.168,
+        "max_ns": 2138.168
+      },
+      {
+        "implementation": "run-001",
+        "length": 128,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 2166.5,
+        "min_ns": 2052.584,
+        "max_ns": 2428.5
+      },
+      {
+        "implementation": "run-001",
+        "length": 512,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 7550.916,
+        "min_ns": 7297.834,
+        "max_ns": 8103.916
+      },
+      {
+        "implementation": "run-001",
+        "length": 512,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 7506.5,
+        "min_ns": 7170.166,
+        "max_ns": 8797.666
+      },
+      {
+        "implementation": "run-001",
+        "length": 512,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 8434.418,
+        "min_ns": 7900.084,
+        "max_ns": 9477.332
+      },
+      {
+        "implementation": "run-002",
+        "length": 32,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 554.668,
+        "min_ns": 494.084,
+        "max_ns": 737.916
+      },
+      {
+        "implementation": "run-002",
+        "length": 32,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 531.916,
+        "min_ns": 492.5,
+        "max_ns": 565.418
+      },
+      {
+        "implementation": "run-002",
+        "length": 32,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 573.5,
+        "min_ns": 544.75,
+        "max_ns": 625.25
+      },
+      {
+        "implementation": "run-002",
+        "length": 128,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 1963.084,
+        "min_ns": 1816.25,
+        "max_ns": 2508.332
+      },
+      {
+        "implementation": "run-002",
+        "length": 128,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 1945.25,
+        "min_ns": 1816.5,
+        "max_ns": 2174.75
+      },
+      {
+        "implementation": "run-002",
+        "length": 128,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 2149.666,
+        "min_ns": 2076.25,
+        "max_ns": 2363.166
+      },
+      {
+        "implementation": "run-002",
+        "length": 512,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 7526.75,
+        "min_ns": 7146.582,
+        "max_ns": 7693.75
+      },
+      {
+        "implementation": "run-002",
+        "length": 512,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 7661.0,
+        "min_ns": 7243.084,
+        "max_ns": 8780.25
+      },
+      {
+        "implementation": "run-002",
+        "length": 512,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 8473.334,
+        "min_ns": 7832.166,
+        "max_ns": 9056.166
+      },
+      {
+        "implementation": "run-003",
+        "length": 32,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 490.334,
+        "min_ns": 471.418,
+        "max_ns": 536.832
+      },
+      {
+        "implementation": "run-003",
+        "length": 32,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 527.168,
+        "min_ns": 501.582,
+        "max_ns": 545.832
+      },
+      {
+        "implementation": "run-003",
+        "length": 32,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 558.334,
+        "min_ns": 553.0,
+        "max_ns": 622.418
+      },
+      {
+        "implementation": "run-003",
+        "length": 128,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 1869.084,
+        "min_ns": 1828.25,
+        "max_ns": 2027.918
+      },
+      {
+        "implementation": "run-003",
+        "length": 128,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 1958.582,
+        "min_ns": 1896.75,
+        "max_ns": 2064.25
+      },
+      {
+        "implementation": "run-003",
+        "length": 128,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 2333.25,
+        "min_ns": 2053.084,
+        "max_ns": 2462.25
+      },
+      {
+        "implementation": "run-003",
+        "length": 512,
+        "query": "first",
+        "successful_rounds": 7,
+        "median_ns": 7652.75,
+        "min_ns": 7463.168,
+        "max_ns": 8226.0
+      },
+      {
+        "implementation": "run-003",
+        "length": 512,
+        "query": "last",
+        "successful_rounds": 7,
+        "median_ns": 7581.084,
+        "min_ns": 7368.584,
+        "max_ns": 8748.416
+      },
+      {
+        "implementation": "run-003",
+        "length": 512,
+        "query": "absent",
+        "successful_rounds": 7,
+        "median_ns": 8513.0,
+        "min_ns": 8095.5,
+        "max_ns": 8993.584
+      }
+    ],
+    "total_samples": 378,
+    "failed_samples": 0
+  },
+  "experiment_id": "EXP-0002",
+  "artifact_root": "test/afp",
+  "artifact_manifest": "experiments/results/artifacts/EXP-0002.json",
+  "baseline_refs": {
+    "list-index": {
+      "directory": "test/afp/list-index",
+      "manifest": "test/afp/list-index/baseline.json",
+      "sha256": "44a3272998f79221e37554b1c0680813f77e556632b62cdb1f9c750b73bac20f"
+    },
+    "skew-heap": {
+      "directory": "test/afp/skew-heap",
+      "manifest": "test/afp/skew-heap/baseline.json",
+      "sha256": "c8ec3134f5ae3a5414e07e8eb0ed5b272074f07664e76ca2b38b2ff92ed9384e"
+    }
+  }
+}

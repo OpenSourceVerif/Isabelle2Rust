@@ -1,0 +1,9 @@
+{
+  "path": "experiments/runs/_archives/20261023-02-two-task-pilot.tar.gz",
+  "sha256": "dd0ca6d0faf2377317790a5e826b4a1ec13c0694503e29a6f22a654b17e0a279",
+  "bytes": 635961,
+  "files": 594,
+  "independent_backup": false,
+  "excludes": "build products",
+  "verified": true
+}

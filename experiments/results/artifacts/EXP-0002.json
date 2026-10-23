@@ -1,0 +1,193 @@
+{
+  "schema_version": 2,
+  "experiment_id": "EXP-0002",
+  "batch_id": "20261023-02-two-task-pilot",
+  "files": [
+    {
+      "path": "test/afp/list-index/isabelle/List_Index.thy",
+      "sha256": "2083bbee03a3ff793b96882d4571b206bbd86755f9a140efa9133526f98cdcf9",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/list-index/source/List_Index.thy"
+    },
+    {
+      "path": "test/afp/list-index/isabelle/session/Direct_List_Index.thy",
+      "sha256": "66253493bb418194b409c946208a3b84efa66df8338c0e81e6bde2158f085dbb",
+      "original_path": "experiments/runs/20261023-01-list-index-smoke/baselines/session/Direct_List_Index.thy"
+    },
+    {
+      "path": "test/afp/list-index/isabelle/session/ROOT",
+      "sha256": "ea7c9e5fff57bac68e3031ed1c83117ea92f2ba670de6f02ddf0109f818142db",
+      "original_path": "experiments/runs/20261023-01-list-index-smoke/baselines/session/ROOT"
+    },
+    {
+      "path": "test/afp/list-index/stage1/Cargo.toml",
+      "sha256": "9f3de0f598654ed5470eddbf0d967dba0fa9ddd4d2368a01ba77a40bff03dcab",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/list-index/baselines/generated/reference/Cargo.toml"
+    },
+    {
+      "path": "test/afp/list-index/stage1/src/Reference.rs",
+      "sha256": "408566cdd722e2f02cfb6d5d5b4d3bb04ac63293a3d1ae9230736a04fb29b673",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/list-index/baselines/generated/reference/src/Reference.rs"
+    },
+    {
+      "path": "test/afp/list-index/stage1/src/lib.rs",
+      "sha256": "7d7aef755cbd40ed44b0c58f6eb5064614e4ec1ab412c70b3164234341c3c04b",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/list-index/baselines/generated/reference/src/lib.rs"
+    },
+    {
+      "path": "test/afp/list-index/stage2/Cargo.toml",
+      "sha256": "9f3de0f598654ed5470eddbf0d967dba0fa9ddd4d2368a01ba77a40bff03dcab",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/list-index/baselines/optimized/Cargo.toml"
+    },
+    {
+      "path": "test/afp/list-index/stage2/src/Reference.rs",
+      "sha256": "ffab342a700700eb2fe0a9f0912bdd10fae076d556cb96cfcde4a990b744b950",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/list-index/baselines/optimized/src/Reference.rs"
+    },
+    {
+      "path": "test/afp/list-index/stage2/src/lib.rs",
+      "sha256": "f9d7cbc29be982383839d6f9bef556a9706e75f3083293391dd4948a07edae6a",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/list-index/baselines/optimized/src/lib.rs"
+    },
+    {
+      "path": "test/afp/list-index/ocaml/reference.ml",
+      "sha256": "ba3782a9d973ec17099879c9a6f63183e4a9677a0c0ce88979da6093b6986ff3",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/list-index/baselines/generated/reference.ocaml"
+    },
+    {
+      "path": "test/afp/list-index/llm/EXP-0002/run-001/attempt-01.rs",
+      "sha256": "ad9034fb65686e3b1d5af0a0de7b13b79322a45bfc1c33175852b04e35be7080",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/list-index/run-001/attempt-01/candidate.rs"
+    },
+    {
+      "path": "test/afp/list-index/llm/EXP-0002/run-002/attempt-01.rs",
+      "sha256": "20750d62e08da9f1c01e9034d20d6f3e2ba32c90f7bced8ec64698d93d7e6057",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/list-index/run-002/attempt-01/candidate.rs"
+    },
+    {
+      "path": "test/afp/list-index/llm/EXP-0002/run-003/attempt-01.rs",
+      "sha256": "20750d62e08da9f1c01e9034d20d6f3e2ba32c90f7bced8ec64698d93d7e6057",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/list-index/run-003/attempt-01/candidate.rs"
+    },
+    {
+      "path": "test/afp/skew-heap/isabelle/Skew_Heap.thy",
+      "sha256": "212435f75ba99eb103c274cae4909ee4ac272add055ac3ffd1665eda7ea3a114",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/source/Skew_Heap.thy"
+    },
+    {
+      "path": "test/afp/skew-heap/isabelle/Tree.thy",
+      "sha256": "7b13c433fcf9aa908bd8fee4d5ba6d45f64f99985cfe6420c79024771142f84c",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/source/Tree.thy"
+    },
+    {
+      "path": "test/afp/skew-heap/isabelle/session/Direct_Skew_Heap.thy",
+      "sha256": "b997d6545a16393f88f3f645f48b3f979b9e56a6d76262ee32bc04a1b28724ef",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/baselines/session/Direct_Skew_Heap.thy"
+    },
+    {
+      "path": "test/afp/skew-heap/isabelle/session/ROOT",
+      "sha256": "0ead7666ac948d1280077987988661c689f0c4c1fa2be347a9519ca282cd2370",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/baselines/session/ROOT"
+    },
+    {
+      "path": "test/afp/skew-heap/stage1/Cargo.toml",
+      "sha256": "f1a20035e536e89702b6dfabd2254e873cbc795326bd1a821c55db54cab2e10b",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/baselines/generated/reference/Cargo.toml"
+    },
+    {
+      "path": "test/afp/skew-heap/stage1/src/Reference.rs",
+      "sha256": "fca8f12d89fdaf076eea71683abc7ef077b143768512199861c46036a75b8f83",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/baselines/generated/reference/src/Reference.rs"
+    },
+    {
+      "path": "test/afp/skew-heap/stage1/src/lib.rs",
+      "sha256": "7d7aef755cbd40ed44b0c58f6eb5064614e4ec1ab412c70b3164234341c3c04b",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/baselines/generated/reference/src/lib.rs"
+    },
+    {
+      "path": "test/afp/skew-heap/stage2/Cargo.toml",
+      "sha256": "f1a20035e536e89702b6dfabd2254e873cbc795326bd1a821c55db54cab2e10b",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/baselines/optimized/Cargo.toml"
+    },
+    {
+      "path": "test/afp/skew-heap/stage2/src/Reference.rs",
+      "sha256": "41e0a06c1adf0b0b3468a7661463210b7065c8bc42282c1293fbf46edab11467",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/baselines/optimized/src/Reference.rs"
+    },
+    {
+      "path": "test/afp/skew-heap/stage2/src/lib.rs",
+      "sha256": "f9d7cbc29be982383839d6f9bef556a9706e75f3083293391dd4948a07edae6a",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/baselines/optimized/src/lib.rs"
+    },
+    {
+      "path": "test/afp/skew-heap/ocaml/reference.ml",
+      "sha256": "09bf26d8ea3d3d23e387a9271f7eaed3d085f58e298f1c7c6ba8710a027e4c8d",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/baselines/generated/reference.ocaml"
+    },
+    {
+      "path": "test/afp/skew-heap/llm/EXP-0002/run-001/attempt-01.rs",
+      "sha256": "eb2bbdd7794aff806a95755f0160b9442926186f70975d4c3fc2ed2abc5081eb",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/run-001/attempt-01/candidate.rs"
+    },
+    {
+      "path": "test/afp/skew-heap/llm/EXP-0002/run-002/attempt-01.rs",
+      "sha256": "eb2bbdd7794aff806a95755f0160b9442926186f70975d4c3fc2ed2abc5081eb",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/run-002/attempt-01/candidate.rs"
+    },
+    {
+      "path": "test/afp/skew-heap/llm/EXP-0002/run-003/attempt-01.rs",
+      "sha256": "eb2bbdd7794aff806a95755f0160b9442926186f70975d4c3fc2ed2abc5081eb",
+      "original_path": "experiments/runs/20261023-02-two-task-pilot/skew-heap/run-003/attempt-01/candidate.rs"
+    }
+  ],
+  "selected_candidates": [
+    {
+      "task": "list-index",
+      "run_id": "run-001",
+      "file": "test/afp/list-index/llm/EXP-0002/run-001/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "ad9034fb65686e3b1d5af0a0de7b13b79322a45bfc1c33175852b04e35be7080",
+      "reference": "EXP-0002/list-index/run-001"
+    },
+    {
+      "task": "list-index",
+      "run_id": "run-002",
+      "file": "test/afp/list-index/llm/EXP-0002/run-002/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "20750d62e08da9f1c01e9034d20d6f3e2ba32c90f7bced8ec64698d93d7e6057",
+      "reference": "EXP-0002/list-index/run-002"
+    },
+    {
+      "task": "list-index",
+      "run_id": "run-003",
+      "file": "test/afp/list-index/llm/EXP-0002/run-003/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "20750d62e08da9f1c01e9034d20d6f3e2ba32c90f7bced8ec64698d93d7e6057",
+      "reference": "EXP-0002/list-index/run-003"
+    },
+    {
+      "task": "skew-heap",
+      "run_id": "run-001",
+      "file": "test/afp/skew-heap/llm/EXP-0002/run-001/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "eb2bbdd7794aff806a95755f0160b9442926186f70975d4c3fc2ed2abc5081eb",
+      "reference": "EXP-0002/skew-heap/run-001"
+    },
+    {
+      "task": "skew-heap",
+      "run_id": "run-002",
+      "file": "test/afp/skew-heap/llm/EXP-0002/run-002/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "eb2bbdd7794aff806a95755f0160b9442926186f70975d4c3fc2ed2abc5081eb",
+      "reference": "EXP-0002/skew-heap/run-002"
+    },
+    {
+      "task": "skew-heap",
+      "run_id": "run-003",
+      "file": "test/afp/skew-heap/llm/EXP-0002/run-003/attempt-01.rs",
+      "path_base": "repository",
+      "sha256": "eb2bbdd7794aff806a95755f0160b9442926186f70975d4c3fc2ed2abc5081eb",
+      "reference": "EXP-0002/skew-heap/run-003"
+    }
+  ],
+  "note": "Exact copies of recorded artifacts. isabelle/session contains export theories; AFP/HOL imports require the recorded Isabelle and AFP installation. Rust stages are generated crates; OCaml is the generated module. Harnesses and raw logs remain in the original run archive."
+}

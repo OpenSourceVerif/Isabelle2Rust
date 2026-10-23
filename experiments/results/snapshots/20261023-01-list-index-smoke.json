@@ -1,0 +1,91 @@
+{
+  "batch_id": "20261023-01-list-index-smoke",
+  "provenance": "Recovered from frozen run artifacts; original hashes checked.",
+  "config": {
+    "schema_version": 1,
+    "task_id": "direct-list-index-smoke-v1",
+    "plan_id": "paper-01-v0.1",
+    "route": "fixed_isabelle_to_rust",
+    "target_constant": "List_Index.last_index",
+    "scope": "流程试跑，单任务单次独立生成；不作为 AFP 总体结果",
+    "model": "deepseek-flash",
+    "thinking": {
+      "type": "disabled"
+    },
+    "temperature": 0.2,
+    "max_tokens": 4096,
+    "max_calls": 3,
+    "independent_runs": 1,
+    "estimated_cost_guard_usd": 0.1,
+    "peak_usd_per_million": {
+      "input_cache_miss": 0.3,
+      "output": 1.2
+    },
+    "pricing_checked": "2026-10-23",
+    "pricing_source": "https://api-docs.deepseek.com/quick_start/pricing/",
+    "candidate_selection": "首个通过开发测试的候选；最终测试不反馈，不重新选择",
+    "source_context": "AFP List_Index.thy 从开头至第一个 lemma 前的原文；标准列表和 nat 语义说明；不提供任何参考实现源码",
+    "interface": "pub fn last_index<T: Eq>(xs: &[T], x: &T) -> num_bigint::BigInt",
+    "dependencies": {
+      "num-bigint": "=0.4.6"
+    },
+    "test_instantiation": "任意精度整数元素；多态性只由 Rust 泛型编译检查，不宣称穷尽所有类型",
+    "development": {
+      "boolean_max_length": 6,
+      "random_cases": 200,
+      "max_random_length": 128,
+      "seed": 2026102301
+    },
+    "final": {
+      "ternary_min_length": 1,
+      "ternary_max_length": 6,
+      "random_cases": 256,
+      "max_random_length": 512,
+      "seed": 2026102302
+    },
+    "performance": "本批不作性能结论；执行耗时仅用于流程诊断",
+    "command_timeout_seconds": 180,
+    "api_timeout_seconds": 180
+  },
+  "plans": {
+    "experiments/plans/paper-01-v0.1.md": "# 第一篇 workshop 工作方案 v0.1\n\n记录日期：2026-10-23。方案 ID：`paper-01-v0.1`。\n\n状态：讨论版；当前研究方向已确定，执行参数尚未冻结，框架尚未实现。\n\n## 研究目标与边界\n\n先探索从 Isabelle 模型直接生成 Rust 的可行性、行为一致性和生成结果的质量，通过实际实验形成服务于 Isabelle2Rust 的结论。应用案例先使用 AFP，后续扩大范围，再考虑 Solana/SBPF。\n\n当前不以“必须设计一个不同于现有工作的 workflow”为目标，不为凑方法模块或新颖性强行增加机制。最终贡献与论文论断由实验支持，当前不预先承诺性能改善或正确率。\n\n## 已确定的核心方案\n\n1. 第一条实验路线是 LLM 直接从 Isabelle 模型生成 Rust。\n2. 框架的核心为两个模块：**生成**与**测试**。上下文准备、反馈修复、测试输入构造等属于内部能力，不另列为顶层研究模块。\n3. 测试基线必须包含 Isabelle→OCaml，以及现有 Isabelle2Rust Stage 1、Stage 2。\n4. 先接通实际流程再逐步扩大实验；当前不补齐其他论文的全部机制，不开展为了对齐现有工作的实现。\n5. 测试提供有限范围内的行为一致性证据，不能表述为 Rust 已继承 Isabelle 证明或已获得完整语义等价证明。当前不做 translation validation（TV）。\n\n## 两个模块的初步职责\n\n### 生成\n\n从选定 Isabelle 定义、必要依赖与任务要求产生 Rust 候选，接受编译诊断和开发测试反例后进行修复。\n\n尚需在首批执行配置中确定：一个任务包含多少函数、提供哪些定义/定理/示例、允许使用的依赖、Rust 接口、生成自由度和调用参数。\n\n### 测试\n\n对齐各实现的合法输入与可观察输出，构建并运行候选，与 OCaml、Stage 1、Stage 2 的结果比较。适用时加入独立数学性质或独立参考算法的检查。收集失败、超时和反馈，并在行为测试后测量性能。\n\n参考实现之间出现差异时，记录为待诊断问题，排查后端、数据适配与输入语义；不能通过多数投票认定正确答案。多个后端仍可能共享前端，因此不能声称它们完全独立。\n\n```text\n固定的 Isabelle 模型\n  ├─ Isabelle→OCaml ───────── 参考执行\n  ├─ Isabelle2Rust Stage 1 ── 参考执行\n  ├─ Isabelle2Rust Stage 2 ── 参考执行\n  └─ LLM 直接生成 Rust ───── 候选执行\n                  │\n          对齐输入并比较行为\n                  │\n            失败信息反馈修复\n                  │\n             最终评估与记录\n```\n\n## 第一轮执行建议（尚未冻结）\n\n以下来自讨论中的建议，不能当成已经实施或已经由用户逐项确定的协议：\n\n- 固定原始 Isabelle 模型，只修改候选 Rust；允许修改 Isabelle 模型的路线留到后续比较。\n- 首次生成只提供 Isabelle 任务信息，不提供 Stage 1、Stage 2 或 OCaml 实现；参考实现服务于测试。如果以后开放参考源码，作为不同实验条件单独记录。\n- 开发测试用于反馈；最终测试在候选冻结后运行，不能再用其结果修复或选择候选。\n- 初期用行为测试驱动修复，性能先作为最终测量，不立即加入性能反馈循环。\n- 先用 List-Index 的小任务接通，再考虑其他 AFP 候选。\n\n## AFP 候选与已有证据\n\n此前筛选得到以下五个候选入口：\n\n| AFP 条目 | 入口 |\n| --- | --- |\n| List-Index | `List_Index.last_index` |\n| Skew_Heap | `Skew_Heap.merge` |\n| Splay_Tree | `Splay_Tree.splay` |\n| Parallel_Shear_Sort | `Parallel_Shear_Sort.shearsort_list` |\n| Karatsuba_Sqrt | `Karatsuba_Sqrt.karatsuba_sqrt_default` |\n\n这是之前路线下产生的开发候选池，不是已经准入的直接生成测试集。历史 Stage 1/2 编译通过不等于当前 OCaml 基线、适配器或模型生成流程已经可用。各任务须重新检查准入条件；最终测试集数量和条目尚未冻结。\n\n来源：[AFP 筛选笔记](../notes/2026-10-23-afp-selection.md)、[历史证据](../results/afp-screening-2026-10-23.json)。远端 AFP 快照为 `4974408f4948c2d86c7665bd719874ec24c3dba4`。\n\n## 待确定的执行参数\n\n| 项目 | 当前状态 |\n| --- | --- |\n| API 提供方与模型 | 优先考虑便宜模型，用户提出 DeepSeek；具体 model ID、版本待定 |\n| 任务与输入域 | 候选已筛选，直接生成任务包待准备 |\n| 输入上下文与提示词 | 待定 |\n| 重复次数、修复上限与费用上限 | 待定；旧 B/C 的 3 次重复、30 次运行不适用 |\n| 开发/最终测试划分与随机种子 | 待定 |\n| 候选接受与选择规则 | 待定 |\n| 运行环境、构建参数、性能测量口径 | 待定 |\n\n拟记录构建成功、行为测试结果、反馈次数、token 与调用成本；行为通过后比较执行性能。具体指标定义与统计方式随首批执行协议确定。\n\n## 后续路线（非当前执行范围）\n\n- Stage 1 或 Stage 2 之后的优化，并从大量优化案例中归纳规则、在新样本上检验。\n- 允许修改 Isabelle 模型后生成，与固定模型直接生成比较。\n- 扩大 AFP 任务范围，随后应用到 Solana/SBPF。\n\n## 相关工作的位置\n\n讨论中将 [VERT](https://arxiv.org/html/2404.18852v2) 视为双路径参考结构的近邻，将 [Syzygy](https://syzygy-project.github.io/assets/paper.pdf) 视为测试与生成配套设计的参考。这不是完整文献综述，也不要求当前逐项实现其模块。后续阅读与方案变更分开记录。\n\n## 当前实现状态\n\n已有：远端 AFP 历史筛选、任务候选信息、讨论笔记。\n\n尚无：本路线的 API runner、自动生成与修复循环、OCaml/两阶段 Rust/候选 Rust 的统一测试设施、完整实验批次及结果。本次仅记录方案，没有启动模型调用或新编译/性能实验。\n"
+  },
+  "prompts": {
+    "list-index": "Translate the Isabelle/HOL last_index definition below directly into safe Rust.\nReturn only the full content of candidate.rs, without Markdown fences or explanations.\nRequired public signature:\npub fn last_index<T: Eq>(xs: &[T], x: &T) -> num_bigint::BigInt\nUse Rust edition 2024 and num-bigint 0.4.6. You may choose the implementation and\nuse std, but no unsafe, filesystem/network/process access, other dependencies, or main.\nPreserve the source behavior for every finite representable list: index is zero-based;\nwhen absent return list length. Equality is ordinary element equality. Isabelle nat\nis nonnegative and unbounded, subtraction saturates at zero. rev reverses a list,\nsize is its length. Return BigInt, not a machine-sized integer. Do not change the interface.\nThe source below is an exact excerpt from AFP List_Index.thy (definitions and commentary).\nNo generated OCaml or Rust reference implementation is supplied.\n\n(* Author: Tobias Nipkow, with contributions from Dmitriy Traytel, Lukas Bulwahn, and Peter Lammich *)\n\nsection \\<open>Index-based manipulation of lists\\<close>\n\ntheory List_Index imports Main begin\n\ntext \\<open>\\noindent\nThis theory collects functions for index-based manipulation of lists.\n\\<close>\n\nsubsection \\<open>Finding an index\\<close>\n\ntext \\<open>\nThis subsection defines three functions for finding the index of items in a list:\n\\begin{description}\n\\item[\\<open>find_index P xs\\<close>] finds the index of the first element in\n \\<open>xs\\<close> that satisfies \\<open>P\\<close>.\n\\item[\\<open>index xs x\\<close>] finds the index of the first occurrence of\n \\<open>x\\<close> in \\<open>xs\\<close>.\n\\item[\\<open>last_index xs x\\<close>] finds the index of the last occurrence of\n \\<open>x\\<close> in \\<open>xs\\<close>.\n\\end{description}\nAll functions return @{term \"length xs\"} if \\<open>xs\\<close> does not contain a\nsuitable element.\n\nThe argument order of \\<open>find_index\\<close> follows the function of the same\nname in the Haskell standard library. For \\<open>index\\<close> (and \\<open>last_index\\<close>) the order is intentionally reversed: \\<open>index\\<close> maps\nlists to a mapping from elements to their indices, almost the inverse of\nfunction \\<open>nth\\<close>.\\<close>\n\nprimrec find_index :: \"('a \\<Rightarrow> bool) \\<Rightarrow> 'a list \\<Rightarrow> nat\" where\n  \"find_index _ [] = 0\" |\n  \"find_index P (x#xs) = (if P x then 0 else find_index P xs + 1)\"\n\ndefinition index :: \"'a list \\<Rightarrow> 'a \\<Rightarrow> nat\" where\n  \"index xs = (\\<lambda>a. find_index (\\<lambda>x. x=a) xs)\"\n\ndefinition last_index :: \"'a list \\<Rightarrow> 'a \\<Rightarrow> nat\" where\n  \"last_index xs x =\n (let i = index (rev xs) x; n = size xs\n  in if i = n then i else n - (i+1))\"\n\n"
+  },
+  "artifacts": [
+    {
+      "path": "config.json",
+      "sha256": "31a75f95c989e802b443399a3771954bdb1481c36e1852d3191148ea76b316f0",
+      "verified": true
+    },
+    {
+      "path": "protocol-snapshot/experiments/plans/paper-01-v0.1.md",
+      "sha256": "97b6a235ec2c76cb958daeb04376bfb667943520a2f9e12810e96409f1d6e437",
+      "verified": true
+    },
+    {
+      "path": "prompt.txt",
+      "sha256": "e56a2e18aa418e3f3ff03babef9824219171fbbebf877606110f195248a77989",
+      "verified": true
+    }
+  ],
+  "protocol_sha256": {
+    "experiments/tasks/direct-list-index-smoke-v1.json": "2102e4aab37a3b73d25e394dd04229d5276c90f462c32e69bb0ed478c4cc06f3",
+    "experiments/scripts/run_list_index.py": "225f0ed6fb64bbd6dd010c00b3c51c7b932c8795eebd303e4c61d1b3a23b36ab",
+    "experiments/plans/paper-01-v0.1.md": "97b6a235ec2c76cb958daeb04376bfb667943520a2f9e12810e96409f1d6e437",
+    "experiments/harness/list-index/ocaml_main.ml": "baff0b57752add77f87e775bfcf28ade3b8a0d70717c1e8a81fb561ae8e67284",
+    "experiments/harness/list-index/ROOT": "ea7c9e5fff57bac68e3031ed1c83117ea92f2ba670de6f02ddf0109f818142db",
+    "experiments/harness/list-index/rust_main.rs": "c70510cb54f794ebfdd648856d05ef60e6611d4cba20e19633f14fd7c494376e",
+    "experiments/harness/list-index/Direct_List_Index.thy": "66253493bb418194b409c946208a3b84efa66df8338c0e81e6bde2158f085dbb"
+  },
+  "frozen_sha256": {
+    "config.json": "31a75f95c989e802b443399a3771954bdb1481c36e1852d3191148ea76b316f0",
+    "prompt.txt": "e56a2e18aa418e3f3ff03babef9824219171fbbebf877606110f195248a77989",
+    "data/development.json": "e4d10c3f995ddd8ec468809f30c38f92ccc9d23fd0952b27a3eb8ee989c96456",
+    "data/final.json": "2f0f9081b6a5e1750cc187fbafb3349f02d1db6752fd9163faee665ecb300c6a",
+    "baselines/stage1-runner/target/release/list_index_runner": "27692d873d01cb6605a547694651aa60593b885d41ee65f45711cf7adefb1f01",
+    "baselines/stage2-runner/target/release/list_index_runner": "102683ee3363262fe1ed7b3b452ced990180dcd431e8ff00dc6b0134de5f5305",
+    "baselines/ocaml/reference": "847a0dc55bca7ce06f2bbd966c42505d6e1a8df79b763f4b1aaa35cded2136c2"
+  }
+}

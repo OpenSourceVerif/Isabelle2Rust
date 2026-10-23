@@ -1,0 +1,140 @@
+{
+  "batch_id": "20261023-01-list-index-smoke",
+  "status": "awaiting_api_credentials",
+  "api_requests": 0,
+  "model_cost_usd": 0,
+  "environment": {
+    "recorded_at": "2026-10-22T19:04:16.290267+00:00",
+    "os": "macOS-26.5.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.9.6 (default, Dec  2 2025, 07:27:58) \n[Clang 17.0.0 (clang-1700.6.3.2)]",
+    "source_sha256": "2083bbee03a3ff793b96882d4571b206bbd86755f9a140efa9133526f98cdcf9",
+    "repo_head": "30d246c42d55c8fa95862786b01dfe82814a2e71",
+    "rustlightast_head": "1d25bd1ac5b406cfc08c4554ab9980ce5986db8f",
+    "repo_status": "?? experiments/",
+    "rustlightast_status": "",
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+    "ocaml": "4.14.2",
+    "isabelle": "Isabelle2025",
+    "hardware": "hw.model: Mac17,2\nhw.memsize: 17179869184\nhw.ncpu: 10"
+  },
+  "baseline_checks": {
+    "stage1": {
+      "development": {
+        "status": "passed",
+        "count": 581,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.5073826249999982
+      },
+      "final": {
+        "status": "passed",
+        "count": 4129,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 1.754597582999999
+      }
+    },
+    "stage2": {
+      "development": {
+        "status": "passed",
+        "count": 581,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.38435858399999745
+      },
+      "final": {
+        "status": "passed",
+        "count": 4129,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.04533449999999917
+      }
+    },
+    "ocaml": {
+      "development": {
+        "status": "passed",
+        "count": 581,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.3886876249999993
+      },
+      "final": {
+        "status": "passed",
+        "count": 4129,
+        "failures": 0,
+        "counterexamples": [],
+        "seconds": 0.024702292000000625
+      }
+    }
+  },
+  "protocol_sha256": {
+    "experiments/tasks/direct-list-index-smoke-v1.json": "2102e4aab37a3b73d25e394dd04229d5276c90f462c32e69bb0ed478c4cc06f3",
+    "experiments/scripts/run_list_index.py": "225f0ed6fb64bbd6dd010c00b3c51c7b932c8795eebd303e4c61d1b3a23b36ab",
+    "experiments/plans/paper-01-v0.1.md": "97b6a235ec2c76cb958daeb04376bfb667943520a2f9e12810e96409f1d6e437",
+    "experiments/harness/list-index/ocaml_main.ml": "baff0b57752add77f87e775bfcf28ade3b8a0d70717c1e8a81fb561ae8e67284",
+    "experiments/harness/list-index/ROOT": "ea7c9e5fff57bac68e3031ed1c83117ea92f2ba670de6f02ddf0109f818142db",
+    "experiments/harness/list-index/rust_main.rs": "c70510cb54f794ebfdd648856d05ef60e6611d4cba20e19633f14fd7c494376e",
+    "experiments/harness/list-index/Direct_List_Index.thy": "66253493bb418194b409c946208a3b84efa66df8338c0e81e6bde2158f085dbb"
+  },
+  "frozen_sha256": {
+    "config.json": "31a75f95c989e802b443399a3771954bdb1481c36e1852d3191148ea76b316f0",
+    "prompt.txt": "e56a2e18aa418e3f3ff03babef9824219171fbbebf877606110f195248a77989",
+    "data/development.json": "e4d10c3f995ddd8ec468809f30c38f92ccc9d23fd0952b27a3eb8ee989c96456",
+    "data/final.json": "2f0f9081b6a5e1750cc187fbafb3349f02d1db6752fd9163faee665ecb300c6a",
+    "baselines/stage1-runner/target/release/list_index_runner": "27692d873d01cb6605a547694651aa60593b885d41ee65f45711cf7adefb1f01",
+    "baselines/stage2-runner/target/release/list_index_runner": "102683ee3363262fe1ed7b3b452ced990180dcd431e8ff00dc6b0134de5f5305",
+    "baselines/ocaml/reference": "847a0dc55bca7ce06f2bbd966c42505d6e1a8df79b763f4b1aaa35cded2136c2"
+  },
+  "negative_control": {
+    "purpose": "Deliberately use first occurrence instead of last; must be rejected.",
+    "result": {
+      "status": "mismatch",
+      "count": 581,
+      "failures": 313,
+      "counterexamples": [
+        {
+          "index": 9,
+          "input": {
+            "xs": [
+              "0",
+              "0"
+            ],
+            "x": "0",
+            "expected": "1"
+          },
+          "actual": "0"
+        },
+        {
+          "index": 19,
+          "input": {
+            "xs": [
+              "1",
+              "1"
+            ],
+            "x": "1",
+            "expected": "1"
+          },
+          "actual": "0"
+        },
+        {
+          "index": 21,
+          "input": {
+            "xs": [
+              "0",
+              "0",
+              "0"
+            ],
+            "x": "0",
+            "expected": "2"
+          },
+          "actual": "0"
+        }
+      ],
+      "seconds": 0.3690560420000004
+    }
+  },
+  "raw_directory": "experiments/runs/20261023-01-list-index-smoke",
+  "backup_status": "not_backed_up",
+  "prepared_record_sha256": "c3cd982ce5952177452b3cc66e196aa9873b010058bc5fe6f2f1a0a6e39c4bc8"
+}

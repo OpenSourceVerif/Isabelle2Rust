@@ -1,0 +1,1983 @@
+{
+  "created": "2026-10-23T13:56:00.102024+00:00",
+  "protocol": "5 shuffled repeats; calibrated ~30 ms; prebuilt inputs; output drop included; separate allocator-instrumented binary; OCaml normal GC after initial full_major; large values = 2^130 + i; stage2_kernel includes query clone required by owned argument; shared variant changes only element representation to Rc<BigInt>, setup excluded",
+  "source_sha256": {
+    "experiments/harness/list-index-diagnostic/main.rs": "9e8bbee6931e4ce784f1b40d69b7fc1a01ee91bc31b0a4eef86b052864ff80c8",
+    "experiments/harness/list-index-diagnostic/main.ml": "d9d3e5a7c746923469acae6b5b8b4360b3fc9cd5ee769733ac3b99975ff96cc2",
+    "experiments/scripts/diagnose_list_index.py": "e4406372f2a18d5872c09daad5d2e72d63e798f82c8a1492c508113a0225f5ce",
+    "tests/afp/EXP-0002/list-index/llm/run-001/attempt-01.rs": "ad9034fb65686e3b1d5af0a0de7b13b79322a45bfc1c33175852b04e35be7080",
+    "tests/afp/EXP-0002/list-index/stage2/src/Reference.rs": "ffab342a700700eb2fe0a9f0912bdd10fae076d556cb96cfcde4a990b744b950",
+    "tests/afp/EXP-0002/list-index/ocaml/reference.ml": "ba3782a9d973ec17099879c9a6f63183e4a9677a0c0ce88979da6093b6986ff3"
+  },
+  "rows": [
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "first",
+      "operation": "clone_drop",
+      "iterations": 13411,
+      "ns_per_call": [
+        1974.8309596599806,
+        1837.9812840205802,
+        1820.840429498173,
+        1877.85526806353,
+        1867.8914324062337
+      ],
+      "alloc_calls": 128,
+      "allocated_bytes": 5112,
+      "median_ns": 1867.8914324062337
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "first",
+      "operation": "candidate_e2e",
+      "iterations": 6483,
+      "ns_per_call": [
+        1995.2568255437297,
+        1947.298010180472,
+        1928.6082060774334,
+        1960.1908067252816,
+        1993.4058306339657
+      ],
+      "alloc_calls": 128,
+      "allocated_bytes": 5112,
+      "median_ns": 1960.1908067252816
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "first",
+      "operation": "candidate_kernel",
+      "iterations": 266666,
+      "ns_per_call": [
+        40.68604171510429,
+        36.35118462796157,
+        35.231964329910824,
+        38.0157200393001,
+        35.72493306233265
+      ],
+      "alloc_calls": 0,
+      "allocated_bytes": 0,
+      "median_ns": 36.35118462796157
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "first",
+      "operation": "prepare_list",
+      "iterations": 4431,
+      "ns_per_call": [
+        4370.204242834575,
+        4312.758745204243,
+        4377.388625592417,
+        4427.0668020762805,
+        4330.446400361092
+      ],
+      "alloc_calls": 256,
+      "allocated_bytes": 10232,
+      "median_ns": 4370.204242834575
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "first",
+      "operation": "stage2_e2e",
+      "iterations": 826,
+      "ns_per_call": [
+        29131.759079903146,
+        28221.044794188863,
+        27446.831719128328,
+        27042.42372881356,
+        27340.799031476996
+      ],
+      "alloc_calls": 1540,
+      "allocated_bytes": 31096,
+      "median_ns": 27446.831719128328
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "first",
+      "operation": "stage2_kernel",
+      "iterations": 1093,
+      "ns_per_call": [
+        23854.2241537054,
+        23492.14638609332,
+        23528.209515096067,
+        23733.417200365966,
+        23038.998170173832
+      ],
+      "alloc_calls": 1284,
+      "allocated_bytes": 20864,
+      "median_ns": 23528.209515096067
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "first",
+      "operation": "stage2_shared_kernel",
+      "iterations": 1390,
+      "ns_per_call": [
+        18793.494964028778,
+        19169.843884892085,
+        18360.461151079136,
+        18128.926618705034,
+        18725.89928057554
+      ],
+      "alloc_calls": 1030,
+      "allocated_bytes": 9568,
+      "median_ns": 18725.89928057554
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "first",
+      "operation": "list_clone_drop",
+      "iterations": 5957,
+      "ns_per_call": [
+        4663.428235689105,
+        4789.253651166695,
+        4566.392479435957,
+        4627.273291925466,
+        4800.374853113984
+      ],
+      "alloc_calls": 255,
+      "allocated_bytes": 6136,
+      "median_ns": 4663.428235689105
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "first",
+      "operation": "reverse_clone",
+      "iterations": 3706,
+      "ns_per_call": [
+        7562.117647058823,
+        7698.338370210469,
+        7535.831354560172,
+        7387.299784133837,
+        8147.29492714517
+      ],
+      "alloc_calls": 384,
+      "allocated_bytes": 11272,
+      "median_ns": 7562.117647058823
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "first",
+      "operation": "length",
+      "iterations": 4308,
+      "ns_per_call": [
+        6656.714252553389,
+        6582.395078922934,
+        6705.596100278552,
+        6406.07590529248,
+        6043.069173630455
+      ],
+      "alloc_calls": 383,
+      "allocated_bytes": 2168,
+      "median_ns": 6582.395078922934
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "first",
+      "operation": "ocaml_e2e",
+      "iterations": 13632,
+      "ns_per_call": [
+        1232.756308685446,
+        1295.8413292253522,
+        1264.2376026995305,
+        1257.1018192488264,
+        1264.8846830985915
+      ],
+      "ocaml_allocated_bytes_per_call": 10336.007,
+      "median_ns": 1264.2376026995305
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "first",
+      "operation": "ocaml_kernel",
+      "iterations": 16611,
+      "ns_per_call": [
+        1144.5986394557824,
+        1183.7968213834206,
+        1174.0511107097707,
+        1179.8210222141954,
+        1189.0931310577328
+      ],
+      "ocaml_allocated_bytes_per_call": 7224.006,
+      "median_ns": 1179.8210222141954
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "first",
+      "operation": "ocaml_prepare_list",
+      "iterations": 105296,
+      "ns_per_call": [
+        97.92515385199818,
+        90.564010028871,
+        93.47812832396292,
+        98.63613052727548,
+        96.51904155903358
+      ],
+      "ocaml_allocated_bytes_per_call": 3112.001,
+      "median_ns": 96.51904155903358
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "last",
+      "operation": "clone_drop",
+      "iterations": 17134,
+      "ns_per_call": [
+        1840.0207774016576,
+        1860.9951558305124,
+        1875.948406676783,
+        1842.2094081942337,
+        1992.3276526205207
+      ],
+      "alloc_calls": 129,
+      "allocated_bytes": 5120,
+      "median_ns": 1860.9951558305124
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "last",
+      "operation": "candidate_e2e",
+      "iterations": 16365,
+      "ns_per_call": [
+        1881.046990528567,
+        1933.6133822181484,
+        1857.6993583868011,
+        1893.9683470821876,
+        1883.027803238619
+      ],
+      "alloc_calls": 130,
+      "allocated_bytes": 5152,
+      "median_ns": 1883.027803238619
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "last",
+      "operation": "candidate_kernel",
+      "iterations": 1439884,
+      "ns_per_call": [
+        19.070691805728796,
+        19.69701448172214,
+        19.764671320745283,
+        19.094883337824434,
+        19.50168624694767
+      ],
+      "alloc_calls": 1,
+      "allocated_bytes": 32,
+      "median_ns": 19.50168624694767
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "last",
+      "operation": "prepare_list",
+      "iterations": 7148,
+      "ns_per_call": [
+        4359.791689983212,
+        4209.219362059317,
+        4393.69404029099,
+        4612.6130386121995,
+        4281.238388360381
+      ],
+      "alloc_calls": 257,
+      "allocated_bytes": 10240,
+      "median_ns": 4359.791689983212
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "last",
+      "operation": "stage2_e2e",
+      "iterations": 1305,
+      "ns_per_call": [
+        23227.49042145594,
+        23775.542528735634,
+        23175.44674329502,
+        23612.89885057471,
+        23134.64214559387
+      ],
+      "alloc_calls": 1287,
+      "allocated_bytes": 29961,
+      "median_ns": 23227.49042145594
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "last",
+      "operation": "stage2_kernel",
+      "iterations": 1594,
+      "ns_per_call": [
+        19199.446047678797,
+        18453.68067754078,
+        18589.31932245922,
+        19447.14554579674,
+        18670.639899623588
+      ],
+      "alloc_calls": 1031,
+      "allocated_bytes": 19729,
+      "median_ns": 18670.639899623588
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "last",
+      "operation": "stage2_shared_kernel",
+      "iterations": 1945,
+      "ns_per_call": [
+        14346.101285347044,
+        14261.03290488432,
+        15801.585089974293,
+        14108.740359897172,
+        14242.716709511567
+      ],
+      "alloc_calls": 775,
+      "allocated_bytes": 8417,
+      "median_ns": 14261.03290488432
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "last",
+      "operation": "list_clone_drop",
+      "iterations": 6365,
+      "ns_per_call": [
+        4744.501178318932,
+        4951.322388059702,
+        4820.3326001571095,
+        4661.855302435192,
+        4780.871956009427
+      ],
+      "alloc_calls": 255,
+      "allocated_bytes": 6136,
+      "median_ns": 4780.871956009427
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "last",
+      "operation": "reverse_clone",
+      "iterations": 3746,
+      "ns_per_call": [
+        7460.213027229044,
+        7442.460758142018,
+        7553.501601708489,
+        7426.243726641751,
+        7400.916711158569
+      ],
+      "alloc_calls": 384,
+      "allocated_bytes": 11272,
+      "median_ns": 7442.460758142018
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "last",
+      "operation": "length",
+      "iterations": 4100,
+      "ns_per_call": [
+        6110.731707317073,
+        6252.195121951219,
+        6605.924878048781,
+        6127.9470731707315,
+        6240.528536585366
+      ],
+      "alloc_calls": 383,
+      "allocated_bytes": 2168,
+      "median_ns": 6240.528536585366
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "last",
+      "operation": "ocaml_e2e",
+      "iterations": 37227,
+      "ns_per_call": [
+        480.1610658930346,
+        511.8887366696215,
+        480.86555457060734,
+        482.767668627609,
+        485.7969753136165
+      ],
+      "ocaml_allocated_bytes_per_call": 8304.003,
+      "median_ns": 482.767668627609
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "last",
+      "operation": "ocaml_kernel",
+      "iterations": 57195,
+      "ns_per_call": [
+        387.8850773669027,
+        386.6386921933736,
+        395.6468747268118,
+        384.4918961447679,
+        401.78709677419357
+      ],
+      "ocaml_allocated_bytes_per_call": 5192.002,
+      "median_ns": 387.8850773669027
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "last",
+      "operation": "ocaml_prepare_list",
+      "iterations": 147167,
+      "ns_per_call": [
+        90.53675076613644,
+        91.82793696956519,
+        96.16968477987592,
+        96.89708970081608,
+        96.20370055786964
+      ],
+      "ocaml_allocated_bytes_per_call": 3112.001,
+      "median_ns": 96.16968477987592
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "absent",
+      "operation": "clone_drop",
+      "iterations": 16384,
+      "ns_per_call": [
+        1872.0117797851562,
+        1987.4368896484375,
+        1903.6152954101562,
+        1926.2415161132812,
+        1891.2786254882812
+      ],
+      "alloc_calls": 129,
+      "allocated_bytes": 5120,
+      "median_ns": 1903.6152954101562
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "absent",
+      "operation": "candidate_e2e",
+      "iterations": 14967,
+      "ns_per_call": [
+        2172.8023652034476,
+        2027.989376628583,
+        2070.6025255562236,
+        2279.272733346696,
+        2058.539921159885
+      ],
+      "alloc_calls": 130,
+      "allocated_bytes": 5152,
+      "median_ns": 2070.6025255562236
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "absent",
+      "operation": "candidate_kernel",
+      "iterations": 131749,
+      "ns_per_call": [
+        200.23333763444126,
+        203.9351342325179,
+        200.67957252047455,
+        189.58240290248884,
+        194.17288176760354
+      ],
+      "alloc_calls": 1,
+      "allocated_bytes": 32,
+      "median_ns": 200.23333763444126
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "absent",
+      "operation": "prepare_list",
+      "iterations": 7078,
+      "ns_per_call": [
+        4361.837242158802,
+        4426.9744278044645,
+        4276.673071489121,
+        4316.944475840633,
+        4304.152444193275
+      ],
+      "alloc_calls": 257,
+      "allocated_bytes": 10240,
+      "median_ns": 4316.944475840633
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "absent",
+      "operation": "stage2_e2e",
+      "iterations": 1024,
+      "ns_per_call": [
+        29454.3046875,
+        29363.037109375,
+        30551.4326171875,
+        29816.609375,
+        28681.396484375
+      ],
+      "alloc_calls": 1667,
+      "allocated_bytes": 32112,
+      "median_ns": 29454.3046875
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "absent",
+      "operation": "stage2_kernel",
+      "iterations": 1179,
+      "ns_per_call": [
+        24751.660729431722,
+        25555.591178965224,
+        27271.45122985581,
+        26524.52671755725,
+        25764.20695504665
+      ],
+      "alloc_calls": 1411,
+      "allocated_bytes": 21880,
+      "median_ns": 25764.20695504665
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "absent",
+      "operation": "stage2_shared_kernel",
+      "iterations": 1577,
+      "ns_per_call": [
+        18358.0634115409,
+        18451.46417247939,
+        18624.736207989856,
+        18252.48383005707,
+        18587.084971464807
+      ],
+      "alloc_calls": 1028,
+      "allocated_bytes": 9552,
+      "median_ns": 18451.46417247939
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "absent",
+      "operation": "list_clone_drop",
+      "iterations": 6433,
+      "ns_per_call": [
+        4689.200217627857,
+        4767.7988496813305,
+        4701.62319291155,
+        4586.44877972952,
+        4774.80693300171
+      ],
+      "alloc_calls": 255,
+      "allocated_bytes": 6136,
+      "median_ns": 4701.62319291155
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "absent",
+      "operation": "reverse_clone",
+      "iterations": 4015,
+      "ns_per_call": [
+        7392.413947696139,
+        7414.414694894147,
+        7545.495890410959,
+        7885.865504358655,
+        7492.175342465754
+      ],
+      "alloc_calls": 384,
+      "allocated_bytes": 11272,
+      "median_ns": 7492.175342465754
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "absent",
+      "operation": "length",
+      "iterations": 4740,
+      "ns_per_call": [
+        6299.094725738397,
+        6252.900843881856,
+        6164.310970464135,
+        6431.047890295358,
+        6495.40253164557
+      ],
+      "alloc_calls": 383,
+      "allocated_bytes": 2168,
+      "median_ns": 6299.094725738397
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "absent",
+      "operation": "ocaml_e2e",
+      "iterations": 17439,
+      "ns_per_call": [
+        1272.659498824474,
+        1280.0010895120133,
+        1244.9745398245311,
+        1243.8808417913872,
+        1292.4559321061988
+      ],
+      "ocaml_allocated_bytes_per_call": 10320.006,
+      "median_ns": 1272.659498824474
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "absent",
+      "operation": "ocaml_kernel",
+      "iterations": 18355,
+      "ns_per_call": [
+        1169.1667665486243,
+        1168.7771179515119,
+        1178.5840370471262,
+        1167.4781803323344,
+        1160.4899482429855
+      ],
+      "ocaml_allocated_bytes_per_call": 7208.005,
+      "median_ns": 1168.7771179515119
+    },
+    {
+      "n": 128,
+      "values": "small",
+      "mode": "absent",
+      "operation": "ocaml_prepare_list",
+      "iterations": 146312,
+      "ns_per_call": [
+        90.31298184701187,
+        98.64472497129422,
+        92.10545273114987,
+        98.66591257039751,
+        86.66448411613538
+      ],
+      "ocaml_allocated_bytes_per_call": 3112.001,
+      "median_ns": 92.10545273114987
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "first",
+      "operation": "clone_drop",
+      "iterations": 3841,
+      "ns_per_call": [
+        7154.278312939338,
+        7392.259047123145,
+        7394.352772715439,
+        8537.327518875292,
+        7639.112991408488
+      ],
+      "alloc_calls": 512,
+      "allocated_bytes": 20472,
+      "median_ns": 7394.352772715439
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "first",
+      "operation": "candidate_e2e",
+      "iterations": 3733,
+      "ns_per_call": [
+        7456.469327618537,
+        7463.289043664613,
+        7509.24189659791,
+        7644.5218323064555,
+        7443.711492097509
+      ],
+      "alloc_calls": 512,
+      "allocated_bytes": 20472,
+      "median_ns": 7463.289043664613
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "first",
+      "operation": "candidate_kernel",
+      "iterations": 200836,
+      "ns_per_call": [
+        142.68565396642038,
+        134.3963482642554,
+        139.82241729570396,
+        134.18182995080562,
+        145.50076181561076
+      ],
+      "alloc_calls": 0,
+      "allocated_bytes": 0,
+      "median_ns": 139.82241729570396
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "first",
+      "operation": "prepare_list",
+      "iterations": 1687,
+      "ns_per_call": [
+        16849.98043864849,
+        17366.726141078838,
+        17602.919383521043,
+        17075.454653230587,
+        17477.548903378778
+      ],
+      "alloc_calls": 1024,
+      "allocated_bytes": 40952,
+      "median_ns": 17366.726141078838
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "first",
+      "operation": "stage2_e2e",
+      "iterations": 261,
+      "ns_per_call": [
+        112512.13026819924,
+        116362.22988505747,
+        117368.45593869731,
+        113464.24137931035,
+        113567.37164750957
+      ],
+      "alloc_calls": 6148,
+      "allocated_bytes": 124024,
+      "median_ns": 113567.37164750957
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "first",
+      "operation": "stage2_kernel",
+      "iterations": 313,
+      "ns_per_call": [
+        98586.12779552715,
+        102650.02555910543,
+        99176.38338658147,
+        97393.1054313099,
+        98549.25559105432
+      ],
+      "alloc_calls": 5124,
+      "allocated_bytes": 83072,
+      "median_ns": 98586.12779552715
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "first",
+      "operation": "stage2_shared_kernel",
+      "iterations": 407,
+      "ns_per_call": [
+        75383.90663390663,
+        75748.26044226045,
+        75259.21375921376,
+        76373.87223587223,
+        77917.69041769042
+      ],
+      "alloc_calls": 4102,
+      "allocated_bytes": 37984,
+      "median_ns": 75748.26044226045
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "first",
+      "operation": "list_clone_drop",
+      "iterations": 1579,
+      "ns_per_call": [
+        19414.819506016465,
+        20340.035465484485,
+        19617.95440151995,
+        19452.94996833439,
+        19400.09499683344
+      ],
+      "alloc_calls": 1023,
+      "allocated_bytes": 24568,
+      "median_ns": 19452.94996833439
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "first",
+      "operation": "reverse_clone",
+      "iterations": 950,
+      "ns_per_call": [
+        31350.35052631579,
+        30719.956842105265,
+        31786.096842105264,
+        31860.702105263157,
+        31764.605263157893
+      ],
+      "alloc_calls": 1536,
+      "allocated_bytes": 45064,
+      "median_ns": 31764.605263157893
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "first",
+      "operation": "length",
+      "iterations": 1145,
+      "ns_per_call": [
+        26008.369432314412,
+        26454.91266375546,
+        27580.16768558952,
+        28043.340611353713,
+        27716.084716157206
+      ],
+      "alloc_calls": 1535,
+      "allocated_bytes": 8696,
+      "median_ns": 27580.16768558952
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "first",
+      "operation": "ocaml_e2e",
+      "iterations": 5424,
+      "ns_per_call": [
+        5198.527286135693,
+        5299.934181415929,
+        5234.527286135693,
+        5185.472160766962,
+        5235.05494100295
+      ],
+      "ocaml_allocated_bytes_per_call": 41056.018,
+      "median_ns": 5234.527286135693
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "first",
+      "operation": "ocaml_kernel",
+      "iterations": 6059,
+      "ns_per_call": [
+        4834.5967981515105,
+        4741.338504703746,
+        4765.144908400726,
+        4681.645321010068,
+        4683.455355669253
+      ],
+      "ocaml_allocated_bytes_per_call": 28728.016,
+      "median_ns": 4741.338504703746
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "first",
+      "operation": "ocaml_prepare_list",
+      "iterations": 34473,
+      "ns_per_call": [
+        382.09355147506744,
+        382.5016099556174,
+        384.7355031473907,
+        390.27528790647756,
+        344.9956197603922
+      ],
+      "ocaml_allocated_bytes_per_call": 12328.003,
+      "median_ns": 382.5016099556174
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "last",
+      "operation": "clone_drop",
+      "iterations": 4036,
+      "ns_per_call": [
+        7631.287165510406,
+        7379.016105054509,
+        7432.854311199208,
+        8033.768830525272,
+        7392.302775024777
+      ],
+      "alloc_calls": 513,
+      "allocated_bytes": 20480,
+      "median_ns": 7432.854311199208
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "last",
+      "operation": "candidate_e2e",
+      "iterations": 4234,
+      "ns_per_call": [
+        7460.527869626831,
+        7380.3337269721305,
+        7398.834671705244,
+        7364.765470004723,
+        7456.601322626358
+      ],
+      "alloc_calls": 514,
+      "allocated_bytes": 20512,
+      "median_ns": 7398.834671705244
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "last",
+      "operation": "candidate_kernel",
+      "iterations": 1600000,
+      "ns_per_call": [
+        18.906328125,
+        19.7784375,
+        19.518359375,
+        19.62216125,
+        19.098385
+      ],
+      "alloc_calls": 1,
+      "allocated_bytes": 32,
+      "median_ns": 19.518359375
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "last",
+      "operation": "prepare_list",
+      "iterations": 1584,
+      "ns_per_call": [
+        17062.973484848484,
+        17262.20517676768,
+        16865.0827020202,
+        17347.722222222223,
+        17105.560606060608
+      ],
+      "alloc_calls": 1025,
+      "allocated_bytes": 40960,
+      "median_ns": 17105.560606060608
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "last",
+      "operation": "stage2_e2e",
+      "iterations": 315,
+      "ns_per_call": [
+        95912.0380952381,
+        95680.29206349206,
+        106686.64126984128,
+        94242.59047619048,
+        97628.57142857143
+      ],
+      "alloc_calls": 5127,
+      "allocated_bytes": 119433,
+      "median_ns": 95912.0380952381
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "last",
+      "operation": "stage2_kernel",
+      "iterations": 379,
+      "ns_per_call": [
+        78102.79155672823,
+        77972.95514511873,
+        77558.70712401056,
+        77862.3562005277,
+        77773.8548812665
+      ],
+      "alloc_calls": 4103,
+      "allocated_bytes": 78481,
+      "median_ns": 77862.3562005277
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "last",
+      "operation": "stage2_shared_kernel",
+      "iterations": 525,
+      "ns_per_call": [
+        58346.508571428574,
+        57683.253333333334,
+        58729.76190476191,
+        58836.508571428574,
+        56992.69714285714
+      ],
+      "alloc_calls": 3079,
+      "allocated_bytes": 33377,
+      "median_ns": 58346.508571428574
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "last",
+      "operation": "list_clone_drop",
+      "iterations": 1595,
+      "ns_per_call": [
+        19523.929153605015,
+        19408.33354231975,
+        19424.556112852664,
+        19640.38620689655,
+        19127.29905956113
+      ],
+      "alloc_calls": 1023,
+      "allocated_bytes": 24568,
+      "median_ns": 19424.556112852664
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "last",
+      "operation": "reverse_clone",
+      "iterations": 950,
+      "ns_per_call": [
+        31058.06947368421,
+        31249.736842105263,
+        34271.35894736842,
+        31817.456842105265,
+        30736.886315789474
+      ],
+      "alloc_calls": 1536,
+      "allocated_bytes": 45064,
+      "median_ns": 31249.736842105263
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "last",
+      "operation": "length",
+      "iterations": 1147,
+      "ns_per_call": [
+        26121.585004359196,
+        27342.923278116825,
+        26044.863121185703,
+        25861.340889276373,
+        27259.335658238884
+      ],
+      "alloc_calls": 1535,
+      "allocated_bytes": 8696,
+      "median_ns": 26121.585004359196
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "last",
+      "operation": "ocaml_e2e",
+      "iterations": 13573,
+      "ns_per_call": [
+        1948.434686509983,
+        1938.7735946364105,
+        1986.517055919841,
+        1965.736830472261,
+        2001.114049952111
+      ],
+      "ocaml_allocated_bytes_per_call": 32880.007,
+      "median_ns": 1965.736830472261
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "last",
+      "operation": "ocaml_kernel",
+      "iterations": 16309,
+      "ns_per_call": [
+        1518.867741737691,
+        1507.6989392360047,
+        1517.3181065669262,
+        1511.3097676129744,
+        1616.4630572076767
+      ],
+      "ocaml_allocated_bytes_per_call": 20552.006,
+      "median_ns": 1517.3181065669262
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "last",
+      "operation": "ocaml_prepare_list",
+      "iterations": 42224,
+      "ns_per_call": [
+        384.64082038651003,
+        386.865550397878,
+        382.082938613111,
+        380.1123057976506,
+        387.932739674119
+      ],
+      "ocaml_allocated_bytes_per_call": 12328.002,
+      "median_ns": 384.64082038651003
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "absent",
+      "operation": "clone_drop",
+      "iterations": 4249,
+      "ns_per_call": [
+        7546.56978112497,
+        7334.274652859496,
+        7540.166392092257,
+        7416.695928453754,
+        7747.489762297011
+      ],
+      "alloc_calls": 513,
+      "allocated_bytes": 20480,
+      "median_ns": 7540.166392092257
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "absent",
+      "operation": "candidate_e2e",
+      "iterations": 3815,
+      "ns_per_call": [
+        8197.389777195282,
+        8064.263958060288,
+        8241.623066841415,
+        8055.373525557012,
+        8293.403145478374
+      ],
+      "alloc_calls": 514,
+      "allocated_bytes": 20512,
+      "median_ns": 8197.389777195282
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "absent",
+      "operation": "candidate_kernel",
+      "iterations": 37103,
+      "ns_per_call": [
+        728.2822952321915,
+        755.869929655284,
+        798.4888823006225,
+        700.6621297469208,
+        807.9939627523381
+      ],
+      "alloc_calls": 1,
+      "allocated_bytes": 32,
+      "median_ns": 755.869929655284
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "absent",
+      "operation": "prepare_list",
+      "iterations": 1749,
+      "ns_per_call": [
+        17325.99599771298,
+        17193.110348770726,
+        16881.81360777587,
+        17649.799885648943,
+        17491.376214979988
+      ],
+      "alloc_calls": 1025,
+      "allocated_bytes": 40960,
+      "median_ns": 17325.99599771298
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "absent",
+      "operation": "stage2_e2e",
+      "iterations": 244,
+      "ns_per_call": [
+        122317.9631147541,
+        120099.89754098361,
+        121263.4918032787,
+        121607.06967213115,
+        122120.21721311475
+      ],
+      "alloc_calls": 6659,
+      "allocated_bytes": 128112,
+      "median_ns": 121607.06967213115
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "absent",
+      "operation": "stage2_kernel",
+      "iterations": 284,
+      "ns_per_call": [
+        103257.77464788733,
+        106383.36267605633,
+        106621.9190140845,
+        105781.83450704225,
+        103558.97887323944
+      ],
+      "alloc_calls": 5635,
+      "allocated_bytes": 87160,
+      "median_ns": 105781.83450704225
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "absent",
+      "operation": "stage2_shared_kernel",
+      "iterations": 390,
+      "ns_per_call": [
+        76280.76923076923,
+        74133.22564102564,
+        76194.33846153846,
+        76008.12051282052,
+        75959.29487179487
+      ],
+      "alloc_calls": 4100,
+      "allocated_bytes": 37968,
+      "median_ns": 76008.12051282052
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "absent",
+      "operation": "list_clone_drop",
+      "iterations": 1581,
+      "ns_per_call": [
+        19361.058191018343,
+        19564.358001265024,
+        19386.43833017078,
+        19423.993042378243,
+        19344.92979127135
+      ],
+      "alloc_calls": 1023,
+      "allocated_bytes": 24568,
+      "median_ns": 19386.43833017078
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "absent",
+      "operation": "reverse_clone",
+      "iterations": 961,
+      "ns_per_call": [
+        31305.23829344433,
+        31400.234131113422,
+        31307.752341311134,
+        31739.941727367324,
+        31590.963579604577
+      ],
+      "alloc_calls": 1536,
+      "allocated_bytes": 45064,
+      "median_ns": 31400.234131113422
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "absent",
+      "operation": "length",
+      "iterations": 1128,
+      "ns_per_call": [
+        27131.75975177305,
+        25969.7109929078,
+        26211.916666666668,
+        26095.375886524824,
+        26362.994680851065
+      ],
+      "alloc_calls": 1535,
+      "allocated_bytes": 8696,
+      "median_ns": 26211.916666666668
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "absent",
+      "operation": "ocaml_e2e",
+      "iterations": 5405,
+      "ns_per_call": [
+        5480.6277520814065,
+        5161.133580018502,
+        5321.387974098057,
+        5244.988159111934,
+        5249.222756706753
+      ],
+      "ocaml_allocated_bytes_per_call": 41040.018,
+      "median_ns": 5249.222756706753
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "absent",
+      "operation": "ocaml_kernel",
+      "iterations": 5746,
+      "ns_per_call": [
+        4806.130177514793,
+        4737.58388444135,
+        4899.406369648451,
+        4884.759310824922,
+        5020.192307692308
+      ],
+      "ocaml_allocated_bytes_per_call": 28712.017,
+      "median_ns": 4884.759310824922
+    },
+    {
+      "n": 512,
+      "values": "small",
+      "mode": "absent",
+      "operation": "ocaml_prepare_list",
+      "iterations": 32430,
+      "ns_per_call": [
+        382.763644773358,
+        388.74801110083257,
+        388.99059512796794,
+        387.1085414739439,
+        387.14529756398395
+      ],
+      "ocaml_allocated_bytes_per_call": 12328.003,
+      "median_ns": 387.14529756398395
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "first",
+      "operation": "clone_drop",
+      "iterations": 3527,
+      "ns_per_call": [
+        8831.573008222285,
+        8547.526226254608,
+        8726.691522540403,
+        12217.689821377942,
+        8875.342500708817
+      ],
+      "alloc_calls": 514,
+      "allocated_bytes": 28696,
+      "median_ns": 8831.573008222285
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "first",
+      "operation": "candidate_e2e",
+      "iterations": 3190,
+      "ns_per_call": [
+        9203.069278996865,
+        9272.55736677116,
+        9556.25642633229,
+        9247.165830721004,
+        9381.152037617554
+      ],
+      "alloc_calls": 514,
+      "allocated_bytes": 28696,
+      "median_ns": 9272.55736677116
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "first",
+      "operation": "candidate_kernel",
+      "iterations": 51484,
+      "ns_per_call": [
+        601.0937184367959,
+        604.114870639422,
+        599.6409758371533,
+        606.39874524124,
+        604.9201499494989
+      ],
+      "alloc_calls": 0,
+      "allocated_bytes": 0,
+      "median_ns": 604.114870639422
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "first",
+      "operation": "prepare_list",
+      "iterations": 1549,
+      "ns_per_call": [
+        18245.34667527437,
+        19112.545513234345,
+        18524.451258876696,
+        18908.19367333764,
+        18913.761781794707
+      ],
+      "alloc_calls": 1026,
+      "allocated_bytes": 49176,
+      "median_ns": 18908.19367333764
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "first",
+      "operation": "stage2_e2e",
+      "iterations": 224,
+      "ns_per_call": [
+        131176.3392857143,
+        128235.30357142857,
+        126265.06696428571,
+        128452.00892857143,
+        125489.95535714286
+      ],
+      "alloc_calls": 6664,
+      "allocated_bytes": 160936,
+      "median_ns": 128235.30357142857
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "first",
+      "operation": "stage2_kernel",
+      "iterations": 274,
+      "ns_per_call": [
+        109831.20437956204,
+        109066.30291970803,
+        108862.5291970803,
+        113335.61313868614,
+        107699.36131386862
+      ],
+      "alloc_calls": 5639,
+      "allocated_bytes": 111784,
+      "median_ns": 109066.30291970803
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "first",
+      "operation": "stage2_shared_kernel",
+      "iterations": 401,
+      "ns_per_call": [
+        77658.97755610972,
+        77275.14463840399,
+        80684.12219451372,
+        79905.86034912718,
+        77824.81296758105
+      ],
+      "alloc_calls": 4102,
+      "allocated_bytes": 37984,
+      "median_ns": 77824.81296758105
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "first",
+      "operation": "list_clone_drop",
+      "iterations": 1477,
+      "ns_per_call": [
+        20974.63913337847,
+        20880.2471225457,
+        21131.34732566012,
+        20567.39471902505,
+        20830.850372376437
+      ],
+      "alloc_calls": 1024,
+      "allocated_bytes": 32768,
+      "median_ns": 20880.2471225457
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "first",
+      "operation": "reverse_clone",
+      "iterations": 882,
+      "ns_per_call": [
+        32609.363945578232,
+        32019.320861678003,
+        35062.17006802721,
+        33062.5,
+        32208.569160997733
+      ],
+      "alloc_calls": 1537,
+      "allocated_bytes": 53264,
+      "median_ns": 32609.363945578232
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "first",
+      "operation": "length",
+      "iterations": 1124,
+      "ns_per_call": [
+        26533.65925266904,
+        26301.11921708185,
+        26201.771352313168,
+        28072.175266903916,
+        26809.71975088968
+      ],
+      "alloc_calls": 1535,
+      "allocated_bytes": 8696,
+      "median_ns": 26533.65925266904
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "first",
+      "operation": "ocaml_e2e",
+      "iterations": 5415,
+      "ns_per_call": [
+        5406.664081255771,
+        5453.555309325947,
+        5511.145706371191,
+        5549.759372114497,
+        5325.03379501385
+      ],
+      "ocaml_allocated_bytes_per_call": 41056.018,
+      "median_ns": 5453.555309325947
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "first",
+      "operation": "ocaml_kernel",
+      "iterations": 5802,
+      "ns_per_call": [
+        5055.854532919683,
+        4900.1963116166835,
+        4900.894863840055,
+        4813.6966563254055,
+        5008.762668045501
+      ],
+      "ocaml_allocated_bytes_per_call": 28728.017,
+      "median_ns": 4900.894863840055
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "first",
+      "operation": "ocaml_prepare_list",
+      "iterations": 44779,
+      "ns_per_call": [
+        343.61687398110723,
+        382.4366332432613,
+        370.9999553362067,
+        346.2577324192144,
+        384.5823265369928
+      ],
+      "ocaml_allocated_bytes_per_call": 12328.002,
+      "median_ns": 370.9999553362067
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "last",
+      "operation": "clone_drop",
+      "iterations": 3303,
+      "ns_per_call": [
+        8611.678776869512,
+        8837.256736300333,
+        9030.691795337572,
+        8825.550105964276,
+        9089.148955495004
+      ],
+      "alloc_calls": 514,
+      "allocated_bytes": 28696,
+      "median_ns": 8837.256736300333
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "last",
+      "operation": "candidate_e2e",
+      "iterations": 3506,
+      "ns_per_call": [
+        8883.200228180262,
+        8640.069594980034,
+        8835.47261836851,
+        8578.044780376498,
+        8875.059612093553
+      ],
+      "alloc_calls": 515,
+      "allocated_bytes": 28728,
+      "median_ns": 8835.47261836851
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "last",
+      "operation": "candidate_kernel",
+      "iterations": 1500000,
+      "ns_per_call": [
+        19.417777333333333,
+        18.888388666666668,
+        19.227833333333333,
+        19.092056,
+        21.139556
+      ],
+      "alloc_calls": 1,
+      "allocated_bytes": 32,
+      "median_ns": 19.227833333333333
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "last",
+      "operation": "prepare_list",
+      "iterations": 1587,
+      "ns_per_call": [
+        18575.50913673598,
+        18727.840579710144,
+        18792.4543163201,
+        18758.03402646503,
+        18518.877126654064
+      ],
+      "alloc_calls": 1026,
+      "allocated_bytes": 49176,
+      "median_ns": 18727.840579710144
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "last",
+      "operation": "stage2_e2e",
+      "iterations": 300,
+      "ns_per_call": [
+        98652.5,
+        100720.69666666667,
+        98905.55333333333,
+        99460.83333333333,
+        100295.97333333333
+      ],
+      "alloc_calls": 5130,
+      "allocated_bytes": 144065,
+      "median_ns": 99460.83333333333
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "last",
+      "operation": "stage2_kernel",
+      "iterations": 371,
+      "ns_per_call": [
+        81466.30727762803,
+        85759.54447439354,
+        80592.42857142857,
+        80552.56064690027,
+        82067.04851752022
+      ],
+      "alloc_calls": 4105,
+      "allocated_bytes": 94913,
+      "median_ns": 81466.30727762803
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "last",
+      "operation": "stage2_shared_kernel",
+      "iterations": 507,
+      "ns_per_call": [
+        58414.528599605525,
+        59642.17554240631,
+        59470.741617357,
+        59421.268244575935,
+        59631.32741617357
+      ],
+      "alloc_calls": 3079,
+      "allocated_bytes": 33377,
+      "median_ns": 59470.741617357
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "last",
+      "operation": "list_clone_drop",
+      "iterations": 1453,
+      "ns_per_call": [
+        21284.89883000688,
+        21354.61114934618,
+        21193.019958706125,
+        21010.63867859601,
+        20934.216792842395
+      ],
+      "alloc_calls": 1024,
+      "allocated_bytes": 32768,
+      "median_ns": 21193.019958706125
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "last",
+      "operation": "reverse_clone",
+      "iterations": 920,
+      "ns_per_call": [
+        34016.89347826087,
+        32883.46847826087,
+        32163.767391304347,
+        33116.485869565215,
+        32289.67391304348
+      ],
+      "alloc_calls": 1537,
+      "allocated_bytes": 53264,
+      "median_ns": 32883.46847826087
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "last",
+      "operation": "length",
+      "iterations": 1122,
+      "ns_per_call": [
+        26934.157754010695,
+        26690.136363636364,
+        26712.3440285205,
+        25925.097147950088,
+        25915.404634581104
+      ],
+      "alloc_calls": 1535,
+      "allocated_bytes": 8696,
+      "median_ns": 26690.136363636364
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "last",
+      "operation": "ocaml_e2e",
+      "iterations": 10695,
+      "ns_per_call": [
+        1949.8827489481066,
+        2021.9545582047685,
+        1954.185226741468,
+        1979.3311827956989,
+        1942.3033193080878
+      ],
+      "ocaml_allocated_bytes_per_call": 32880.009,
+      "median_ns": 1954.185226741468
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "last",
+      "operation": "ocaml_kernel",
+      "iterations": 15382,
+      "ns_per_call": [
+        1587.7728513847353,
+        1527.1220257443765,
+        1609.612144064491,
+        1552.7277337147316,
+        1540.2968404628787
+      ],
+      "ocaml_allocated_bytes_per_call": 20552.006,
+      "median_ns": 1552.7277337147316
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "last",
+      "operation": "ocaml_prepare_list",
+      "iterations": 29995,
+      "ns_per_call": [
+        383.56022670445077,
+        375.659276546091,
+        374.3636606101017,
+        381.5968994832472,
+        389.76806134355724
+      ],
+      "ocaml_allocated_bytes_per_call": 12328.003,
+      "median_ns": 381.5968994832472
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "absent",
+      "operation": "clone_drop",
+      "iterations": 3473,
+      "ns_per_call": [
+        8954.769939533544,
+        8676.612438813705,
+        8985.831269795566,
+        8927.416066801037,
+        8714.524042614454
+      ],
+      "alloc_calls": 514,
+      "allocated_bytes": 28696,
+      "median_ns": 8927.416066801037
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "absent",
+      "operation": "candidate_e2e",
+      "iterations": 3210,
+      "ns_per_call": [
+        9430.75015576324,
+        9265.264797507789,
+        9282.139252336448,
+        9603.245171339564,
+        9275.155763239876
+      ],
+      "alloc_calls": 515,
+      "allocated_bytes": 28728,
+      "median_ns": 9282.139252336448
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "absent",
+      "operation": "candidate_kernel",
+      "iterations": 48979,
+      "ns_per_call": [
+        613.4704056840687,
+        619.4125645684885,
+        598.2444925376182,
+        621.13354703036,
+        567.885379448335
+      ],
+      "alloc_calls": 1,
+      "allocated_bytes": 32,
+      "median_ns": 613.4704056840687
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "absent",
+      "operation": "prepare_list",
+      "iterations": 1552,
+      "ns_per_call": [
+        19276.2293814433,
+        19119.54961340206,
+        18584.139175257733,
+        18854.596649484534,
+        18508.644974226805
+      ],
+      "alloc_calls": 1026,
+      "allocated_bytes": 49176,
+      "median_ns": 18854.596649484534
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "absent",
+      "operation": "stage2_e2e",
+      "iterations": 230,
+      "ns_per_call": [
+        127640.57826086956,
+        133375.0,
+        128476.99130434783,
+        127854.89130434782,
+        127633.87826086956
+      ],
+      "alloc_calls": 6662,
+      "allocated_bytes": 160920,
+      "median_ns": 127854.89130434782
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "absent",
+      "operation": "stage2_kernel",
+      "iterations": 272,
+      "ns_per_call": [
+        110675.55147058824,
+        113596.04779411765,
+        109178.92279411765,
+        106841.45220588235,
+        108230.85294117648
+      ],
+      "alloc_calls": 5637,
+      "allocated_bytes": 111768,
+      "median_ns": 109178.92279411765
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "absent",
+      "operation": "stage2_shared_kernel",
+      "iterations": 395,
+      "ns_per_call": [
+        80924.78987341771,
+        78055.58987341772,
+        76079.11392405063,
+        75032.70126582279,
+        76095.78227848101
+      ],
+      "alloc_calls": 4100,
+      "allocated_bytes": 37968,
+      "median_ns": 76095.78227848101
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "absent",
+      "operation": "list_clone_drop",
+      "iterations": 1402,
+      "ns_per_call": [
+        21026.925820256776,
+        20460.324536376604,
+        21920.321683309558,
+        21151.599144079886,
+        20433.99286733238
+      ],
+      "alloc_calls": 1024,
+      "allocated_bytes": 32768,
+      "median_ns": 21026.925820256776
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "absent",
+      "operation": "reverse_clone",
+      "iterations": 874,
+      "ns_per_call": [
+        33352.54576659039,
+        33355.88215102975,
+        33614.27345537757,
+        33283.70594965675,
+        33080.23455377574
+      ],
+      "alloc_calls": 1537,
+      "allocated_bytes": 53264,
+      "median_ns": 33352.54576659039
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "absent",
+      "operation": "length",
+      "iterations": 1010,
+      "ns_per_call": [
+        26524.422772277227,
+        26697.813861386137,
+        26767.326732673268,
+        26468.688118811882,
+        26949.21584158416
+      ],
+      "alloc_calls": 1535,
+      "allocated_bytes": 8696,
+      "median_ns": 26697.813861386137
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "absent",
+      "operation": "ocaml_e2e",
+      "iterations": 5071,
+      "ns_per_call": [
+        5445.497337803195,
+        5327.110826267009,
+        5273.324393610727,
+        5436.799250640899,
+        5645.644843226188
+      ],
+      "ocaml_allocated_bytes_per_call": 41040.019,
+      "median_ns": 5436.799250640899
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "absent",
+      "operation": "ocaml_kernel",
+      "iterations": 5753,
+      "ns_per_call": [
+        5025.397879367287,
+        4865.802885451069,
+        4974.092125847384,
+        5046.036155049539,
+        4973.055970797845
+      ],
+      "ocaml_allocated_bytes_per_call": 28712.017,
+      "median_ns": 4974.092125847384
+    },
+    {
+      "n": 512,
+      "values": "large",
+      "mode": "absent",
+      "operation": "ocaml_prepare_list",
+      "iterations": 42871,
+      "ns_per_call": [
+        388.4180215063796,
+        361.66259242844814,
+        361.6681439667841,
+        386.02108651536,
+        387.7673485572998
+      ],
+      "ocaml_allocated_bytes_per_call": 12328.002,
+      "median_ns": 386.02108651536
+    }
+  ],
+  "environment": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "ocaml": "4.14.2"
+  },
+  "source_path_note": "During diagnosis existing experiment artifacts were relocated to tests/afp/EXP-0002; hashes verified identical to measured copies."
+}
