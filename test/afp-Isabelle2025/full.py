@@ -23,6 +23,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 import afp_common as common
+import frontend_fault
 from result_store import EntryStore
 from run import compile_crates
 
@@ -549,6 +550,7 @@ def resolve_candidates(names, runs):
                     outcome = outcomes[c][target]
                     if attempt["status"] == "passed":
                         outcome.update(status="passed")
+                        outcome.pop("source_fault", None)
                         outcome["evidence"].append(attempt["evidence"])
                     elif (len(cs) == 1 or attempt.get("stage") == "context_loading") and outcome["status"] != "passed":
                         # Full exception text lives in immutable XML; do not duplicate it
@@ -556,6 +558,21 @@ def resolve_candidates(names, runs):
                         outcome.update(status="failed", stage=attempt["stage"],
                                        error_excerpt=attempt["error"][:500])
                         outcome["evidence"].append(attempt["evidence"])
+        # This is a derived review of an actual failed singleton request,
+        # not a synthetic native frontend XML. Successful independent contexts
+        # still win; the independent audit rechecks the complete source proof.
+        fault = run.get("source_fault")
+        if fault:
+            cs = run.get("scope", [])
+            if len(cs) != 1 or cs[0] != fault.get("constant") or cs[0] not in outcomes:
+                raise ValueError("Source failure review requires its original singleton scope")
+            for target in TARGETS:
+                value = outcomes[cs[0]][target]
+                if value["status"] != "passed":
+                    value.update(status="failed", stage="frontend_source_algorithm",
+                                 source_fault=fault["review"],
+                                 error_excerpt="Verified shared frontend source algorithm failure: " + fault["family"])
+                    value["evidence"].append(fault["review"])
     return outcomes
 
 
@@ -592,6 +609,64 @@ def export_memory_failure(run):
         if "memory_or_stack" in infrastructure(node.findtext("error", "")):
             return True
     return False
+
+
+def registered_source_fault(base, entry, scope, group):
+    """Require an explicit, input-bound case; resource exhaustion alone is insufficient."""
+    registry = common.read_json(base / "frontend-fault-cases.json", {})
+    cases = [case for case in registry.get("cases", [])
+             if len(group) == 1 and case.get("entry") == entry and case.get("constant") == group[0]]
+    if not cases:
+        return None
+    if (len(cases) != 1 or registry.get("schema") != 1
+            or registry.get("serializer_sha256") != serializer_signature()
+            or registry.get("candidate_scope_sha256") != file_digest(base / "exports.json")):
+        raise ValueError("Stale or ambiguous source algorithm registry")
+    # Repeated internal names need each source owner's own context witness.
+    # Keep those declarations on the ordinary path until their source-specific
+    # rejection evidence is supported; never borrow another owner's diagnosis.
+    if sum(group[0] in names for names in scope.values()) != 1:
+        raise ValueError("Source algorithm review requires an unambiguous source declaration")
+    return cases[0]
+
+
+def annotate_source_faults(entry, record, scope, stage, base):
+    """Attach derived reviews while leaving all original native evidence intact."""
+    changed = False
+    for run in stage.get("runs", []):
+        if run.get("source_fault"):
+            frontend_fault.validate_record(run, stage["serializer_sha256"])
+            continue
+        if run["command"].get("status") != "failed" or run.get("finished"):
+            continue
+        case = registered_source_fault(base, entry, scope, run.get("scope", []))
+        if case is None:
+            continue
+        run["source_fault"] = frontend_fault.prepare_record(
+            run, common.PROJECT / case["observation"], case["family"], stage["serializer_sha256"])
+        changed = True
+    return changed
+
+
+def review_source_faults(base, data, result, exports):
+    """Adjudicate only current source cases under the caller's experiment lock."""
+    changed = []
+    if not (base / "frontend-fault-cases.json").is_file():
+        return changed
+    for entry in data["order"]:
+        record = result["entries"][entry]
+        stage = record.get("full_export", {})
+        if (stage.get("scope_sha256") != scope_digest(exports[entry])
+                or stage.get("scan_sha256") != entry_scan_signature(record)
+                or stage.get("serializer_sha256") != serializer_signature()):
+            continue
+        if annotate_source_faults(entry, record, exports[entry], stage, base):
+            finish_export(stage, common.candidates(exports[entry]))
+            # EntryStore keeps one payload. Commit this entry before another
+            # read can evict it; every original failed command stays recorded.
+            save(base, result, exports, entry)
+            changed.append(entry)
+    return changed
 
 
 def export_entry(entry, info, record, scope, base, args, env):
@@ -652,6 +727,17 @@ def export_entry(entry, info, record, scope, base, args, env):
             # failure and blocks the export gate. It is never fabricated as a
             # language failure merely because its process could not complete.
             stage["runs"].append(run)
+    annotate_source_faults(entry, record, scope, stage, base)
+    finish_export(stage, names)
+
+
+def finish_export(stage, names):
+    """Finish adjudicating coverage, retaining failed native process fields.
+
+    A source-fault review is prepared only from a real singleton exception and
+    a checked recursive invariant. The gate and independent audit recompute it;
+    processing complete never changes that process's status or finished flag.
+    """
     stage["candidates"] = resolve_candidates(names, stage["runs"])
     languages = {}
     for target in TARGETS:
@@ -660,8 +746,8 @@ def export_entry(entry, info, record, scope, base, args, env):
                              "passed" if counts["passed"] == len(names) else
                              "failed" if counts["failed"] == len(names) else "partial")
     stage.update(languages=languages, finished=common.timestamp(),
-                 status="complete" if all(run["finished"] and run["command"]["status"] == "passed"
-                                         for run in stage["runs"])
+                 status="complete" if all((run["finished"] and run["command"]["status"] == "passed")
+                                         or run.get("source_fault") for run in stage["runs"])
                  and all(x[t]["status"] in TERMINAL for x in stage["candidates"].values() for t in TARGETS)
                  else "blocked")
     # Keep every generated source; compilation uses this inventory rather than
@@ -696,7 +782,15 @@ def export_checkpoint(base, data, result, exports):
         if common.candidates(exports[entry]) and stage.get("status") != "complete":
             problems.append({"entry": entry, "reason": "unresolved exports"})
         for run in stage.get("runs", []):
-            if not run.get("finished") or run["command"]["status"] != "passed":
+            reviewed = False
+            if run.get("source_fault"):
+                try:
+                    frontend_fault.validate_record(run, stage["serializer_sha256"])
+                    reviewed = True
+                except (ValueError, OSError, KeyError, TypeError, ET.ParseError) as error:
+                    problems.append({"entry": entry, "reason": "invalid source algorithm evidence",
+                                     "error": str(error), "command": run["command"]})
+            if not reviewed and (not run.get("finished") or run["command"]["status"] != "passed"):
                 problems.append({"entry": entry, "reason": "incomplete process",
                                  "command": run["command"]})
         for run in stage.get("runs", []):
@@ -837,6 +931,7 @@ def main():
             return int(not gate["passed"])
         require_scan_gate(base, result, exports)
         if args.phase == "export-checkpoint":
+            review_source_faults(base, data, result, exports)
             gate = export_checkpoint(base, data, result, exports)
             print(json.dumps(gate, indent=2))
             return int(not gate["passed"])
@@ -861,6 +956,7 @@ def main():
                 print("  " + json.dumps(record["full_export"]["languages"]), flush=True)
             return 0
         if args.phase == "compile":
+            review_source_faults(base, data, result, exports)
             gate = export_checkpoint(base, data, result, exports)
             if not gate["passed"]:
                 raise ValueError("Export checkpoint failed; inspect unresolved/environment failures first")

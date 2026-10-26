@@ -25,6 +25,8 @@ CATEGORIES = (
      "原会话构建和声明检查可以均成功，但声明 XML 未覆盖扫描器要求的理论集合。此为候选发现证据验证失败，不能归为 HOL 证明失败或语言后端失败。"),
     ("dependency", "继承的扫描依赖阻塞", r"Blocked by:",
      "前置会话没有可接受的扫描回执，依赖条目没有执行自己的候选检查。阻塞不是该条目的导出失败；当前候选实验保留原始未知范围。"),
+    ("source_algorithm", "共享前端源算法不终止", r"^Verified shared frontend source algorithm failure:",
+     "正式单常量请求自然失败；独立审计同时核验原生日志、上下文、原始带类型命题和原生递归源码的不变式。实际失败进程与缺失的完成 witness 均保留；此归因需要结构证据，不能仅凭耗尽内存或有限重复次数推断。"),
     ("infrastructure", "资源、工具或依赖",
      r"(?m)^(?:timeout|interrupted)$|host_restart|memory_limit|Run out of store|Interrupt_Breakdown|Unable to increase stack|out of memory|OutOfMemoryError|Java heap space|GC overhead limit|command not found|Protocol_Message",
      "资源或外部工具条件尚未满足，不能据此归因于 HOL 构造或目标打印规则；必须在阶段检查点处理。"),
@@ -190,7 +192,12 @@ def failure_events(base, data, result):
                 if run["command"]["status"] != "passed":
                     yield {"entry": entry, "phase": "export", "stage": "process",
                            "status": run["command"]["status"], "constants": [], "target": None,
-                           "historical": historical, "error": full.log_text(run["command"]), "evidence": [run["command"]["log"]]}
+                           "historical": historical,
+                           "error": (("Verified shared frontend source algorithm failure: "
+                                      + run["source_fault"]["family"] + "\n\n")
+                                     if run.get("source_fault") else "") + full.log_text(run["command"]),
+                           "evidence": [run["command"]["log"]] + (
+                               [run["source_fault"]["review"]] if run.get("source_fault") else [])}
                 for attempt in run["attempts"]:
                     if attempt["status"] != "failed":
                         continue

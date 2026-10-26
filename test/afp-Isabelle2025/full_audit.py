@@ -14,6 +14,7 @@ import re
 import xml.etree.ElementTree as ET
 
 import afp_common as common
+import frontend_fault
 import full
 import candidate_scope
 import declaration_scope
@@ -218,9 +219,18 @@ def audit_data(base, data, result, exports):
             need(file.is_file() and full.file_digest(file) == item["sha256"],
                  "generated artifact bytes retained", entry=entry, path=path)
             artifact_count += 1
+        fault_witnesses = {}
         for run in stage.get("runs", []):
-            need(run["command"]["status"] == "passed" and run.get("finished"),
-                 "export process finished normally", entry=entry, session=run["session"])
+            reviewed = False
+            if run.get("source_fault"):
+                try:
+                    proof = frontend_fault.validate_record(run, serializer)
+                    fault_witnesses[run["source_fault"]["review"]] = proof
+                    reviewed = True
+                except (ValueError, OSError, KeyError, TypeError, ET.ParseError) as error:
+                    need(False, "source algorithm evidence rechecked", entry=entry, error=str(error))
+            need(reviewed or (run["command"]["status"] == "passed" and run.get("finished")),
+                 "export process has a verified terminal outcome", entry=entry, session=run["session"])
             need((common.PROJECT / run["command"]["log"]).is_file(), "export process log retained", entry=entry)
         for constant in names:
             outcomes = stage.get("candidates", {}).get(constant, {})
@@ -231,9 +241,17 @@ def audit_data(base, data, result, exports):
                 need(value.get("status") in full.TERMINAL, "candidate outcome terminal",
                      entry=entry, constant=constant, target=target)
                 valid = False
+                if value.get("source_fault"):
+                    proof = fault_witnesses.get(value["source_fault"], {})
+                    valid = (proof.get("constant") == constant and value.get("status") == "failed"
+                             and value.get("stage") == "frontend_source_algorithm"
+                             and value["source_fault"] in value.get("evidence", []))
                 for evidence in value.get("evidence", []):
                     path = common.PROJECT / evidence
-                    if not path.is_file():
+                    # Derived reviews have their own independently recomputed
+                    # proof above. They are not native XML; a later successful
+                    # context must still supply its ordinary target witness.
+                    if not path.is_file() or path.suffix == ".json":
                         continue
                     if evidence not in witnesses:
                         node = ET.parse(path).getroot()
