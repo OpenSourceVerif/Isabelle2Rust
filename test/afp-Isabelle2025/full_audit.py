@@ -153,7 +153,15 @@ def audit_data(base, data, result, exports):
         if scan.get("status") == "passed":
             need(set(scan.get("theories", [])) == expected, "complete theory discovery", entry=entry)
         else:
+            # A loaded session can still fail scanner coverage validation.
+            # Require the recorded missing paths to equal the actual manifest
+            # gap; a stale missing list or an unexplained blocked scan is not
+            # direct evidence of that validation failure.
+            missing = expected - set(scan.get("theories", []))
+            coverage_failure = (scan["status"] == "failed" and bool(missing)
+                                and {t["path"] for t in scan.get("missing_theories", [])} == missing)
             observed_failure = (scan.get("errors") or scan.get("dependencies") or scan.get("session_dependencies")
+                                or coverage_failure
                                 or any(x["status"] != "passed" for x in
                                        scan.get("loading", []) + scan.get("inspections", [])))
             need(bool(observed_failure), "scan failure has direct cause", entry=entry)
