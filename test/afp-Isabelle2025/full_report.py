@@ -34,8 +34,11 @@ CATEGORIES = (
      "目标准备先扣除该语言的 code_printing 实现，再检查剩余依赖。入口有方程不保证依赖闭包可执行；应结合六语言结果区分共享规格缺口与目标专用运行时适配。"),
     ("constructor_pattern", "方程模式与代码构造子", r"is not a constructor|Not a constructor",
      "代码证书要求左侧模式由当前表示的构造子组成。列表拼接、抽象表示和 nat 整数化后的 0/Suc 模式需要相应预处理；这发生在 Rust 文本打印之前。"),
-    ("abstraction", "代码抽象类型接口", r"Abstraction violation",
-     "代码抽象类型规定表示与抽象函数可出现的位置；越过接口的代码方程不能通过通用证书检查。"),
+    # Thingol also rejects an abstract constructor requested as a top-level
+    # export. This interface check precedes every target serializer and has a
+    # different diagnostic from an abstraction violation in a code equation.
+    ("abstraction", "代码抽象类型接口", r"Abstraction violation|Cannot export abstract constructor",
+     "代码抽象类型规定表示与抽象函数可出现的位置；越过接口的代码方程或直接导出抽象构造函数会被通用 Thingol 检查拒绝。"),
     ("context_merge", "独立理论上下文冲突", r"Clash of|Cannot merge|Duplicate.*instance|Duplicate.*definition",
      "独立分支可以各自有效，却不能把不同实例、定义或代码注册合并成同一理论。分支成功与整组导入冲突必须分别记录。"),
     ("name_interface", "常量名称或可见性", r"Inaccessible constant|Undefined constant|Not a constant|Unknown constant|No such constant",
