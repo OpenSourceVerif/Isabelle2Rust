@@ -18,6 +18,7 @@ import xml.etree.ElementTree as ET
 import afp_common as common
 import full
 import candidate_scope
+import declaration_scope
 
 CATEGORIES = (
     ("scan_coverage", "扫描回执覆盖验证", r"loaded theories do not cover|required session context",
@@ -294,6 +295,18 @@ def build_report(base, data, result, exports, verified=False):
     write_csv(report / "entries.csv", list(entries[0]), entries)
     fields = ["entry", "constant", "theories"] + [k for t in full.TARGETS for k in (t, t + "_evidence")]
     write_csv(report / "candidates.csv", fields, candidate_rows(data, result, exports))
+    # Declaration identities include the source path; repeated internal names
+    # retain separate branch evidence while candidates.csv remains deduplicated.
+    declaration_counts = {target: collections.Counter() for target in full.TARGETS}
+    def declarations():
+        for entry in data["order"]:
+            for row in declaration_scope.rows(entry, data["entries"][entry],
+                                              result["entries"][entry], exports[entry]):
+                for target in full.TARGETS:
+                    declaration_counts[target][row[target]] += 1
+                yield row
+    declaration_fields = ["entry", "theory", "constant", "context_evidence"] + fields[3:]
+    write_csv(report / "declarations.csv", declaration_fields, declarations())
     crates = list(compile_rows(data, result))
     write_csv(report / "compilation.csv",
               ["entry", "manifest", "stage2", "stage1_compile", "optimization", "stage2_compile"], crates)
@@ -329,6 +342,8 @@ def build_report(base, data, result, exports, verified=False):
     timings = performance(result)
     summary = {"generated": common.timestamp(), "completion_verified": verified, "entry_count": len(entries),
                "candidate_references": sum(r["candidates"] for r in entries),
+               "source_declarations": sum(declaration_counts[full.TARGETS[0]].values()),
+               "declaration_statuses": {target: dict(counts) for target, counts in declaration_counts.items()},
                "distinct_candidates": len({c for scope in exports.values() for c in common.candidates(scope)}),
                "owned_theories": sum(r["expected_theories"] for r in entries),
                "scanned_theories": sum(r["scanned_theories"] for r in entries), "phase_counts": counts,
@@ -351,7 +366,8 @@ def build_report(base, data, result, exports, verified=False):
         f"本轮范围为 {len(entries)} 个 AFP 条目、{summary['owned_theories']} 个所属理论。",
         f"当前已检查 {summary['scanned_theories']} 个理论，保留 {summary['distinct_candidates']} 个不同内部全名字串",
         f"（按条目计 {summary['candidate_references']} 个候选引用）。所有条目均在 entries.csv 中占一行。"
-        "不同条目中的同名声明只在名字串统计中合并；各条目独立保留候选结果与证据。\n\n",
+        "不同条目中的同名声明只在名字串统计中合并；各条目独立保留候选结果与证据。"
+        f"按来源理论计 {summary['source_declarations']} 个声明身份，见 declarations.csv。\n\n",
         "## 方法与口径\n\n",
         ("候选来自选定快照的全部自有常量声明，包括自动生成的辅助常量和仅有逻辑意义的定义；"
          "发现阶段没有以代码方程或可执行性筛选。已知扫描失败与未知范围原样保留。"
@@ -373,7 +389,9 @@ def build_report(base, data, result, exports, verified=False):
                       ("passed", "partial", "failed", "blocked", "no_candidates", "pending")]
                for t in full.TARGETS]),
         "\n\n完整扫描为空与扫描受阻没有混为一类。整组失败尝试数不是候选失败数；",
-        "不同上下文重复出现的常量，有成功证据即说明至少有一个可导出上下文。\n\n",
+        "候选表中的成功表示同名查询至少存在一个可导出上下文。"
+        "逐声明表另按来源理论筛选实际上下文，同名的独立声明不互相代替；"
+        "context_evidence 记录加载及父理论证据，六语言证据保持原始完整 batch。\n\n",
         "## 同作用域性能对比\n\n",
         f"六目标全部成功、请求常量相同的作用域有 {timings['matched_successful_scopes']} 个；",
         f"共用前端墙钟时间为 {timings['shared_frontend_seconds']:.3f} 秒。\n\n",
@@ -386,7 +404,8 @@ def build_report(base, data, result, exports, verified=False):
         "拆分范围没有混入成功吞吐量。此处比较生成耗时，不比较程序运行速度。\n\n",
         "## 交付文件\n\n",
         "- [扫描细节](scan-failures.md)、[导出细节](export-failures.md)、[编译细节](compile-failures.md)。\n",
-        "- [全条目表](entries.csv)、[全候选及六语言证据](candidates.csv)、[全部 Rust crate 编译表](compilation.csv)。\n",
+        "- [全条目表](entries.csv)、[全候选及六语言证据](candidates.csv)、[逐来源声明表](declarations.csv)。\n",
+        "- [全部 Rust crate 编译表](compilation.csv)。\n",
         "- [完整失败正文及原始证据索引](failures.jsonl)、[分类统计](failure-categories.csv)、[机器统计](summary.json)。\n\n",
         "成功源码保存在本实验目录的 exports；Stage-2 源码保存在 rust-stage2。",
         "本轮新尝试的异常 XML、进程日志及补取的扫描会话数据库均保留。",

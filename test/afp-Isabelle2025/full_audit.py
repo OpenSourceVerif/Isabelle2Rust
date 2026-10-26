@@ -16,6 +16,54 @@ import xml.etree.ElementTree as ET
 import afp_common as common
 import full
 import candidate_scope
+import declaration_scope
+
+
+def declaration_witnesses(info, record, scope):
+    """Independently reduce physical XML for names with multiple source owners.
+
+    Read constants, languages, status and context from original XML rather than
+    trusting the report's filtered attempts or candidate status. Successful
+    batches need retained artifacts; failures need a singleton or loading error.
+    """
+    owners = collections.Counter(name for names in scope.values() for name in names)
+    repeated = {name for name, count in owners.items() if count > 1}
+    theories = {theory["path"]: theory.get("name") for theory in info.get("theories", [])}
+    sources = {(path, name): theories.get(path) for path, names in scope.items()
+               for name in names if name in repeated}
+    values = {key: {"contexts": set(), "targets": {
+        target: {"passed": set(), "failed": set()} for target in full.TARGETS}} for key in sources}
+    artifacts = {item["path"] for item in record.get("full_export", {}).get("artifacts", [])}
+    if not repeated:
+        return values
+    for run in record.get("full_export", {}).get("runs", []):
+        inventory = declaration_scope.contexts(info, record["scan"], run)
+        work = common.PROJECT / run["directory"]
+        for attempt in run.get("attempts", []):
+            evidence = attempt.get("evidence", "")
+            path = common.PROJECT / evidence
+            if not path.is_file():
+                continue
+            node = ET.parse(path).getroot()
+            constants = {child.attrib["name"] for child in node.findall("constant")}
+            context = inventory.get(node.attrib.get("context"))
+            stage, target, status = (node.attrib.get(key) for key in ("stage", "target", "status"))
+            files = [work / child.text for child in node.findall("file")]
+            files_ok = (bool(files) or node.findtext("library_only") == "true") and all(
+                file.is_file() and common.relative(file) in artifacts for file in files)
+            failure_ok = bool(node.findtext("error")) and (len(constants) == 1 or stage == "context_loading")
+            targets = ([target] if target in full.TARGETS else
+                       [child.text for child in node.findall("language") if child.text in full.TARGETS]
+                       if target in {"frontend", "context"} and status == "failed" else [])
+            for key, theory in sources.items():
+                if not declaration_scope.applies(context, theory, key[1], constants, stage):
+                    continue
+                value = values[key]
+                value["contexts"].update(context["evidence"])
+                if (status == "passed" and files_ok) or (status == "failed" and failure_ok):
+                    for language in targets:
+                        value["targets"][language][status].add(evidence)
+    return values
 
 
 def audit_data(base, data, result, exports):
@@ -177,6 +225,14 @@ def audit_data(base, data, result, exports):
                         valid |= witness["files_ok"] if value["status"] == "passed" else witness["failure_ok"]
                 need(valid, "candidate has direct applicable witness",
                      entry=entry, constant=constant, target=target)
+        # Existence of one same-name witness cannot cover independent source
+        # declarations. Check each repeated owner against actual context parents.
+        for (theory, constant), value in declaration_witnesses(
+                data["entries"][entry], record, exports[entry]).items():
+            for target, states in value["targets"].items():
+                need(bool(states["passed"] or states["failed"]),
+                     "declaration has direct source witness", entry=entry,
+                     theory=theory, constant=constant, target=target)
         manifests = set(full.rust_manifests(record))
         for manifest in manifests:
             item = record.get("full_compile", {}).get(manifest, {})
@@ -314,7 +370,7 @@ def audit_reports(base, data, result, exports, audit):
             if len(issues) < 5000:
                 issues.append(dict(reason=reason, **detail))
     for name in ("README.md", "scan-failures.md", "export-failures.md", "compile-failures.md",
-                 "entries.csv", "candidates.csv", "compilation.csv", "failures.jsonl",
+                 "entries.csv", "candidates.csv", "declarations.csv", "compilation.csv", "failures.jsonl",
                  "summary.json", "failure-categories.csv"):
         need((report / name).is_file(), "required report exists", path=name)
     if not (report / "summary.json").is_file():
@@ -358,6 +414,45 @@ def audit_reports(base, data, result, exports, audit):
                          constant=row["constant"], target=target)
         expected = collections.Counter((e, c) for e, scope in exports.items() for c in common.candidates(scope))
         need(actual == expected, "exactly one report row per candidate reference")
+    if (report / "declarations.csv").is_file():
+        actual, states = collections.Counter(), {target: collections.Counter() for target in full.TARGETS}
+        previous, record, source_witnesses = None, {}, {}
+        with (report / "declarations.csv").open() as stream:
+            for row in csv.DictReader(stream):
+                entry, theory, name = row["entry"], row["theory"], row["constant"]
+                actual[(entry, theory, name)] += 1
+                if entry != previous:
+                    record = result["entries"].get(entry, {})
+                    source_witnesses = declaration_witnesses(
+                        data["entries"].get(entry, {}), record, exports.get(entry, {}))
+                    previous = entry
+                source = source_witnesses.get((theory, name))
+                outcomes = record.get("full_export", {}).get("candidates", {}).get(name, {})
+                need(row.get("context_evidence", "") == (
+                    ";".join(sorted(source["contexts"])) if source else ""),
+                     "declaration context inventory matches physical evidence",
+                     entry=entry, theory=theory, constant=name)
+                for target in full.TARGETS:
+                    states[target][row[target]] += 1
+                    if source:
+                        witnesses = source["targets"][target]
+                        status = ("passed" if witnesses["passed"] else "failed" if witnesses["failed"] else
+                                  "blocked" if record.get("full_export") else "pending")
+                        evidence = [item for item in row[target + "_evidence"].split(";") if item]
+                        matches = (row[target] == status and len(evidence) == len(set(evidence))
+                                   and set(evidence) == witnesses.get(status, set()))
+                    else:
+                        expected = outcomes.get(target, {})
+                        matches = (row[target] == expected.get("status", "pending")
+                                   and row[target + "_evidence"] == ";".join(expected.get("evidence", [])))
+                    need(matches, "declaration report matches source witness", entry=entry,
+                         theory=theory, constant=name, target=target)
+        expected = collections.Counter((entry, theory, name) for entry, scope in exports.items()
+                                       for theory, names in scope.items() for name in names)
+        need(actual == expected, "exactly one report row per source declaration")
+        need(summary.get("source_declarations") == sum(expected.values()), "source declaration total consistent")
+        need(summary.get("declaration_statuses") == {target: dict(counts) for target, counts in states.items()},
+             "source declaration status totals consistent")
     if (report / "compilation.csv").is_file():
         actual = collections.Counter()
         states = {p: collections.Counter() for p in ("stage1_compile", "optimization", "stage2_compile")}
