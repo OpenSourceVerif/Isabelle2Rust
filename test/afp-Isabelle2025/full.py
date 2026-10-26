@@ -489,13 +489,17 @@ def export_command(session, work, args, env):
     expression = (
         'Context.setmp_generic_context (SOME (Context.Theory '
         '(Thy_Info.get_theory "Go.Go_Setup"))) (ML_Context.eval_file ML_Compiler.flags) '
-        '(Path.explode ' + common.quote(str(common.HERE / "full_export.ML")) + ')')
+        '(Path.explode ' + common.quote(str(common.HERE / "full_capture.ML")) + ')')
     argv = [args.isabelle, "process", "-l", session, "-d", str(common.PROJECT),
             "-d", str(args.afp / "thys"), "-o", "threads=1", "-o", "parallel_proofs=0",
             "-o", "timeout=" + str(args.timeout), "-o", "skip_proofs=false",
             "-T", "Rust.Rust_BigInt_Setup", "-T", "Go.Go_Setup", "-e", expression]
+    # The outer recorder evaluates the unchanged exporter, then re-raises its
+    # original exception. Its separate receipt cannot establish a completed
+    # frontend or alter candidate verdicts when the request is interrupted.
     actual = dict(env, AFP_FULL_OUTPUT=str(work), AFP_FULL_SCOPE=str(work / "scope.txt"),
-                  AFP_FULL_THEORIES=str(work / "theories.txt"))
+                  AFP_FULL_THEORIES=str(work / "theories.txt"),
+                  AFP_ORIGINAL_EXPORT_ML=str(common.HERE / "full_export.ML"))
     # These raw processes only read existing heaps. The full experiment lock
     # serializes the main phases; the fixture may use a separate immutable HOL heap.
     check = common.command(argv, work / "process.log", args, actual)
