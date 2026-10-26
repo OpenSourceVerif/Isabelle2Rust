@@ -56,6 +56,13 @@ CATEGORIES = (
      "表达式分组、语句位置或目标宏接口不满足 Rust 语法；后续派生诊断不应重复计为独立缺陷。"),
     ("module_cycle", "目标模块依赖环", r"module dependency cycle",
      "代码符号依赖被投影到目标模块后形成环；SML、OCaml、Go 的层次模块设施要求跨模块依赖无环。源理论命名空间分割也会制造这种环，显式共同模块名可以避免这类配置失败；它不证明 HOL 常量不可执行。"),
+    # Target syntax can replace ordinary program symbols or require a closed
+    # constructor expression. These diagnosed serializer contracts are separate
+    # from source declaration visibility and unclassified ML exceptions.
+    ("target_symbol_resolution", "目标程序符号名称解析", r"Unknown statement name:",
+     "目标名称解析要求符号仍有普通程序节点；已由 code_printing 实现的数字构造子可能被扣除。应结合实际查询的符号、目标适配和模式打印路径分析。"),
+    ("literal_adaptation", "目标字符串字面量适配", r"Illegal string literal expression",
+     "字符串字面量打印只接受布尔常量组成、以空串结束的闭合构造链；动态字符位或递归尾串需要目标运行时转换实现。"),
     ("ml_exception", "未覆盖的 ML 实现分支", r"exception (?:Match|Fail|Option|Empty|Bind|Subscript)|(?:Match|Fail|Option) raised",
      "完整异常位置和跨语言对照用于判断通用前端或具体 serializer 的未覆盖分支。"),
 )
