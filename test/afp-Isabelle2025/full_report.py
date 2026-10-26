@@ -17,8 +17,13 @@ import xml.etree.ElementTree as ET
 
 import afp_common as common
 import full
+import candidate_scope
 
 CATEGORIES = (
+    ("scan_coverage", "扫描回执覆盖验证", r"loaded theories do not cover|required session context",
+     "原会话构建和声明检查可以均成功，但声明 XML 未覆盖扫描器要求的理论集合。此为候选发现证据验证失败，不能归为 HOL 证明失败或语言后端失败。"),
+    ("dependency", "继承的扫描依赖阻塞", r"Blocked by:",
+     "前置会话没有可接受的扫描回执，依赖条目没有执行自己的候选检查。阻塞不是该条目的导出失败；当前候选实验保留原始未知范围。"),
     ("infrastructure", "资源、工具或依赖",
      r"(?m)^(?:timeout|interrupted)$|host_restart|memory_limit|Interrupt_Breakdown|Unable to increase stack|out of memory|OutOfMemoryError|Java heap space|GC overhead limit|command not found|Protocol_Message",
      "资源或外部工具条件尚未满足，不能据此归因于 HOL 构造或目标打印规则；必须在阶段检查点处理。"),
@@ -45,7 +50,9 @@ CATEGORIES = (
     ("rust_syntax", "Rust 语法或宏适配",
      r"expected.*(?:token|expression|item)|format argument must be a string literal|expected one of",
      "表达式分组、语句位置或目标宏接口不满足 Rust 语法；后续派生诊断不应重复计为独立缺陷。"),
-    ("ml_exception", "未覆盖的 ML 实现分支", r"exception Match|exception Fail|Match raised|Fail raised",
+    ("module_cycle", "目标模块依赖环", r"module dependency cycle",
+     "代码符号依赖被投影到目标模块后形成环；SML、OCaml、Go 的层次模块设施要求跨模块依赖无环。源理论命名空间分割也会制造这种环，显式共同模块名可以避免这类配置失败；它不证明 HOL 常量不可执行。"),
+    ("ml_exception", "未覆盖的 ML 实现分支", r"exception (?:Match|Fail|Option|Empty|Bind|Subscript)|(?:Match|Fail|Option) raised",
      "完整异常位置和跨语言对照用于判断通用前端或具体 serializer 的未覆盖分支。"),
 )
 
@@ -110,7 +117,7 @@ def failure_events(base, data, result):
         documents = {}
         for phase in ("loading", "inspections"):
             for check in scan.get(phase, []):
-                if check["status"] in {"passed", "blocked"}:
+                if check["status"] in {"passed", "blocked", "blocked_dependency"}:
                     continue
                 messages = [message_index.get(s, {}) for s in check.get("failed_sessions", [])]
                 evidence = [x["command"]["log"] for x in messages if x.get("status") == "passed"]
@@ -145,35 +152,50 @@ def failure_events(base, data, result):
                        "message_source": "scan_xml" if path and path.is_file() else "result_record",
                        "evidence": [evidence] if path and path.is_file()
                        else [common.relative(base / "results.json")]}
+        # A scanner can reject otherwise successful native commands because
+        # their XML context coverage is incomplete. Keep that receipt error.
+        for path, receipt in candidate_scope.receipts(base, scan):
+            if receipt.get("error"):
+                yield {"entry": entry, "phase": "scan", "stage": "receipt_validation",
+                       "status": "failed", "constants": [], "target": None,
+                       "error": receipt["error"], "full_message_available": True,
+                       "inherited": True, "evidence": [common.relative(path)]}
         if scan["status"] == "blocked":
-            dependencies = scan.get("session_dependencies", scan.get("dependencies", []))
+            dependencies = candidate_scope.dependencies(base, scan)
             yield {"entry": entry, "phase": "scan", "stage": "dependency", "status": "blocked",
                    "constants": [], "target": None, "error": "Blocked by: " + ", ".join(dependencies),
                    "evidence": [common.relative(base / "results.json")]}
-        for run in record.get("full_export", {}).get("runs", []):
-            if run["command"]["status"] != "passed":
-                yield {"entry": entry, "phase": "export", "stage": "process",
-                       "status": run["command"]["status"], "constants": [], "target": None,
-                       "error": full.log_text(run["command"]), "evidence": [run["command"]["log"]]}
-            for attempt in run["attempts"]:
-                if attempt["status"] != "failed":
-                    continue
-                message = ET.parse(common.PROJECT / attempt["evidence"]).getroot().findtext("error", "")
-                yield {"entry": entry, "phase": "export", "stage": attempt["stage"], "status": "failed",
-                       "target": attempt["target"], "constants": attempt["constants"], "error": message,
-                       "evidence": [attempt["evidence"], run["command"]["log"]],
-                       "group_diagnostic": len(attempt["constants"]) > 1 and attempt["stage"] != "context_loading"}
-        for manifest in full.rust_manifests(record):
-            compiled = record.get("full_compile", {}).get(manifest, {})
-            for phase in ("stage1_compile", "optimization", "stage2_compile"):
-                value = compiled.get(phase, {})
-                checks = ([value] if value else []) if phase == "optimization" else value.get("checks", [])
-                for check in checks:
-                    if check["status"] == "passed":
+        # Earlier configuration attempts remain in the failure catalog even
+        # after their candidate cells have been replaced by fresh results.
+        stages = [(True, value) for value in record.get("full_export_history", [])]
+        stages.append((False, record.get("full_export", {})))
+        for historical, stage in stages:
+            for run in stage.get("runs", []):
+                if run["command"]["status"] != "passed":
+                    yield {"entry": entry, "phase": "export", "stage": "process",
+                           "status": run["command"]["status"], "constants": [], "target": None,
+                           "historical": historical, "error": full.log_text(run["command"]), "evidence": [run["command"]["log"]]}
+                for attempt in run["attempts"]:
+                    if attempt["status"] != "failed":
                         continue
-                    yield {"entry": entry, "phase": "compile", "stage": phase, "status": check["status"],
-                           "manifest": manifest, "target": "Rust", "constants": [],
-                           "error": full.log_text(check), "evidence": [check["log"]]}
+                    message = ET.parse(common.PROJECT / attempt["evidence"]).getroot().findtext("error", "")
+                    yield {"entry": entry, "phase": "export", "stage": attempt["stage"], "status": "failed",
+                           "historical": historical, "target": attempt["target"], "constants": attempt["constants"], "error": message,
+                           "evidence": [attempt["evidence"], run["command"]["log"]],
+                           "group_diagnostic": len(attempt["constants"]) > 1 and attempt["stage"] != "context_loading"}
+        compilations = [(True, value) for value in record.get("full_compile_history", [])]
+        compilations.append((False, record.get("full_compile", {})))
+        for historical, inventory in compilations:
+            for manifest, compiled in inventory.items():
+                for phase in ("stage1_compile", "optimization", "stage2_compile"):
+                    value = compiled.get(phase, {})
+                    checks = ([value] if value else []) if phase == "optimization" else value.get("checks", [])
+                    for check in checks:
+                        if check["status"] == "passed":
+                            continue
+                        yield {"entry": entry, "phase": "compile", "stage": phase, "status": check["status"],
+                               "historical": historical, "manifest": manifest, "target": "Rust", "constants": [],
+                               "error": full.log_text(check), "evidence": [check["log"]]}
 
 
 def candidate_rows(data, result, exports):
@@ -250,8 +272,16 @@ def case_context(report, entry, names, result, exports):
 def build_report(base, data, result, exports, verified=False):
     report = base / "report"
     report.mkdir(parents=True, exist_ok=True)
-    status = "完成审计已通过" if verified else "实验进行中；本报告不是最终交付"
+    boundary = common.read_json(base / "candidate-baseline.json", {})
+    current_candidates = boundary.get("mode") == "current_candidates"
+    status = ("当前候选的后续导出与编译审计已通过" if current_candidates else "完成审计已通过") if verified else "实验进行中；本报告不是最终交付"
     header = status + "。数据时间：" + result.get("updated", "未完成首次补扫") + "。\n\n"
+    if current_candidates:
+        header += ("本轮以选定的当前候选快照为前提，不补跑候选扫描。扫描状态沿用输入："
+                   + json.dumps(boundary.get("scan_counts", {}), ensure_ascii=False)
+                   + "；扫描完整性没有被宣称为通过。输入、摘要和 922 个会话回执见 "
+                   + link(report, base / "candidate-baseline.json", "候选范围契约")
+                   + "。全部 893 条目继续出现在统计中。\n\n")
     entries = []
     for entry in data["order"]:
         record = result["entries"][entry]
@@ -281,6 +311,7 @@ def build_report(base, data, result, exports, verified=False):
     missing = 0
     events = 0
     historical = 0
+    historical_errors = collections.Counter()
     with (report / "failures.jsonl").open("w") as stream:
         for event in failure_events(base, data, result):
             key, label, explanation = category(event["status"] + "\n" + event["error"])
@@ -288,7 +319,10 @@ def build_report(base, data, result, exports, verified=False):
             stream.write(json.dumps(event, ensure_ascii=False) + "\n")
             events += 1
             historical += bool(event.get("historical"))
-            errors[(event["phase"], key, event.get("target") or "", event["status"])] += 1
+            event_key = (event["phase"], key, event.get("target") or "", event["status"])
+            errors[event_key] += 1
+            if event.get("historical"):
+                historical_errors[event_key] += 1
             missing += event.get("full_message_available") is False
             if len(examples[(event["phase"], key)]) < 3:
                 examples[(event["phase"], key)].append(event)
@@ -302,26 +336,37 @@ def build_report(base, data, result, exports, verified=False):
                "failure_events": events, "historical_failure_events": historical,
                "current_failure_events": events - historical,
                "missing_full_messages": missing, "performance": timings,
-               "input_sha256": full.inputs(base)}
+               "input_sha256": full.inputs(base),
+               "experiment_scope": "current_candidates" if current_candidates else "full_scan",
+               "inherited_scan_complete": boundary.get("scan_complete") if current_candidates else None,
+               "inherited_scan_counts": boundary.get("scan_counts", {})}
     common.write_json(report / "summary.json", summary)
-    error_rows = [{"phase": p, "category": c, "target": t, "status": s, "events": n}
+    error_rows = [{"phase": p, "category": c, "target": t, "status": s, "events": n,
+                   "current_events": n - historical_errors[(p, c, t, s)],
+                   "historical_events": historical_errors[(p, c, t, s)]}
                   for (p, c, t, s), n in sorted(errors.items())]
-    write_csv(report / "failure-categories.csv", ["phase", "category", "target", "status", "events"], error_rows)
+    write_csv(report / "failure-categories.csv", ["phase", "category", "target", "status", "events", "current_events", "historical_events"], error_rows)
     overview = [
         "# AFP 全量导出总体报告\n\n", header,
         f"本轮范围为 {len(entries)} 个 AFP 条目、{summary['owned_theories']} 个所属理论。",
-        f"当前已检查 {summary['scanned_theories']} 个理论，保留 {summary['distinct_candidates']} 个不同全名常量",
-        f"（按条目计 {summary['candidate_references']} 个候选引用）。所有条目均在 entries.csv 中占一行。\n\n",
+        f"当前已检查 {summary['scanned_theories']} 个理论，保留 {summary['distinct_candidates']} 个不同内部全名字串",
+        f"（按条目计 {summary['candidate_references']} 个候选引用）。所有条目均在 entries.csv 中占一行。"
+        "不同条目中的同名声明只在名字串统计中合并；各条目独立保留候选结果与证据。\n\n",
         "## 方法与口径\n\n",
-        "扫描保留有代码方程及证书异常的候选；异常不代表可执行性证明。复用完整扫描，",
-        "不限时补扫不完整内容，并补取旧临时文件清理后缺失的完整证书诊断。",
-        "每个有效上下文只构造一次 Thingol 程序，再交给六个目标。整组失败继续拆分；",
+        ("候选来自选定快照的全部自有常量声明，包括自动生成的辅助常量和仅有逻辑意义的定义；"
+         "发现阶段没有以代码方程或可执行性筛选。已知扫描失败与未知范围原样保留。"
+         if current_candidates else
+         "扫描保留有代码方程及证书异常的候选；异常不代表可执行性证明。复用完整扫描，"
+         "不限时补扫不完整内容，并补取旧临时文件清理后缺失的完整证书诊断。"),
+        "每个常量组构造一次 Thingol 程序，供该组待处理的目标共用。整组失败继续拆分；",
         "单常量失败或必需上下文加载失败才形成候选失败证据。成功组的完整源码全部保留。\n\n",
         "每个 Rust 成功导出 crate 分别进行 Stage-1 编译、既有优化器转换和 Stage-2 编译。",
         "即使 Stage-1 失败，仍尝试优化与 Stage-2；没有执行生成程序或测试运行时行为。\n\n",
         "SML 是官方 ML 目标。Go 使用 AFP 2025 的 Go_Setup，其 code_go.ML 与",
         " isabelle-go-codegen 的 08b4c92 版本逐字节相同；AFP 适配理论另有整数按位映射。",
-        "Rust 数值 profile 为 Rust_BigInt_Setup；这些设置合并为六语言共用的上下文。\n\n",
+        "Rust 数值 profile 为 Rust_BigInt_Setup；这些设置合并为六语言共用的上下文。"
+        "六目标使用共同显式模块名 AFP_Code，以避免源命名空间划分制造模块依赖环；"
+        "旧配置尝试单列为历史证据。\n\n",
         "## 全条目导出状态\n\n",
         table(["目标", "全部候选成功", "部分成功", "全部失败", "阻断", "完整扫描为空", "待执行"],
               [[t] + [counts[t].get(s, 0) for s in
@@ -343,7 +388,7 @@ def build_report(base, data, result, exports, verified=False):
         "- [扫描细节](scan-failures.md)、[导出细节](export-failures.md)、[编译细节](compile-failures.md)。\n",
         "- [全条目表](entries.csv)、[全候选及六语言证据](candidates.csv)、[全部 Rust crate 编译表](compilation.csv)。\n",
         "- [完整失败正文及原始证据索引](failures.jsonl)、[分类统计](failure-categories.csv)、[机器统计](summary.json)。\n\n",
-        "成功源码保存在 full/exports；Stage-2 源码保存在 full/rust-stage2。",
+        "成功源码保存在本实验目录的 exports；Stage-2 源码保存在 rust-stage2。",
         "本轮新尝试的异常 XML、进程日志及补取的扫描会话数据库均保留。",
         "复用的未截断证书正文可直接取自 results.json 原记录，目录注明 message_source；",
         f"失败事件目录包含 {historical} 个已归档的执行或前置构建尝试（historical=true）；",
@@ -358,8 +403,8 @@ def build_report(base, data, result, exports, verified=False):
                  "按实际失败/阻断事件计数，保留重复上下文、递归拆分和已归档的执行尝试。",
                  "historical=true 的事件属于先前尝试，不代表当前检查点仍失败。",
                  "候选失败率使用 candidates.csv 的单常量证据；条目状态分母见 entries.csv。\n\n",
-                 table(["类别", "目标", "状态", "事件数"],
-                       [[r["category"], r["target"], r["status"], r["events"]]
+                 table(["类别", "目标", "状态", "当前事件", "历史事件"],
+                       [[r["category"], r["target"], r["status"], r["current_events"], r["historical_events"]]
                         for r in error_rows if r["phase"] == phase]),
                  "\n\n完整异常正文及原始日志位置见 [failures.jsonl](failures.jsonl)。\n\n"]
         if phase == "compile":
@@ -375,7 +420,8 @@ def build_report(base, data, result, exports, verified=False):
             parts.extend(["## " + label + "\n\n", explanation + "\n\n"])
             for event in cases:
                 evidence = "、".join(link(report, p) for p in event["evidence"])
-                parts.extend(["### " + event["entry"] + " / " + event["stage"] + "\n\n",
+                suffix = "（历史尝试）" if event.get("historical") else ""
+                parts.extend(["### " + event["entry"] + " / " + event["stage"] + suffix + "\n\n",
                               "目标：" + str(event.get("target") or "通用设施") + "。" + evidence + "。\n\n"])
                 if event["constants"]:
                     parts.append(case_context(report, event["entry"], event["constants"], result, exports))

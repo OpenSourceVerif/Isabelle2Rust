@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 
 import afp_common as common
 import full
+import candidate_scope
 
 
 def audit_data(base, data, result, exports):
@@ -42,11 +43,17 @@ def audit_data(base, data, result, exports):
         need(path.is_file() and full.file_digest(path) == checksum,
              "source file unchanged", path=name)
     gate = common.read_json(base / "scan-checkpoint.json", {})
-    need(gate.get("passed") and gate.get("scan_signature") == full.scan_signature(result, exports),
-         "current scan checkpoint")
+    # The selected-candidate contract verifies discovery as inherited input.
+    # It does not claim that known upstream resource/coverage failures vanished.
+    current_candidates = (base / "candidate-baseline.json").is_file()
+    if current_candidates:
+        need(full.candidate_baseline_matches(base, result, exports),
+             "selected candidate snapshot and complete scan records unchanged")
+    else:
+        need(gate.get("passed") and gate.get("scan_signature") == full.scan_signature(result, exports),
+             "current scan checkpoint")
     export_gate = common.read_json(base / "export-checkpoint.json", {})
-    signature = full.digest(json.dumps({e: r.get("full_export") for e, r in result["entries"].items()},
-                                       sort_keys=True).encode())
+    signature = full.export_signature(result)
     need(export_gate.get("passed") and export_gate.get("export_signature") == signature,
          "current export checkpoint")
     # A state file is not evidence of a live process: compare Linux birth
@@ -107,8 +114,9 @@ def audit_data(base, data, result, exports):
                 if check.get("log"):
                     path = common.PROJECT / check["log"]
                     need(path.is_file(), "scan command log retained", entry=entry, path=check["log"])
-                need(check.get("status") not in {"timeout", "memory_limit", "running"},
-                     "scan resource failures resolved", entry=entry, phase=phase)
+                if not current_candidates:
+                    need(check.get("status") not in {"timeout", "memory_limit", "running"},
+                         "scan resource failures resolved", entry=entry, phase=phase)
         for diagnostic in scan.get("certificate_errors", []) + scan.get("context_merge_errors", []):
             if diagnostic.get("truncated"):
                 need((common.PROJECT / diagnostic.get("detail", "__missing__")).is_file(),
@@ -218,6 +226,9 @@ def audit_data(base, data, result, exports):
     return {"passed": not issues, "checked": common.timestamp(), "issues": issues,
             "checks": dict(checked), "issue_counts": dict(failures), "retained_artifacts_checked": artifact_count,
             "input_sha256": full.inputs(base),
+            "experiment_scope": "current_candidates" if current_candidates else "full_scan",
+            "inherited_scan_counts": dict(collections.Counter(
+                r["scan"]["status"] for r in result["entries"].values())) if current_candidates else {},
             "compiled_distinct_candidates": {p: len(cs) for p, cs in compiled.items()}}
 
 
@@ -254,7 +265,7 @@ def required_failure_inventory(base, data, result):
         scan = record["scan"]
         for phase in ("loading", "inspections"):
             for check in scan.get(phase, []):
-                if check["status"] not in {"passed", "blocked"}:
+                if check["status"] not in {"passed", "blocked", "blocked_dependency"}:
                     add(entry, "scan", phase, check["status"], [check["log"]] if check.get("log") else [])
         for kind in ("certificate_errors", "context_merge_errors", "errors"):
             for value in scan.get(kind, []):
@@ -266,23 +277,29 @@ def required_failure_inventory(base, data, result):
                     base / "results.json")
                 add(entry, "scan", kind, "failed", [evidence],
                     [diagnostic["name"]] if diagnostic.get("name") else [])
+        # A pure dependency receipt has no native command. Validation errors
+        # after successful build/inspection are independent failure occurrences.
+        for path, receipt in candidate_scope.receipts(base, scan):
+            if receipt.get("error"):
+                add(entry, "scan", "receipt_validation", "failed", [common.relative(path)])
         if scan["status"] == "blocked":
             add(entry, "scan", "dependency", "blocked", [common.relative(base / "results.json")])
-        for run in record.get("full_export", {}).get("runs", []):
-            if run["command"]["status"] != "passed":
-                add(entry, "export", "process", run["command"]["status"], [run["command"]["log"]])
-            for attempt in run["attempts"]:
-                if attempt["status"] == "failed":
-                    add(entry, "export", attempt["stage"], "failed", [attempt["evidence"]],
-                        attempt["constants"], attempt["target"])
-        for manifest in full.rust_manifests(record):
-            item = record.get("full_compile", {}).get(manifest, {})
-            for phase in ("stage1_compile", "optimization", "stage2_compile"):
-                value = item.get(phase, {})
-                checks = ([value] if value else []) if phase == "optimization" else value.get("checks", [])
-                for check in checks:
-                    if check["status"] != "passed":
-                        add(entry, "compile", phase, check["status"], [check["log"]], target="Rust", manifest=manifest)
+        for stage in [*record.get("full_export_history", []), record.get("full_export", {})]:
+            for run in stage.get("runs", []):
+                if run["command"]["status"] != "passed":
+                    add(entry, "export", "process", run["command"]["status"], [run["command"]["log"]])
+                for attempt in run["attempts"]:
+                    if attempt["status"] == "failed":
+                        add(entry, "export", attempt["stage"], "failed", [attempt["evidence"]],
+                            attempt["constants"], attempt["target"])
+        for inventory in [*record.get("full_compile_history", []), record.get("full_compile", {})]:
+            for manifest, item in inventory.items():
+                for phase in ("stage1_compile", "optimization", "stage2_compile"):
+                    value = item.get(phase, {})
+                    checks = ([value] if value else []) if phase == "optimization" else value.get("checks", [])
+                    for check in checks:
+                        if check["status"] != "passed":
+                            add(entry, "compile", phase, check["status"], [check["log"]], target="Rust", manifest=manifest)
     return expected
 
 

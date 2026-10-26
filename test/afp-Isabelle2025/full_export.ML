@@ -94,7 +94,10 @@ local
                       val exported =
                         Code_Target.export_code_for
                           (SOME ({physical = false}, (prefix, Position.none)))
-                          target "" NONE [] program false (map Code_Symbol.Constant cs) lthy;
+                          (* Use the same explicit module for every target. Splitting
+                             logical source namespaces into target modules can create
+                             artificial cycles even for an executable constant. *)
+                          target "AFP_Code" NONE [] program false (map Code_Symbol.Constant cs) lthy;
                       val key = "code/" ^ target ^ "/" ^ batch;
                       val files = Generated_Files.get_files (Proof_Context.theory_of exported)
                         |> filter (fn file =>

@@ -23,6 +23,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 import afp_common as common
+from result_store import EntryStore
 from run import compile_crates
 
 TARGETS = ("Rust", "SML", "OCaml", "Haskell", "Scala", "Go")
@@ -95,44 +96,125 @@ def inputs(base):
 
 
 def load(base):
-    data = common.read_json(common.HERE / "_build/manifest.json")
+    # Continuations own their manifest so a later scan cannot reinterpret
+    # already frozen candidate rows or silently change their source contexts.
+    manifest = base / "manifest.json"
+    data = common.read_json(manifest if manifest.is_file() else common.HERE / "_build/manifest.json")
     result = common.read_json(base / "results.json")
     exports = common.read_json(base / "exports.json")
     if not data or not result or exports is None:
         raise ValueError("Initialize the experiment and run scan.py first")
     if set(data["entries"]) != set(result["entries"]) or set(data["entries"]) != set(exports):
         raise ValueError("The manifest, result rows, and export rows must cover the same AFP entries")
+    if result.get("result_storage") == "content-addressed-entries-v1":
+        result["entries"] = EntryStore(base, result["entries"], result["entry_files"])
     return data, result, exports
 
 
-def save(base, result, exports):
-    # A successful compilation covers the actual Rust batch, independently
-    # for each stage. Distinct full names prevent overlap between groups or
-    # entries from inflating coverage.
-    compiled = {phase: set() for phase in ("stage1_compile", "stage2_compile")}
+
+def compact_results(base):
+    """Migrate a terminal legacy checkpoint without changing any entry result."""
+    data, result, exports = load(base)
+    if isinstance(result["entries"], EntryStore):
+        return {"status": "already_compact", "entries": len(result["entries"])}
+    signature = scan_signature(result, exports)
+    source = base / "results.json"
+    archive = base / "result-history" / ("legacy-" + file_digest(source) + ".json")
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    if not archive.exists():
+        os.link(source, archive)
+    original = result["entries"]
+    store = EntryStore(base, {}, {})
     serializer = serializer_signature()
-    for entry, record in result["entries"].items():
-        stage = record.get("full_export", {})
-        if (stage.get("serializer_sha256") != serializer
-                or stage.get("scope_sha256") != scope_digest(exports[entry])
-                or stage.get("scan_sha256") != entry_scan_signature(record)
-                or stage.get("status") != "complete"):
-            continue
-        for run in stage.get("runs", []):
-            for attempt in run["attempts"]:
-                if attempt.get("target") != "Rust" or attempt["status"] != "passed":
-                    continue
-                for manifest in (p for p in attempt["files"] if p.endswith("/Cargo.toml")):
-                    checks = record.get("full_compile", {}).get(manifest, {})
-                    for phase in compiled:
-                        if checks.get(phase, {}).get("status") == "passed":
-                            compiled[phase].update(attempt["constants"])
+    checked = 0
+    # Pop each migrated record so the old monolithic object shrinks while
+    # immutable per-entry files are written and independently read back.
+    for entry in data["order"]:
+        record = original.pop(entry)
+        store[entry] = record
+        store.commit(entry, entry_compiled(record, exports[entry], serializer))
+        path = common.PROJECT / store.files[entry]["path"]
+        if common.read_json(path) != record:
+            raise ValueError("Entry migration changed result: " + entry)
+        checked += 1
+    result["entries"] = store
+    save(base, result, exports)
+    _, actual, actual_exports = load(base)
+    if (scan_signature(actual, actual_exports) != signature
+            or set(actual["entries"]) != set(data["entries"])):
+        raise ValueError("Result migration changed the frozen discovery boundary")
+    report = {"status": "passed", "checked": common.timestamp(), "entries_checked": checked,
+              "legacy": common.relative(archive), "legacy_bytes": archive.stat().st_size,
+              "index_bytes": (base / "results.json").stat().st_size,
+              "scan_signature": signature,
+              "method": "every immutable payload independently read and compared to original entry"}
+    common.write_json(base / "result-storage-migration.json", report)
+    return report
+
+def entry_headers(result):
+    """Read discovery and stage identities without paging in large witnesses."""
+    entries = result["entries"]
+    return entries.summaries if isinstance(entries, EntryStore) else entries
+
+
+def entry_compiled(record, scope, serializer):
+    """Collect actual compiled Rust batches for one unchanged entry."""
+    compiled = {phase: set() for phase in ("stage1_compile", "stage2_compile")}
+    stage = record.get("full_export", {})
+    if (stage.get("serializer_sha256") != serializer
+            or stage.get("scope_sha256") != scope_digest(scope)
+            or stage.get("scan_sha256") != entry_scan_signature(record)
+            or stage.get("status") != "complete"):
+        return compiled
+    for run in stage.get("runs", []):
+        for attempt in run["attempts"]:
+            if attempt.get("target") != "Rust" or attempt["status"] != "passed":
+                continue
+            for manifest in (p for p in attempt["files"] if p.endswith("/Cargo.toml")):
+                checks = record.get("full_compile", {}).get(manifest, {})
+                for phase in compiled:
+                    if checks.get(phase, {}).get("status") == "passed":
+                        compiled[phase].update(attempt["constants"])
+    return compiled
+
+
+def export_signature(result):
+    """Bind the gate to every entry's stage while retaining a bounded buffer."""
+    entries = result["entries"]
+    if isinstance(entries, EntryStore):
+        value = {e: entries.files.get(e, {}).get("export_sha256") for e in entries}
+    else:
+        value = {e: r.get("full_export") for e, r in entries.items()}
+    return digest(json.dumps(value, sort_keys=True).encode())
+
+
+def save(base, result, exports, entry=None):
+    # Entry payloads contain large XML inventories. Commit the modified entry
+    # before a traversal can evict its working record, then aggregate headers.
+    serializer = serializer_signature()
+    entries = result["entries"]
+    if isinstance(entries, EntryStore) and entry is not None:
+        entries.commit(entry, entry_compiled(entries[entry], exports[entry], serializer))
+    compiled = {phase: set() for phase in ("stage1_compile", "stage2_compile")}
+    for name, record in entry_headers(result).items():
+        if isinstance(entries, EntryStore):
+            stage = record.get("full_export", {})
+            if (stage.get("serializer_sha256") != serializer
+                    or stage.get("scope_sha256") != scope_digest(exports[name])
+                    or stage.get("scan_sha256") != entry_scan_signature(record)):
+                continue
+            coverage = record.get("_compiled_candidates", {})
+        else:
+            coverage = entry_compiled(record, exports[name], serializer)
+        for phase in compiled:
+            compiled[phase].update(coverage.get(phase, []))
     known = {c for scope in exports.values() for c in common.candidates(scope)}
-    result["coverage"] = {"entries": len(result["entries"]), "distinct_candidates": len(known),
+    result["coverage"] = {"entries": len(entries), "distinct_candidates": len(known),
                           "distinct_stage1_compiled_candidates": len(compiled["stage1_compile"]),
                           "distinct_stage2_compiled_candidates": len(compiled["stage2_compile"])}
     result["updated"] = common.timestamp()
-    common.write_json(base / "results.json", result)
+    common.write_json(base / "results.json",
+                      entries.serialize(result) if isinstance(entries, EntryStore) else result)
 
 
 def infrastructure(text):
@@ -284,11 +366,102 @@ def scan_checkpoint(base, data, result, exports):
 def scan_signature(result, exports):
     # Only semantic input/context facts and the retained scope bind exports.
     return digest(json.dumps({"scan": {e: entry_scan_signature(r)
-                                      for e, r in result["entries"].items()},
+                                      for e, r in entry_headers(result).items()},
                               "exports": exports}, sort_keys=True).encode())
 
 
+def initialize_candidates(base, source):
+    """Freeze an explicitly selected current-candidate experiment, without rescanning.
+
+    This contract accepts the existing discovery boundary, including upstream
+    failures. It never marks the original scan checkpoint as passed. The joint
+    receipt snapshot, full scan records and all 893 rows remain reviewable.
+    """
+    if (base / "results.json").exists() or (base / "candidate-baseline.json").exists():
+        raise ValueError("Candidate continuation already initialized")
+    pointer = common.read_json(source / "scan-current.json", {})
+    snapshot = source / pointer.get("snapshot", "__missing__")
+    if not snapshot.is_file() or file_digest(snapshot) != pointer.get("sha256"):
+        raise ValueError("Current scan snapshot is missing or has changed")
+    joint = common.read_json(snapshot)
+    original_result, exports = joint["results"], joint["exports"]
+    data = common.read_json(source / "manifest.json")
+    if (set(data["entries"]) != set(original_result["entries"])
+            or set(data["entries"]) != set(exports)):
+        raise ValueError("Candidate snapshot does not cover the complete manifest")
+    baseline = base / "baseline"
+    baseline.mkdir(parents=True)
+    files = {}
+    for name, path in (("snapshot.json", snapshot), ("manifest.json", source / "manifest.json"),
+                       ("scan-checkpoint.json", source / "scan-checkpoint.json"),
+                       ("source-inputs.json", source / "source-inputs.json")):
+        shutil.copy2(path, baseline / name)
+        files[name] = file_digest(baseline / name)
+    shutil.copy2(baseline / "manifest.json", base / "manifest.json")
+    result = copy.deepcopy(original_result)
+    # Export and compile results belong to this run, not an earlier experiment.
+    for record in result["entries"].values():
+        for key in list(record):
+            if key.startswith("full_export") or key.startswith("full_compile"):
+                del record[key]
+    contract = {
+        "mode": "current_candidates", "created": common.timestamp(),
+        "source": common.relative(source), "snapshot": common.relative(snapshot),
+        "snapshot_sha256": pointer["sha256"], "baseline_files": files,
+        "scan_signature": scan_signature(result, exports),
+        "scan_complete": bool(common.read_json(source / "scan-checkpoint.json").get("passed")),
+        "scan_counts": dict(collections.Counter(r["scan"]["status"] for r in result["entries"].values())),
+        "entries": len(data["entries"]),
+        "candidate_references": sum(len(common.candidates(v)) for v in exports.values()),
+        "distinct_candidate_names": len({c for v in exports.values() for c in common.candidates(v)}),
+        "scope": "All candidates in the selected current scan; upstream unknown scopes remain blocked"}
+    # Receipt validation errors and dependency-only blocks are distinct from
+    # native command failures. Preserve their causes for the downstream reports.
+    from candidate_scope import freeze_receipts
+    freeze_receipts(base, source, result, files)
+    result["scope_contract"] = {"mode": "current_candidates", "source": contract["source"]}
+    common.write_json(base / "results.json", result)
+    common.write_json(base / "exports.json", exports)
+    common.write_json(base / "candidate-baseline.json", contract)
+    # Bind the actual files used during this continuation separately from the
+    # frozen scanner's historical inventory and any documented source repairs.
+    afp = Path(result["environment"]["afp_root"]) / "thys"
+    source_inputs = common.read_json(baseline / "source-inputs.json")
+    paths = [afp / name for name in source_inputs["afp"]]
+    paths += list((common.PROJECT / "translate").glob("*.ML"))
+    paths += list((common.PROJECT / "translate").glob("*.thy"))
+    paths += [common.HERE / name for name in
+              ("full.py", "full_export.ML", "run.py", "afp_common.py", "candidate_scope.py", "result_store.py")]
+    common.write_json(base / "source-manifest.json",
+                      {common.relative(p): file_digest(p) for p in paths if p.is_file()})
+    return contract
+
+
+def candidate_baseline_matches(base, result, exports):
+    """Verify the selected snapshot without upgrading incomplete discovery."""
+    contract = common.read_json(base / "candidate-baseline.json", {})
+    if contract.get("mode") != "current_candidates":
+        return False
+    for name, checksum in contract.get("baseline_files", {}).items():
+        path = base / "baseline" / name
+        if not path.is_file() or file_digest(path) != checksum:
+            return False
+    baseline = common.read_json(base / "baseline/snapshot.json", {})
+    original = baseline.get("results", {}).get("entries", {})
+    return (baseline.get("exports") == exports and set(original) == set(result["entries"])
+            and all(original[e]["scan"] == r["scan"] for e, r in entry_headers(result).items())
+            and file_digest(base / "manifest.json") ==
+                contract.get("baseline_files", {}).get("manifest.json")
+            and contract.get("scan_signature") == scan_signature(result, exports))
+
+
 def require_scan_gate(base, result, exports):
+    # An explicit current-candidate contract is a separate authorized scope.
+    # It preserves failed discovery rows instead of forging a passing scan gate.
+    if (base / "candidate-baseline.json").exists():
+        if candidate_baseline_matches(base, result, exports):
+            return
+        raise ValueError("Selected current-candidate baseline changed")
     gate = common.read_json(base / "scan-checkpoint.json", {})
     if not gate.get("passed") or gate.get("scan_signature") != scan_signature(result, exports):
         raise ValueError("A current passing scan-checkpoint is required; inspect/fix scan failures first")
@@ -490,8 +663,7 @@ def export_checkpoint(base, data, result, exports):
             path = common.PROJECT / artifact["path"]
             if not path.is_file() or file_digest(path) != artifact["sha256"]:
                 problems.append({"entry": entry, "reason": "missing/changed export", "path": str(path)})
-    identity = digest(json.dumps({e: r.get("full_export") for e, r in result["entries"].items()},
-                                 sort_keys=True).encode())
+    identity = export_signature(result)
     gate = {"phase": "export", "checked": common.timestamp(), "passed": not problems,
             "problems": problems, "export_signature": identity,
             "rust_crates": sum(len(rust_manifests(r)) for r in result["entries"].values())}
@@ -558,13 +730,25 @@ def fixture(base, args, env):
 
 def main():
     parser = common.arguments(__doc__)
-    parser.add_argument("phase", choices=["scan-checkpoint", "export", "export-checkpoint",
+    parser.add_argument("phase", choices=["init", "compact-results", "scan-checkpoint", "export", "export-checkpoint",
                                          "compile", "fixture", "status"])
     parser.add_argument("--output-dir", type=Path, default=common.HERE / "full")
     parser.add_argument("--cargo", default="cargo +1.94.0")
+    parser.add_argument("--candidate-baseline", type=Path,
+                        help="init only: freeze the selected current scan, preserving its upstream failures")
     parser.set_defaults(timeout=0, max_heap_mb=4500)
     args = parser.parse_args()
     base = args.output_dir.resolve()
+    if args.phase == "compact-results":
+        with common.experiment_lock():
+            print(json.dumps(compact_results(base), indent=2))
+        return 0
+    if args.phase == "init":
+        if args.candidate_baseline is None:
+            raise ValueError("init requires --candidate-baseline")
+        with common.experiment_lock():
+            print(json.dumps(initialize_candidates(base, args.candidate_baseline.resolve()), indent=2))
+        return 0
     if args.phase == "status":
         data, result, exports = load(base)
         print(json.dumps({"scan": dict(collections.Counter(r["scan"]["status"]
@@ -620,7 +804,7 @@ def main():
                     record.setdefault("full_export_history", []).append(copy.deepcopy(old))
                 print(f"[export {i}/{len(selected)}] {entry}", flush=True)
                 export_entry(entry, data["entries"][entry], record, exports[entry], base, args, env)
-                save(base, result, exports)
+                save(base, result, exports, entry)
                 print("  " + json.dumps(record["full_export"]["languages"]), flush=True)
             return 0
         if args.phase == "compile":
@@ -641,7 +825,7 @@ def main():
             for i, entry in enumerate(selected, 1):
                 print(f"[compile {i}/{len(selected)}] {entry}", flush=True)
                 compile_entry(entry, result["entries"][entry], base, args, env, optimizer)
-                save(base, result, exports)
+                save(base, result, exports, entry)
             return 0
     return 0
 
