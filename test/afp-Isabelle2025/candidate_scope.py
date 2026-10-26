@@ -55,3 +55,34 @@ def dependencies(base, scan):
     return sorted(set(inherited) | {
         dependency for _, receipt in receipts(base, scan)
         for dependency in receipt.get("dependencies", [])})
+
+
+def messages(base, scan):
+    """Find complete failed-session messages pinned by selected unit receipts.
+
+    Per-unit archives belong to the failed command interval. Never consult a
+    newer scanner pointer or the mutable global Isabelle session database.
+    """
+    failed = {session for phase in ("loading", "inspections") for check in scan.get(phase, [])
+              for session in check.get("failed_sessions", [])}
+    boundary = common.read_json(base / "candidate-baseline.json", {})
+    if not failed or not boundary.get("source"):
+        return {}
+    source = common.PROJECT / boundary["source"]
+    result = {}
+    for receipt_path, receipt in receipts(base, scan):
+        for name, expected in receipt.get("evidence", {}).items():
+            if not name.endswith("/scan-messages/index.json"):
+                continue
+            path = source / name
+            if not path.is_file():
+                continue
+            # Keep verification metadata explicit so both the independent audit
+            # and report can reject an index changed after receipt commitment.
+            verified = checksum(path) == expected["sha256"]
+            for session, value in common.read_json(path, {}).items():
+                if session in failed:
+                    result[session] = dict(value, receipt_index=common.relative(path),
+                        receipt_index_sha256=expected["sha256"], receipt_index_verified=verified,
+                        receipt=common.relative(receipt_path))
+    return result

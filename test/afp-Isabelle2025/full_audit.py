@@ -157,8 +157,32 @@ def audit_data(base, data, result, exports):
                                 or any(x["status"] != "passed" for x in
                                        scan.get("loading", []) + scan.get("inspections", [])))
             need(bool(observed_failure), "scan failure has direct cause", entry=entry)
+        inherited_messages = candidate_scope.messages(base, scan)
         for phase in ("loading", "inspections"):
             for check in scan.get(phase, []):
+                # Selected snapshots already own immutable failed-session
+                # databases. Verify their complete messages without rebuilding
+                # the inherited failed session or changing its scan status.
+                failed_sessions = (check.get("failed_sessions", []) if check.get("status")
+                                   not in {"passed", "blocked", "blocked_dependency"} else [])
+                for session in failed_sessions:
+                    message = messages.get(session) or inherited_messages.get(session, {})
+                    need(message.get("status") == "passed" and message.get("origin_verified"),
+                         "scan failure has complete session messages", entry=entry, session=session)
+                    if message.get("receipt_index"):
+                        path = common.PROJECT / message["receipt_index"]
+                        need(path.is_file() and full.file_digest(path) == message.get("receipt_index_sha256"),
+                             "inherited message index matches selected receipt", entry=entry, session=session)
+                    path = common.PROJECT / message.get("database", "__missing__")
+                    need(path.is_file() and full.file_digest(path) == message.get("database_sha256"),
+                         "inherited failure database retained", entry=entry, session=session)
+                    if path.is_file():
+                        origin = full.session_database_origin(path, session, message.get("references", []))
+                        need(origin["origin_verified"], "inherited database matches failed command interval",
+                             entry=entry, session=session)
+                    path = common.PROJECT / message.get("command", {}).get("log", "__missing__")
+                    need(path.is_file() and full.file_digest(path) == message.get("messages_sha256"),
+                         "inherited complete message bytes retained", entry=entry, session=session)
                 if check.get("log"):
                     path = common.PROJECT / check["log"]
                     need(path.is_file(), "scan command log retained", entry=entry, path=check["log"])
@@ -488,6 +512,21 @@ def audit_reports(base, data, result, exports, audit):
                      "failure catalog original evidence retained", entry=value["entry"])
                 need(value.get("full_message_available") is not False,
                      "failure catalog has full diagnostics", entry=value["entry"])
+                if value.get("phase") == "scan" and value.get("stage") in {"loading", "inspections"}:
+                    scan = result["entries"][value["entry"]]["scan"]
+                    messages = common.read_json(base / "scan-messages/index.json", {})
+                    inherited_messages = candidate_scope.messages(base, scan)
+                    for check in scan.get(value["stage"], []):
+                        if check.get("log") not in value["evidence"]:
+                            continue
+                        for session in check.get("failed_sessions", []):
+                            message = messages.get(session) or inherited_messages.get(session, {})
+                            log = message.get("command", {}).get("log")
+                            path = common.PROJECT / log if log else None
+                            need(path is not None and path.is_file() and log in value["evidence"]
+                                 and path.read_text(errors="replace") in value["error"],
+                                 "failure catalog includes full failed-session messages",
+                                 entry=value["entry"], session=session)
         need(actual == required_failure_inventory(base, data, result),
              "failure catalog covers every actual failed command and diagnostic")
         need(events == summary.get("failure_events"), "failure event count consistent")

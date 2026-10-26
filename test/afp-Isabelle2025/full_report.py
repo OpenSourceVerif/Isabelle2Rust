@@ -115,17 +115,22 @@ def failure_events(base, data, result):
     for entry in data["order"]:
         record = result["entries"][entry]
         scan = record["scan"]
+        inherited_messages = candidate_scope.messages(base, scan)
         documents = {}
         for phase in ("loading", "inspections"):
             for check in scan.get(phase, []):
                 if check["status"] in {"passed", "blocked", "blocked_dependency"}:
                     continue
-                messages = [message_index.get(s, {}) for s in check.get("failed_sessions", [])]
-                evidence = [x["command"]["log"] for x in messages if x.get("status") == "passed"]
+                messages = [message_index.get(s) or inherited_messages.get(s, {})
+                            for s in check.get("failed_sessions", [])]
+                usable = [x for x in messages if x.get("status") == "passed" and x.get("origin_verified")
+                          and x.get("receipt_index_verified", True)]
+                evidence = [x["command"]["log"] for x in usable]
                 if check.get("log"):
                     evidence.insert(0, check["log"])
                 yield {"entry": entry, "phase": "scan", "stage": phase, "status": check["status"],
                        "session": check.get("session"), "constants": [], "target": None,
+                       "full_message_available": len(usable) == len(messages),
                        "evidence": evidence,
                        "error": "\n".join((common.PROJECT / p).read_text(errors="replace")
                                          for p in evidence if (common.PROJECT / p).is_file())}
