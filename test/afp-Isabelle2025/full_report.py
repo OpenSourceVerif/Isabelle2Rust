@@ -26,7 +26,7 @@ CATEGORIES = (
     ("dependency", "继承的扫描依赖阻塞", r"Blocked by:",
      "前置会话没有可接受的扫描回执，依赖条目没有执行自己的候选检查。阻塞不是该条目的导出失败；当前候选实验保留原始未知范围。"),
     ("infrastructure", "资源、工具或依赖",
-     r"(?m)^(?:timeout|interrupted)$|host_restart|memory_limit|Interrupt_Breakdown|Unable to increase stack|out of memory|OutOfMemoryError|Java heap space|GC overhead limit|command not found|Protocol_Message",
+     r"(?m)^(?:timeout|interrupted)$|host_restart|memory_limit|Run out of store|Interrupt_Breakdown|Unable to increase stack|out of memory|OutOfMemoryError|Java heap space|GC overhead limit|command not found|Protocol_Message",
      "资源或外部工具条件尚未满足，不能据此归因于 HOL 构造或目标打印规则；必须在阶段检查点处理。"),
     ("class_constraints", "代码类型类约束", r"Wellsortedness|No type arity|No type class|Missing.*arity",
      "Thingol 前端推导可执行代码的类型类字典时，依赖类型没有要求的实例。逻辑定义、量化和相等不自动给出 enum、equal 或 partial_term_of 的可执行实现。"),
@@ -375,7 +375,9 @@ def build_report(base, data, result, exports, verified=False):
          "扫描保留有代码方程及证书异常的候选；异常不代表可执行性证明。复用完整扫描，"
          "不限时补扫不完整内容，并补取旧临时文件清理后缺失的完整证书诊断。"),
         "每个常量组构造一次 Thingol 程序，供该组待处理的目标共用。整组失败继续拆分；",
-        "单常量失败或必需上下文加载失败才形成候选失败证据。成功组的完整源码全部保留。\n\n",
+        "单常量失败或必需上下文加载失败才形成候选失败证据。成功组的完整源码全部保留。"
+        "进程存储耗尽时，保留原始尝试并在新进程中缩小初始常量组；"
+        "六语言仍共享同组前端。无法继续拆分的资源失败保持未决并阻断阶段检查点。\n\n",
         "每个 Rust 成功导出 crate 分别进行 Stage-1 编译、既有优化器转换和 Stage-2 编译。",
         "即使 Stage-1 失败，仍尝试优化与 Stage-2；没有执行生成程序或测试运行时行为。\n\n",
         "SML 是官方 ML 目标。Go 使用 AFP 2025 的 Go_Setup，其 code_go.ML 与",

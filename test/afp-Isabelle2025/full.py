@@ -222,7 +222,7 @@ def infrastructure(text):
     patterns = {
         "timeout": r"(?m)^timeout$|timed out|Timeout\.TIMEOUT|\*\*\*.*timeout|Timeout after",
         "interruption": r"(?m)^(?:interrupted|running|starting)$|host_restart",
-        "memory_or_stack": r"memory_limit|out of memory|unable to increase stack|Interrupt_Breakdown|cannot allocate|java heap space",
+        "memory_or_stack": r"memory_limit|out of memory|run out of store|unable to increase stack|Interrupt_Breakdown|cannot allocate|java heap space",
         "missing_dependency": r"command not found|no such file or directory|missing .*installation|missing .*compiler|cannot find.*(?:ocaml|ghc|sml|go)|Bad session",
         "tooling": r"Protocol_Message|has not been declared|Static Errors|ML error",
     }
@@ -576,12 +576,36 @@ def serializer_signature():
                             for p in paths))
 
 
+def export_memory_failure(run):
+    """Distinguish resource exhaustion from a completed logical rejection."""
+    if (run["command"].get("status") == "memory_limit"
+            or "memory_or_stack" in infrastructure(log_text(run["command"]))):
+        return True
+    for attempt in run.get("attempts", []):
+        if attempt.get("status") != "failed":
+            continue
+        node = ET.parse(common.PROJECT / attempt["evidence"]).getroot()
+        if "memory_or_stack" in infrastructure(node.findtext("error", "")):
+            return True
+    return False
+
+
 def export_entry(entry, info, record, scope, base, args, env):
     names = common.candidates(scope)
+    previous = record.get("full_export", {})
+    batch_size = getattr(args, "export_batch_size", 0)
+    if batch_size < 0:
+        raise ValueError("export-batch-size must be nonnegative")
+    # Retrying the same exhausting aggregate wastes the completed resource
+    # diagnosis. Start its replacement with smaller, equal six-target scopes.
+    if not batch_size and any(export_memory_failure(run) for run in previous.get("runs", [])):
+        batch_size = max(1, min(32, previous.get("initial_batch_size", len(names)) // 2))
+    batch_size = batch_size or max(1, len(names))
     if record.get("full_compile"):
         record.setdefault("full_compile_history", []).append(record.pop("full_compile"))
     stage = {"scope_sha256": scope_digest(scope), "serializer_sha256": serializer_signature(),
-             "scan_sha256": entry_scan_signature(record), "started": common.timestamp(), "runs": []}
+             "scan_sha256": entry_scan_signature(record), "started": common.timestamp(),
+             "initial_batch_size": batch_size, "runs": []}
     record["full_export"] = stage
     if not names:
         stage.update(status="no_candidates" if record["scan"]["status"] == "passed" else "blocked",
@@ -589,18 +613,41 @@ def export_entry(entry, info, record, scope, base, args, env):
                                                else "blocked" for t in TARGETS})
         return
     sessions = maximal_sessions(info, record["scan"])
+    # Only already scanned theories supply contexts. Splitting the requested
+    # constants does not change the loaded theory, setup or serializer rules.
+    scanned = set(record["scan"].get("theories", []))
+    theory_names = [t["name"] for t in info["theories"] if t["path"] in scanned]
     for session in sessions:
-        work = next_attempt(base / "exports" / entry / session)
-        (work / "scope.txt").write_text("\n".join(names) + "\n")
-        # Only already scanned theories supply contexts. Conditional or failed
-        # sources must not be silently claimed as loaded/exported.
-        scanned = set(record["scan"].get("theories", []))
-        theory_names = [t["name"] for t in info["theories"] if t["path"] in scanned]
-        (work / "theories.txt").write_text("\n".join(theory_names) + "\n")
-        check = export_command(session, work, args, env)
-        stage["runs"].append({"session": session, "directory": common.relative(work),
-                              "command": check, "finished": (work / "finished.xml").is_file(),
-                              "attempts": collect_attempts(work)})
+        pending = collections.deque(names[index:index + batch_size]
+                                    for index in range(0, len(names), batch_size))
+        while pending:
+            group = pending.popleft()
+            work = next_attempt(base / "exports" / entry / session)
+            (work / "scope.txt").write_text("\n".join(group) + "\n")
+            (work / "theories.txt").write_text("\n".join(theory_names) + "\n")
+            check = export_command(session, work, args, env)
+            run = {"session": session, "directory": common.relative(work), "scope": group,
+                   "command": check, "finished": (work / "finished.xml").is_file(),
+                   "attempts": collect_attempts(work)}
+            if len(group) > 1 and export_memory_failure(run):
+                # Keep the full failed process and any partial successful files
+                # as history. Fresh processes release the failed group's heap;
+                # they retry every member rather than assign source failures.
+                record.setdefault("full_export_history", []).append({
+                    "scope_sha256": stage["scope_sha256"], "scan_sha256": stage["scan_sha256"],
+                    "serializer_sha256": stage["serializer_sha256"], "runs": [run],
+                    "status": "resource_retry", "reason": "memory_partition",
+                    "started": check.get("started"), "finished": check.get("finished")})
+                middle = len(group) // 2
+                pending.appendleft(group[middle:])
+                pending.appendleft(group[:middle])
+                print(f"  [memory retry] {entry}/{session}: {len(group)} -> "
+                      f"{middle} + {len(group) - middle}", flush=True)
+                continue
+            # An exhausting singleton remains a current unresolved resource
+            # failure and blocks the export gate. It is never fabricated as a
+            # language failure merely because its process could not complete.
+            stage["runs"].append(run)
     stage["candidates"] = resolve_candidates(names, stage["runs"])
     languages = {}
     for target in TARGETS:
@@ -734,6 +781,8 @@ def main():
                                          "compile", "fixture", "status"])
     parser.add_argument("--output-dir", type=Path, default=common.HERE / "full")
     parser.add_argument("--cargo", default="cargo +1.94.0")
+    parser.add_argument("--export-batch-size", type=int, default=0,
+                        help="maximum initial constants per process; 0 adapts prior memory failures")
     parser.add_argument("--candidate-baseline", type=Path,
                         help="init only: freeze the selected current scan, preserving its upstream failures")
     parser.set_defaults(timeout=0, max_heap_mb=4500)
