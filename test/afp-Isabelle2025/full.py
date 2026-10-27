@@ -669,66 +669,210 @@ def review_source_faults(base, data, result, exports):
     return changed
 
 
+def export_progress_identity(entry, record, scope, sessions, theories):
+    """Bind request recovery to the exact checked input context and exporter."""
+    return {"entry": entry, "scope_sha256": scope_digest(scope),
+            "scan_sha256": entry_scan_signature(record), "serializer_sha256": serializer_signature(),
+            "original_export_script_sha256": file_digest(common.HERE / "full_export.ML"),
+            "outer_capture_sha256": file_digest(common.HERE / "full_capture.ML"),
+            "sessions": sessions, "theories": theories}
+
+
+def export_progress_run(item, entry, base, theories):
+    """Recover only original terminal process bytes; never infer an exception.
+
+    The request sidecar, scope and theory inventory must belong to this entry.
+    Native XML is reread instead of trusting cached candidate outcomes. A live
+    or incompletely recorded process cannot be started a second time.
+    """
+    work = (common.PROJECT / item["directory"]).resolve()
+    root = (base / "exports" / entry / item["session"]).resolve()
+    if work.parent != root or not work.name.startswith("attempt-"):
+        raise ValueError("Export progress refers to a foreign request directory")
+    if ((work / "scope.txt").read_text().splitlines() != item["scope"]
+            or (work / "theories.txt").read_text().splitlines() != theories):
+        raise ValueError("Export progress request input changed")
+    for relative, checksum in item.get("evidence_sha256", {}).items():
+        path = (common.PROJECT / relative).resolve()
+        if not path.is_relative_to(work) or not path.is_file() or file_digest(path) != checksum:
+            raise ValueError("Export progress native evidence changed")
+    check = common.read_json(work / "process.log.json", {})
+    if common.identity_matches(check):
+        raise ValueError("Export progress request is still live")
+    if check.get("status") in {None, "running"} or "returncode" not in check:
+        raise ValueError("Export progress request has no recorded process exit")
+    if check.get("log") != common.relative(work / "process.log"):
+        raise ValueError("Export progress sidecar belongs to another request")
+    return {"session": item["session"], "directory": common.relative(work), "scope": item["scope"],
+            "command": check, "finished": (work / "finished.xml").is_file(),
+            "attempts": collect_attempts(work)}
+
+
+def export_progress_item(run):
+    """Seal all native diagnostic receipts used to resume a completed request."""
+    work = common.PROJECT / run["directory"]
+    paths = [work / "scope.txt", work / "theories.txt", work / "process.log", work / "process.log.json"]
+    paths += list(work.glob("contexts/*.xml")) + list(work.glob("attempts/**/*.xml"))
+    paths += [common.PROJECT / file for attempt in run["attempts"]
+              if attempt["status"] == "passed" for file in attempt["files"]]
+    paths += [work / "request-resources.json"] if (work / "request-resources.json").is_file() else []
+    paths += [work / name for name in ["finished.xml", "context-merge.xml", "native-request-outcome.xml"]
+              if (work / name).is_file()]
+    return {"session": run["session"], "directory": run["directory"], "scope": run["scope"],
+            "evidence_sha256": {common.relative(path): file_digest(path) for path in paths if path.is_file()}}
+
+
+def validate_export_progress(progress, identity, names):
+    """Require an exact disjoint partition for every original export context."""
+    if progress.get("schema") != 1 or progress.get("identity") != identity:
+        raise ValueError("Stale export progress input identity")
+    owner = progress.get("owner", {})
+    if common.identity_matches(owner) and owner.get("pid") != os.getpid():
+        raise ValueError("Export progress still has a live scheduler")
+    expected = collections.Counter((session, name) for session in identity["sessions"] for name in names)
+    actual = collections.Counter((item["session"], name)
+                                 for item in progress.get("runs", []) + progress.get("pending", [])
+                                 for name in item["scope"])
+    if actual != expected or any(not item["scope"] for item in progress.get("pending", [])):
+        raise ValueError("Export progress does not partition the original candidate contexts")
+    if any(not item.get("evidence_sha256") for item in progress.get("runs", []) + progress.get("retries", [])):
+        raise ValueError("Export progress completed request has no evidence digests")
+    directories = [item["directory"] for item in progress.get("runs", []) + progress.get("retries", [])]
+    if len(directories) != len(set(directories)):
+        raise ValueError("Export progress repeats a native request")
+    active = progress.get("active")
+    if active and (not progress.get("pending")
+                   or any(active[key] != progress["pending"][0][key] for key in ["session", "scope"])
+                   or active["directory"] in directories):
+        raise ValueError("Export progress active request differs from the pending queue")
+
+
 def export_entry(entry, info, record, scope, base, args, env):
     names = common.candidates(scope)
     previous = record.get("full_export", {})
     batch_size = getattr(args, "export_batch_size", 0)
     if batch_size < 0:
         raise ValueError("export-batch-size must be nonnegative")
-    # Retrying the same exhausting aggregate wastes the completed resource
-    # diagnosis. Start its replacement with smaller, equal six-target scopes.
     if not batch_size and any(export_memory_failure(run) for run in previous.get("runs", [])):
         batch_size = max(1, min(32, previous.get("initial_batch_size", len(names)) // 2))
     batch_size = batch_size or max(1, len(names))
+    sessions = maximal_sessions(info, record["scan"])
+    scanned = set(record["scan"].get("theories", []))
+    theory_names = [t["name"] for t in info["theories"] if t["path"] in scanned]
+    identity = export_progress_identity(entry, record, scope, sessions, theory_names)
+    progress_path = base / "export-progress" / (entry + ".json")
+    progress = common.read_json(progress_path, {})
+    # A terminal journal can precede the atomic entry publication. If the
+    # saved entry already equals that terminal stage, a blocked retry is fresh;
+    # otherwise consume the completed journal rather than repeat every child.
+    previous_digest = digest(json.dumps(previous, sort_keys=True).encode())
+    resuming = (progress.get("status") == "running" or (
+        progress.get("status") in {"complete", "blocked"}
+        and progress.get("final_stage_sha256") != previous_digest))
+    if resuming:
+        validate_export_progress(progress, identity, names)
+        # Native logs are immutable recovery inputs. A changed file is a hard
+        # error rather than permission to reuse an old reported verdict.
+        runs = [export_progress_run(item, entry, base, theory_names) for item in progress["runs"]]
+        retries = [export_progress_run(item, entry, base, theory_names) for item in progress["retries"]]
+        if any(len(run["scope"]) < 2 or not export_memory_failure(run) for run in retries):
+            raise ValueError("Export progress retry lacks its original aggregate resource failure")
+        batch_size = progress["initial_batch_size"]
+    else:
+        runs, retries = [], []
+        pending = [{"session": session, "scope": names[index:index + batch_size]}
+                   for session in sessions for index in range(0, len(names), batch_size)]
+        progress = {"schema": 1, "identity": identity, "status": "running",
+                    "started": common.timestamp(), "initial_batch_size": batch_size,
+                    "runs": [], "retries": [], "pending": pending, "active": None}
     if record.get("full_compile"):
         record.setdefault("full_compile_history", []).append(record.pop("full_compile"))
-    stage = {"scope_sha256": scope_digest(scope), "serializer_sha256": serializer_signature(),
-             "scan_sha256": entry_scan_signature(record), "started": common.timestamp(),
-             "initial_batch_size": batch_size, "runs": []}
+    stage = {"scope_sha256": identity["scope_sha256"], "serializer_sha256": identity["serializer_sha256"],
+             "scan_sha256": identity["scan_sha256"], "started": progress["started"],
+             "initial_batch_size": batch_size, "runs": runs}
     record["full_export"] = stage
     if not names:
         stage.update(status="no_candidates" if record["scan"]["status"] == "passed" else "blocked",
                      candidates={}, languages={t: "no_candidates" if record["scan"]["status"] == "passed"
                                                else "blocked" for t in TARGETS})
         return
-    sessions = maximal_sessions(info, record["scan"])
-    # Only already scanned theories supply contexts. Splitting the requested
-    # constants does not change the loaded theory, setup or serializer rules.
-    scanned = set(record["scan"].get("theories", []))
-    theory_names = [t["name"] for t in info["theories"] if t["path"] in scanned]
-    for session in sessions:
-        pending = collections.deque(names[index:index + batch_size]
-                                    for index in range(0, len(names), batch_size))
-        while pending:
-            group = pending.popleft()
-            work = next_attempt(base / "exports" / entry / session)
-            (work / "scope.txt").write_text("\n".join(group) + "\n")
-            (work / "theories.txt").write_text("\n".join(theory_names) + "\n")
-            check = export_command(session, work, args, env)
-            run = {"session": session, "directory": common.relative(work), "scope": group,
-                   "command": check, "finished": (work / "finished.xml").is_file(),
-                   "attempts": collect_attempts(work)}
-            if len(group) > 1 and export_memory_failure(run):
-                # Keep the full failed process and any partial successful files
-                # as history. Fresh processes release the failed group's heap;
-                # they retry every member rather than assign source failures.
-                record.setdefault("full_export_history", []).append({
-                    "scope_sha256": stage["scope_sha256"], "scan_sha256": stage["scan_sha256"],
-                    "serializer_sha256": stage["serializer_sha256"], "runs": [run],
-                    "status": "resource_retry", "reason": "memory_partition",
-                    "started": check.get("started"), "finished": check.get("finished")})
+    def retain_retry(run):
+        record.setdefault("full_export_history", []).append({
+            "scope_sha256": stage["scope_sha256"], "scan_sha256": stage["scan_sha256"],
+            "serializer_sha256": stage["serializer_sha256"], "runs": [run],
+            "status": "resource_retry", "reason": "memory_partition",
+            "started": run["command"].get("started"), "finished": run["command"].get("finished")})
+    for run in retries:
+        retain_retry(run)
+    def persist():
+        progress["owner"] = {"pid": os.getpid(), "identity": common.process_identity(os.getpid())}
+        progress["updated"] = common.timestamp()
+        common.write_json(progress_path, progress)
+    def accept(run):
+        group = run["scope"]
+        progress["pending"].pop(0)
+        if len(group) > 1 and export_memory_failure(run):
+            retain_retry(run)
+            progress["retries"].append(export_progress_item(run))
+            # Registered observations only choose smaller request scopes here;
+            # they do not determine outcomes without their own native failure.
+            if any(registered_source_fault(base, entry, scope, [name]) for name in group):
+                groups = [[name] for name in group]
+            else:
                 middle = len(group) // 2
-                pending.appendleft(group[middle:])
-                pending.appendleft(group[:middle])
-                print(f"  [memory retry] {entry}/{session}: {len(group)} -> "
-                      f"{middle} + {len(group) - middle}", flush=True)
-                continue
-            # An exhausting singleton remains a current unresolved resource
-            # failure and blocks the export gate. It is never fabricated as a
-            # language failure merely because its process could not complete.
+                groups = [group[:middle], group[middle:]]
+            progress["pending"][0:0] = [{"session": run["session"], "scope": part} for part in groups]
+            print(f"  [memory retry] {entry}/{run['session']}: {len(group)} -> "
+                  + " + ".join(str(len(part)) for part in groups), flush=True)
+        else:
             stage["runs"].append(run)
+            progress["runs"].append(export_progress_item(run))
+        progress["active"] = None
+        persist()
+    if progress.get("active"):
+        # A crash after the child exited but before the checkpoint committed
+        # consumes that same physical request once, without launching it again.
+        accept(export_progress_run(progress["active"], entry, base, theory_names))
+    persist()
+    for run in stage["runs"]:
+        if len(run["scope"]) == 1:
+            annotate_source_faults(entry, record, scope, {"runs": [run],
+                                   "serializer_sha256": stage["serializer_sha256"]}, base)
+    while progress["pending"]:
+        job = progress["pending"][0]
+        session, group = job["session"], job["scope"]
+        work = next_attempt(base / "exports" / entry / session)
+        (work / "scope.txt").write_text("\n".join(group) + "\n")
+        (work / "theories.txt").write_text("\n".join(theory_names) + "\n")
+        progress["active"] = dict(job, directory=common.relative(work))
+        persist()
+        request_env = dict(env)
+        cap = getattr(args, "source_fault_heap_mb", 0)
+        if cap < 0:
+            raise ValueError("source-fault-heap-mb must be nonnegative")
+        if cap and registered_source_fault(base, entry, scope, group):
+            # This is a memory bound, not a timer or a synthetic rejection.
+            # The unchanged native script still has to exit naturally, and its
+            # source invariant is independently checked before adjudication.
+            request_env["ML_OPTIONS"] = re.sub(r"(--maxheap\s+)\d+",
+                lambda match: match[1] + str(min(cap, args.max_heap_mb)), request_env["ML_OPTIONS"])
+        common.write_json(work / "request-resources.json", {
+            "ML_OPTIONS": request_env.get("ML_OPTIONS"),
+            "registered_source_fault_heap_mb": cap if request_env != env else None,
+            "command_timeout_seconds": getattr(args, "timeout", 0)})
+        check = export_command(session, work, args, request_env)
+        run = {"session": session, "directory": common.relative(work), "scope": group,
+               "command": check, "finished": (work / "finished.xml").is_file(),
+               "attempts": collect_attempts(work)}
+        accept(run)
+        if len(group) == 1:
+            annotate_source_faults(entry, record, scope, {"runs": [run],
+                                   "serializer_sha256": stage["serializer_sha256"]}, base)
     annotate_source_faults(entry, record, scope, stage, base)
     finish_export(stage, names)
+    progress.update(status=stage["status"], finished=common.timestamp(),
+                    final_stage_sha256=digest(json.dumps(stage, sort_keys=True).encode()))
+    persist()
 
 
 def finish_export(stage, names):
@@ -881,6 +1025,8 @@ def main():
     parser.add_argument("--cargo", default="cargo +1.94.0")
     parser.add_argument("--export-batch-size", type=int, default=0,
                         help="maximum initial constants per process; 0 adapts prior memory failures")
+    parser.add_argument("--source-fault-heap-mb", type=int, default=0,
+                        help="optional native heap cap for explicitly registered source observations; 0 keeps the normal heap")
     parser.add_argument("--candidate-baseline", type=Path,
                         help="init only: freeze the selected current scan, preserving its upstream failures")
     parser.set_defaults(timeout=0, max_heap_mb=4500)
@@ -940,6 +1086,9 @@ def main():
             raise ValueError("Unknown entry")
         result["environment"] = metadata
         if args.phase == "export":
+            # Recheck retained singleton evidence before deciding which entries
+            # need fresh processes; a verified source failure need not recur.
+            review_source_faults(base, data, result, exports)
             for i, entry in enumerate(selected, 1):
                 record = result["entries"][entry]
                 old = record.get("full_export", {})
