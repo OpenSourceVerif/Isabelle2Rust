@@ -322,10 +322,27 @@ fn interface_borrow_safe(demands: &HashSet<Demand>) -> bool {
 ///
 /// A last-use move of the root or recursive structure should survive. A
 /// selected payload may instead be materialized from a borrow when it only
-/// contributes to the result, as in `nth`. Ownership remains preferable when
-/// that payload is consumed by another owned operation or is used to rebuild
-/// the same nominal datatype family as the input.
+/// contributes to the result, as in `nth`, or feeds an owned operation during
+/// a traversal. An owned payload argument alone does not justify owning its
+/// entire enclosing structure: the rewriter can materialize that field locally.
+/// Preserve owned captures and reconstruction of the input datatype family,
+/// as well as structural moves (in particular, growing fold accumulators).
 fn prefer_owned(demands: &HashSet<Demand>, rebuilds_input_family: bool) -> bool {
+    // Borrowing a traversal may materialize one element at a time. Do not
+    // generalize that exception to splitting a state into several non-Copy
+    // fields: even when the final result is a scalar, those field moves can
+    // feed the next owned state transition. Count distinct bindings, not uses.
+    // Branch-unioned demands deliberately make this a conservative guard.
+    let owned_payloads: HashSet<&str> = demands
+        .iter()
+        .filter_map(|demand| match demand {
+            Demand::Move(MoveUse::OwnedSink(Origin::Payload, name), _) => Some(name.as_str()),
+            _ => None,
+        })
+        .collect();
+    if owned_payloads.len() > 1 {
+        return true;
+    }
     for demand in demands {
         match demand {
             Demand::Move(
@@ -335,14 +352,11 @@ fn prefer_owned(demands: &HashSet<Demand>, rebuilds_input_family: bool) -> bool 
                 _,
             ) => return true,
             Demand::AggregatePayloadReturn => return true,
+            Demand::Move(MoveUse::ClosureCapture(Origin::Payload, _), _) => return true,
             Demand::Move(
-                MoveUse::OwnedSink(Origin::Payload, _)
-                | MoveUse::ClosureCapture(Origin::Payload, _),
+                MoveUse::OwnedSink(Origin::Payload, _) | MoveUse::Return(Origin::Payload, _),
                 _,
-            ) => return true,
-            Demand::Move(MoveUse::Return(Origin::Payload, _), _) if rebuilds_input_family => {
-                return true;
-            }
+            ) if rebuilds_input_family => return true,
             _ => {}
         }
     }
@@ -1507,6 +1521,20 @@ impl BorrowContext {
                     demands,
                     DemandSite::new(in_return_ctx, scope),
                 );
+            }
+            Expr::BinaryOp(l, op, r)
+                if matches!(
+                    op.as_str(),
+                    "+" | "-" | "*" | "/" | "%" | "&" | "|" | "^" | "<<" | ">>"
+                ) =>
+            {
+                // Arithmetic/bitwise operators pass their operands to the
+                // corresponding by-value trait method. In particular, record
+                // moves exposed by Last-Use so PreferOwned does not turn an
+                // available move into a borrow followed by a clone. Explicit
+                // reference operands remain references through own_arg.
+                self.collect_demands_for_own_arg(l, derived, env, copy_generics, demands, scope);
+                self.collect_demands_for_own_arg(r, derived, env, copy_generics, demands, scope);
             }
             Expr::BinaryOp(l, _, r) => {
                 self.collect_demands_expr(
@@ -5034,6 +5062,44 @@ mod tests {
     use crate::{optimize_copy, optimize_last_use, parse_rust_source};
     use rustlightast::RustCodeGenerator;
 
+    #[test]
+    fn arithmetic_operators_preserve_last_use_owned_operands() {
+        for operator in ["+", "-", "*", "/", "%", "&", "|", "^", "<<", ">>"] {
+            let source = format!(
+                "fn arithmetic(x: BigInt, y: BigInt) -> BigInt {{ x.clone() {operator} y.clone() }}"
+            );
+            let mut module = parse_rust_source(&source, "Test").unwrap();
+            optimize_borrow(&mut module, &HashSet::new());
+            optimize_last_use(&mut module);
+            let output = RustCodeGenerator::new().generate_module_code(&module);
+            assert!(!output.contains("&BigInt"), "{operator}: {output}");
+            assert!(!output.contains(".clone()"), "{operator}: {output}");
+        }
+    }
+
+    #[test]
+    fn arithmetic_demand_does_not_consume_explicit_references_or_comparisons() {
+        let mut module = parse_rust_source(
+            r#"
+            fn shared(x: BigInt, y: BigInt) -> BigInt { &x + &y }
+            fn compare(x: BigInt, y: BigInt) -> bool { x == y }
+        "#,
+            "Test",
+        )
+        .unwrap();
+        let analysis = optimize_borrow(&mut module, &HashSet::new());
+        assert_eq!(analysis.borrow_fns.len(), 2);
+        for item in &module.items {
+            if let Item::Function(f) = item {
+                assert!(
+                    f.params.iter().all(|p| is_reference_type(&p.ty)),
+                    "{}",
+                    f.name
+                );
+            }
+        }
+    }
+
     fn named(name: &str) -> Type {
         Type::Named(name.to_string())
     }
@@ -5342,6 +5408,85 @@ where
         assert!(!printed.contains("v.clone()"));
         assert!(!printed.contains("va.clone()"));
         assert!(printed.contains("List::Cons(v, Box::new(va))"));
+    }
+
+    #[test]
+    fn multiple_payload_moves_preserve_owned_state_even_when_result_is_scalar() {
+        let source = r#"
+#[derive(Clone)]
+pub struct Blob(pub Box<u64>);
+#[derive(Clone)]
+pub enum State { Ready(Blob, Blob) }
+pub fn finish(x: State, consume: Rc<dyn Fn(Blob, Blob) -> bool>) -> bool {
+    match x {
+        State::Ready(left, right) => (*consume)(left.clone(), right.clone()),
+    }
+}
+"#;
+        let mut module = parse_rust_source(source, "StateTransition").expect("source parses");
+        optimize_borrow(&mut module, &HashSet::new());
+        optimize_last_use(&mut module);
+        let printed = RustCodeGenerator::new().generate_module_code(&module);
+        assert!(printed.contains("pub fn finish(x: State,"), "{printed}");
+        assert!(printed.contains("match x {"), "{printed}");
+        assert!(!printed.contains("left.clone()"), "{printed}");
+        assert!(!printed.contains("right.clone()"), "{printed}");
+    }
+
+    #[test]
+    fn traversal_borrows_spine_but_preserves_owned_fold_accumulator_and_capture() {
+        let source = r#"
+#[derive(Clone)]
+pub enum List<A> { Nil, Cons(A, Box<List<A>>) }
+pub fn fold<A, B>(f: Rc<dyn Fn(A, B) -> B>, xs: List<A>, acc: B) -> B
+where A: Clone + 'static, B: Clone + 'static {
+    match xs {
+        List::Nil => acc,
+        List::Cons(x, tail) => fold(f.clone(), (*tail).clone(), (*f)(x.clone(), acc.clone())),
+    }
+}
+pub fn find<A>(p: Rc<dyn Fn(A) -> bool>, xs: List<A>) -> bool
+where A: Clone + 'static {
+    match xs {
+        List::Nil => false,
+        List::Cons(x, tail) => if (*p)(x.clone()) { true } else { find(p.clone(), (*tail).clone()) },
+    }
+}
+pub fn query<A>(xs: List<A>) -> Rc<dyn Fn(Rc<dyn Fn(A) -> bool>) -> bool>
+where A: Clone + 'static {
+    Rc::new(move |p: Rc<dyn Fn(A) -> bool>| find(p, xs.clone()))
+}
+"#;
+        let mut module = parse_rust_source(source, "Traversal").expect("source parses");
+        optimize_borrow(&mut module, &HashSet::new());
+        optimize_last_use(&mut module);
+        let mut generator = RustCodeGenerator::new();
+        let printed = generator.generate_module_code(&module);
+        assert!(printed.contains("xs: &List<A>, acc: B"), "{printed}");
+        assert!(
+            printed.contains("p: Rc<dyn Fn(A) -> bool>, xs: &List<A>"),
+            "{printed}"
+        );
+        assert!(
+            printed.contains("pub fn query<A>(xs: List<A>)"),
+            "{printed}"
+        );
+        assert!(
+            !printed.contains("acc.clone()"),
+            "growing accumulator must move: {printed}"
+        );
+        assert!(
+            !printed.contains("xs.clone()"),
+            "captured spine must be shared: {printed}"
+        );
+        assert!(
+            !printed.contains("tail.clone()"),
+            "recursive tail must be shared: {printed}"
+        );
+        assert!(
+            printed.contains("x.clone()"),
+            "owned callback still needs its element: {printed}"
+        );
     }
 
     #[test]

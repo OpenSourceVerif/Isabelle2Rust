@@ -101,6 +101,43 @@ fn produces_owned_value(expr: &Expr, owned: &HashSet<String>) -> bool {
     }
 }
 
+/// Fresh values in the generated RustLight expression model have no owner
+/// that survives this expression. This is deliberately narrower than
+/// produces_owned_value: an unknown call/method might return a reference,
+/// and a dereference/index is a place, not a fresh value. Generated scalar
+/// arithmetic/bitwise operators produce owned results (as in the ownership
+/// classification above); arbitrary reference-returning operator overloads
+/// are outside this model.
+fn is_fresh_value(expr: &Expr) -> bool {
+    match expr {
+        Expr::MethodCall(_, method, args) => method == "clone" && args.is_empty(),
+        Expr::Literal(_) | Expr::Array(_) | Expr::Tuple(_) => true,
+        Expr::BinaryOp(_, op, _) => matches!(
+            op.as_str(),
+            "+" | "-"
+                | "*"
+                | "/"
+                | "%"
+                | "&"
+                | "|"
+                | "^"
+                | "<<"
+                | ">>"
+                | "=="
+                | "!="
+                | "<"
+                | "<="
+                | ">"
+                | ">="
+                | "&&"
+                | "||"
+        ),
+        Expr::Parenthesized(inner) => is_fresh_value(inner),
+        Expr::Block(block) => block.expr.as_deref().is_some_and(is_fresh_value),
+        _ => false,
+    }
+}
+
 fn owned_flow_for_block(block: &Block, inherited: &HashSet<String>) -> Vec<HashSet<String>> {
     let mut current = inherited.clone();
     let mut snapshots = Vec::with_capacity(block.stmts.len() + 1);
@@ -196,7 +233,14 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
 
         // `v.clone()` → `v` when `v` is owned and dead afterwards.
         Expr::MethodCall(receiver, method, args) if method == "clone" && args.is_empty() => {
-            if let Expr::Ident(var) = receiver.as_ref() {
+            if is_fresh_value(receiver) {
+                // Remove the clone of the temporary before walking its
+                // producer. Thus x.clone().clone() becomes x.clone(), and
+                // that inner clone is considered with the original live-out
+                // set in this same traversal (without counting the read twice).
+                *expr = *receiver.clone();
+                rewrite_lastuse_expr(expr, live, owned);
+            } else if let Expr::Ident(var) = crate::utils::ast_queries::strip_parens(receiver) {
                 let var = var.clone();
                 if owned.contains(&var) && !live.contains(&var) {
                     *expr = Expr::Ident(var.clone());
@@ -235,6 +279,10 @@ fn rewrite_lastuse_expr(expr: &mut Expr, live: &mut HashSet<String>, owned: &Has
             rewrite_lastuse_expr(callee, live, owned);
         }
         Expr::BinaryOp(left, _, right) => {
+            // Like call arguments, operator operands can borrow an owner
+            // until both operands have been evaluated and the operation ends.
+            collect_call_borrow_sources(left, live);
+            collect_call_borrow_sources(right, live);
             rewrite_lastuse_expr(right, live, owned);
             rewrite_lastuse_expr(left, live, owned);
         }
@@ -643,6 +691,66 @@ fn collect_owned_binding_names_from_pattern(pattern: &str, out: &mut HashSet<Str
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn rewrite_source(source: &str) -> String {
+        let mut module = crate::parse_rust_source(source, "Test").unwrap();
+        optimize_last_use(&mut module);
+        RustCodeGenerator::new().generate_module_code(&module)
+    }
+
+    #[test]
+    fn nested_clones_collapse_in_one_pass_without_moving_a_live_owner() {
+        let output = rewrite_source(
+            r#"
+            fn dead(x: String) -> String { x.clone().clone().clone() }
+            fn live(x: String) -> (String, String) { (x.clone().clone(), x) }
+            fn borrowed(x: &String) -> String { x.clone().clone() }
+        "#,
+        );
+        assert!(!output.contains(".clone().clone()"), "{output}");
+        assert_eq!(output.matches(".clone()").count(), 2, "{output}");
+        // Reapplying Last-Use must not uncover another clone elimination.
+        assert_eq!(rewrite_source(&output), output);
+    }
+
+    #[test]
+    fn arithmetic_temporary_clone_is_removed_but_live_operand_clone_remains() {
+        let output = rewrite_source(
+            r#"
+            fn dead(x: BigInt, y: BigInt) -> BigInt {
+                (x.clone() + y.clone()).clone()
+            }
+            fn live(x: BigInt, y: BigInt) -> (BigInt, BigInt) {
+                ((x.clone() + y.clone()).clone(), x)
+            }
+        "#,
+        );
+        assert_eq!(output.matches(".clone()").count(), 1, "{output}");
+        assert!(output.contains("x.clone() + y"), "{output}");
+    }
+
+    #[test]
+    fn temporary_rewrite_preserves_reference_calls_places_and_live_borrows() {
+        let output = rewrite_source(
+            r#"
+            fn from_call() -> String { borrowed_result().clone() }
+            fn from_method(x: Holder) -> String { x.borrowed().clone() }
+            fn from_place(x: &String) -> String { (*x).clone() }
+            fn during_borrow(x: String) -> String { use_both(&x, x.clone().clone()) }
+        "#,
+        );
+        assert!(output.contains("borrowed_result().clone()"), "{output}");
+        assert!(output.contains("x.borrowed().clone()"), "{output}");
+        assert_eq!(output.matches(".clone()").count(), 4, "{output}");
+        assert!(!output.contains(".clone().clone()"), "{output}");
+    }
+
+    #[test]
+    fn arithmetic_temporary_preserves_borrow_across_operand_evaluation() {
+        let output = rewrite_source("fn add(x: BigInt) -> BigInt { (&x + x.clone()).clone() }");
+        assert_eq!(output.matches(".clone()").count(), 1, "{output}");
+        assert!(output.contains("&x + x.clone()"), "{output}");
+    }
 
     fn named(name: &str) -> Type {
         Type::Named(name.to_string())
