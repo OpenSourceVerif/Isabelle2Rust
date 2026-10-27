@@ -237,12 +237,18 @@ def review(formal, observation, constant, family, serializer, project=None):
     need(executable is not None, 'Cannot identify the installed Isabelle executable')
     installed = Path(executable).resolve().parent.parent / 'src'
     metadata = input_files(observation)
-    expected_source = installed / ('Pure/Isar/code.ML' if family == 'flexible_boolean_conjunction'
+    expected_source = installed / ('Pure/Isar/code.ML' if family in {'flexible_boolean_conjunction', 'fixed_parameter_boolean_conjunction'}
                                  else 'HOL/Tools/set_comprehension_pointfree.ML')
     need(Path(metadata['native_source']).resolve() == expected_source.resolve(), 'Observation used a different Isabelle installation')
     need((observation / 'scope.txt').read_text().splitlines() == [constant], 'Wrong independent observation scope')
     checkers = {'flexible_boolean_conjunction': conjunction,
                 'empty_overlap_merge_cycle': pattern_cycle}
+    # A fixed Free state argument uses native higher-order imitation rather
+    # than the bound-only pattern certificate. Keep its stricter type and
+    # complete-state substitution checks in a separate evidence reader.
+    if family == 'fixed_parameter_boolean_conjunction':
+        from frontend_fixed_parameter import conjunction as fixed_conjunction
+        checkers[family] = fixed_conjunction
     need(family in checkers, 'Unrecognized source invariant family')
     proof = checkers[family](observation, project, installed, serializer)
     request = native_request(formal, observation, constant, project)
