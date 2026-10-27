@@ -17,6 +17,17 @@ def need(condition, message):
 
 def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
 
+
+def same_command(actual, expected):
+    """Compare complete sidecar fields after lossless JSON container encoding.
+
+    A freshly returned subprocess identity is a tuple; the exact same durable
+    identity is a JSON array when reread. Normalize only that representation.
+    Status, exit code, arguments, birth identity and every other field remain
+    part of the equality check.
+    """
+    return json.loads(json.dumps(actual)) == expected
+
 def undo(text, edits):
     for edit in reversed(edits):
         need(text.count(edit['new']) == 1, 'Non-unique observation edit')
@@ -250,7 +261,7 @@ def prepare_record(run, observation, family, serializer, review_root=None):
     need(len(run.get('scope', [])) == 1, 'A group failure cannot condemn its members')
     formal = c.PROJECT / run['directory']; constant = run['scope'][0]
     evidence = review(formal, observation, constant, family, serializer)
-    need(run['command'] == evidence['native_evidence']['command'], 'Stored command differs from original sidecar')
+    need(same_command(run['command'], evidence['native_evidence']['command']), 'Stored command differs from original sidecar')
     need(not run.get('finished') and not run.get('attempts'), 'Recorded native outcomes require their normal handling')
     root = Path(review_root) if review_root is not None else formal.parents[3] / 'source-fault-reviews'
     path = root / (hashlib.sha256(run['directory'].encode()).hexdigest() + '.json')
@@ -273,6 +284,6 @@ def validate_record(run, serializer):
     need(stored.get('origin') == 'independent_source_invariant_review', 'Review does not identify its derived origin')
     evidence = review(formal, c.PROJECT / record['observation'], record['constant'], record['family'], serializer)
     need(stored.get('evidence') == evidence, 'Source invariant review is stale or inconsistent')
-    need(run['command'] == evidence['native_evidence']['command'], 'Stored command differs from original sidecar')
+    need(same_command(run['command'], evidence['native_evidence']['command']), 'Stored command differs from original sidecar')
     need(not run.get('finished') and not run.get('attempts'), 'Original process completion must not be replaced')
     return evidence

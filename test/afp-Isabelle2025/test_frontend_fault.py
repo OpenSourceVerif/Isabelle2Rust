@@ -88,6 +88,20 @@ class InvariantCounterexamples(unittest.TestCase):
 
 
 class SourceFailureCoverage(unittest.TestCase):
+    def test_fresh_tuple_identity_matches_only_the_same_durable_command(self):
+        # common.command returns an in-memory identity tuple; JSON writes the
+        # same birth identity as an array. Preserve equality for that encoding,
+        # while every actual subprocess-field change must still be rejected.
+        actual = {'identity': ('boot', 123, 'birth'), 'status': 'failed',
+                  'returncode': 1, 'command': ['isabelle', 'process']}
+        durable = json.loads(json.dumps(actual))
+        self.assertTrue(fault.same_command(actual, durable))
+        for key, value in [('identity', ['boot', 123, 'other-birth']),
+                           ('returncode', -15), ('status', 'passed'),
+                           ('command', ['isabelle', 'build'])]:
+            changed = dict(durable, **{key: value})
+            self.assertFalse(fault.same_command(actual, changed), key)
+
     def test_adjudication_keeps_the_actual_failed_process_fields(self):
         # A reviewed source failure is shared across the six frontend users.
         # Its process remains failed and supplies no native finished witness.
@@ -150,7 +164,8 @@ class ReadOnlyNativeReviews(unittest.TestCase):
                  ('ArrowImpossibilityGS', 'GS.swf', '0013', 'arrow-pattern-merge/attempt-0002', 'empty_overlap_merge_cycle'),
                  ('ConcurrentGC', 'Global_Invariants.fA_rel', '0008', 'concurrentgc-conversion/attempt-0002', 'flexible_boolean_conjunction'),
                  ('ConcurrentGC', 'Global_Invariants.fA_rel_inv', '0010', 'concurrentgc-conversion/attempt-0004', 'flexible_boolean_conjunction'),
-                 ('ConcurrentGC', 'Global_Invariants.fM_rel', '0011', 'concurrentgc-conversion/attempt-0003', 'flexible_boolean_conjunction')]
+                 ('ConcurrentGC', 'Global_Invariants.fM_rel', '0011', 'concurrentgc-conversion/attempt-0003', 'flexible_boolean_conjunction'),
+                 ('ConcurrentGC', 'Global_Invariants.fM_rel_inv', '0014', 'concurrentgc-conversion/attempt-0005', 'flexible_boolean_conjunction')]
         records = []
         for entry, constant, attempt, relative, family in cases:
             with self.subTest(constant=constant):
@@ -170,6 +185,9 @@ class ReadOnlyNativeReviews(unittest.TestCase):
                     run = {'directory': common.relative(formal), 'session': entry, 'scope': [constant],
                            'command': common.read_json(formal / 'process.log.json'),
                            'finished': False, 'attempts': []}
+                    # Exercise the exact fresh-command representation as well
+                    # as the original JSON sidecar used by independent review.
+                    run['command']['identity'] = tuple(run['command']['identity'])
                     run['source_fault'] = fault.prepare_record(run, base / 'mechanism' / relative,
                                                                family, full.serializer_signature(), review_root=private)
                     scan = {'status': 'passed', 'theories': ['Fixture.thy']}
