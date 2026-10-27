@@ -25,7 +25,7 @@ CATEGORIES = (
      "原会话构建和声明检查可以均成功，但声明 XML 未覆盖扫描器要求的理论集合。此为候选发现证据验证失败，不能归为 HOL 证明失败或语言后端失败。"),
     ("dependency", "继承的扫描依赖阻塞", r"Blocked by:",
      "前置会话没有可接受的扫描回执，依赖条目没有执行自己的候选检查。阻塞不是该条目的导出失败；当前候选实验保留原始未知范围。"),
-    ("source_algorithm", "共享前端源算法不终止", r"^Verified shared frontend source algorithm failure:",
+    ("source_algorithm", "共享前端源算法不终止", r"(?m)^Verified shared frontend source algorithm failure:",
      "正式单常量请求自然失败；独立审计同时核验原生日志、上下文、原始带类型命题和原生递归源码的不变式。实际失败进程与缺失的完成 witness 均保留；此归因需要结构证据，不能仅凭耗尽内存或有限重复次数推断。"),
     ("infrastructure", "资源、工具或依赖",
      r"(?m)^(?:timeout|interrupted)$|host_restart|memory_limit|Run out of store|Interrupt_Breakdown|Unable to increase stack|out of memory|OutOfMemoryError|Java heap space|GC overhead limit|command not found|Protocol_Message",
@@ -399,7 +399,10 @@ def build_report(base, data, result, exports, verified=False):
         "每个常量组构造一次 Thingol 程序，供该组待处理的目标共用。整组失败继续拆分；",
         "单常量失败或必需上下文加载失败才形成候选失败证据。成功组的完整源码全部保留。"
         "进程存储耗尽时，保留原始尝试并在新进程中缩小初始常量组；"
-        "六语言仍共享同组前端。无法继续拆分的资源失败保持未决并阻断阶段检查点。\n\n",
+        "六语言仍共享同组前端。正式单常量进程自然异常时，只有显式登记并独立重核原始上下文、"
+        "带类型命题及递归源码不变式的源算法缺陷，才以 frontend_source_algorithm 判定六目标失败；"
+        "原进程仍为 failed，缺失的原生完成回执不被补造。"
+        "缺少这类结构证据的单常量资源失败保持未决并阻断阶段检查点。\n\n",
         "每个 Rust 成功导出 crate 分别进行 Stage-1 编译、既有优化器转换和 Stage-2 编译。",
         "即使 Stage-1 失败，仍尝试优化与 Stage-2；没有执行生成程序或测试运行时行为。\n\n",
         "SML 是官方 ML 目标。Go 使用 AFP 2025 的 Go_Setup，其 code_go.ML 与",

@@ -1,6 +1,6 @@
 """Counterexamples for source-invariant verification, without native execution."""
 from pathlib import Path
-import os, sys, tempfile, unittest
+import collections, json, os, sys, tempfile, unittest
 from unittest.mock import patch
 sys.path.insert(0, str(Path.cwd() / 'test/afp-Isabelle2025'))
 import afp_common as common
@@ -118,6 +118,13 @@ class SourceFailureCoverage(unittest.TestCase):
         self.assertEqual(full_report.category('Run out of store - interrupting threads')[0], 'infrastructure')
         self.assertEqual(full_report.category('Verified shared frontend source algorithm failure: flexible_boolean_conjunction\nRun out of store')[0], 'source_algorithm')
 
+    def test_report_status_prefix_keeps_the_verified_source_category(self):
+        # Report construction prepends the process status before classification.
+        # The marker is still a complete line and must not fall through to the
+        # resource-message category carried in the original full native log.
+        message = 'failed\nVerified shared frontend source algorithm failure: flexible_boolean_conjunction\nRun out of store'
+        self.assertEqual(full_report.category(message)[0], 'source_algorithm')
+
     def test_one_review_does_not_cover_two_independent_source_owners(self):
         # Repeated internal names retain the original source-specific witness
         # requirement. A single source review cannot certify both declarations.
@@ -208,9 +215,27 @@ class ReadOnlyNativeReviews(unittest.TestCase):
                     self.assertEqual(rejected['issue_counts']['candidate has direct applicable witness'], len(full.TARGETS))
                     common.write_json(private / 'tampered-evidence-audit.json', rejected)
                     review_path.write_bytes(original_bytes)
+                    # Generate the actual four-report path on this isolated
+                    # fixture. Classification, complete raw log retention and
+                    # failure occurrence identities are checked independently.
+                    full_report.build_report(private, fixture_data, fixture_result, fixture_exports)
+                    events = [json.loads(line) for line in (private / 'report/failures.jsonl').read_text().splitlines()]
+                    self.assertEqual(len(events), 1)
+                    self.assertEqual(events[0]['category'], 'source_algorithm')
+                    self.assertIn((formal / 'process.log').read_text(), events[0]['error'])
+                    self.assertEqual(collections.Counter(map(full_audit.failure_key, events)),
+                                     full_audit.required_failure_inventory(private, fixture_data, fixture_result))
+                    report_audit = full_audit.audit_data(private, fixture_data, fixture_result, fixture_exports)
+                    before_issues = dict(report_audit['issue_counts'])
+                    full_audit.audit_reports(private, fixture_data, fixture_result, fixture_exports, report_audit)
+                    added = {key: count - before_issues.get(key, 0)
+                             for key, count in report_audit['issue_counts'].items()
+                             if count != before_issues.get(key, 0)}
+                    self.assertEqual(added, {'final report matches current completed data': 1})
+                    common.write_json(private / 'isolated-report-audit.json', report_audit)
                     common.write_json(private / 'validation.json', {
                         'passed': True, 'valid_source_failure_adjudicated': True,
-                        'tampered_review_rejected': True, 'independent_audit_validated_and_rejected': True,
+                        'tampered_review_rejected': True, 'independent_audit_validated_and_rejected': True, 'four_reports_preserve_source_category_and_native_log': True,
                         'native_process_still_failed': True,
                         'native_finished_still_missing': True, 'formal_result_database_modified': False})
                 self.assertEqual(before, {path: fault.sha(path) for path in paths})
