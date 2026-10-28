@@ -1,0 +1,50 @@
+{
+  "platform": "Ubuntu x86_64",
+  "isabelle": {
+    "version": "Isabelle2025",
+    "url": "https://isabelle.in.tum.de/website-Isabelle2025/dist/Isabelle2025_linux.tar.gz",
+    "sha256": "3d1d66de371823fe31aa8ae66638f73575bac244f00b31aee1dcb62f38147c56",
+    "checksum_source": "https://raw.githubusercontent.com/NixOS/nixpkgs/nixos-25.05/pkgs/by-name/is/isabelle/package.nix"
+  },
+  "afp": {
+    "version": "2025-03-17",
+    "url": "https://isa-afp.org/release/afp-2025-03-17.tar.gz",
+    "sha256": "c41fbd7b48d1023ddf6b34501eceb5480caf6e5bb6985905eeea0aef203ee4e3",
+    "patch": "patches/afp-2025-frozen.patch",
+    "patch_sha256": "85dea193d1546a1ef8d4a87f4e1d1b2b2fa5ce1ba5e5fe7f2f5ae4ce2567b7e1"
+  },
+  "rustup": {
+    "version": "1.28.2",
+    "url": "https://static.rust-lang.org/rustup/archive/1.28.2/x86_64-unknown-linux-gnu/rustup-init",
+    "sha256": "20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c",
+    "checksum_source": "https://static.rust-lang.org/rustup/archive/1.28.2/x86_64-unknown-linux-gnu/rustup-init.sha256"
+  },
+  "rust": {"version": "1.94.0", "components": ["rustfmt", "clippy"]},
+  "go": {
+    "version": "1.26.8",
+    "url": "https://go.dev/dl/go1.26.8.linux-amd64.tar.gz",
+    "sha256": "d0f743b33e8d8945e6b1f432edd15785c70507121d6e2a723b21285eddf8b57b",
+    "checksum_source": "https://go.dev/dl/?mode=json&include=all"
+  },
+  "cakeml": {
+    "version": "2.0",
+    "url": "https://isabelle.in.tum.de/components/cakeml-2.0.tar.gz",
+    "sha256": "bb464897bb54024533344c14912327b7c64221032a3fd3a6e6cff0a5b26d5fc0"
+  },
+  "ghc": {"version": "9.6.6", "installer": "Isabelle2025 ghc_setup (bundled Stack)"},
+  "rustlightast": {
+    "url": "https://github.com/OpenSourceVerif/RustLightAST.git",
+    "commit": "897fec3808d9053337e9cea54ff77b3a7e1d3e60"
+  },
+  "go_backend": {
+    "url": "https://github.com/isabelle-prover/isabelle-go-codegen.git",
+    "commit": "08b4c9269cc214f9f759703b4c5d51895052175e",
+    "source": "Included in fixed AFP release; frozen source inventory verifies actual adapted Go_Setup.thy and code_go.ML"
+  },
+  "system_packages": [
+    "build-essential", "curl", "ca-certificates", "git", "make", "python3", "perl", "util-linux", "patch",
+    "pkg-config", "libjansson-dev", "libgmp-dev", "libtinfo6", "libxi6", "libxtst6", "libxrender1", "fontconfig",
+    "ocaml", "ocaml-findlib", "libzarith-ocaml-dev", "smlnj", "m4", "xz-utils", "zstd"
+  ],
+  "system_version_policy": "Use Ubuntu repository packages; record exact installed versions in installed.local.json and environment receipts. Historical compiler binary hashes are evidence, not portable executables."
+}

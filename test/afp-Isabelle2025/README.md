@@ -1,314 +1,106 @@
-# AFP Isabelle2025 Rust export experiment
+# AFP 冻结扫描迁移与重新导出
 
-This directory discovers executable entry-owned constants from the **complete
-AFP for Isabelle2025**, creates one explicit Rust export per entry, and records
-loading, export, compilation, optimization and runtime validation separately.
-It does not change the translator or optimizer.
+面向联网 Ubuntu x86_64，只整理 AFP 工具测试，不改翻译器、优化器及其他测试。推荐入口为 `tools/afp.py`：从现有冻结候选重新开展六语言导出，再做 Rust stage1 编译、既有优化器转换和 stage2 编译。不补扫，不执行生成程序。
 
-## Frozen candidate scanning
+```text
+README.md   安装、迁移、运行、清理
+ tools/     扫描、导出、编译与审计工具
+ tests/     AFP 工具回归及固定夹具
+ setup/     安装器、配置模板、依赖锁、源补丁、迁移清单
+ scan/      完整冻结扫描，保持原字节
+ report/    2026-10-28 报告、历史统计与精选案例证据
+ work/      新运行的检查点、回执、日志和生成产物，初始为空
+```
 
-Use `scan_frozen.py` for the resumable, scanning-only full experiment. The
-older `scan.py` / `run.py` commands below describe the legacy certificate/Rust
-experiment and must not operate on a frozen or retired output root.
+## 数据保留与迁移
 
-~~~bash
-# Initialize once in a new empty directory, checking inputs without scanning.
-python3 test/afp-Isabelle2025/scan_frozen.py \
-  --output-dir test/afp-Isabelle2025/full/new-scan \
-  --compiler-settings test/afp-Isabelle2025/full/compiler-settings.json \
-  --max-heap-mb 4000 --java-heap-mb 1536 --initialize --prepare-only
+`scan/` 完整来自 `full/scan-frozen-2026-10-22`，包括快照、回执、XML、日志、失败数据库、工具快照及修复记录。8,603 个文件迁移前后逐项 SHA256 一致。状态仍为 **662 通过、3 失败、228 阻塞**，全部 893 条目、922 会话、157,623 个不同内部候选名（163,502 个条目内候选引用）均保留。原扫描检查点未通过，保持原字节和真实状态。
 
-# Start or resume the same run. Already committed sessions are reused.
-python3 test/afp-Isabelle2025/scan_frozen.py \
-  --output-dir test/afp-Isabelle2025/full/new-scan \
-  --compiler-settings test/afp-Isabelle2025/full/compiler-settings.json \
-  --max-heap-mb 4000 --java-heap-mb 1536
-~~~
+唯一报告为 [2026-10-28 扫描与导出报告](report/README.md)。按正文及 `additional-mechanisms.md` 的详析案例保留原始证据和引用源码，见 [精选证据清单](report/selected-evidence.jsonl)：包含原路径、新路径、SHA256、大小、用途。全量导出及旧编译证据已经清理，原统计未重算，无法逐项重新核验；见 [历史索引边界](report/HISTORICAL-INDEXES.md)。新报告写入 `work/report/`，不会覆盖历史 `report/`。
 
-The compiler settings file is local experiment configuration; all ROOT compiler
-conditions must be available before initialization. Its keys are limited to
-external compiler settings. The driver enforces checked proofs, timeout=0 and
-timeout_build=false, checks the exact 893-entry/922-session/9122-theory universe,
-and stops after scanning. It never launches the export or compilation phases.
+[迁移记录](setup/migration.json) 保存原编译驱动及子进程身份、停止结果和保留清单；[精确删除清单](setup/deletion-inventory.json) 记录旧路径、文件数、大小和仅移除的符号链接。旧驱动先按 boot/PID/出生身份核对，发中断信号并确认退出后才清理。清理仅涉及 AFP 实验及 `temp/afp-logs-before-report-20261020T074609Z`，未删除共享依赖目标。顶层 ROOT 中旧 AFP 生成会话块已移除。
 
-The frozen policy `owned-constants-v1` retains every genuine entry-owned Const,
-using declaration provenance and internal names. Abbreviations are recorded
-separately. Constructors, target-only mappings, aborting functions and constants
-without equations are all present; inclusion is not a claim of executability.
-Discovery visits original theory namespaces and records their maximal-context
-coverage without merging incompatible branches or evaluating certificates.
-The historical certificate probe remains available for diagnostic regressions.
+**不能只依靠 Git 迁移数据。** `scan/`、`report/evidence/` 及大体积历史 CSV/JSONL 被忽略。代码 clone 后，必须另传完整 `scan/` 和完整 `report/`，保留层级。例如从仓库根执行：
 
-Each immutable session attempt retains its tool/runtime identity, full command
-logs, XML and checksums. A durable receipt commits candidates and coverage
-together. After interruption, the driver validates existing receipts and can
-adopt a successful XML/sidecar before executing any unfinished work. A completed
-session cannot automatically re-enter the queue. At most the uncommitted current
-session is repeated. Native descendants of a lost driver are detected through a
-run marker even after reparenting.
+```bash
+rsync -a test/afp-Isabelle2025/scan/ SERVER:/srv/workspace/Isabelle2Rust/test/afp-Isabelle2025/scan/
+rsync -a test/afp-Isabelle2025/report/ SERVER:/srv/workspace/Isabelle2Rust/test/afp-Isabelle2025/report/
+```
 
-`scan-current.json` points at a single joint results/exports snapshot.
-`results.json` and `exports.json` are compatibility views, not independent
-completion facts. Retain the entire output root; do not clean its logs, XML,
-receipts, tool snapshots or failed-session databases.
+不要打包旧 heap、Cargo target 或历史 `work/`。冻结证据中的历史路径不批量改写；通过运行配置及固定旧扫描前缀解析。查询精选旧路径可用 `python3 tools/afp.py path '原路径'`，已清理的引用会报错。
 
-Unexplained failures remain unresolved. `--repair-plan` accepts an explicit
-bounded list of session names, a reason and evidence paths mapped to SHA256
-digests; tool changes also require a candidate-compatibility explanation.
-Completed sessions cannot be selected by this mechanism. Source/compiler changes
-close the gate for bounded impact review; they never invalidate all receipts.
-Resource limits and execution metadata are separate from candidate identity.
+## 从零安装
 
-Run the default tooling tests with `python3 -B -m unittest discover -s
-test/afp-Isabelle2025 -p 'test_*.py' -v`. Set `AFP_TEST_FROZEN_SCAN=1` for
-the native declaration and real session-recovery fixtures. These checks do not
-run generated target programs.
+建议 Ubuntu 24.04/26.04，Python 3.10 以上。先 clone 本仓库、传输保留数据，再进入 AFP 主目录。安装根需有足够空间容纳 Isabelle、AFP、GHC 和新 heap。
 
-## Dependencies
+```bash
+cd test/afp-Isabelle2025
+# 完整预览：不下载、不写文件、不调用 sudo。
+python3 setup/install.py --prefix "$HOME/afp-deps" --dry-run
+# 系统包使用 sudo；其他依赖安装在指定根及当前用户 Rust 目录。
+python3 setup/install.py --prefix "$HOME/afp-deps"
+```
 
-Follow the project README for Isabelle2025, Rust 1.94.0, and the sibling
-../RustLightAST checkout used by the optimizer. Install the complete AFP archive:
+安装可重复执行：下载后校验固定摘要再解包；已有安装交给最终版本、源身份检查，不覆盖已有不同提交的 RustLightAST。管理员已装系统包时用 `--skip-system-packages`。系统包覆盖 C/C++、OCaml/findlib/Zarith、SML/NJ、GMP/Jansson、Isabelle 运行库等，实际 apt 版本记录在 `setup/installed.local.json`。
 
-~~~bash
-curl -fLO https://isa-afp.org/release/afp-2025-03-17.tar.gz
-# SHA256: c41fbd7b48d1023ddf6b34501eceb5480caf6e5bb6985905eeea0aef203ee4e3
-tar -xzf afp-2025-03-17.tar.gz
-mv afp-2025-03-17 /YOUR/PATH/afp-Isabelle2025
-isabelle components -u /YOUR/PATH/afp-Isabelle2025/thys
-isabelle version
-~~~
+[依赖锁](setup/dependencies.json) 固定 Isabelle2025、AFP 2025-03-17、Rust **1.94.0**（含 rustfmt/clippy）、Go 1.26.8、CakeML 2.0、配套 GHC 9.6.6 和 RustLightAST 提交；MLton、Scala 使用 Isabelle 自带组件。RustLightAST 必须与本仓库同级，安装器在缺失时克隆并固定为 `897fec3808d9053337e9cea54ff77b3a7e1d3e60`，已有 checkout 须干净且提交一致。优化器与生成 crate 的依赖按各自 Cargo 锁文件预取，后续优化器构建可离线执行。
 
-To include theories whose ROOT condition requires Haskell, install Isabelle's
-matching GHC after installing the project's system dependencies (including
-libgmp-dev):
+AFP 包 SHA256 为 `c41fbd7b48d1023ddf6b34501eceb5480caf6e5bb6985905eeea0aef203ee4e3`。与发行包比较，冻结树额外含 24 个此前生成的 ML/Haskell/Scala 源文件；[补丁](setup/patches/afp-2025-frozen.patch) 仅恢复这些冻结输入，[差异清单](setup/afp-source-differences.json) 记录身份。补丁后全部 13,769 个 AFP 输入须匹配冻结清单；Isabelle 的 3,514 个源码文件也校验摘要。固定 AFP 包已包含所用 Go 后端；版本锁记录外部项目提交，冻结清单验证实际 AFP 适配文件，无需覆盖源码。
 
-~~~bash
-isabelle ghc_setup
-~~~
+安装器生成不提交的 `setup/server.local.json`、`setup/compiler-settings.local.json`。默认在安装根下用 `USER_HOME` 隔离 Isabelle 配置和缓存，避免其他 AFP 注册混入；发行标识保持 Isabelle2025，不改系统 HOME。服务器从源重建 Rust/Go 所需 heap。[配置示例](setup/server.example.json) 展示安装路径、工作根、资源参数和额外路径映射，不沿用旧机器路径。
 
-Other optional compiler conditions are reported with any missing theories.
+默认单作业、单证明线程、证明开启、阶段不限时、不执行生成程序。默认 ML heap 4500 MiB、Java heap 1536 MiB、stackspace 512 MiB、JVM 活动处理器 2、最低可用内存 512 MiB；可在配置中按服务器调整。heap 参数不是总 RSS 限制。
 
-Remove/comment incompatible AFP registrations in the Isabelle2025 user ROOTS
-or components file: registering multiple releases causes duplicate AFP chapters
-and sessions. The scripts reject other Isabelle/AFP versions and incomplete AFP
-subsets. The --afp option also accepts the archive's thys directory. Pass
---afp /YOUR/PATH/afp-Isabelle2025 to both scripts when AFP is installed elsewhere;
-without this option they use Isabelle's AFP setting or temp/afp-Isabelle2025
-inside this repository.
+已有依赖可只生成配置：
 
-The 2025-03-17 release contains **893 entries, 922 sessions and 9,122 session-owned
-theories**. sessions.scala uses Isabelle's session/dependency parser, including
-subdirectories and multiple sessions per entry, rather than interpreting ROOT
-files with regular expressions. The cached manifest is regenerable.
+```bash
+python3 setup/install.py --prefix /srv/afp-deps --configure-only \
+  --isabelle /srv/afp-deps/Isabelle2025/bin/isabelle \
+  --afp /srv/afp-deps/afp-2025-frozen \
+  --go-root /srv/afp-deps/go-1.26.8 --cakeml /srv/afp-deps/cakeml-2.0
+```
 
-## Run
+明确复用已有 Isabelle 用户配置时另传 `--user-home /path/to/user-home`，其中只能注册当前固定 AFP。`--config` 可把本机配置写到其他位置。下载失败保留 `.part`，未验证文件不会解包。
 
-Execute commands from the repository root. Start with small entries, then scan
-and run the full archive:
+## 唯一推荐流程
 
-~~~bash
-python3 test/afp-Isabelle2025/scan.py --entries Example-Submission List-Index
-python3 test/afp-Isabelle2025/run.py --entries Example-Submission List-Index --stage2
+以下命令从 AFP 主目录执行，也支持绝对路径和其他 cwd。默认读取本机配置；自定义配置时在子命令前加 `--config /path/server.local.json`，工作根可用 `--work /path/empty-work`。
 
-python3 test/afp-Isabelle2025/scan.py
-python3 test/afp-Isabelle2025/run.py --stage2
-~~~
+```bash
+python3 setup/check.py --receipt setup/environment.local.json
+python3 tools/afp.py verify
+python3 tools/afp.py verify-report
+python3 tools/afp.py init
+python3 tools/afp.py export
+python3 tools/afp.py export-checkpoint
+python3 tools/afp.py compile
+python3 tools/afp.py audit
+python3 tools/afp.py report
+python3 tools/afp.py audit --with-report
+```
 
-A full run.py invocation runs Example-Submission (empty scope) and List-Index
-first, then every remaining entry. A failed entry does not stop independent
-entries. Both scripts exit nonzero when any selected entry fails or remains
-incomplete. Dependent entries whose AFP prerequisites failed to load are marked
-blocked, rather than repeatedly rebuilding the same failed prerequisite.
-Blocking follows the concrete session graph: a failed example/test session does
-not block another entry which depends only on its successfully built core.
+环境检查验证版本、全部原扫描条件编译器、源文件身份、目录可写性及冻结证据。`verify` 只读校验完整哈希清单、工具快照、XML、回执、联合快照，不更新原检查点。`init` 必须在**空工作根**执行，复制全部 893 行及候选边界、继承扫描失败和阻塞，不复用旧导出/编译结果；结果按不可变条目文件保存以约束内存。重复初始化或已有产物目录会拒绝。
 
-~~~bash
-# Retry only incomplete scans, then incomplete exports/builds.
-python3 test/afp-Isabelle2025/scan.py --retry-failed
-python3 test/afp-Isabelle2025/run.py --retry-failed --stage2
+`candidate-baseline.json` 是接受当前不完整候选边界的独立契约，不宣称原扫描完整通过。六目标为 Rust、SML、OCaml、Haskell、Scala、Go，共享前端并分别保存回执。门禁失败就停止，保留真实状态，不编辑 `passed` 字段。每个新阶段先检查冻结安装及本轮记录源码是否变化。解决本轮环境问题后重跑同一阶段，可恢复已验证请求，不补扫。
 
-# Restrict a run, or regenerate the theories/ROOT without compiling.
-python3 test/afp-Isabelle2025/run.py --entries AVL-Trees
-python3 test/afp-Isabelle2025/run.py --generate-only
-~~~
+`status` 查看进度。`export --entries List-Index` 可做有界观察，但检查点仍要求全体条目，不能据此宣称全量完成。编译只处理本轮通过导出检查点的 Rust 产物，执行 stage1、既有优化器和 stage2，不运行生成程序。原 AFP 会话自身的 checking/Quickcheck 属于继承理论构建行为，不添加生成程序运行时测试。
 
-The --stage2 option requests optimization and Stage-2 compilation; without it the
-runner stops after compiling Stage 1. A prior Stage-1-only success is still selected
-by --retry-failed --stage2. Editing the candidate scope invalidates an earlier
-successful run. Runtime correctness is **not inferred** from Cargo compilation.
-An independent semantic harness can be supplied explicitly:
+`work/baseline/`、`entry-results/`、`exports/`、`export-progress/`、`compilation/`、失败日志及检查点长期保留；`_build/`、`_tmp/`、`cache/` 可再生。
 
-~~~bash
-python3 test/afp-Isabelle2025/run.py --entries List-Index --stage2 \
-  --runtime-command 'python3 test/afp-Isabelle2025/check_runtime.py {entry} {stage1} {stage2}'
-~~~
+## 验证与清理
 
-The included harness checks all 63 Boolean lists of lengths 0..5, comparing all
-six exports to an independent Vec-based oracle (2,166 assertions per stage).
-This is a finite semantic smoke test, not a proof of correctness.
+```bash
+python3 -B -m unittest discover -s tests -p 'test_*.py' -v
+# 实际六语言小型导出、Rust 编译与优化；临时产物自动清理。
+python3 tools/afp.py smoke --receipt setup/smoke.local.json
+# 默认只清缓存，先预览再显式执行；日志、回执、检查点和源码保留。
+python3 tools/afp.py clean
+python3 tools/afp.py clean --apply
+# 显式重置编译，或导出及其下游编译；先查看预览。
+python3 tools/afp.py clean --reset compile
+python3 tools/afp.py clean --reset compile --apply
+python3 tools/afp.py clean --reset export
+python3 tools/afp.py clean --reset export --apply
+```
 
-The command is executed as an argument vector, without a shell. It must actually
-check semantics; the generated crate's empty/default main is not a correctness
-test. With no harness, runtime_validation.status stays not_run.
-
-## Scope and results
-
-- scan.ML inspects loaded constant declarations and their code certificates.
-  Abbreviations and imported constants are excluded by declaration provenance.
-  Equations declared in later entry theories are inspected in a merged context.
-  When independent loaded branches have incompatible specifications or syntax,
-  discovery falls back to their maximal theory contexts and unions candidates,
-  preserving later equations along each branch. The merge conflict is recorded;
-  an aggregate export may still fail to import those branches together.
-  Ordinary, abstract and projection equations qualify. Certificate failures are
-  retained as candidates and reported as diagnostics, so export failures cannot
-  improve the apparent coverage by removing difficult constants.
-- exports.json maps entry names to relative theory paths and fully qualified
-  HOL constant names. It is the export scope; editing it is supported. The scanner
-  never removes candidates merely because Rust export/compilation failed.
-  Entries whose theories could not load remain visible, but their discovery is
-  explicitly incomplete; an empty incomplete scan is not a successful empty entry.
-  Missing theories list their ROOT compiler conditions separately. Install the
-  corresponding external compiler and retry; enabled conditional sessions are
-  rebuilt so a previously skipped theory cannot remain hidden in a cached heap.
-- Each Entry/Entry_Rust_Export.thy imports the loaded AFP equation contexts and
-  Rust.Rust_BigInt_Setup. It contains exactly one explicit export_code command
-  for nonempty scopes, deduplicated by full name. Conditional compiler tests
-  that never loaded are not added as unrelated imports; explicit candidates
-  still request their defining theory. An empty scope emits no export
-  command, especially no wildcard export.
-- The marked block in the top-level ROOT declares an independent
-  AFP-Rust-Entry session with AFP and Rust dependencies. Regeneration preserves
-  the other sessions. Isabelle writes crates to
-  Entry/stage1/Entry_Rust_Export/export*/; optimization writes the analogous
-  stage2 directory.
-- results.json is an atomic checkpoint after each entry. It records candidate/
-  theory counts, scan completeness, separate phase statuses, command return codes,
-  elapsed time, memory observations, error excerpts, and artifact/log paths.
-  Global candidate and compiled-candidate coverage use distinct full HOL names.
-  Old successful artifacts are removed before a new export, preventing a failed
-  export from accidentally compiling an older crate.
-- logs/ holds full command logs (ignored by Git); _build/ holds the regenerable
-  session manifest, raw scan output, phase markers and the batch lock (also ignored).
-  Reports retain short error excerpts for review even when local logs are absent.
-
-AFP's generated Quickcheck narrowing instances are included when they have code
-equations. Some depend on Haskell-only support without Rust code equations; these
-are genuine recorded export failures, not silently filtered from this experiment.
-
-## Resource bounds and cleanup
-
-The scripts use one Isabelle job, one proof/ML thread, one Cargo job, a 3,000 MiB
-ML heap limit, a 768 MiB Java heap limit, and a 600-second per-command timeout by
-default. These settings are applied **after** initializing Isabelle's environment,
-which would otherwise overwrite the heap limits. The batch used for the checked-in
-results uses the resource limits recorded in results.json.
-
-The options --timeout, --max-heap-mb, --java-heap-mb and --min-available-mb are
-configurable. On Linux, a command is stopped if MemAvailable drops below 512 MiB.
-Timeouts and interruptions stop descendant processes, including detached
-bash_process groups. The Makefile's build lock prevents races with ordinary
-project builds; a separate experiment lock serializes report writers.
-
-Proofs are checked by default. The --skip-proofs option is an explicit exploratory
-mode recorded in environment metadata; reports from checked and skipped proofs
-cannot be mixed. A full scan/build can take many hours; inspect the atomic
-checkpoint/logs or interrupt and use the retry options to continue.
-
-Run the tooling regression tests and clean reproducible crates afterward:
-
-~~~bash
-python3 -m unittest discover -s test/afp-Isabelle2025 -p test_pipeline.py -v
-python3 test/afp-Isabelle2025/check_scan.py
-make clean
-~~~
-
-Generated export theories, exports.json, results.json, and logs survive make clean;
-Stage-1/Stage-2 crates do not. Artifact paths in reports identify where the
-corresponding successful build was performed, even after cleanup.
-
-## Recorded rerun: 20261020T074609Z
-
-The current checked-in JSON reports come from a fresh full rerun with proof
-checking enabled and existing Isabelle heaps reused. See the [Chinese experiment
-report](report/README.md) for the entry-to-export flow, exact configuration,
-human-readable statistics, limitations and five retained case studies.
-
-The rerun visited all 893 entries. Discovery completed for 438 entries and
-retained 39,100 distinct full HOL constant names across 402 nonempty
-entry scopes. Rust export succeeded for 41 entries; 26 compiled before and
-after optimization. Compilation covers 153 distinct candidates. List-Index additionally
-passed 2,166 independent assertions per stage (4,332 total).
-
-The report includes a filterable [893-entry table](report/entries.csv),
-[run provenance and commands](report/run.json), and [case evidence](report/cases/).
-Original AFP theories, generated aggregate theories, raw diagnostics, Cargo
-manifests/lockfiles and actual Rust sources are preserved for candidate-empty,
-export-failed, compile-failed and successful examples. These copies use
-rust-before/rust-after directories and survive make clean; target directories
-and temporary phase work are removed. Raw batch console logs are retained as
-text evidence inside the report; ordinary logs/ remains ignored.
-
-## Exhaustive multilingual experiment
-
-The separate `full/` output root preserves the earlier experiment in
-`full/baseline/`. It is local experiment data, rather than a checked-in result.
-Use the existing candidates, retry incomplete scans with checked proofs and no
-time limit, then inspect each checkpoint before moving to the following stage:
-
-~~~bash
-python3 -B test/afp-Isabelle2025/scan.py --output-dir test/afp-Isabelle2025/full --retry-failed --timeout 0 --max-heap-mb 4500 --stack-space-mb 512 --compiler-settings test/afp-Isabelle2025/full/compiler-settings.json
-python3 -B test/afp-Isabelle2025/full.py scan-checkpoint
-python3 -B test/afp-Isabelle2025/full.py export
-python3 -B test/afp-Isabelle2025/full.py export-checkpoint
-python3 -B test/afp-Isabelle2025/full.py compile
-python3 -B test/afp-Isabelle2025/full_audit.py --data-only
-python3 -B test/afp-Isabelle2025/full_report.py
-python3 -B test/afp-Isabelle2025/full_audit.py
-~~~
-
-Zero disables both the Python watchdog and Isabelle's command timeout. Memory
-monitoring remains active. Compiler settings are an explicit JSON map of
-`ISABELLE_*` environment variables; the full driver reads that file by default.
-The official ML target is SML. Rust, SML, OCaml, Haskell, Scala and Go serialize
-the same Thingol program in each valid context. Failed groups are split until
-individual outcomes have direct evidence. Independent incompatible theory
-branches remain separate, and their aggregate merge error is also preserved.
-
-Every attempt retains its full exception XML, process log and successful
-sources. Failed session databases are copied before printing unfiltered messages;
-their timestamps and return codes must match the referenced failed builds.
-Auxiliary prerequisite builds recorded under `full/prerequisites/` must finish
-successfully before exports begin. A checkpoint refuses unresolved resource,
-environment or tool failures.
-
-Compilation uses actual successful Rust manifests, attempts Stage-1, optimization
-and Stage-2 independently, and never executes generated programs. Exported
-sources in `full/exports/` and optimized sources in `full/rust-stage2/` survive
-the ordinary cleanup rules for directories named `stage1` or `stage2`.
-Preserve those source trees and all evidence when clearing reproducible caches.
-
-The report contains four Markdown documents, entry/candidate/crate CSV catalogs
-and full failure bodies in JSONL. Final generation requires a current independent
-data audit. The completion audit checks physical XML witnesses, source hashes,
-actual Cargo commands, distinct compiled coverage, every report row and every
-failure occurrence. Representative mechanism explanations still require review
-against the original HOL definitions and code-generator implementation.
-`--preview` on either reporting script explicitly marks incomplete output and
-cannot certify completion.
-
-Run the complete lightweight tooling regression suite with:
-
-~~~bash
-python3 -B -m unittest discover -s test/afp-Isabelle2025 -p 'test_*.py' -q
-~~~
-
-Long commands also write an atomic JSON sidecar beside their text log before
-waiting for completion. It includes the command, PID, Linux birth identity and
-boot ID; terminal outcomes preserve interruption and resource failures. A
-sidecar marked running is evidence of intent only: verify its process identity
-before resuming. Archived host-interruption observations belong to historical
-infrastructure events and do not condemn any HOL candidate.
-
-Use --java-active-processors to bound JVM worker and native-thread memory
-(default: 2), independently of the existing one-thread ML proof setting.
+清理只接受带 `afp-work.json` 标记的工作根，拒绝运行中的流水线、逃逸路径、根符号链接和触及 `scan/`、`report/` 的选择。重置不删除候选 `exports.json`、`baseline/` 或原扫描状态。其他原生夹具保留 opt-in 开关，例如 `AFP_TEST_FROZEN_SCAN=1`；默认轻量 suite 不重跑 AFP 会话。本次只做小型导出/编译、临时源树重建与交接验证，不在本机重跑全量 AFP。

@@ -1,3 +1,0 @@
-$ isabelle build -e -j 1 -o threads=1 -o parallel_proofs=0 -o document=false -o timeout=180 -o skip_proofs=false -d /home/spring/Isabelle2Rust/Isabelle2Rust -d /home/spring/Isabelle2Rust/Isabelle2Rust/temp/afp-Isabelle2025/thys AFP-Rust-Pairing_Heap
-Exporting AFP-Rust-Pairing_Heap ...
-0:00:04 elapsed time

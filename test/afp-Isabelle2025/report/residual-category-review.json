@@ -1,0 +1,72 @@
+{
+  "categories": {
+    "equation_lhs_abstraction": 24,
+    "list_length_invariant": 5,
+    "program_graph_lookup": 44,
+    "self_referential_nullary": 19
+  },
+  "examples": {
+    "Coinductive": {
+      "category": "equation_lhs_abstraction",
+      "constant": "Coinductive_List.ord.lsorted",
+      "entry": "Coinductive",
+      "error": "Abstraction on left hand side of equation, in theorem:\nord.lsorted ?less_eq\n (Lazy_llist\n   (\\<lambda>_.\n       Some (?x, Lazy_llist (\\<lambda>_. Some (?y, ?xs))))) \\<equiv>\n?less_eq ?x ?y \\<and>\nord.lsorted ?less_eq (Lazy_llist (\\<lambda>_. Some (?y, ?xs)))",
+      "evidence": "test/afp-Isabelle2025/full/current-candidates-2026-10-27/exports/Coinductive/Coinductive/attempt-0001/attempts/merged/allLRLLLLRR/frontend.xml",
+      "evidence_origin": "published_record",
+      "stage": "frontend",
+      "target": "Rust"
+    },
+    "Coinductive_Languages": {
+      "category": "self_referential_nullary",
+      "constant": "Coinductive_Language.Atom",
+      "entry": "Coinductive_Languages",
+      "error": "Rust target does not support self-referential nullary values: zero",
+      "evidence": "test/afp-Isabelle2025/full/current-candidates-2026-10-27/exports/Coinductive_Languages/Coinductive_Languages/attempt-0001/attempts/merged/allLLLLLL/Rust.xml",
+      "evidence_origin": "published_record",
+      "stage": "target_preparation_or_serialization",
+      "target": "Rust"
+    },
+    "Correctness_Algebras": {
+      "category": "program_graph_lookup",
+      "constant": "Hoare.hoare_calculus_class.tseq",
+      "entry": "Correctness_Algebras",
+      "error": "exception UNDEF (Fun \"Base.one_fun_inst.one_fun\", 1) raised (line 129 of \"General/graph.ML\")",
+      "evidence": "test/afp-Isabelle2025/full/current-candidates-2026-10-27/exports/Correctness_Algebras/Correctness_Algebras/attempt-0001/attempts/merged/allLRLRLRRLL/frontend.xml",
+      "evidence_origin": "published_record",
+      "stage": "frontend",
+      "target": "Rust"
+    },
+    "Isabelle_Meta_Model": {
+      "category": "program_graph_lookup",
+      "constant": "Printer_init.equal_ml_int_inst.equal_ml_int",
+      "entry": "Isabelle_Meta_Model",
+      "error": "exception UNDEF (Type_Constructor \"Printer_init.ml_int\") raised (line 129 of \"General/graph.ML\")",
+      "evidence": "test/afp-Isabelle2025/full/current-candidates-2026-10-27/exports/Isabelle_Meta_Model/Isabelle_Meta_Model/attempt-0001/attempts/merged/allRRRRRLRLRLLL/Scala.xml",
+      "evidence_origin": "published_record",
+      "stage": "target_preparation_or_serialization",
+      "target": "Scala"
+    },
+    "Stern_Brocot": {
+      "category": "self_referential_nullary",
+      "constant": "Bird_Tree.bird",
+      "entry": "Stern_Brocot",
+      "error": "Rust target does not support self-referential nullary values: bird",
+      "evidence": "test/afp-Isabelle2025/full/current-candidates-2026-10-27/exports/Stern_Brocot/Stern_Brocot/attempt-0001/attempts/merged/allLLLLLLLLLL/Rust.xml",
+      "evidence_origin": "published_record",
+      "stage": "target_preparation_or_serialization",
+      "target": "Rust"
+    },
+    "Top_Down_Solver": {
+      "category": "list_length_invariant",
+      "constant": "Example.solution_plain_W",
+      "entry": "Top_Down_Solver",
+      "error": "exception UnequalLengths raised (line 530 of \"library.ML\")",
+      "evidence": "test/afp-Isabelle2025/full/current-candidates-2026-10-27/exports/Top_Down_Solver/Top_Down_Solver/attempt-0001/attempts/merged/allLRRRRRLR/Rust.xml",
+      "evidence_origin": "published_record",
+      "stage": "target_preparation_or_serialization",
+      "target": "Rust"
+    }
+  },
+  "new_native_requests": 0,
+  "reviewed_cells": 92
+}

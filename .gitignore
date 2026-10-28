@@ -49,3 +49,18 @@ evaluation/results/rq3/*
 !evaluation/results/rq3/x64/
 !evaluation/results/rq3/x64/**
 /.agents/
+
+# AFP server state and transferred historical evidence are distributed separately.
+/test/afp-Isabelle2025/scan/
+/test/afp-Isabelle2025/work/
+/test/afp-Isabelle2025/setup/download-cache/
+/test/afp-Isabelle2025/setup/*.local.json
+/test/afp-Isabelle2025/setup/.selected-evidence/
+/test/afp-Isabelle2025/report/evidence/
+/test/afp-Isabelle2025/report/candidate-witnesses.jsonl
+/test/afp-Isabelle2025/report/evidence-files.jsonl
+/test/afp-Isabelle2025/report/failures.jsonl
+/test/afp-Isabelle2025/report/candidates.csv
+/test/afp-Isabelle2025/report/declarations-published.csv
+/test/afp-Isabelle2025/report/failed-candidates.csv
+/test/afp-Isabelle2025/report/successful-artifacts.csv

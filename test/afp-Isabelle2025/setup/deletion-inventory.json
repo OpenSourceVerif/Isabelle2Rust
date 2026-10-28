@@ -1,0 +1,8350 @@
+[
+  {
+    "path": "test/afp-Isabelle2025/ABY3_Protocols",
+    "files": 1,
+    "bytes": 960,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ADS_Functor",
+    "files": 1,
+    "bytes": 19066,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/AI_Planning_Languages_Semantics",
+    "files": 1,
+    "bytes": 1105,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/AODV",
+    "files": 1,
+    "bytes": 687,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/AOT",
+    "files": 1,
+    "bytes": 1028,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/AVL-Trees",
+    "files": 1,
+    "bytes": 3283,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/AWN",
+    "files": 1,
+    "bytes": 12080,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Abortable_Linearizable_Modules",
+    "files": 1,
+    "bytes": 7325,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Abs_Int_ITP2012",
+    "files": 1,
+    "bytes": 7410,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Abstract-Hoare-Logics",
+    "files": 1,
+    "bytes": 2924,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Abstract-Rewriting",
+    "files": 1,
+    "bytes": 5693,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Abstract_Completeness",
+    "files": 1,
+    "bytes": 802,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Abstract_Soundness",
+    "files": 1,
+    "bytes": 799,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Abstract_Substitution",
+    "files": 1,
+    "bytes": 1281,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Ackermanns_not_PR",
+    "files": 1,
+    "bytes": 733,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Actuarial_Mathematics",
+    "files": 1,
+    "bytes": 902,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Adaptive_State_Counting",
+    "files": 1,
+    "bytes": 1021,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Affine_Arithmetic",
+    "files": 1,
+    "bytes": 1580,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Aggregation_Algebras",
+    "files": 1,
+    "bytes": 16926,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Akra_Bazzi",
+    "files": 1,
+    "bytes": 693,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Algebraic_Numbers",
+    "files": 1,
+    "bytes": 1567,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Algebraic_VCs",
+    "files": 1,
+    "bytes": 1399,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Allen_Calculus",
+    "files": 1,
+    "bytes": 917,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Alpha_Beta_Pruning",
+    "files": 1,
+    "bytes": 7442,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Amicable_Numbers",
+    "files": 1,
+    "bytes": 739,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Amortized_Complexity",
+    "files": 1,
+    "bytes": 15491,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/AnselmGod",
+    "files": 1,
+    "bytes": 616,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Applicative_Lifting",
+    "files": 1,
+    "bytes": 1887,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Approximate_Model_Counting",
+    "files": 1,
+    "bytes": 1104,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Approximation_Algorithms",
+    "files": 1,
+    "bytes": 1032,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Architectural_Design_Patterns",
+    "files": 1,
+    "bytes": 998,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Aristotles_Assertoric_Syllogistic",
+    "files": 1,
+    "bytes": 930,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Arith_Prog_Rel_Primes",
+    "files": 1,
+    "bytes": 754,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ArrowImpossibilityGS",
+    "files": 1,
+    "bytes": 1092,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Attack_Trees",
+    "files": 1,
+    "bytes": 5692,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Auto2_HOL",
+    "files": 1,
+    "bytes": 1019,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Auto2_Imperative_HOL",
+    "files": 1,
+    "bytes": 26646,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/AutoCorres2",
+    "files": 1,
+    "bytes": 14534,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/AutoFocus-Stream",
+    "files": 1,
+    "bytes": 4836,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Automated_Stateful_Protocol_Verification",
+    "files": 1,
+    "bytes": 2142,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Automatic_Refinement",
+    "files": 1,
+    "bytes": 2028,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/AxiomaticCategoryTheory",
+    "files": 1,
+    "bytes": 760,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/BDD",
+    "files": 1,
+    "bytes": 4589,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/BD_Security_Compositional",
+    "files": 1,
+    "bytes": 9531,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/BNF_CC",
+    "files": 1,
+    "bytes": 5239,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/BNF_Operations",
+    "files": 1,
+    "bytes": 5695,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/BTree",
+    "files": 1,
+    "bytes": 1457,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Babai_Nearest_Plane",
+    "files": 1,
+    "bytes": 776,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Balog_Szemeredi_Gowers",
+    "files": 1,
+    "bytes": 1167,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Banach_Steinhaus",
+    "files": 1,
+    "bytes": 787,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Belief_Revision",
+    "files": 1,
+    "bytes": 839,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Bell_Numbers_Spivey",
+    "files": 1,
+    "bytes": 741,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/BenOr_Kozen_Reif",
+    "files": 1,
+    "bytes": 1012,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Berlekamp_Zassenhaus",
+    "files": 1,
+    "bytes": 2370,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Bernoulli",
+    "files": 1,
+    "bytes": 813,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Bertrands_Postulate",
+    "files": 1,
+    "bytes": 854,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Bicategory",
+    "files": 1,
+    "bytes": 1282,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/BinarySearchTree",
+    "files": 1,
+    "bytes": 2930,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Binary_Code_Imprimitive",
+    "files": 1,
+    "bytes": 877,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Binding_Syntax_Theory",
+    "files": 1,
+    "bytes": 13083,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Binomial-Heaps",
+    "files": 1,
+    "bytes": 11491,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Binomial-Queues",
+    "files": 1,
+    "bytes": 2287,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/BirdKMP",
+    "files": 1,
+    "bytes": 1513,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Birkhoff_Finite_Distributive_Lattices",
+    "files": 1,
+    "bytes": 1359,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Blue_Eyes",
+    "files": 1,
+    "bytes": 718,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Bondy",
+    "files": 1,
+    "bytes": 706,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Boolean_Expression_Checkers",
+    "files": 1,
+    "bytes": 5370,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Boolos_Curious_Inference",
+    "files": 1,
+    "bytes": 779,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Boolos_Curious_Inference_Automated",
+    "files": 1,
+    "bytes": 801,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Bounded_Deducibility_Security",
+    "files": 1,
+    "bytes": 2388,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Boustrophedon_Transform",
+    "files": 1,
+    "bytes": 1363,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Broadcast_Psi",
+    "files": 1,
+    "bytes": 4119,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Buchi_Complementation",
+    "files": 1,
+    "bytes": 1046,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Budan_Fourier",
+    "files": 1,
+    "bytes": 1216,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Buffons_Needle",
+    "files": 1,
+    "bytes": 733,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Buildings",
+    "files": 1,
+    "bytes": 2007,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/BurrowsWheeler",
+    "files": 1,
+    "bytes": 1170,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/BytecodeLogicJmlTypes",
+    "files": 1,
+    "bytes": 3774,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/C2KA_DistributedSystems",
+    "files": 1,
+    "bytes": 906,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CAVA_Automata",
+    "files": 1,
+    "bytes": 1198,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CAVA_LTL_Modelchecker",
+    "files": 1,
+    "bytes": 1880,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CCS",
+    "files": 1,
+    "bytes": 3486,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CHERI-C_Memory_Model",
+    "files": 1,
+    "bytes": 861,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CISC-Kernel",
+    "files": 1,
+    "bytes": 10253,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CRDT",
+    "files": 1,
+    "bytes": 4120,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CRYSTALS-Kyber",
+    "files": 1,
+    "bytes": 1071,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CRYSTALS-Kyber_Security",
+    "files": 1,
+    "bytes": 1096,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CSP_RefTK",
+    "files": 1,
+    "bytes": 845,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CVM_Distinct_Elements",
+    "files": 1,
+    "bytes": 905,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CVP_Hardness",
+    "files": 1,
+    "bytes": 1011,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CYK",
+    "files": 1,
+    "bytes": 1330,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CZH_Elementary_Categories",
+    "files": 1,
+    "bytes": 2418,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CZH_Foundations",
+    "files": 1,
+    "bytes": 2716,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CZH_Universal_Constructions",
+    "files": 1,
+    "bytes": 1610,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CakeML",
+    "files": 1,
+    "bytes": 2370,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CakeML_Codegen",
+    "files": 1,
+    "bytes": 2269,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Call_Arity",
+    "files": 1,
+    "bytes": 5935,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Card_Equiv_Relations",
+    "files": 1,
+    "bytes": 807,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Card_Multisets",
+    "files": 1,
+    "bytes": 733,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Card_Number_Partitions",
+    "files": 1,
+    "bytes": 839,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Card_Partitions",
+    "files": 1,
+    "bytes": 813,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Cardinality_Continuum",
+    "files": 1,
+    "bytes": 868,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Cartan_FP",
+    "files": 1,
+    "bytes": 715,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Case_Labeling",
+    "files": 1,
+    "bytes": 920,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Catalan_Numbers",
+    "files": 1,
+    "bytes": 785,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Category",
+    "files": 1,
+    "bytes": 3247,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Category2",
+    "files": 1,
+    "bytes": 14130,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Category3",
+    "files": 1,
+    "bytes": 1520,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Category_Set",
+    "files": 1,
+    "bytes": 1221,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Catoids",
+    "files": 1,
+    "bytes": 690,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Cauchy",
+    "files": 1,
+    "bytes": 866,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Cayley_Hamilton",
+    "files": 1,
+    "bytes": 772,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Certification_Monads",
+    "files": 1,
+    "bytes": 931,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Ceva",
+    "files": 1,
+    "bytes": 703,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Chandy_Lamport",
+    "files": 1,
+    "bytes": 908,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Chebyshev_Polynomials",
+    "files": 1,
+    "bytes": 860,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Chebyshev_Prime_Bounds",
+    "files": 1,
+    "bytes": 810,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Chord_Segments",
+    "files": 1,
+    "bytes": 733,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Circus",
+    "files": 1,
+    "bytes": 8831,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Clean",
+    "files": 1,
+    "bytes": 1067,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Clique_and_Monotone_Circuits",
+    "files": 1,
+    "bytes": 944,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ClockSynchInst",
+    "files": 1,
+    "bytes": 822,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Closest_Pair_Points",
+    "files": 1,
+    "bytes": 825,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CoCon",
+    "files": 1,
+    "bytes": 688,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CoSMeDis",
+    "files": 1,
+    "bytes": 691,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CoSMed",
+    "files": 1,
+    "bytes": 20444,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CofGroups",
+    "files": 1,
+    "bytes": 695,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Coinductive",
+    "files": 1,
+    "bytes": 1331,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Coinductive_Languages",
+    "files": 1,
+    "bytes": 3249,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Collections",
+    "files": 1,
+    "bytes": 5098,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Combinable_Wands",
+    "files": 1,
+    "bytes": 2889,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Combinatorial_Enumeration_Algorithms",
+    "files": 1,
+    "bytes": 1439,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Combinatorial_Q_Analogues",
+    "files": 1,
+    "bytes": 957,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Combinatorics_Words",
+    "files": 1,
+    "bytes": 1119,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Combinatorics_Words_Graph_Lemma",
+    "files": 1,
+    "bytes": 814,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Combinatorics_Words_Lyndon",
+    "files": 1,
+    "bytes": 798,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CommCSL",
+    "files": 1,
+    "bytes": 8229,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Commuting_Hermitian",
+    "files": 1,
+    "bytes": 853,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Comparison_Sort_Lower_Bound",
+    "files": 1,
+    "bytes": 825,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Compiling-Exceptions-Correctly",
+    "files": 1,
+    "bytes": 2690,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Complete_Non_Orders",
+    "files": 1,
+    "bytes": 1486,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Completeness",
+    "files": 1,
+    "bytes": 4771,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Complex_Bounded_Operators",
+    "files": 1,
+    "bytes": 1678,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Complex_Geometry",
+    "files": 1,
+    "bytes": 1479,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Complx",
+    "files": 1,
+    "bytes": 955,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ComponentDependencies",
+    "files": 1,
+    "bytes": 6824,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Concentration_Inequalities",
+    "files": 1,
+    "bytes": 1106,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ConcurrentGC",
+    "files": 1,
+    "bytes": 695,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ConcurrentHOL",
+    "files": 1,
+    "bytes": 1720,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ConcurrentIMP",
+    "files": 1,
+    "bytes": 11125,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Concurrent_Ref_Alg",
+    "files": 1,
+    "bytes": 1131,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Concurrent_Revisions",
+    "files": 1,
+    "bytes": 4221,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CondNormReasHOL",
+    "files": 1,
+    "bytes": 836,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Conditional_Simplification",
+    "files": 1,
+    "bytes": 895,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Conditional_Transfer_Rule",
+    "files": 1,
+    "bytes": 1637,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Consensus_Refined",
+    "files": 1,
+    "bytes": 25249,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Constructive_Cryptography",
+    "files": 1,
+    "bytes": 1275,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Constructive_Cryptography_CM",
+    "files": 1,
+    "bytes": 1342,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Constructor_Funs",
+    "files": 1,
+    "bytes": 5528,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Containers",
+    "files": 1,
+    "bytes": 2071,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Continued_Fractions",
+    "files": 1,
+    "bytes": 1075,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Cook_Levin",
+    "files": 1,
+    "bytes": 1245,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Coppersmith_Method",
+    "files": 1,
+    "bytes": 996,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Coproduct_Measure",
+    "files": 1,
+    "bytes": 844,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CoreC++",
+    "files": 1,
+    "bytes": 9813,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Core_DOM",
+    "files": 1,
+    "bytes": 32391,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Core_SC_DOM",
+    "files": 1,
+    "bytes": 32618,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Correctness_Algebras",
+    "files": 1,
+    "bytes": 703,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Cotangent_PFD_Formula",
+    "files": 1,
+    "bytes": 754,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Count_Complex_Roots",
+    "files": 1,
+    "bytes": 1052,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Countable_Sums_and_Discrete_Distributions",
+    "files": 1,
+    "bytes": 1387,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Coupledsim_Contrasim",
+    "files": 1,
+    "bytes": 7428,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CryptHOL",
+    "files": 1,
+    "bytes": 1207,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CryptoBasedCompositionalProperties",
+    "files": 1,
+    "bytes": 6831,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Crypto_Standards",
+    "files": 1,
+    "bytes": 699,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Cube_Dissection",
+    "files": 1,
+    "bytes": 3003,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Cubic_Quartic_Equations",
+    "files": 1,
+    "bytes": 942,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/CubicalCategories",
+    "files": 1,
+    "bytes": 874,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/DCR-ExecutionEquivalence",
+    "files": 1,
+    "bytes": 3107,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/DFS_Framework",
+    "files": 1,
+    "bytes": 1500,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/DOM_Components",
+    "files": 1,
+    "bytes": 813,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/DPRM_Theorem",
+    "files": 1,
+    "bytes": 10970,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/DPT-SAT-Solver",
+    "files": 1,
+    "bytes": 768,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/DP_QBS",
+    "files": 1,
+    "bytes": 738,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/DataRefinementIBP",
+    "files": 1,
+    "bytes": 1213,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Datatype_Order_Generator",
+    "files": 1,
+    "bytes": 927,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Decl_Sem_Fun_PL",
+    "files": 1,
+    "bytes": 11039,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Decreasing-Diagrams",
+    "files": 1,
+    "bytes": 1673,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Decreasing-Diagrams-II",
+    "files": 1,
+    "bytes": 1995,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Dedekind_Real",
+    "files": 1,
+    "bytes": 2018,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Deep_Learning",
+    "files": 1,
+    "bytes": 1411,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Delta_System_Lemma",
+    "files": 1,
+    "bytes": 1142,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Density_Compiler",
+    "files": 1,
+    "bytes": 1071,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Dependent_SIFUM_Refinement",
+    "files": 1,
+    "bytes": 1040,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Dependent_SIFUM_Type_Systems",
+    "files": 1,
+    "bytes": 1203,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Depth-First-Search",
+    "files": 1,
+    "bytes": 834,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Derandomization_Conditional_Expectations",
+    "files": 1,
+    "bytes": 1019,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Derangements",
+    "files": 1,
+    "bytes": 675,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Deriving",
+    "files": 1,
+    "bytes": 1284,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Descartes_Sign_Rule",
+    "files": 1,
+    "bytes": 809,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Design_Theory",
+    "files": 1,
+    "bytes": 1097,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Diagonal_Ramsey",
+    "files": 1,
+    "bytes": 1071,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Dict_Construction",
+    "files": 1,
+    "bytes": 984,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Difference_Bound_Matrices",
+    "files": 1,
+    "bytes": 1312,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Differential_Dynamic_Logic",
+    "files": 1,
+    "bytes": 1457,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Differential_Game_Logic",
+    "files": 1,
+    "bytes": 1123,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Differential_Privacy",
+    "files": 1,
+    "bytes": 1571,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Digit_Expansions",
+    "files": 1,
+    "bytes": 899,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/DigitsInBase",
+    "files": 1,
+    "bytes": 706,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Dijkstra_Shortest_Path",
+    "files": 1,
+    "bytes": 1183,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Diophantine_Eqns_Lin_Hom",
+    "files": 1,
+    "bytes": 2365,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Directed_Sets",
+    "files": 1,
+    "bytes": 732,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Dirichlet_L",
+    "files": 1,
+    "bytes": 853,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Dirichlet_Series",
+    "files": 1,
+    "bytes": 1288,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/DiscretePricing",
+    "files": 1,
+    "bytes": 1046,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Discrete_Summation",
+    "files": 1,
+    "bytes": 932,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Disintegration",
+    "files": 1,
+    "bytes": 776,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/DiskPaxos",
+    "files": 1,
+    "bytes": 6277,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Distributed_Distinct_Elements",
+    "files": 1,
+    "bytes": 1357,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Dominance_CHK",
+    "files": 1,
+    "bytes": 1821,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Doob_Convergence",
+    "files": 1,
+    "bytes": 810,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/DynamicArchitectures",
+    "files": 1,
+    "bytes": 808,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Dynamic_Tables",
+    "files": 1,
+    "bytes": 667,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/E_Transcendental",
+    "files": 1,
+    "bytes": 739,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Earley_Parser",
+    "files": 1,
+    "bytes": 7305,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Echelon_Form",
+    "files": 1,
+    "bytes": 1194,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/EdmondsKarp_Maxflow",
+    "files": 1,
+    "bytes": 1030,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Edwards_Elliptic_Curves_Group",
+    "files": 1,
+    "bytes": 778,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Efficient-Mergesort",
+    "files": 1,
+    "bytes": 1425,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Efficient_Weighted_Path_Order",
+    "files": 1,
+    "bytes": 1012,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Elimination_Of_Repeated_Factors",
+    "files": 1,
+    "bytes": 991,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Elliptic_Curves_Group_Law",
+    "files": 1,
+    "bytes": 3316,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Encodability_Process_Calculi",
+    "files": 1,
+    "bytes": 4003,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/EnrichedCategoryBasics",
+    "files": 1,
+    "bytes": 864,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Epistemic_Logic",
+    "files": 1,
+    "bytes": 3136,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Equivalence_Relation_Enumeration",
+    "files": 1,
+    "bytes": 787,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Ergodic_Theory",
+    "files": 1,
+    "bytes": 1234,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Error_Function",
+    "files": 1,
+    "bytes": 781,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Eudoxus_Reals",
+    "files": 1,
+    "bytes": 1255,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Euler_MacLaurin",
+    "files": 1,
+    "bytes": 781,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Euler_Partition",
+    "files": 1,
+    "bytes": 771,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Euler_Polyhedron_Formula",
+    "files": 1,
+    "bytes": 752,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Eval_FO",
+    "files": 1,
+    "bytes": 833,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Example-Submission",
+    "files": 1,
+    "bytes": 737,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Executable_Randomized_Algorithms",
+    "files": 1,
+    "bytes": 1257,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Expander_Graphs",
+    "files": 1,
+    "bytes": 1349,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Extended_Finite_State_Machine_Inference",
+    "files": 1,
+    "bytes": 13383,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Extended_Finite_State_Machines",
+    "files": 1,
+    "bytes": 9990,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FFT",
+    "files": 1,
+    "bytes": 645,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FLP",
+    "files": 1,
+    "bytes": 6116,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FOL-Fitting",
+    "files": 1,
+    "bytes": 3434,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FOL_Axiomatic",
+    "files": 1,
+    "bytes": 4098,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FOL_Compactness",
+    "files": 1,
+    "bytes": 963,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FOL_Harrison",
+    "files": 1,
+    "bytes": 3285,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FOL_Seq_Calc1",
+    "files": 1,
+    "bytes": 796,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FOL_Seq_Calc2",
+    "files": 1,
+    "bytes": 1102,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FOL_Seq_Calc3",
+    "files": 1,
+    "bytes": 990,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FO_Theory_Rewriting",
+    "files": 1,
+    "bytes": 1525,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FSM_Tests",
+    "files": 1,
+    "bytes": 2327,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Factor_Algebraic_Polynomial",
+    "files": 1,
+    "bytes": 1348,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Factored_Transition_System_Bounding",
+    "files": 1,
+    "bytes": 718,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Falling_Factorial_Sum",
+    "files": 1,
+    "bytes": 890,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Farkas",
+    "files": 1,
+    "bytes": 767,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FeatherweightJava",
+    "files": 1,
+    "bytes": 5916,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Featherweight_OCL",
+    "files": 1,
+    "bytes": 26764,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Fermat3_4",
+    "files": 1,
+    "bytes": 696,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FileRefinement",
+    "files": 1,
+    "bytes": 2035,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FinFun",
+    "files": 1,
+    "bytes": 1990,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Finger-Trees",
+    "files": 1,
+    "bytes": 7861,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Finite-Map-Extras",
+    "files": 1,
+    "bytes": 742,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Finite_Automata_HF",
+    "files": 1,
+    "bytes": 2399,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Finite_Fields",
+    "files": 1,
+    "bytes": 1530,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Finitely_Generated_Abelian_Groups",
+    "files": 1,
+    "bytes": 1315,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/First_Order_Clause",
+    "files": 1,
+    "bytes": 2946,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/First_Order_Terms",
+    "files": 1,
+    "bytes": 1420,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/First_Welfare_Theorem",
+    "files": 1,
+    "bytes": 1079,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Fishburn_Impossibility",
+    "files": 1,
+    "bytes": 810,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Fisher_Yates",
+    "files": 1,
+    "bytes": 727,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Fishers_Inequality",
+    "files": 1,
+    "bytes": 1198,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Fixed_Length_Vector",
+    "files": 1,
+    "bytes": 1864,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Flow_Networks",
+    "files": 1,
+    "bytes": 1090,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Floyd_Warshall",
+    "files": 1,
+    "bytes": 805,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Flyspeck-Tame",
+    "files": 1,
+    "bytes": 8559,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FocusStreamsCaseStudies",
+    "files": 1,
+    "bytes": 12148,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Forcing",
+    "files": 1,
+    "bytes": 5890,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Formal_Puiseux_Series",
+    "files": 1,
+    "bytes": 2020,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Formal_SSA",
+    "files": 1,
+    "bytes": 1321,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Formula_Derivatives",
+    "files": 1,
+    "bytes": 1389,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Foundation_of_geometry",
+    "files": 1,
+    "bytes": 6078,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Fourier",
+    "files": 1,
+    "bytes": 837,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Free-Boolean-Algebra",
+    "files": 1,
+    "bytes": 1294,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Free-Groups",
+    "files": 1,
+    "bytes": 894,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Frequency_Moments",
+    "files": 1,
+    "bytes": 1097,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Fresh_Identifiers",
+    "files": 1,
+    "bytes": 1006,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FunWithFunctions",
+    "files": 1,
+    "bytes": 739,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/FunWithTilings",
+    "files": 1,
+    "bytes": 724,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Functional-Automata",
+    "files": 1,
+    "bytes": 1906,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Functional_Ordered_Resolution_Prover",
+    "files": 1,
+    "bytes": 1090,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Furstenberg_Topology",
+    "files": 1,
+    "bytes": 751,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/GPU_Kernel_PL",
+    "files": 1,
+    "bytes": 7475,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Gabow_SCC",
+    "files": 1,
+    "bytes": 963,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/GaleStewart_Games",
+    "files": 1,
+    "bytes": 1001,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Gale_Shapley",
+    "files": 1,
+    "bytes": 761,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Game_Based_Crypto",
+    "files": 1,
+    "bytes": 1519,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Gauss-Jordan-Elim-Fun",
+    "files": 1,
+    "bytes": 813,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Gauss_Jordan",
+    "files": 1,
+    "bytes": 1723,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Gauss_Sums",
+    "files": 1,
+    "bytes": 941,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Gaussian_Integers",
+    "files": 1,
+    "bytes": 966,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/GenClock",
+    "files": 1,
+    "bytes": 854,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/General-Triangle",
+    "files": 1,
+    "bytes": 861,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Generalized_Cauchy_Davenport",
+    "files": 1,
+    "bytes": 799,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Generalized_Counting_Sort",
+    "files": 1,
+    "bytes": 1361,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Generic_Deriving",
+    "files": 1,
+    "bytes": 34394,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Generic_Join",
+    "files": 1,
+    "bytes": 804,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/GewirthPGCProof",
+    "files": 1,
+    "bytes": 736,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Girth_Chromatic",
+    "files": 1,
+    "bytes": 809,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Given_Clause_Loops",
+    "files": 1,
+    "bytes": 1392,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Go",
+    "files": 1,
+    "bytes": 652,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/GoedelGod",
+    "files": 1,
+    "bytes": 651,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Goedel_HFSet_Semantic",
+    "files": 1,
+    "bytes": 741,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Goedel_HFSet_Semanticless",
+    "files": 1,
+    "bytes": 1215,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Goedel_Incompleteness",
+    "files": 1,
+    "bytes": 1530,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Goodstein_Lambda",
+    "files": 1,
+    "bytes": 2250,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/GraphMarkingIBP",
+    "files": 1,
+    "bytes": 2074,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Graph_Algorithms",
+    "files": 1,
+    "bytes": 3461,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Graph_Saturation",
+    "files": 1,
+    "bytes": 7065,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Graph_Theory",
+    "files": 1,
+    "bytes": 5987,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Gray_Codes",
+    "files": 1,
+    "bytes": 961,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Green",
+    "files": 1,
+    "bytes": 869,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Groebner_Bases",
+    "files": 1,
+    "bytes": 1392,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Groebner_Macaulay",
+    "files": 1,
+    "bytes": 1141,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Gromov_Hyperbolicity",
+    "files": 1,
+    "bytes": 1248,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Grothendieck_Schemes",
+    "files": 1,
+    "bytes": 829,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Group-Ring-Module",
+    "files": 1,
+    "bytes": 13295,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/HOL-CSP",
+    "files": 1,
+    "bytes": 1565,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/HOL-CSPM",
+    "files": 1,
+    "bytes": 1322,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/HOL-CSP_OpSem",
+    "files": 1,
+    "bytes": 1134,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/HOLCF-Prelude",
+    "files": 1,
+    "bytes": 6194,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/HRB-Slicing",
+    "files": 1,
+    "bytes": 9274,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hahn_Jordan_Decomposition",
+    "files": 1,
+    "bytes": 876,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hales_Jewett",
+    "files": 1,
+    "bytes": 833,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Heard_Of",
+    "files": 1,
+    "bytes": 14882,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hello_World",
+    "files": 1,
+    "bytes": 781,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/HereditarilyFinite",
+    "files": 1,
+    "bytes": 3342,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hermite",
+    "files": 1,
+    "bytes": 742,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hermite_Lindemann",
+    "files": 1,
+    "bytes": 1065,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hidden_Markov_Models",
+    "files": 1,
+    "bytes": 872,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Higher_Order_Terms",
+    "files": 1,
+    "bytes": 1131,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hilbert_Basis",
+    "files": 1,
+    "bytes": 1020,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hilbert_Space_Tensor_Product",
+    "files": 1,
+    "bytes": 1575,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/HoareForDivergence",
+    "files": 1,
+    "bytes": 1136,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hoare_Time",
+    "files": 1,
+    "bytes": 1590,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hood_Melville_Queue",
+    "files": 1,
+    "bytes": 4105,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/HotelKeyCards",
+    "files": 1,
+    "bytes": 2906,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Huffman",
+    "files": 1,
+    "bytes": 1851,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hybrid_Logic",
+    "files": 1,
+    "bytes": 3109,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hybrid_Multi_Lane_Spatial_Logic",
+    "files": 1,
+    "bytes": 2975,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hybrid_Systems_VCs",
+    "files": 1,
+    "bytes": 1436,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/HyperCTL",
+    "files": 1,
+    "bytes": 4211,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/HyperHoareLogic",
+    "files": 1,
+    "bytes": 10464,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hyperdual",
+    "files": 1,
+    "bytes": 872,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hypergraph_Basics",
+    "files": 1,
+    "bytes": 828,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Hypergraph_Colourings",
+    "files": 1,
+    "bytes": 907,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IEEE_Floating_Point",
+    "files": 1,
+    "bytes": 978,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IFC_Tracking",
+    "files": 1,
+    "bytes": 1781,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ILL",
+    "files": 1,
+    "bytes": 4684,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IMAP-CRDT",
+    "files": 1,
+    "bytes": 1712,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IMO2019",
+    "files": 1,
+    "bytes": 765,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IMP2",
+    "files": 1,
+    "bytes": 1165,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IMP2_Binary_Heap",
+    "files": 1,
+    "bytes": 739,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IMP_Compiler",
+    "files": 1,
+    "bytes": 2080,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IMP_Compiler_Reuse",
+    "files": 1,
+    "bytes": 2555,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IMP_Noninterference",
+    "files": 1,
+    "bytes": 1909,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IMP_Noninterference_Extension",
+    "files": 1,
+    "bytes": 2561,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IMP_With_Speculation",
+    "files": 1,
+    "bytes": 1475,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IO_Language_Conformance",
+    "files": 1,
+    "bytes": 2778,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IP_Addresses",
+    "files": 1,
+    "bytes": 1236,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Imperative_Insertion_Sort",
+    "files": 1,
+    "bytes": 1156,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Implicational_Logic",
+    "files": 1,
+    "bytes": 4774,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Impossible_Geometry",
+    "files": 1,
+    "bytes": 2920,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Incompleteness",
+    "files": 1,
+    "bytes": 6610,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Incredible_Proof_Machine",
+    "files": 1,
+    "bytes": 1737,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Independence_CH",
+    "files": 1,
+    "bytes": 8786,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Inductive_Confidentiality",
+    "files": 1,
+    "bytes": 6233,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Inductive_Inference",
+    "files": 1,
+    "bytes": 7825,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/InfPathElimination",
+    "files": 1,
+    "bytes": 5203,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/InformationFlowSlicing",
+    "files": 1,
+    "bytes": 1656,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/InformationFlowSlicing_Inter",
+    "files": 1,
+    "bytes": 1698,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Integration",
+    "files": 1,
+    "bytes": 1300,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Interpolation_Polynomials_HOL_Algebra",
+    "files": 1,
+    "bytes": 881,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Interpreter_Optimizations",
+    "files": 1,
+    "bytes": 15307,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Interval_Analysis",
+    "files": 1,
+    "bytes": 1814,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Interval_Arithmetic_Word32",
+    "files": 1,
+    "bytes": 850,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Intro_Dest_Elim",
+    "files": 1,
+    "bytes": 811,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Involutions2Squares",
+    "files": 1,
+    "bytes": 776,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Iptables_Semantics",
+    "files": 1,
+    "bytes": 4312,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Irrational_Series_Erdos_Straus",
+    "files": 1,
+    "bytes": 781,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Irrationality_J_Hancl",
+    "files": 1,
+    "bytes": 754,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Irrationals_From_THEBOOK",
+    "files": 1,
+    "bytes": 763,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IsaGeoCoq",
+    "files": 1,
+    "bytes": 723,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/IsaNet",
+    "files": 1,
+    "bytes": 10710,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Isabelle_C",
+    "files": 1,
+    "bytes": 1262,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Isabelle_DOF",
+    "files": 1,
+    "bytes": 129125,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Isabelle_Marries_Dirac",
+    "files": 1,
+    "bytes": 1249,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Isabelle_Meta_Model",
+    "files": 1,
+    "bytes": 702,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Isabelle_hoops",
+    "files": 1,
+    "bytes": 860,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Jacobson_Basic_Algebra",
+    "files": 1,
+    "bytes": 823,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Jinja",
+    "files": 1,
+    "bytes": 13928,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/JinjaDCI",
+    "files": 1,
+    "bytes": 13636,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/JinjaThreads",
+    "files": 1,
+    "bytes": 5978,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/JiveDataStoreModel",
+    "files": 1,
+    "bytes": 9826,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Jordan_Hoelder",
+    "files": 1,
+    "bytes": 1055,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Jordan_Normal_Form",
+    "files": 1,
+    "bytes": 2204,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/KAD",
+    "files": 1,
+    "bytes": 3384,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/KAT_and_DRA",
+    "files": 1,
+    "bytes": 2363,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/KBPs",
+    "files": 1,
+    "bytes": 1145,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/KD_Tree",
+    "files": 1,
+    "bytes": 791,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Karatsuba",
+    "files": 1,
+    "bytes": 1184,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Karatsuba_Sqrt",
+    "files": 1,
+    "bytes": 1353,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Key_Agreement_Strong_Adversaries",
+    "files": 1,
+    "bytes": 22497,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Khovanskii_Theorem",
+    "files": 1,
+    "bytes": 776,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Kleene_Algebra",
+    "files": 1,
+    "bytes": 9937,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Kneser_Cauchy_Davenport",
+    "files": 1,
+    "bytes": 840,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Knights_Tour",
+    "files": 1,
+    "bytes": 1563,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Knot_Theory",
+    "files": 1,
+    "bytes": 5383,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/KnuthMorrisPratt",
+    "files": 1,
+    "bytes": 739,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Knuth_Bendix_Order",
+    "files": 1,
+    "bytes": 815,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Knuth_Morris_Pratt",
+    "files": 1,
+    "bytes": 730,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Koenigsberg_Friendship",
+    "files": 1,
+    "bytes": 837,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Kruskal",
+    "files": 1,
+    "bytes": 996,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Kummer_Congruence",
+    "files": 1,
+    "bytes": 952,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Kuratowski_Closure_Complement",
+    "files": 1,
+    "bytes": 783,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LL1_Parser",
+    "files": 1,
+    "bytes": 954,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LLL_Basis_Reduction",
+    "files": 1,
+    "bytes": 1252,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LLL_Factorization",
+    "files": 1,
+    "bytes": 1016,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LOFT",
+    "files": 1,
+    "bytes": 1045,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LP_Duality",
+    "files": 1,
+    "bytes": 754,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LTL",
+    "files": 1,
+    "bytes": 8271,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LTL3_Semantics",
+    "files": 1,
+    "bytes": 5826,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LTL_Master_Theorem",
+    "files": 1,
+    "bytes": 1317,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LTL_Normal_Form",
+    "files": 1,
+    "bytes": 823,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LTL_to_DRA",
+    "files": 1,
+    "bytes": 1251,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LTL_to_GBA",
+    "files": 1,
+    "bytes": 789,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Labeled_Transition_Systems",
+    "files": 1,
+    "bytes": 746,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lam-ml-Normalization",
+    "files": 1,
+    "bytes": 4041,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LambdaAuth",
+    "files": 1,
+    "bytes": 3248,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LambdaMu",
+    "files": 1,
+    "bytes": 3482,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lambda_Free_EPO",
+    "files": 1,
+    "bytes": 1399,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lambda_Free_KBOs",
+    "files": 1,
+    "bytes": 1003,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lambda_Free_RPOs",
+    "files": 1,
+    "bytes": 2914,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lambert_Series",
+    "files": 1,
+    "bytes": 874,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lambert_W",
+    "files": 1,
+    "bytes": 761,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Landau_Symbols",
+    "files": 1,
+    "bytes": 2814,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Laplace_Transform",
+    "files": 1,
+    "bytes": 942,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Latin_Square",
+    "files": 1,
+    "bytes": 1698,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LatticeProperties",
+    "files": 1,
+    "bytes": 1484,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Launchbury",
+    "files": 1,
+    "bytes": 5604,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Laws_of_Large_Numbers",
+    "files": 1,
+    "bytes": 812,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lazy-Lists-II",
+    "files": 1,
+    "bytes": 723,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lazy_Case",
+    "files": 1,
+    "bytes": 3995,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lehmer",
+    "files": 1,
+    "bytes": 709,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Levy_Prokhorov_Metric",
+    "files": 1,
+    "bytes": 1002,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lie_Groups",
+    "files": 1,
+    "bytes": 1056,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lifting_Definition_Option",
+    "files": 1,
+    "bytes": 6529,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lifting_the_Exponent",
+    "files": 1,
+    "bytes": 734,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LightweightJava",
+    "files": 1,
+    "bytes": 15094,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LinearQuantifierElim",
+    "files": 1,
+    "bytes": 5687,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Linear_Diophantine_Preprocessor",
+    "files": 1,
+    "bytes": 1402,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Linear_Inequalities",
+    "files": 1,
+    "bytes": 1353,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Linear_Programming",
+    "files": 1,
+    "bytes": 877,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Linear_Recurrences",
+    "files": 1,
+    "bytes": 1446,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Liouville_Numbers",
+    "files": 1,
+    "bytes": 712,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/List-Index",
+    "files": 1,
+    "bytes": 754,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/List-Infinite",
+    "files": 1,
+    "bytes": 3091,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/List_Interleaving",
+    "files": 1,
+    "bytes": 689,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/List_Inversions",
+    "files": 1,
+    "bytes": 1097,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/List_Power",
+    "files": 1,
+    "bytes": 721,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/List_Update",
+    "files": 1,
+    "bytes": 1219,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/LocalLexing",
+    "files": 1,
+    "bytes": 2827,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Localization_Ring",
+    "files": 1,
+    "bytes": 705,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Locally-Nameless-Sigma",
+    "files": 1,
+    "bytes": 981,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Logging_Independent_Anonymity",
+    "files": 1,
+    "bytes": 3605,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lovasz_Local",
+    "files": 1,
+    "bytes": 984,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lowe_Ontological_Argument",
+    "files": 1,
+    "bytes": 1838,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lower_Semicontinuous",
+    "files": 1,
+    "bytes": 751,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lp",
+    "files": 1,
+    "bytes": 724,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Lucas_Theorem",
+    "files": 1,
+    "bytes": 676,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MDP-Algorithms",
+    "files": 1,
+    "bytes": 1765,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MDP-Rewards",
+    "files": 1,
+    "bytes": 878,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MFMC_Countable",
+    "files": 1,
+    "bytes": 1163,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MFODL_Monitor_Optimized",
+    "files": 1,
+    "bytes": 1076,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MFOTL_Checker",
+    "files": 1,
+    "bytes": 1160,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MFOTL_Monitor",
+    "files": 1,
+    "bytes": 958,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MHComputation",
+    "files": 1,
+    "bytes": 730,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MLSS_Decision_Proc",
+    "files": 1,
+    "bytes": 9159,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ML_Unification",
+    "files": 1,
+    "bytes": 5904,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MSO_Regex_Equivalence",
+    "files": 1,
+    "bytes": 1494,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Markov_Models",
+    "files": 1,
+    "bytes": 1405,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Marriage",
+    "files": 1,
+    "bytes": 715,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Martingales",
+    "files": 1,
+    "bytes": 923,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Mason_Stothers",
+    "files": 1,
+    "bytes": 667,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Matrices_for_ODEs",
+    "files": 1,
+    "bytes": 878,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Matrix",
+    "files": 1,
+    "bytes": 2558,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Matrix_Tensor",
+    "files": 1,
+    "bytes": 730,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Matroids",
+    "files": 1,
+    "bytes": 742,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Max-Card-Matching",
+    "files": 1,
+    "bytes": 886,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Maximum_Segment_Sum",
+    "files": 1,
+    "bytes": 1120,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Median_Method",
+    "files": 1,
+    "bytes": 723,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Median_Of_Medians_Selection",
+    "files": 1,
+    "bytes": 1482,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Menger",
+    "files": 1,
+    "bytes": 1399,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Mereology",
+    "files": 1,
+    "bytes": 865,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Mersenne_Primes",
+    "files": 1,
+    "bytes": 818,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Metalogic_ProofChecker",
+    "files": 1,
+    "bytes": 1474,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Min_Max_Least_Greatest",
+    "files": 1,
+    "bytes": 989,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MiniML",
+    "files": 1,
+    "bytes": 3729,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MiniSail",
+    "files": 1,
+    "bytes": 1152,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Minimal_SSA",
+    "files": 1,
+    "bytes": 724,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Minkowskis_Theorem",
+    "files": 1,
+    "bytes": 745,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Minsky_Machines",
+    "files": 1,
+    "bytes": 1736,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Mission_Time_LTL",
+    "files": 1,
+    "bytes": 1778,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Mission_Time_LTL_Language_Partition",
+    "files": 1,
+    "bytes": 940,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Mission_Time_LTL_to_Regular_Expression",
+    "files": 1,
+    "bytes": 3479,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Modal_Logics_for_NTS",
+    "files": 1,
+    "bytes": 8712,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Modular_Assembly_Kit_Security",
+    "files": 1,
+    "bytes": 8581,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Modular_arithmetic_LLL_and_HNF_algorithms",
+    "files": 1,
+    "bytes": 1400,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Monad_Memo_DP",
+    "files": 1,
+    "bytes": 1651,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Monad_Normalisation",
+    "files": 1,
+    "bytes": 799,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MonoBoolTranAlgebra",
+    "files": 1,
+    "bytes": 3007,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MonoidalCategory",
+    "files": 1,
+    "bytes": 871,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Monomorphic_Monad",
+    "files": 1,
+    "bytes": 864,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/More_LazyLists",
+    "files": 1,
+    "bytes": 814,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/MuchAdoAboutTwo",
+    "files": 1,
+    "bytes": 2285,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Multi_Party_Computation",
+    "files": 1,
+    "bytes": 1346,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Multirelations",
+    "files": 1,
+    "bytes": 1202,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Multirelations_Heterogeneous",
+    "files": 1,
+    "bytes": 3155,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Multiset_Ordering_NPC",
+    "files": 1,
+    "bytes": 951,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Multitape_To_Singletape_TM",
+    "files": 1,
+    "bytes": 10912,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Myhill-Nerode",
+    "files": 1,
+    "bytes": 2184,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/NREST",
+    "files": 1,
+    "bytes": 845,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Name_Carrying_Type_Inference",
+    "files": 1,
+    "bytes": 3426,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Nano_JSON",
+    "files": 1,
+    "bytes": 2028,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Nash_Williams",
+    "files": 1,
+    "bytes": 904,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Nat-Interval-Logic",
+    "files": 1,
+    "bytes": 2449,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Native_Word",
+    "files": 1,
+    "bytes": 1640,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Negative_Association",
+    "files": 1,
+    "bytes": 1140,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Nested_Multisets_Ordinals",
+    "files": 1,
+    "bytes": 8371,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Network_Security_Policy_Verification",
+    "files": 1,
+    "bytes": 5530,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Neumann_Morgenstern_Utility",
+    "files": 1,
+    "bytes": 925,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/No_FTL_observers",
+    "files": 1,
+    "bytes": 6279,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/No_FTL_observers_Gen_Rel",
+    "files": 1,
+    "bytes": 5592,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Nominal2",
+    "files": 1,
+    "bytes": 5023,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Nominal_Myhill_Nerode",
+    "files": 1,
+    "bytes": 707,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Noninterference_CSP",
+    "files": 1,
+    "bytes": 4613,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Noninterference_Concurrent_Composition",
+    "files": 1,
+    "bytes": 1047,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Noninterference_Generic_Unwinding",
+    "files": 1,
+    "bytes": 1775,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Noninterference_Inductive_Unwinding",
+    "files": 1,
+    "bytes": 2160,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Noninterference_Ipurge_Unwinding",
+    "files": 1,
+    "bytes": 1552,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Noninterference_Sequential_Composition",
+    "files": 1,
+    "bytes": 3371,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/NormByEval",
+    "files": 1,
+    "bytes": 1804,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Notes_On_Goedels_Ontological_Argument",
+    "files": 1,
+    "bytes": 4736,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Nullstellensatz",
+    "files": 1,
+    "bytes": 901,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Number_Theoretic_Transform",
+    "files": 1,
+    "bytes": 841,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Octonions",
+    "files": 1,
+    "bytes": 750,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/OmegaCatoidsQuantales",
+    "files": 1,
+    "bytes": 704,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/OpSets",
+    "files": 1,
+    "bytes": 2065,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Open_Induction",
+    "files": 1,
+    "bytes": 955,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Optics",
+    "files": 1,
+    "bytes": 1067,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Optimal_BST",
+    "files": 1,
+    "bytes": 946,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Orbit_Stabiliser",
+    "files": 1,
+    "bytes": 1640,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Order_Lattice_Props",
+    "files": 1,
+    "bytes": 8715,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Ordered_Resolution_Prover",
+    "files": 1,
+    "bytes": 1436,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Ordinal",
+    "files": 1,
+    "bytes": 2710,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Ordinal_Partitions",
+    "files": 1,
+    "bytes": 855,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Ordinals_and_Cardinals",
+    "files": 1,
+    "bytes": 771,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Ordinary_Differential_Equations",
+    "files": 1,
+    "bytes": 3579,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Orient_Rewrite_Rule_Undecidable",
+    "files": 1,
+    "bytes": 1267,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/PAC_Checker",
+    "files": 1,
+    "bytes": 1320,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/PAL",
+    "files": 1,
+    "bytes": 796,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/PAPP_Impossibility",
+    "files": 1,
+    "bytes": 970,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/PCF",
+    "files": 1,
+    "bytes": 5038,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/PLM",
+    "files": 1,
+    "bytes": 1066,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/PNT_with_Remainder",
+    "files": 1,
+    "bytes": 1045,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/POPLmark-deBruijn",
+    "files": 1,
+    "bytes": 6459,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/PSemigroupsConvolution",
+    "files": 1,
+    "bytes": 3958,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Package_logic",
+    "files": 1,
+    "bytes": 1565,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Padic_Field",
+    "files": 1,
+    "bytes": 694,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Padic_Ints",
+    "files": 1,
+    "bytes": 3240,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Pairing_Heap",
+    "files": 1,
+    "bytes": 2872,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Paraconsistency",
+    "files": 1,
+    "bytes": 3283,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Parallel_Shear_Sort",
+    "files": 1,
+    "bytes": 943,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Parity_Game",
+    "files": 1,
+    "bytes": 1148,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Partial_Function_MR",
+    "files": 1,
+    "bytes": 2711,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Partial_Order_Reduction",
+    "files": 1,
+    "bytes": 1698,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Password_Authentication_Protocol",
+    "files": 1,
+    "bytes": 3786,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Pattern_Completeness",
+    "files": 1,
+    "bytes": 1114,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Pell",
+    "files": 1,
+    "bytes": 1709,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Perfect-Number-Thm",
+    "files": 1,
+    "bytes": 725,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Perfect_Fields",
+    "files": 1,
+    "bytes": 775,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Perron_Frobenius",
+    "files": 1,
+    "bytes": 1267,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Physical_Quantities",
+    "files": 1,
+    "bytes": 1466,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Pi_Calculus",
+    "files": 1,
+    "bytes": 10234,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Pi_Irrational",
+    "files": 1,
+    "bytes": 730,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Pi_Transcendental",
+    "files": 1,
+    "bytes": 742,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Picks_Theorem",
+    "files": 1,
+    "bytes": 1070,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Planarity_Certificates",
+    "files": 1,
+    "bytes": 1796,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Pluennecke_Ruzsa_Inequality",
+    "files": 1,
+    "bytes": 772,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Poincare_Bendixson",
+    "files": 1,
+    "bytes": 1011,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Poincare_Disc",
+    "files": 1,
+    "bytes": 1121,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Polygonal_Number_Theorem",
+    "files": 1,
+    "bytes": 960,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Polylog",
+    "files": 1,
+    "bytes": 742,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Polynomial_Crit_Geometry",
+    "files": 1,
+    "bytes": 827,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Polynomial_Factorization",
+    "files": 1,
+    "bytes": 1524,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Polynomial_Interpolation",
+    "files": 1,
+    "bytes": 4513,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Polynomials",
+    "files": 1,
+    "bytes": 1361,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Pop_Refinement",
+    "files": 1,
+    "bytes": 6677,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Posix-Lexing",
+    "files": 1,
+    "bytes": 695,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Possibilistic_Noninterference",
+    "files": 1,
+    "bytes": 5872,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Power_Sum_Polynomials",
+    "files": 1,
+    "bytes": 857,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Pratt_Certificate",
+    "files": 1,
+    "bytes": 2510,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Prefix_Free_Code_Combinators",
+    "files": 1,
+    "bytes": 1511,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Presburger-Automata",
+    "files": 1,
+    "bytes": 5463,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Prim_Dijkstra_Simple",
+    "files": 1,
+    "bytes": 1265,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Prime_Distribution_Elementary",
+    "files": 1,
+    "bytes": 1390,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Prime_Harmonic_Series",
+    "files": 1,
+    "bytes": 838,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Prime_Number_Theorem",
+    "files": 1,
+    "bytes": 954,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Priority_Queue_Braun",
+    "files": 1,
+    "bytes": 1563,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Priority_Search_Trees",
+    "files": 1,
+    "bytes": 823,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Probabilistic_Noninterference",
+    "files": 1,
+    "bytes": 1067,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Probabilistic_Prime_Tests",
+    "files": 1,
+    "bytes": 1292,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Probabilistic_System_Zoo",
+    "files": 1,
+    "bytes": 1018,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Probabilistic_Timed_Automata",
+    "files": 1,
+    "bytes": 930,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Probabilistic_While",
+    "files": 1,
+    "bytes": 889,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Probability_Inequality_Completeness",
+    "files": 1,
+    "bytes": 2234,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ProcessComposition",
+    "files": 1,
+    "bytes": 4962,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Program-Conflict-Analysis",
+    "files": 1,
+    "bytes": 5539,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Progress_Tracking",
+    "files": 1,
+    "bytes": 7331,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Projective_Geometry",
+    "files": 1,
+    "bytes": 1221,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Projective_Measurements",
+    "files": 1,
+    "bytes": 863,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Promela",
+    "files": 1,
+    "bytes": 920,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Proof_Strategy_Language",
+    "files": 1,
+    "bytes": 817,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/PropResPI",
+    "files": 1,
+    "bytes": 1198,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Prop_Compactness",
+    "files": 1,
+    "bytes": 9736,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Propositional_Logic_Class",
+    "files": 1,
+    "bytes": 4864,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Propositional_Proof_Systems",
+    "files": 1,
+    "bytes": 6103,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Prpu_Maxflow",
+    "files": 1,
+    "bytes": 1048,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/PseudoHoops",
+    "files": 1,
+    "bytes": 4624,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Psi_Calculi",
+    "files": 1,
+    "bytes": 11988,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Ptolemys_Theorem",
+    "files": 1,
+    "bytes": 739,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Public_Announcement_Logic",
+    "files": 1,
+    "bytes": 1358,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Pushdown_Systems",
+    "files": 1,
+    "bytes": 818,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Q0_Metatheory",
+    "files": 1,
+    "bytes": 989,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Q0_Soundness",
+    "files": 1,
+    "bytes": 824,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/QBF_Solver_Verification",
+    "files": 1,
+    "bytes": 5455,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/QHLProver",
+    "files": 1,
+    "bytes": 889,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/QR_Decomposition",
+    "files": 1,
+    "bytes": 1357,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Quantales",
+    "files": 1,
+    "bytes": 8603,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Quantales_Converse",
+    "files": 1,
+    "bytes": 1727,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Quantifier_Elimination_Hybrid",
+    "files": 1,
+    "bytes": 1263,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Quantum_Fourier_Transform",
+    "files": 1,
+    "bytes": 744,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Quasi_Borel_Spaces",
+    "files": 1,
+    "bytes": 1322,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Quaternions",
+    "files": 1,
+    "bytes": 724,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Query_Optimization",
+    "files": 1,
+    "bytes": 4454,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Quick_Sort_Cost",
+    "files": 1,
+    "bytes": 788,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/RIPEMD-160-SPARK",
+    "files": 1,
+    "bytes": 739,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ROBDD",
+    "files": 1,
+    "bytes": 974,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/RSAPSS",
+    "files": 1,
+    "bytes": 689,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Ramsey-Infinite",
+    "files": 1,
+    "bytes": 727,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Ramsey_Bounds",
+    "files": 1,
+    "bytes": 730,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Random_BSTs",
+    "files": 1,
+    "bytes": 724,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Random_Graph_Subgraph_Threshold",
+    "files": 1,
+    "bytes": 979,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Randomised_BSTs",
+    "files": 1,
+    "bytes": 736,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Randomised_Social_Choice",
+    "files": 1,
+    "bytes": 1441,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Randomized_Closest_Pair",
+    "files": 1,
+    "bytes": 942,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Rank_Nullity_Theorem",
+    "files": 1,
+    "bytes": 906,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Real_Impl",
+    "files": 1,
+    "bytes": 817,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Real_Power",
+    "files": 1,
+    "bytes": 904,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Real_Time_Deque",
+    "files": 1,
+    "bytes": 10457,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Recursion-Addition",
+    "files": 1,
+    "bytes": 743,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Recursion-Theory-I",
+    "files": 1,
+    "bytes": 3811,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Refine_Imperative_HOL",
+    "files": 1,
+    "bytes": 3820,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Refine_Monadic",
+    "files": 1,
+    "bytes": 1559,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/RefinementReactive",
+    "files": 1,
+    "bytes": 2282,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Regex_Equivalence",
+    "files": 1,
+    "bytes": 6728,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Region_Quadtrees",
+    "files": 1,
+    "bytes": 6353,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Registers",
+    "files": 1,
+    "bytes": 1264,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Regression_Test_Selection",
+    "files": 1,
+    "bytes": 3105,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Regular-Sets",
+    "files": 1,
+    "bytes": 5582,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Regular_Algebras",
+    "files": 1,
+    "bytes": 3897,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Regular_Tree_Relations",
+    "files": 1,
+    "bytes": 1936,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Relation_Algebra",
+    "files": 1,
+    "bytes": 2449,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Relational-Incorrectness-Logic",
+    "files": 1,
+    "bytes": 1088,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Relational_Cardinality",
+    "files": 1,
+    "bytes": 3427,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Relational_Disjoint_Set_Forests",
+    "files": 1,
+    "bytes": 2995,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Relational_Forests",
+    "files": 1,
+    "bytes": 2343,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Relational_Method",
+    "files": 1,
+    "bytes": 4414,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Relational_Minimum_Spanning_Trees",
+    "files": 1,
+    "bytes": 1522,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Relational_Paths",
+    "files": 1,
+    "bytes": 951,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Relative_Security",
+    "files": 1,
+    "bytes": 933,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Rensets",
+    "files": 1,
+    "bytes": 2727,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Rep_Fin_Groups",
+    "files": 1,
+    "bytes": 1530,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ResiduatedTransitionSystem",
+    "files": 1,
+    "bytes": 1250,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ResiduatedTransitionSystem2",
+    "files": 1,
+    "bytes": 1212,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Residuated_Lattices",
+    "files": 1,
+    "bytes": 2259,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Resolution_FOL",
+    "files": 1,
+    "bytes": 941,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Rewrite_Properties_Reduction",
+    "files": 1,
+    "bytes": 1204,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Rewriting_Z",
+    "files": 1,
+    "bytes": 764,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Ribbon_Proofs",
+    "files": 1,
+    "bytes": 9267,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Riesz_Representation",
+    "files": 1,
+    "bytes": 855,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Risk_Free_Lending",
+    "files": 1,
+    "bytes": 1616,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Robbins-Conjecture",
+    "files": 1,
+    "bytes": 1289,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Robinson_Arithmetic",
+    "files": 1,
+    "bytes": 783,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Rogers_Ramanujan",
+    "files": 1,
+    "bytes": 739,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Root_Balanced_Tree",
+    "files": 1,
+    "bytes": 5192,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Roth_Arithmetic_Progressions",
+    "files": 1,
+    "bytes": 775,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Routing",
+    "files": 1,
+    "bytes": 804,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Roy_Floyd_Warshall",
+    "files": 1,
+    "bytes": 788,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SATSolverVerification",
+    "files": 1,
+    "bytes": 12392,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SCC_Bloemen_Sequential",
+    "files": 1,
+    "bytes": 2032,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SCL_Simulates_Ground_Resolution",
+    "files": 1,
+    "bytes": 1988,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SC_DOM_Components",
+    "files": 1,
+    "bytes": 902,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SDS_Impossibility",
+    "files": 1,
+    "bytes": 742,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SIFPL",
+    "files": 1,
+    "bytes": 7672,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SIFUM_Type_Systems",
+    "files": 1,
+    "bytes": 4002,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SPARCv8",
+    "files": 1,
+    "bytes": 1033,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/S_Finite_Measure_Monad",
+    "files": 1,
+    "bytes": 1063,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Safe_Distance",
+    "files": 1,
+    "bytes": 804,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Safe_OCL",
+    "files": 1,
+    "bytes": 48805,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Safe_Range_RC",
+    "files": 1,
+    "bytes": 979,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Saturation_Framework",
+    "files": 1,
+    "bytes": 1011,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Saturation_Framework_Extensions",
+    "files": 1,
+    "bytes": 1037,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Sauer_Shelah_Lemma",
+    "files": 1,
+    "bytes": 791,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Schoenhage_Strassen",
+    "files": 1,
+    "bytes": 1226,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Schutz_Spacetime",
+    "files": 1,
+    "bytes": 788,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Schwartz_Zippel",
+    "files": 1,
+    "bytes": 780,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Secondary_Sylow",
+    "files": 1,
+    "bytes": 805,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Secret_Directed_Unwinding",
+    "files": 1,
+    "bytes": 802,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Security_Protocol_Refinement",
+    "files": 1,
+    "bytes": 33088,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Selection_Heap_Sort",
+    "files": 1,
+    "bytes": 2047,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SenSocialChoice",
+    "files": 1,
+    "bytes": 1344,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Separata",
+    "files": 1,
+    "bytes": 715,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Separation_Algebra",
+    "files": 1,
+    "bytes": 11462,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Separation_Logic_Imperative_HOL",
+    "files": 1,
+    "bytes": 2009,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Separation_Logic_Unbounded",
+    "files": 1,
+    "bytes": 1922,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SequentInvertibility",
+    "files": 1,
+    "bytes": 14336,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Serializable",
+    "files": 1,
+    "bytes": 2867,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Shadow_DOM",
+    "files": 1,
+    "bytes": 693,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Shadow_SC_DOM",
+    "files": 1,
+    "bytes": 696,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Shivers-CFA",
+    "files": 1,
+    "bytes": 8392,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ShortestPath",
+    "files": 1,
+    "bytes": 762,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Show",
+    "files": 1,
+    "bytes": 1032,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Sigma_Commit_Crypto",
+    "files": 1,
+    "bytes": 1275,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Signature_Groebner",
+    "files": 1,
+    "bytes": 858,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Simpl",
+    "files": 1,
+    "bytes": 24300,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Simple_Clause_Learning",
+    "files": 1,
+    "bytes": 1295,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Simple_Firewall",
+    "files": 1,
+    "bytes": 1364,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Simplex",
+    "files": 1,
+    "bytes": 14430,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Simplicial_complexes_and_boolean_functions",
+    "files": 1,
+    "bytes": 1242,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SimplifiedOntologicalArgument",
+    "files": 1,
+    "bytes": 1297,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Skew_Heap",
+    "files": 1,
+    "bytes": 641,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Skip_Lists",
+    "files": 1,
+    "bytes": 797,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Slicing",
+    "files": 1,
+    "bytes": 8392,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Sliding_Window_Algorithm",
+    "files": 1,
+    "bytes": 1632,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Smith_Normal_Form",
+    "files": 1,
+    "bytes": 1660,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Smooth_Manifolds",
+    "files": 1,
+    "bytes": 1151,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Solidity",
+    "files": 1,
+    "bytes": 1161,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Sophomores_Dream",
+    "files": 1,
+    "bytes": 739,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Sort_Encodings",
+    "files": 1,
+    "bytes": 6832,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Sorted_Terms",
+    "files": 1,
+    "bytes": 793,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Source_Coding_Theorem",
+    "files": 1,
+    "bytes": 754,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SpecCheck",
+    "files": 1,
+    "bytes": 958,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Special_Function_Bounds",
+    "files": 1,
+    "bytes": 3394,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Splay_Tree",
+    "files": 1,
+    "bytes": 988,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Sqrt_Babylonian",
+    "files": 1,
+    "bytes": 2026,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stable_Matching",
+    "files": 1,
+    "bytes": 6970,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stalnaker_Logic",
+    "files": 1,
+    "bytes": 683,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Standard_Borel_Spaces",
+    "files": 1,
+    "bytes": 956,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Statecharts",
+    "files": 1,
+    "bytes": 7624,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stateful_Protocol_Composition_and_Typing",
+    "files": 1,
+    "bytes": 1810,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stellar_Quorums",
+    "files": 1,
+    "bytes": 646,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stern_Brocot",
+    "files": 1,
+    "bytes": 821,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stewart_Apollonius",
+    "files": 1,
+    "bytes": 745,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stirling_Formula",
+    "files": 1,
+    "bytes": 780,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stochastic_Matrices",
+    "files": 1,
+    "bytes": 950,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stone_Algebras",
+    "files": 1,
+    "bytes": 6343,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stone_Cech",
+    "files": 1,
+    "bytes": 721,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stone_Kleene_Relation_Algebras",
+    "files": 1,
+    "bytes": 1066,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stone_Relation_Algebras",
+    "files": 1,
+    "bytes": 4792,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Store_Buffer_Reduction",
+    "files": 1,
+    "bytes": 7441,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stream-Fusion",
+    "files": 1,
+    "bytes": 3720,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stream_Fusion_Code",
+    "files": 1,
+    "bytes": 877,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/StrictOmegaCategories",
+    "files": 1,
+    "bytes": 1379,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Strong_Security",
+    "files": 1,
+    "bytes": 2935,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Sturm_Sequences",
+    "files": 1,
+    "bytes": 1320,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Sturm_Tarski",
+    "files": 1,
+    "bytes": 1709,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Stuttering_Equivalence",
+    "files": 1,
+    "bytes": 1070,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Subresultants",
+    "files": 1,
+    "bytes": 953,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Subset_Boolean_Algebras",
+    "files": 1,
+    "bytes": 1662,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Substitutions_Lambda_Free",
+    "files": 1,
+    "bytes": 1462,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SuffixArray",
+    "files": 1,
+    "bytes": 8412,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SumSquares",
+    "files": 1,
+    "bytes": 744,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Sum_Of_Squares_Count",
+    "files": 1,
+    "bytes": 751,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Sumcheck_Protocol",
+    "files": 1,
+    "bytes": 1251,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Sunflowers",
+    "files": 1,
+    "bytes": 664,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/SuperCalc",
+    "files": 1,
+    "bytes": 7487,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Superposition_Calculus",
+    "files": 1,
+    "bytes": 1475,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Suppes_Theorem",
+    "files": 1,
+    "bytes": 771,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Surprise_Paradox",
+    "files": 1,
+    "bytes": 1285,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Symmetric_Polynomials",
+    "files": 1,
+    "bytes": 843,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Syntax_Independent_Logic",
+    "files": 1,
+    "bytes": 1049,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Synthetic_Completeness",
+    "files": 1,
+    "bytes": 11057,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Szemeredi_Regularity",
+    "files": 1,
+    "bytes": 740,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Szpilrajn",
+    "files": 1,
+    "bytes": 828,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/TESL_Language",
+    "files": 1,
+    "bytes": 7218,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/TLA",
+    "files": 1,
+    "bytes": 2279,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Tail_Recursive_Functions",
+    "files": 1,
+    "bytes": 3045,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Tarskis_Geometry",
+    "files": 1,
+    "bytes": 974,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Taylor_Models",
+    "files": 1,
+    "bytes": 963,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Theta_Functions",
+    "files": 1,
+    "bytes": 890,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Three_Circles",
+    "files": 1,
+    "bytes": 1217,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Three_Squares",
+    "files": 1,
+    "bytes": 857,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Timed_Automata",
+    "files": 1,
+    "bytes": 1257,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Top_Down_Solver",
+    "files": 1,
+    "bytes": 5764,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Topological_Groups",
+    "files": 1,
+    "bytes": 877,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Topological_Semantics",
+    "files": 1,
+    "bytes": 7278,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Topology",
+    "files": 1,
+    "bytes": 745,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/TortoiseHare",
+    "files": 1,
+    "bytes": 2418,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Transcendence_Series_Hancl_Rucki",
+    "files": 1,
+    "bytes": 775,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Transformer_Semantics",
+    "files": 1,
+    "bytes": 3302,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Transition_Systems_and_Automata",
+    "files": 1,
+    "bytes": 3244,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Transitive-Closure",
+    "files": 1,
+    "bytes": 964,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Transitive-Closure-II",
+    "files": 1,
+    "bytes": 683,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Transitive_Models",
+    "files": 1,
+    "bytes": 8705,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Transitive_Union_Closed_Families",
+    "files": 1,
+    "bytes": 719,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Transport",
+    "files": 1,
+    "bytes": 10908,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Treaps",
+    "files": 1,
+    "bytes": 834,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Tree-Automata",
+    "files": 1,
+    "bytes": 836,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Tree_Decomposition",
+    "files": 1,
+    "bytes": 2410,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Tree_Enumeration",
+    "files": 1,
+    "bytes": 863,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Triangle",
+    "files": 1,
+    "bytes": 737,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Trie",
+    "files": 1,
+    "bytes": 1433,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/TsirelsonBound",
+    "files": 1,
+    "bytes": 865,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Turans_Graph_Theorem",
+    "files": 1,
+    "bytes": 736,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Twelvefold_Way",
+    "files": 1,
+    "bytes": 1459,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Two_Generated_Word_Monoids_Intersection",
+    "files": 1,
+    "bytes": 808,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Two_Hermitian_Results",
+    "files": 1,
+    "bytes": 858,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Tycon",
+    "files": 1,
+    "bytes": 4111,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Types_Tableaus_and_Goedels_God",
+    "files": 1,
+    "bytes": 1060,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Types_To_Sets_Extension",
+    "files": 1,
+    "bytes": 2860,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/UPF",
+    "files": 1,
+    "bytes": 8163,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/UPF_Firewall",
+    "files": 1,
+    "bytes": 23958,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/UTP",
+    "files": 1,
+    "bytes": 1786,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Uncertainty_Principle",
+    "files": 1,
+    "bytes": 754,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Undirected_Graph_Theory",
+    "files": 1,
+    "bytes": 1104,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Universal_Hash_Families",
+    "files": 1,
+    "bytes": 1083,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Universal_Turing_Machine",
+    "files": 1,
+    "bytes": 21811,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/UpDown_Scheme",
+    "files": 1,
+    "bytes": 933,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/VYDRA_MDL",
+    "files": 1,
+    "bytes": 1036,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Valuation",
+    "files": 1,
+    "bytes": 1937,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Van_Emde_Boas_Trees",
+    "files": 1,
+    "bytes": 2144,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Van_der_Waerden",
+    "files": 1,
+    "bytes": 849,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/VectorSpace",
+    "files": 1,
+    "bytes": 944,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/VeriComp",
+    "files": 1,
+    "bytes": 2233,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Verified-Prover",
+    "files": 1,
+    "bytes": 1693,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Verified_SAT_Based_AI_Planning",
+    "files": 1,
+    "bytes": 1607,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/VerifyThis2018",
+    "files": 1,
+    "bytes": 1099,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/VerifyThis2019",
+    "files": 1,
+    "bytes": 969,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Vickrey_Clarke_Groves",
+    "files": 1,
+    "bytes": 3825,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Virtual_Substitution",
+    "files": 1,
+    "bytes": 1794,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/VolpanoSmith",
+    "files": 1,
+    "bytes": 4245,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/WHATandWHERE_Security",
+    "files": 1,
+    "bytes": 1979,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/WOOT_Strong_Eventual_Consistency",
+    "files": 1,
+    "bytes": 1492,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/WebAssembly",
+    "files": 1,
+    "bytes": 1341,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Weight_Balanced_Trees",
+    "files": 1,
+    "bytes": 1538,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Weighted_Arithmetic_Geometric_Mean",
+    "files": 1,
+    "bytes": 793,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Weighted_Path_Order",
+    "files": 1,
+    "bytes": 1263,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Well_Quasi_Orders",
+    "files": 1,
+    "bytes": 5030,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Wetzels_Problem",
+    "files": 1,
+    "bytes": 736,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Wieferich_Kempner",
+    "files": 1,
+    "bytes": 742,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Winding_Number_Eval",
+    "files": 1,
+    "bytes": 1029,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/With_Type",
+    "files": 1,
+    "bytes": 823,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Wlog",
+    "files": 1,
+    "bytes": 728,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Wooley_Elementary_Discrete_Inequality",
+    "files": 1,
+    "bytes": 802,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Word_Lib",
+    "files": 1,
+    "bytes": 2198,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/WorkerWrapper",
+    "files": 1,
+    "bytes": 7337,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Worklist_Algorithms",
+    "files": 1,
+    "bytes": 1574,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/X86_Semantics",
+    "files": 1,
+    "bytes": 983,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/XML",
+    "files": 1,
+    "bytes": 745,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Youngs_Inequality",
+    "files": 1,
+    "bytes": 731,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/ZFC_in_HOL",
+    "files": 1,
+    "bytes": 928,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Zeckendorf",
+    "files": 1,
+    "bytes": 708,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Zeta_3_Irrational",
+    "files": 1,
+    "bytes": 742,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/Zeta_Function",
+    "files": 1,
+    "bytes": 846,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/__pycache__",
+    "files": 11,
+    "bytes": 313544,
+    "suffixes": {
+      ".pyc": 11
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/_build",
+    "files": 6,
+    "bytes": 2829464,
+    "suffixes": {
+      ".json": 1,
+      ".lock": 1,
+      ".xml": 2,
+      ".theories": 2
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/exports.json",
+    "files": 1,
+    "bytes": 2056176,
+    "suffixes": {
+      ".json": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/full",
+    "files": 2070518,
+    "bytes": 19637135677,
+    "suffixes": {
+      ".json": 31754,
+      ".py": 753,
+      ".log": 18595,
+      ".jsonl": 21,
+      ".md": 191,
+      ".txt": 2341,
+      ".ML": 32585,
+      "": 469,
+      ".csv": 76,
+      ".scala": 32230,
+      ".xml": 1599453,
+      ".db": 57,
+      ".ml": 2022,
+      ".opam": 5,
+      ".gz": 3,
+      ".installed-original": 1,
+      ".3o": 726,
+      ".1": 30,
+      ".opt": 27,
+      ".byte": 10,
+      ".adoc": 13,
+      ".conf": 4,
+      ".cmi": 1027,
+      ".cmti": 774,
+      ".cmt": 807,
+      ".cmx": 878,
+      ".mli": 945,
+      ".a": 61,
+      ".cmxa": 32,
+      ".cma": 35,
+      ".config": 4,
+      ".so": 13,
+      ".cmo": 529,
+      ".cmxs": 16,
+      ".o": 1657,
+      ".h": 142,
+      ".tbl": 3,
+      ".owner": 1,
+      ".hva": 7,
+      ".packages": 2,
+      ".patch": 2,
+      ".pattern": 2,
+      ".in": 46,
+      ".files": 1,
+      ".install": 1,
+      ".out": 1,
+      ".diff": 1,
+      ".mll": 18,
+      ".dtd": 1,
+      ".sgml": 3,
+      ".mod": 11211,
+      ".dsl": 2,
+      ".xpm": 3,
+      ".mlp": 9,
+      ".m4": 9,
+      ".status": 1,
+      ".config_if_required": 1,
+      ".menhir": 2,
+      ".dev": 1,
+      ".yml": 6,
+      ".best_binaries": 1,
+      ".build_config": 1,
+      ".ac": 1,
+      ".common": 3,
+      ".c": 274,
+      ".mly": 8,
+      ".docfiles": 1,
+      ".mld": 7,
+      ".tex": 5,
+      ".odoc": 118,
+      ".sub": 1,
+      ".sh": 37,
+      ".guess": 1,
+      ".org": 1,
+      ".output": 4,
+      ".css": 1,
+      ".etex": 72,
+      ".header": 1,
+      ".inf": 1,
+      ".gif": 4,
+      ".woff2": 1,
+      ".ttf": 1,
+      ".woff": 1,
+      ".eot": 1,
+      ".svg": 1,
+      ".scss": 3,
+      ".js": 3,
+      ".tfm": 6,
+      ".sty": 11,
+      ".awk": 5,
+      ".copy-sources": 1,
+      ".S": 15,
+      ".asm": 3,
+      ".reference": 603,
+      ".build": 1,
+      ".build2": 1,
+      ".run": 18,
+      ".check-program-output": 1,
+      ".cmm": 24,
+      ".cmmpp": 1,
+      ".f": 1,
+      ".cs": 1,
+      ".input": 2,
+      ".cmd": 1,
+      ".new": 1,
+      ".html": 1,
+      ".best_ocamldoc": 1,
+      ".compilerlibs": 1,
+      ".mak": 1,
+      ".output64": 1,
+      ".output32": 1,
+      ".lock": 6178,
+      ".pyc": 4,
+      ".theories": 158,
+      ".sml": 17,
+      ".thy": 215,
+      ".toml": 65169,
+      ".rs": 138765,
+      ".go": 47404,
+      ".hs": 39292,
+      ".ocaml": 32224,
+      ".stdout": 12,
+      ".stderr": 12,
+      ".cpp": 6,
+      ".before-native-outcome": 1,
+      ".TAG": 6,
+      ".d": 42,
+      ".timestamp": 43,
+      ".rlib": 29,
+      ".rmeta": 34,
+      ".bin": 31,
+      ".ps1": 1
+    },
+    "symlinks_unlinked_only": [
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/installed/bin/ocamlopt",
+        "target": "ocamlopt.opt"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/installed/bin/ocamlc",
+        "target": "ocamlc.opt"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/installed/bin/ocamlmklib",
+        "target": "ocamlmklib.opt"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/installed/bin/ocamlmktop",
+        "target": "ocamlmktop.opt"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/installed/bin/ocamllex",
+        "target": "ocamllex.opt"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/installed/bin/ocamlobjinfo",
+        "target": "ocamlobjinfo.opt"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/installed/bin/ocamldep",
+        "target": "ocamldep.opt"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/installed/bin/ocamlprof",
+        "target": "ocamlprof.opt"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/installed/bin/ocamlcp",
+        "target": "ocamlcp.opt"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/installed/bin/ocamloptp",
+        "target": "ocamloptp.opt"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/source-ocaml-base-compiler.4.14.2/ocaml-4.14.2/asmcomp/reload.ml",
+        "target": "amd64/reload.ml"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/source-ocaml-base-compiler.4.14.2/ocaml-4.14.2/asmcomp/arch.ml",
+        "target": "amd64/arch.ml"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/source-ocaml-base-compiler.4.14.2/ocaml-4.14.2/asmcomp/selection.ml",
+        "target": "amd64/selection.ml"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/source-ocaml-base-compiler.4.14.2/ocaml-4.14.2/asmcomp/CSE.ml",
+        "target": "amd64/CSE.ml"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/source-ocaml-base-compiler.4.14.2/ocaml-4.14.2/asmcomp/scheduling.ml",
+        "target": "amd64/scheduling.ml"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/source-ocaml-base-compiler.4.14.2/ocaml-4.14.2/asmcomp/proc.ml",
+        "target": "amd64/proc.ml"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/source-ocaml-base-compiler.4.14.2/ocaml-4.14.2/boot/libcamlrun.a",
+        "target": "../runtime/libcamlrun.a"
+      },
+      {
+        "path": "research/scan-repair-2026-10-22/native-word-ocaml-toolchain/source-ocaml-base-compiler.4.14.2/ocaml-4.14.2/stdlib/libcamlrun.a",
+        "target": "../runtime/libcamlrun.a"
+      },
+      {
+        "path": "current-candidates-2026-10-27/tooling/export-progress-read-only-integration/attempt-0001/exports",
+        "target": "/home/spring/Isabelle2Rust/Isabelle2Rust/test/afp-Isabelle2025/full/current-candidates-2026-10-27/exports"
+      }
+    ]
+  },
+  {
+    "path": "test/afp-Isabelle2025/logs",
+    "files": 1481,
+    "bytes": 1013140,
+    "suffixes": {
+      ".log": 1478,
+      ".json": 3
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/pGCL",
+    "files": 1,
+    "bytes": 1124,
+    "suffixes": {
+      ".thy": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/results.json",
+    "files": 1,
+    "bytes": 5111703,
+    "suffixes": {
+      ".json": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/runtime",
+    "files": 1,
+    "bytes": 3756,
+    "suffixes": {
+      ".rs": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/task.md",
+    "files": 1,
+    "bytes": 2218,
+    "suffixes": {
+      ".md": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/check_runtime.py",
+    "files": 1,
+    "bytes": 2974,
+    "suffixes": {
+      ".py": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "test/afp-Isabelle2025/migration-processes.json",
+    "files": 1,
+    "bytes": 833,
+    "suffixes": {
+      ".json": 1
+    },
+    "symlinks_unlinked_only": []
+  },
+  {
+    "path": "temp/afp-logs-before-report-20261020T074609Z",
+    "files": 1483,
+    "bytes": 1205652,
+    "suffixes": {
+      ".log": 1483
+    },
+    "symlinks_unlinked_only": []
+  }
+]

@@ -1,0 +1,2385 @@
+--- /dev/null
++++ b/thys/BinarySearchTree/BinaryTree_Code.ML
+@@ -0,0 +1,109 @@
++structure BinaryTree_Code : sig
++  type num
++  type int
++  type 'a tree
++  val test : int option
++end = struct
++
++datatype num = One | Bit0 of num | Bit1 of num;
++
++fun equal_num (Bit0 x2) (Bit1 x3) = false
++  | equal_num (Bit1 x3) (Bit0 x2) = false
++  | equal_num One (Bit1 x3) = false
++  | equal_num (Bit1 x3) One = false
++  | equal_num One (Bit0 x2) = false
++  | equal_num (Bit0 x2) One = false
++  | equal_num (Bit1 x3) (Bit1 y3) = equal_num x3 y3
++  | equal_num (Bit0 x2) (Bit0 y2) = equal_num x2 y2
++  | equal_num One One = true;
++
++datatype int = Zero_int | Pos of num | Neg of num;
++
++fun equal_inta (Neg k) (Neg l) = equal_num k l
++  | equal_inta (Neg k) (Pos l) = false
++  | equal_inta (Neg k) Zero_int = false
++  | equal_inta (Pos k) (Neg l) = false
++  | equal_inta (Pos k) (Pos l) = equal_num k l
++  | equal_inta (Pos k) Zero_int = false
++  | equal_inta Zero_int (Neg l) = false
++  | equal_inta Zero_int (Pos l) = false
++  | equal_inta Zero_int Zero_int = true;
++
++type 'a equal = {equal : 'a -> 'a -> bool};
++val equal = #equal : 'a equal -> 'a -> 'a -> bool;
++
++val equal_int = {equal = equal_inta} : int equal;
++
++datatype 'a tree = Tip | T of 'a tree * 'a * 'a tree;
++
++fun id x = (fn xa => xa) x;
++
++fun eq A_ a b = equal A_ a b;
++
++fun less_num (Bit1 m) (Bit0 n) = less_num m n
++  | less_num (Bit1 m) (Bit1 n) = less_num m n
++  | less_num (Bit0 m) (Bit1 n) = less_eq_num m n
++  | less_num (Bit0 m) (Bit0 n) = less_num m n
++  | less_num One (Bit1 n) = true
++  | less_num One (Bit0 n) = true
++  | less_num m One = false
++and less_eq_num (Bit1 m) (Bit0 n) = less_num m n
++  | less_eq_num (Bit1 m) (Bit1 n) = less_eq_num m n
++  | less_eq_num (Bit0 m) (Bit1 n) = less_eq_num m n
++  | less_eq_num (Bit0 m) (Bit0 n) = less_eq_num m n
++  | less_eq_num (Bit1 m) One = false
++  | less_eq_num (Bit0 m) One = false
++  | less_eq_num One n = true;
++
++fun less_int (Neg k) (Neg l) = less_num l k
++  | less_int (Neg k) (Pos l) = true
++  | less_int (Neg k) Zero_int = true
++  | less_int (Pos k) (Neg l) = false
++  | less_int (Pos k) (Pos l) = less_num k l
++  | less_int (Pos k) Zero_int = false
++  | less_int Zero_int (Neg l) = false
++  | less_int Zero_int (Pos l) = true
++  | less_int Zero_int Zero_int = false;
++
++fun tlookup h k Tip = NONE
++  | tlookup h k (T (t1, x, t2)) =
++    (if less_int k (h x) then tlookup h k t1
++      else (if less_int (h x) k then tlookup h k t2 else SOME x));
++
++fun binsert h e Tip = T (Tip, e, Tip)
++  | binsert h e (T (t1, x, t2)) =
++    (if less_int (h e) (h x) then T (binsert h e t1, x, t2)
++      else (if less_int (h x) (h e) then T (t1, x, binsert h e t2)
++             else T (t1, e, t2)));
++
++fun equal_Tree A_ Tip (T (x21, x22, x23)) = false
++  | equal_Tree A_ (T (x21, x22, x23)) Tip = false
++  | equal_Tree A_ (T (x21, x22, x23)) (T (y21, y22, y23)) =
++    equal_Tree A_ x21 y21 andalso (eq A_ x22 y22 andalso equal_Tree A_ x23 y23)
++  | equal_Tree A_ Tip Tip = true;
++
++fun snd (x1, x2) = x2;
++
++fun fst (x1, x2) = x1;
++
++fun wrmrm A_ h (T (t1, x, t2)) =
++  (if equal_Tree A_ t2 Tip then (t1, x)
++    else (T (t1, x, fst (wrmrm A_ h t2)), snd (wrmrm A_ h t2)));
++
++fun remove A_ h e Tip = Tip
++  | remove A_ h e (T (t1, x, t2)) =
++    (if less_int (h e) (h x) then T (remove A_ h e t1, x, t2)
++      else (if less_int (h x) (h e) then T (t1, x, remove A_ h e t2)
++             else (if equal_Tree A_ t1 Tip then t2
++                    else let
++                           val (t1p, r) = wrmrm A_ h t1;
++                         in
++                           T (t1p, r, t2)
++                         end)));
++
++val test : int option =
++  tlookup id (Pos (Bit0 (Bit0 One)))
++    (remove equal_int id (Pos (Bit1 One))
++      (binsert id (Pos (Bit0 (Bit0 One))) (binsert id (Pos (Bit1 One)) Tip)));
++
++end; (*struct BinaryTree_Code*)
+--- /dev/null
++++ b/thys/BinarySearchTree/BinaryTree_TacticStyle_Code.ML
+@@ -0,0 +1,73 @@
++structure BinaryTree_TacticStyle_Code : sig
++  type nat
++  type num
++  type tree
++  val test : bool
++end = struct
++
++datatype nat = Zero_nat | Suc of nat;
++
++datatype num = One | Bit0 of num | Bit1 of num;
++
++datatype tree = Tip | Nd of tree * nat * tree;
++
++fun plus_nat (Suc m) n = plus_nat m (Suc n)
++  | plus_nat Zero_nat n = n;
++
++val one_nat : nat = Suc Zero_nat;
++
++fun nat_of_num (Bit1 n) = let
++                            val m = nat_of_num n;
++                          in
++                            Suc (plus_nat m m)
++                          end
++  | nat_of_num (Bit0 n) = let
++                            val m = nat_of_num n;
++                          in
++                            plus_nat m m
++                          end
++  | nat_of_num One = one_nat;
++
++fun equal_nat Zero_nat (Suc x2) = false
++  | equal_nat (Suc x2) Zero_nat = false
++  | equal_nat (Suc x2) (Suc y2) = equal_nat x2 y2
++  | equal_nat Zero_nat Zero_nat = true;
++
++fun equal_tree Tip (Nd (x21, x22, x23)) = false
++  | equal_tree (Nd (x21, x22, x23)) Tip = false
++  | equal_tree (Nd (x21, x22, x23)) (Nd (y21, y22, y23)) =
++    equal_tree x21 y21 andalso (equal_nat x22 y22 andalso equal_tree x23 y23)
++  | equal_tree Tip Tip = true;
++
++fun rm (Nd (l, x, r)) = (if equal_tree r Tip then x else rm r);
++
++fun less_nat m (Suc n) = less_eq_nat m n
++  | less_nat n Zero_nat = false
++and less_eq_nat (Suc m) n = less_nat m n
++  | less_eq_nat Zero_nat n = true;
++
++fun rem (Nd (l, x, r)) = (if equal_tree r Tip then l else Nd (l, x, rem r));
++
++fun memb e Tip = false
++  | memb e (Nd (t1, x, t2)) =
++    (if less_nat e x then memb e t1
++      else (if less_nat x e then memb e t2 else true));
++
++fun binsert x Tip = Nd (Tip, x, Tip)
++  | binsert x (Nd (t1, y, t2)) =
++    (if less_nat x y then Nd (binsert x t1, y, t2)
++      else (if less_nat y x then Nd (t1, y, binsert x t2) else Nd (t1, y, t2)));
++
++fun remove x Tip = Tip
++  | remove x (Nd (l, y, r)) =
++    (if less_nat x y then Nd (remove x l, y, r)
++      else (if less_nat y x then Nd (l, y, remove x r)
++             else (if equal_tree l Tip then r else Nd (rem l, rm l, r))));
++
++val test : bool =
++  memb (nat_of_num (Bit0 (Bit0 One)))
++    (remove (nat_of_num (Bit1 One))
++      (binsert (nat_of_num (Bit0 (Bit0 One)))
++        (binsert (nat_of_num (Bit1 One)) Tip)));
++
++end; (*struct BinaryTree_TacticStyle_Code*)
+--- /dev/null
++++ b/thys/Depth-First-Search/dfs.ML
+@@ -0,0 +1,71 @@
++structure Product_Type : sig
++  val fst : 'a * 'b -> 'a
++  val snd : 'a * 'b -> 'b
++end = struct
++
++fun fst (x1, x2) = x1;
++
++fun snd (x1, x2) = x2;
++
++end; (*struct Product_Type*)
++
++structure Arith : sig
++  type int
++end = struct
++
++datatype num = One | Bit0 of num | Bit1 of num;
++
++datatype int = Zero_int | Pos of num | Neg of num;
++
++end; (*struct Arith*)
++
++structure HOL : sig
++  type 'a equal
++  val equal : 'a equal -> 'a -> 'a -> bool
++  val eq : 'a equal -> 'a -> 'a -> bool
++end = struct
++
++type 'a equal = {equal : 'a -> 'a -> bool};
++val equal = #equal : 'a equal -> 'a -> 'a -> bool;
++
++fun eq A_ a b = equal A_ a b;
++
++end; (*struct HOL*)
++
++structure List : sig
++  val member : 'a HOL.equal -> 'a list -> 'a -> bool
++end = struct
++
++fun member A_ [] y = false
++  | member A_ (x :: xs) y = HOL.eq A_ x y orelse member A_ xs y;
++
++end; (*struct List*)
++
++structure DFS : sig
++  type node
++  val dfs : (node * node) list -> node list -> node list -> node list
++  val dfs2 : (node * node) list -> node list -> node list -> node list
++end = struct
++
++datatype node = Node of Arith.int;
++
++fun equal_nodea _ _ = raise Fail "DFS.equal_node_inst.equal_node";
++
++val equal_node = {equal = equal_nodea} : node HOL.equal;
++
++fun nexts [] n = []
++  | nexts (e :: es) n =
++    (if equal_nodea (Product_Type.fst e) n then Product_Type.snd e :: nexts es n
++      else nexts es n);
++
++fun dfs g [] ys = ys
++  | dfs g (x :: xs) ys =
++    (if List.member equal_node ys x then dfs g xs ys
++      else dfs g (nexts g x @ xs) (x :: ys));
++
++fun dfs2 g [] ys = ys
++  | dfs2 g (x :: xs) ys =
++    (if List.member equal_node ys x then dfs2 g xs ys
++      else dfs2 g xs (dfs2 g (nexts g x) (x :: ys)));
++
++end; (*struct DFS*)
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/Abacus.hs
+@@ -0,0 +1,240 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module
++  Abacus(Abc_inst(..), start_of, tgoto, tinc, tdec, ci, layout_of, tpairs_of,
++          tms_of, tm_of, abc_lm_s, abc_lm_v, abc_fetch, abc_step_l, abc_steps_l)
++  where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified Option;
++import qualified HOL;
++import qualified Groups_List;
++import qualified List;
++import qualified Product_Type;
++import qualified ComposedTMs;
++import qualified Turing;
++import qualified Arith;
++
++data Abc_inst = Inc Arith.Nat | Dec Arith.Nat Arith.Nat | Goto Arith.Nat;
++
++start_of :: [Arith.Nat] -> Arith.Nat -> Arith.Nat;
++start_of ly x = Arith.suc (Groups_List.sum_list (List.take x ly));
++
++tgoto :: Arith.Nat -> [(Turing.Action, Arith.Nat)];
++tgoto n = [(Turing.Nop, n), (Turing.Nop, n)];
++
++findnth :: Arith.Nat -> [(Turing.Action, Arith.Nat)];
++findnth n =
++  (if Arith.equal_nat n Arith.Zero_nat then []
++    else findnth (Arith.minus_nat n (Arith.Nat_of_num Arith.One)) ++
++           [(Turing.WO,
++              Arith.plus_nat
++                (Arith.times_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One))
++                  (Arith.minus_nat n (Arith.Nat_of_num Arith.One)))
++                (Arith.Nat_of_num Arith.One)),
++             (Turing.R,
++               Arith.plus_nat
++                 (Arith.times_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One))
++                   (Arith.minus_nat n (Arith.Nat_of_num Arith.One)))
++                 (Arith.Nat_of_num (Arith.Bit0 Arith.One))),
++             (Turing.R,
++               Arith.plus_nat
++                 (Arith.times_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One))
++                   (Arith.minus_nat n (Arith.Nat_of_num Arith.One)))
++                 (Arith.Nat_of_num (Arith.Bit1 Arith.One))),
++             (Turing.R,
++               Arith.plus_nat
++                 (Arith.times_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One))
++                   (Arith.minus_nat n (Arith.Nat_of_num Arith.One)))
++                 (Arith.Nat_of_num (Arith.Bit0 Arith.One)))]);
++
++tinc_b :: [(Turing.Action, Arith.Nat)];
++tinc_b =
++  [(Turing.WO, Arith.Nat_of_num Arith.One),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.WO, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.WO, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 Arith.One))),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 Arith.One))),
++    (Turing.WB, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 Arith.One))),
++    (Turing.WB, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.WO, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 Arith.One))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 (Arith.Bit0 Arith.One)))),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 Arith.One))),
++    (Turing.R,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 (Arith.Bit0 Arith.One)))),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 Arith.One))),
++    (Turing.R,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 (Arith.Bit0 Arith.One)))),
++    (Turing.WB,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 (Arith.Bit0 Arith.One))))];
++
++tinc :: Arith.Nat -> Arith.Nat -> [(Turing.Action, Arith.Nat)];
++tinc ss n =
++  ComposedTMs.shift
++    (findnth n ++
++      ComposedTMs.shift tinc_b
++        (Arith.times_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One)) n))
++    (Arith.minus_nat ss (Arith.Nat_of_num Arith.One));
++
++tdec_b :: [(Turing.Action, Arith.Nat)];
++tdec_b =
++  [(Turing.WO, Arith.Nat_of_num Arith.One),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 (Arith.Bit1 Arith.One)))),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 Arith.One))),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.WB, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 Arith.One))),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 Arith.One))),
++    (Turing.WB, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 Arith.One))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 (Arith.Bit0 Arith.One)))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 (Arith.Bit0 Arith.One)))),
++    (Turing.WB, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 Arith.One))),
++    (Turing.WO,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 (Arith.Bit0 Arith.One)))),
++    (Turing.R,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 (Arith.Bit0 Arith.One)))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 (Arith.Bit0 Arith.One)))),
++    (Turing.R,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 (Arith.Bit0 Arith.One)))),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.WB,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 (Arith.Bit0 Arith.One)))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 (Arith.Bit1 Arith.One)))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 (Arith.Bit0 Arith.One)))),
++    (Turing.R,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 (Arith.Bit1 Arith.One)))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 (Arith.Bit0 Arith.One)))),
++    (Turing.R,
++      Arith.Nat_of_num
++        (Arith.Bit1 (Arith.Bit0 (Arith.Bit0 (Arith.Bit0 Arith.One))))),
++    (Turing.WB,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 (Arith.Bit1 Arith.One)))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 (Arith.Bit1 Arith.One)))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 (Arith.Bit1 Arith.One)))),
++    (Turing.R,
++      Arith.Nat_of_num
++        (Arith.Bit0 (Arith.Bit0 (Arith.Bit0 (Arith.Bit0 Arith.One))))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 (Arith.Bit1 Arith.One)))),
++    (Turing.R, Arith.Zero_nat),
++    (Turing.WB,
++      Arith.Nat_of_num
++        (Arith.Bit0 (Arith.Bit0 (Arith.Bit0 (Arith.Bit0 Arith.One)))))];
++
++tdec :: Arith.Nat -> Arith.Nat -> Arith.Nat -> [(Turing.Action, Arith.Nat)];
++tdec ss n e =
++  ComposedTMs.shift (findnth n)
++    (Arith.minus_nat ss (Arith.Nat_of_num Arith.One)) ++
++    ComposedTMs.adjust
++      (ComposedTMs.shift
++        (ComposedTMs.shift tdec_b
++          (Arith.times_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One)) n))
++        (Arith.minus_nat ss (Arith.Nat_of_num Arith.One)))
++      e;
++
++ci :: [Arith.Nat] -> Arith.Nat -> Abc_inst -> [(Turing.Action, Arith.Nat)];
++ci ly ss (Inc n) = tinc ss n;
++ci ly ss (Dec n e) = tdec ss n (start_of ly e);
++ci ly ss (Goto n) = tgoto (start_of ly n);
++
++length_of :: Abc_inst -> Arith.Nat;
++length_of i =
++  (case i of {
++    Inc n ->
++      Arith.plus_nat
++        (Arith.times_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One)) n)
++        (Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 (Arith.Bit0 Arith.One))));
++    Dec n _ ->
++      Arith.plus_nat
++        (Arith.times_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One)) n)
++        (Arith.Nat_of_num
++          (Arith.Bit0 (Arith.Bit0 (Arith.Bit0 (Arith.Bit0 Arith.One)))));
++    Goto _ -> Arith.Nat_of_num Arith.One;
++  });
++
++layout_of :: [Abc_inst] -> [Arith.Nat];
++layout_of ap = map length_of ap;
++
++tpairs_of :: [Abc_inst] -> [(Arith.Nat, Abc_inst)];
++tpairs_of ap =
++  zip (map (start_of (layout_of ap))
++        (List.upt Arith.Zero_nat (List.size_list ap)))
++    ap;
++
++tms_of :: [Abc_inst] -> [[(Turing.Action, Arith.Nat)]];
++tms_of ap = map (\ (a, b) -> ci (layout_of ap) a b) (tpairs_of ap);
++
++tm_of :: [Abc_inst] -> [(Turing.Action, Arith.Nat)];
++tm_of ap = concat (tms_of ap);
++
++abc_lm_s :: [Arith.Nat] -> Arith.Nat -> Arith.Nat -> [Arith.Nat];
++abc_lm_s am n v =
++  (if Arith.less_nat n (List.size_list am) then List.list_update am n v
++    else am ++ List.replicate (Arith.minus_nat n (List.size_list am))
++                 Arith.Zero_nat ++
++                 [v]);
++
++abc_lm_v :: [Arith.Nat] -> Arith.Nat -> Arith.Nat;
++abc_lm_v lm n =
++  (if Arith.less_nat n (List.size_list lm) then List.nth lm n
++    else Arith.Zero_nat);
++
++abc_fetch :: Arith.Nat -> [Abc_inst] -> Maybe Abc_inst;
++abc_fetch s p =
++  (if Arith.less_nat s (List.size_list p) then Just (List.nth p s)
++    else Nothing);
++
++abc_step_l ::
++  (Arith.Nat, [Arith.Nat]) -> Maybe Abc_inst -> (Arith.Nat, [Arith.Nat]);
++abc_step_l (s, lm) a =
++  (case a of {
++    Nothing -> (s, lm);
++    Just (Inc n) ->
++      let {
++        nv = abc_lm_v lm n;
++      } in (Arith.plus_nat s (Arith.Nat_of_num Arith.One),
++             abc_lm_s lm n (Arith.plus_nat nv (Arith.Nat_of_num Arith.One)));
++    Just (Dec n e) ->
++      let {
++        nv = abc_lm_v lm n;
++      } in (if Arith.equal_nat nv Arith.Zero_nat
++             then (e, abc_lm_s lm n Arith.Zero_nat)
++             else (Arith.plus_nat s (Arith.Nat_of_num Arith.One),
++                    abc_lm_s lm n
++                      (Arith.minus_nat nv (Arith.Nat_of_num Arith.One))));
++    Just (Goto n) -> (n, lm);
++  });
++
++abc_steps_l ::
++  (Arith.Nat, [Arith.Nat]) ->
++    [Abc_inst] -> Arith.Nat -> (Arith.Nat, [Arith.Nat]);
++abc_steps_l (s, lm) p n =
++  (if Arith.equal_nat n Arith.Zero_nat then (s, lm)
++    else abc_steps_l (abc_step_l (s, lm) (abc_fetch s p)) p
++           (Arith.minus_nat n (Arith.Nat_of_num Arith.One)));
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/Abacus_Hoare.hs
+@@ -0,0 +1,36 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module Abacus_Hoare(abc_final, app_mopup, abc_notfinal, abc_out_of_prog) where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified Abacus_Mopup;
++import qualified ComposedTMs;
++import qualified Turing;
++import qualified List;
++import qualified Abacus;
++import qualified Arith;
++
++abc_final :: (Arith.Nat, [Arith.Nat]) -> [Abacus.Abc_inst] -> Bool;
++abc_final (s, lm) p = Arith.equal_nat s (List.size_list p);
++
++app_mopup ::
++  [(Turing.Action, Arith.Nat)] -> Arith.Nat -> [(Turing.Action, Arith.Nat)];
++app_mopup tp n =
++  tp ++ ComposedTMs.shift (Abacus_Mopup.mopup_n_tm n)
++          (Arith.divide_nat (List.size_list tp)
++            (Arith.Nat_of_num (Arith.Bit0 Arith.One)));
++
++abc_notfinal :: (Arith.Nat, [Arith.Nat]) -> [Abacus.Abc_inst] -> Bool;
++abc_notfinal (s, lm) p = Arith.less_nat s (List.size_list p);
++
++abc_out_of_prog :: (Arith.Nat, [Arith.Nat]) -> [Abacus.Abc_inst] -> Bool;
++abc_out_of_prog (s, lm) p = Arith.less_nat (List.size_list p) s;
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/Abacus_Mopup.hs
+@@ -0,0 +1,63 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module Abacus_Mopup(mopup_n_tm) where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified ComposedTMs;
++import qualified Turing;
++import qualified Arith;
++
++mopup_a :: Arith.Nat -> [(Turing.Action, Arith.Nat)];
++mopup_a n =
++  (if Arith.equal_nat n Arith.Zero_nat then []
++    else mopup_a (Arith.minus_nat n (Arith.Nat_of_num Arith.One)) ++
++           [(Turing.R,
++              Arith.plus_nat
++                (Arith.times_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One))
++                  (Arith.minus_nat n (Arith.Nat_of_num Arith.One)))
++                (Arith.Nat_of_num (Arith.Bit1 Arith.One))),
++             (Turing.WB,
++               Arith.plus_nat
++                 (Arith.times_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One))
++                   (Arith.minus_nat n (Arith.Nat_of_num Arith.One)))
++                 (Arith.Nat_of_num (Arith.Bit0 Arith.One))),
++             (Turing.R,
++               Arith.plus_nat
++                 (Arith.times_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One))
++                   (Arith.minus_nat n (Arith.Nat_of_num Arith.One)))
++                 (Arith.Nat_of_num Arith.One)),
++             (Turing.WO,
++               Arith.plus_nat
++                 (Arith.times_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One))
++                   (Arith.minus_nat n (Arith.Nat_of_num Arith.One)))
++                 (Arith.Nat_of_num (Arith.Bit0 Arith.One)))]);
++
++mopup_b :: [(Turing.Action, Arith.Nat)];
++mopup_b =
++  [(Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.R, Arith.Nat_of_num Arith.One),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.WB, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 Arith.One))),
++    (Turing.WB, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.WB, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 Arith.One))),
++    (Turing.R, Arith.Zero_nat),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 Arith.One)))];
++
++mopup_n_tm :: Arith.Nat -> [(Turing.Action, Arith.Nat)];
++mopup_n_tm n =
++  mopup_a n ++
++    ComposedTMs.shift mopup_b
++      (Arith.times_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One)) n);
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/Arith.hs
+@@ -0,0 +1,245 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module
++  Arith(Num(..), Nat(..), plus_nat, Plus(..), Zero(..), Semigroup_add,
++         Monoid_add, suc, num_of_nat, equal_nat, minus_nat, less_nat, times_nat,
++         less_eq_nat, num_of_integer, divide_nat, modulo_nat)
++  where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified HOL;
++import qualified Product_Type;
++import qualified Option;
++
++data Num = One | Bit0 Num | Bit1 Num;
++
++plus_num :: Num -> Num -> Num;
++plus_num (Bit1 m) (Bit1 n) = Bit0 (plus_num (plus_num m n) One);
++plus_num (Bit1 m) (Bit0 n) = Bit1 (plus_num m n);
++plus_num (Bit1 m) One = Bit0 (plus_num m One);
++plus_num (Bit0 m) (Bit1 n) = Bit1 (plus_num m n);
++plus_num (Bit0 m) (Bit0 n) = Bit0 (plus_num m n);
++plus_num (Bit0 m) One = Bit1 m;
++plus_num One (Bit1 n) = Bit0 (plus_num n One);
++plus_num One (Bit0 n) = Bit1 n;
++plus_num One One = Bit0 One;
++
++data Nat = Zero_nat | Nat_of_num Num;
++
++plus_nat :: Nat -> Nat -> Nat;
++plus_nat Zero_nat n = n;
++plus_nat m Zero_nat = m;
++plus_nat (Nat_of_num k) (Nat_of_num l) = Nat_of_num (plus_num k l);
++
++class Plus a where {
++  plus :: a -> a -> a;
++};
++
++instance Plus Nat where {
++  plus = plus_nat;
++};
++
++class Zero a where {
++  zero :: a;
++};
++
++instance Zero Nat where {
++  zero = Zero_nat;
++};
++
++class (Plus a) => Semigroup_add a where {
++};
++
++class (Semigroup_add a, Zero a) => Monoid_add a where {
++};
++
++instance Semigroup_add Nat where {
++};
++
++instance Monoid_add Nat where {
++};
++
++suc :: Nat -> Nat;
++suc n = plus_nat n (Nat_of_num One);
++
++bitM :: Num -> Num;
++bitM One = One;
++bitM (Bit0 n) = Bit1 (bitM n);
++bitM (Bit1 n) = Bit1 (Bit0 n);
++
++num_of_nat :: Nat -> Num;
++num_of_nat (Nat_of_num k) = k;
++num_of_nat Zero_nat = One;
++
++dup :: Nat -> Nat;
++dup (Nat_of_num k) = Nat_of_num (Bit0 k);
++dup Zero_nat = Zero_nat;
++
++equal_num :: Num -> Num -> Bool;
++equal_num (Bit0 x2) (Bit1 x3) = False;
++equal_num (Bit1 x3) (Bit0 x2) = False;
++equal_num One (Bit1 x3) = False;
++equal_num (Bit1 x3) One = False;
++equal_num One (Bit0 x2) = False;
++equal_num (Bit0 x2) One = False;
++equal_num (Bit1 x3) (Bit1 y3) = equal_num x3 y3;
++equal_num (Bit0 x2) (Bit0 y2) = equal_num x2 y2;
++equal_num One One = True;
++
++equal_nat :: Nat -> Nat -> Bool;
++equal_nat (Nat_of_num k) (Nat_of_num l) = equal_num k l;
++equal_nat (Nat_of_num k) Zero_nat = False;
++equal_nat Zero_nat (Nat_of_num l) = False;
++equal_nat Zero_nat Zero_nat = True;
++
++sub :: Num -> Num -> Maybe Nat;
++sub (Bit0 m) (Bit1 n) =
++  (case sub m n of {
++    Nothing -> Nothing;
++    Just q ->
++      (if equal_nat q Zero_nat then Nothing
++        else Just (minus_nat (dup q) (Nat_of_num One)));
++  });
++sub (Bit1 m) (Bit0 n) =
++  Option.map_option (\ q -> plus_nat (dup q) (Nat_of_num One)) (sub m n);
++sub (Bit1 m) (Bit1 n) = Option.map_option dup (sub m n);
++sub (Bit0 m) (Bit0 n) = Option.map_option dup (sub m n);
++sub One (Bit1 n) = Nothing;
++sub One (Bit0 n) = Nothing;
++sub (Bit1 m) One = Just (Nat_of_num (Bit0 m));
++sub (Bit0 m) One = Just (Nat_of_num (bitM m));
++sub One One = Just Zero_nat;
++
++minus_nat :: Nat -> Nat -> Nat;
++minus_nat Zero_nat n = Zero_nat;
++minus_nat m Zero_nat = m;
++minus_nat (Nat_of_num k) (Nat_of_num l) = (case sub k l of {
++    Nothing -> Zero_nat;
++    Just j -> j;
++  });
++
++less_num :: Num -> Num -> Bool;
++less_num (Bit1 m) (Bit0 n) = less_num m n;
++less_num (Bit1 m) (Bit1 n) = less_num m n;
++less_num (Bit0 m) (Bit1 n) = less_eq_num m n;
++less_num (Bit0 m) (Bit0 n) = less_num m n;
++less_num One (Bit1 n) = True;
++less_num One (Bit0 n) = True;
++less_num m One = False;
++
++less_eq_num :: Num -> Num -> Bool;
++less_eq_num (Bit1 m) (Bit0 n) = less_num m n;
++less_eq_num (Bit1 m) (Bit1 n) = less_eq_num m n;
++less_eq_num (Bit0 m) (Bit1 n) = less_eq_num m n;
++less_eq_num (Bit0 m) (Bit0 n) = less_eq_num m n;
++less_eq_num (Bit1 m) One = False;
++less_eq_num (Bit0 m) One = False;
++less_eq_num One n = True;
++
++less_nat :: Nat -> Nat -> Bool;
++less_nat (Nat_of_num k) (Nat_of_num l) = less_num k l;
++less_nat Zero_nat (Nat_of_num l) = True;
++less_nat m Zero_nat = False;
++
++times_num :: Num -> Num -> Num;
++times_num (Bit1 m) (Bit1 n) =
++  Bit1 (plus_num (plus_num m n) (Bit0 (times_num m n)));
++times_num (Bit1 m) (Bit0 n) = Bit0 (times_num (Bit1 m) n);
++times_num (Bit0 m) (Bit1 n) = Bit0 (times_num m (Bit1 n));
++times_num (Bit0 m) (Bit0 n) = Bit0 (Bit0 (times_num m n));
++times_num One n = n;
++times_num m One = m;
++
++times_nat :: Nat -> Nat -> Nat;
++times_nat Zero_nat n = Zero_nat;
++times_nat m Zero_nat = Zero_nat;
++times_nat (Nat_of_num k) (Nat_of_num l) = Nat_of_num (times_num k l);
++
++less_eq_nat :: Nat -> Nat -> Bool;
++less_eq_nat (Nat_of_num k) (Nat_of_num l) = less_eq_num k l;
++less_eq_nat (Nat_of_num k) Zero_nat = False;
++less_eq_nat Zero_nat n = True;
++
++divmod_step_nat :: Nat -> (Nat, Nat) -> (Nat, Nat);
++divmod_step_nat l qr =
++  (case qr of {
++    (q, r) ->
++      (if less_eq_nat l r
++        then (plus_nat (times_nat (Nat_of_num (Bit0 One)) q) (Nat_of_num One),
++               minus_nat r l)
++        else (times_nat (Nat_of_num (Bit0 One)) q, r));
++  });
++
++divmod_nata :: Num -> Num -> (Nat, Nat);
++divmod_nata (Bit1 m) (Bit1 n) =
++  (if less_num m n then (Zero_nat, Nat_of_num (Bit1 m))
++    else divmod_step_nat (Nat_of_num (Bit1 n))
++           (divmod_nata (Bit1 m) (Bit0 (Bit1 n))));
++divmod_nata (Bit0 m) (Bit1 n) =
++  (if less_eq_num m n then (Zero_nat, Nat_of_num (Bit0 m))
++    else divmod_step_nat (Nat_of_num (Bit1 n))
++           (divmod_nata (Bit0 m) (Bit0 (Bit1 n))));
++divmod_nata (Bit1 m) (Bit0 n) =
++  (case divmod_nata m n of {
++    (q, r) ->
++      (q, plus_nat (times_nat (Nat_of_num (Bit0 One)) r) (Nat_of_num One));
++  });
++divmod_nata (Bit0 m) (Bit0 n) =
++  (case divmod_nata m n of {
++    (q, r) -> (q, times_nat (Nat_of_num (Bit0 One)) r);
++  });
++divmod_nata One (Bit1 n) = (Zero_nat, Nat_of_num One);
++divmod_nata One (Bit0 n) = (Zero_nat, Nat_of_num One);
++divmod_nata m One = (Nat_of_num m, Zero_nat);
++
++divmod_nat :: Nat -> Nat -> (Nat, Nat);
++divmod_nat Zero_nat n = (Zero_nat, Zero_nat);
++divmod_nat m Zero_nat = (Zero_nat, m);
++divmod_nat (Nat_of_num k) (Nat_of_num l) = divmod_nata k l;
++
++divmod_integer :: Integer -> Integer -> (Integer, Integer);
++divmod_integer k l =
++  (if k == (0 :: Integer) then ((0 :: Integer), (0 :: Integer))
++    else (if (0 :: Integer) < l
++           then (if (0 :: Integer) < k then divMod (abs k) (abs l)
++                  else (case divMod (abs k) (abs l) of {
++                         (r, s) ->
++                           (if s == (0 :: Integer)
++                             then (negate r, (0 :: Integer))
++                             else (negate r - (1 :: Integer), l - s));
++                       }))
++           else (if l == (0 :: Integer) then ((0 :: Integer), k)
++                  else Product_Type.apsnd negate
++                         (if k < (0 :: Integer) then divMod (abs k) (abs l)
++                           else (case divMod (abs k) (abs l) of {
++                                  (r, s) ->
++                                    (if s == (0 :: Integer)
++                                      then (negate r, (0 :: Integer))
++                                      else (negate r - (1 :: Integer),
++     negate l - s));
++                                })))));
++
++num_of_integer :: Integer -> Num;
++num_of_integer k =
++  (if k <= (1 :: Integer) then One
++    else (case divmod_integer k (2 :: Integer) of {
++           (l, j) -> let {
++                       la = num_of_integer l;
++                       lb = plus_num la la;
++                     } in (if j == (0 :: Integer) then lb else plus_num lb One);
++         }));
++
++divide_nat :: Nat -> Nat -> Nat;
++divide_nat m n = fst (divmod_nat m n);
++
++modulo_nat :: Nat -> Nat -> Nat;
++modulo_nat m n = snd (divmod_nat m n);
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/ComposableTMs.hs
+@@ -0,0 +1,46 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module ComposableTMs(mk_composable0) where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified List;
++import qualified HOL;
++import qualified Turing;
++import qualified Arith;
++
++fix_jumps ::
++  Arith.Nat -> [(Turing.Action, Arith.Nat)] -> [(Turing.Action, Arith.Nat)];
++fix_jumps smax [] = [];
++fix_jumps smax (ins : inss) =
++  (if Arith.less_eq_nat (snd ins) smax then ins : fix_jumps smax inss
++    else (fst ins, Arith.Zero_nat) : fix_jumps smax inss);
++
++mk_composable0 :: [(Turing.Action, Arith.Nat)] -> [(Turing.Action, Arith.Nat)];
++mk_composable0 [] =
++  [(Turing.Nop, Arith.Zero_nat), (Turing.Nop, Arith.Zero_nat)];
++mk_composable0 [i1] =
++  fix_jumps (Arith.Nat_of_num Arith.One) [i1, (Turing.Nop, Arith.Zero_nat)];
++mk_composable0 (i1 : i2 : ins) =
++  let {
++    l = Arith.plus_nat (Arith.Nat_of_num (Arith.Bit0 Arith.One))
++          (List.size_list ins);
++  } in (if Arith.equal_nat
++             (Arith.modulo_nat l (Arith.Nat_of_num (Arith.Bit0 Arith.One)))
++             Arith.Zero_nat
++         then fix_jumps
++                (Arith.divide_nat l (Arith.Nat_of_num (Arith.Bit0 Arith.One)))
++                (i1 : i2 : ins)
++         else fix_jumps
++                (Arith.plus_nat
++                  (Arith.divide_nat l (Arith.Nat_of_num (Arith.Bit0 Arith.One)))
++                  (Arith.Nat_of_num Arith.One))
++                ((i1 : i2 : ins) ++ [(Turing.Nop, Arith.Zero_nat)]));
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/ComposedTMs.hs
+@@ -0,0 +1,43 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module ComposedTMs(shift, adjust, seq_tm) where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified List;
++import qualified Product_Type;
++import qualified Turing;
++import qualified Arith;
++
++shift ::
++  [(Turing.Action, Arith.Nat)] -> Arith.Nat -> [(Turing.Action, Arith.Nat)];
++shift p n =
++  map (\ (a, s) ->
++        (a, (if Arith.equal_nat s Arith.Zero_nat then Arith.Zero_nat
++              else Arith.plus_nat s n)))
++    p;
++
++adjust ::
++  [(Turing.Action, Arith.Nat)] -> Arith.Nat -> [(Turing.Action, Arith.Nat)];
++adjust p e =
++  map (\ (a, s) -> (a, (if Arith.equal_nat s Arith.Zero_nat then e else s))) p;
++
++seq_tm ::
++  [(Turing.Action, Arith.Nat)] ->
++    [(Turing.Action, Arith.Nat)] -> [(Turing.Action, Arith.Nat)];
++seq_tm p1 p2 =
++  adjust p1
++    (Arith.suc
++      (Arith.divide_nat (List.size_list p1)
++        (Arith.Nat_of_num (Arith.Bit0 Arith.One)))) ++
++    shift p2
++      (Arith.divide_nat (List.size_list p1)
++        (Arith.Nat_of_num (Arith.Bit0 Arith.One)));
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/GeneratedCode.hs
+@@ -0,0 +1,36 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module
++  GeneratedCode(dummy_cellId, tape_of_nat_imp, dummy_abc_inst_Id,
++                 tape_of_nat_list_imp)
++  where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified Abacus;
++import qualified Numerals;
++import qualified Arith;
++import qualified Turing;
++
++dummy_cellId :: Turing.Cell -> Turing.Cell;
++dummy_cellId Turing.Oc = Turing.Oc;
++dummy_cellId Turing.Bk = Turing.Bk;
++
++tape_of_nat_imp :: Arith.Nat -> [Turing.Cell];
++tape_of_nat_imp n = Numerals.tape_of_nat n;
++
++dummy_abc_inst_Id :: Abacus.Abc_inst -> Bool;
++dummy_abc_inst_Id (Abacus.Inc n) = True;
++dummy_abc_inst_Id (Abacus.Dec n s) = True;
++dummy_abc_inst_Id (Abacus.Goto n) = True;
++
++tape_of_nat_list_imp :: [Arith.Nat] -> [Turing.Cell];
++tape_of_nat_list_imp ns = Numerals.tape_of_list ns;
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/Groups_List.hs
+@@ -0,0 +1,19 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module Groups_List(sum_list) where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified List;
++import qualified Arith;
++
++sum_list :: forall a. (Arith.Monoid_add a) => [a] -> a;
++sum_list xs = List.foldr Arith.plus xs Arith.zero;
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/HOL.hs
+@@ -0,0 +1,14 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module HOL() where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/List.hs
+@@ -0,0 +1,59 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module List(nth, upt, take, foldr, hd, tl, replicate, list_update, size_list)
++  where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified Arith;
++
++nth :: forall a. [a] -> Arith.Nat -> a;
++nth (x : xs) n =
++  (if Arith.equal_nat n Arith.Zero_nat then x
++    else nth xs (Arith.minus_nat n (Arith.Nat_of_num Arith.One)));
++
++upt :: Arith.Nat -> Arith.Nat -> [Arith.Nat];
++upt i j = (if Arith.less_nat i j then i : upt (Arith.suc i) j else []);
++
++take :: forall a. Arith.Nat -> [a] -> [a];
++take n [] = [];
++take n (x : xs) =
++  (if Arith.equal_nat n Arith.Zero_nat then []
++    else x : take (Arith.minus_nat n (Arith.Nat_of_num Arith.One)) xs);
++
++foldr :: forall a b. (a -> b -> b) -> [a] -> b -> b;
++foldr f [] = id;
++foldr f (x : xs) = f x . foldr f xs;
++
++hd :: forall a. [a] -> a;
++hd (x21 : x22) = x21;
++
++tl :: forall a. [a] -> [a];
++tl [] = [];
++tl (x21 : x22) = x22;
++
++replicate :: forall a. Arith.Nat -> a -> [a];
++replicate n x =
++  (if Arith.equal_nat n Arith.Zero_nat then []
++    else x : replicate (Arith.minus_nat n (Arith.Nat_of_num Arith.One)) x);
++
++gen_length :: forall a. Arith.Nat -> [a] -> Arith.Nat;
++gen_length n (x : xs) = gen_length (Arith.suc n) xs;
++gen_length n [] = n;
++
++list_update :: forall a. [a] -> Arith.Nat -> a -> [a];
++list_update [] i y = [];
++list_update (x : xs) i y =
++  (if Arith.equal_nat i Arith.Zero_nat then y : xs
++    else x : list_update xs (Arith.minus_nat i (Arith.Nat_of_num Arith.One)) y);
++
++size_list :: forall a. [a] -> Arith.Nat;
++size_list = gen_length Arith.Zero_nat;
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/Nat_Bijection.hs
+@@ -0,0 +1,45 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module
++  Nat_Bijection(triangle, prod_decode, list_decode, prod_encode, list_encode)
++  where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified Product_Type;
++import qualified Arith;
++
++triangle :: Arith.Nat -> Arith.Nat;
++triangle n =
++  Arith.divide_nat (Arith.times_nat n (Arith.suc n))
++    (Arith.Nat_of_num (Arith.Bit0 Arith.One));
++
++prod_decode_aux :: Arith.Nat -> Arith.Nat -> (Arith.Nat, Arith.Nat);
++prod_decode_aux k m =
++  (if Arith.less_eq_nat m k then (m, Arith.minus_nat k m)
++    else prod_decode_aux (Arith.suc k) (Arith.minus_nat m (Arith.suc k)));
++
++prod_decode :: Arith.Nat -> (Arith.Nat, Arith.Nat);
++prod_decode = prod_decode_aux Arith.Zero_nat;
++
++list_decode :: Arith.Nat -> [Arith.Nat];
++list_decode n =
++  (if Arith.equal_nat n Arith.Zero_nat then []
++    else (case prod_decode (Arith.minus_nat n (Arith.Nat_of_num Arith.One)) of {
++           (x, y) -> x : list_decode y;
++         }));
++
++prod_encode :: (Arith.Nat, Arith.Nat) -> Arith.Nat;
++prod_encode = (\ (m, n) -> Arith.plus_nat (triangle (Arith.plus_nat m n)) m);
++
++list_encode :: [Arith.Nat] -> Arith.Nat;
++list_encode [] = Arith.Zero_nat;
++list_encode (x : xs) = Arith.suc (prod_encode (x, list_encode xs));
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/Numerals.hs
+@@ -0,0 +1,37 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module Numerals(tape_of_nat, Tape, tape_of_list) where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified List;
++import qualified Turing;
++import qualified Arith;
++
++tape_of_nat :: Arith.Nat -> [Turing.Cell];
++tape_of_nat n = List.replicate (Arith.suc n) Turing.Oc;
++
++class Tape a where {
++  tape_of :: a -> [Turing.Cell];
++};
++
++instance Tape Arith.Nat where {
++  tape_of = tape_of_nat;
++};
++
++tape_of_nat_list :: forall a. (Tape a) => [a] -> [Turing.Cell];
++tape_of_nat_list [] = [];
++tape_of_nat_list [n] = tape_of n;
++tape_of_nat_list (n : v : va) =
++  tape_of n ++ Turing.Bk : tape_of_nat_list (v : va);
++
++tape_of_list :: forall a. (Tape a) => [a] -> [Turing.Cell];
++tape_of_list = tape_of_nat_list;
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/OneStrokeTM.hs
+@@ -0,0 +1,24 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module OneStrokeTM(tm_onestroke) where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified Turing;
++import qualified Arith;
++
++tm_onestroke :: [(Turing.Action, Arith.Nat)];
++tm_onestroke =
++  [(Turing.R, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.WB, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.R, Arith.Nat_of_num Arith.One),
++    (Turing.R, Arith.Nat_of_num Arith.One), (Turing.WO, Arith.Zero_nat),
++    (Turing.WB, Arith.Nat_of_num (Arith.Bit0 Arith.One))];
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/Option.hs
+@@ -0,0 +1,18 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module Option(map_option) where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++
++map_option :: forall a b. (a -> b) -> Maybe a -> Maybe b;
++map_option f Nothing = Nothing;
++map_option f (Just x2) = Just (f x2);
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/Product_Type.hs
+@@ -0,0 +1,17 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module Product_Type(apsnd) where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++
++apsnd :: forall a b c. (a -> b) -> (c, a) -> (c, b);
++apsnd f (x, y) = (x, f y);
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/SemiIdTM.hs
+@@ -0,0 +1,28 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module SemiIdTM(tm_semi_id_eq0, tm_semi_id_gt0) where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified Turing;
++import qualified Arith;
++
++tm_semi_id_eq0 :: [(Turing.Action, Arith.Nat)];
++tm_semi_id_eq0 =
++  [(Turing.WB, Arith.Nat_of_num Arith.One),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.L, Arith.Zero_nat), (Turing.L, Arith.Nat_of_num Arith.One)];
++
++tm_semi_id_gt0 :: [(Turing.Action, Arith.Nat)];
++tm_semi_id_gt0 =
++  [(Turing.WB, Arith.Nat_of_num Arith.One),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.L, Arith.Nat_of_num Arith.One), (Turing.L, Arith.Zero_nat)];
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/SimpleGoedelEncoding.hs
+@@ -0,0 +1,48 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module
++  SimpleGoedelEncoding(nat_list_to_tm, nat_to_tm, tm_to_nat_list, tm_to_nat)
++  where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified List;
++import qualified Nat_Bijection;
++import qualified Turing;
++import qualified Arith;
++
++nat_list_to_tm :: [Arith.Nat] -> [(Turing.Action, Arith.Nat)];
++nat_list_to_tm [] = [];
++nat_list_to_tm [ac] = [(Turing.Nop, Arith.Zero_nat)];
++nat_list_to_tm (ac : s : ns) =
++  (if Arith.less_nat ac (Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One)))
++    then (List.nth [Turing.WB, Turing.WO, Turing.L, Turing.R, Turing.Nop] ac,
++           s) :
++           nat_list_to_tm ns
++    else [(Turing.Nop, Arith.Zero_nat)]);
++
++nat_to_tm :: Arith.Nat -> [(Turing.Action, Arith.Nat)];
++nat_to_tm = nat_list_to_tm . Nat_Bijection.list_decode;
++
++tm_to_nat_list :: [(Turing.Action, Arith.Nat)] -> [Arith.Nat];
++tm_to_nat_list [] = [];
++tm_to_nat_list ((Turing.WB, s) : is) = Arith.Zero_nat : s : tm_to_nat_list is;
++tm_to_nat_list ((Turing.WO, s) : is) =
++  Arith.Nat_of_num Arith.One : s : tm_to_nat_list is;
++tm_to_nat_list ((Turing.L, s) : is) =
++  Arith.Nat_of_num (Arith.Bit0 Arith.One) : s : tm_to_nat_list is;
++tm_to_nat_list ((Turing.R, s) : is) =
++  Arith.Nat_of_num (Arith.Bit1 Arith.One) : s : tm_to_nat_list is;
++tm_to_nat_list ((Turing.Nop, s) : is) =
++  Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 Arith.One)) : s : tm_to_nat_list is;
++
++tm_to_nat :: [(Turing.Action, Arith.Nat)] -> Arith.Nat;
++tm_to_nat = Nat_Bijection.list_encode . tm_to_nat_list;
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/StrongCopyTM.hs
+@@ -0,0 +1,77 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module
++  StrongCopyTM(tm_erase_right_then_dblBk_left, tm_skip_first_arg,
++                tm_check_for_one_arg, tm_strong_copy)
++  where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified WeakCopyTM;
++import qualified ComposedTMs;
++import qualified Turing;
++import qualified Arith;
++
++tm_erase_right_then_dblBk_left :: [(Turing.Action, Arith.Nat)];
++tm_erase_right_then_dblBk_left =
++  [(Turing.L, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 Arith.One))),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.R, Arith.Zero_nat), (Turing.R, Arith.Zero_nat),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 Arith.One))),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 Arith.One))),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 Arith.One))),
++    (Turing.WB, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 Arith.One))),
++    (Turing.R,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 (Arith.Bit0 Arith.One)))),
++    (Turing.WB,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 (Arith.Bit0 Arith.One)))),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 Arith.One))),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 Arith.One))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 (Arith.Bit0 Arith.One)))),
++    (Turing.WB,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 (Arith.Bit0 Arith.One)))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 (Arith.Bit0 Arith.One)))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 (Arith.Bit0 Arith.One)))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 (Arith.Bit1 Arith.One)))),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 (Arith.Bit0 Arith.One)))),
++    (Turing.WB, Arith.Zero_nat),
++    (Turing.L,
++      Arith.Nat_of_num (Arith.Bit1 (Arith.Bit1 (Arith.Bit0 Arith.One))))];
++
++tm_skip_first_arg :: [(Turing.Action, Arith.Nat)];
++tm_skip_first_arg =
++  [(Turing.L, Arith.Zero_nat),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 Arith.One))),
++    (Turing.WO, Arith.Zero_nat),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.R, Arith.Zero_nat),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One)))];
++
++tm_check_for_one_arg :: [(Turing.Action, Arith.Nat)];
++tm_check_for_one_arg =
++  ComposedTMs.seq_tm tm_skip_first_arg tm_erase_right_then_dblBk_left;
++
++tm_strong_copy :: [(Turing.Action, Arith.Nat)];
++tm_strong_copy =
++  ComposedTMs.seq_tm tm_check_for_one_arg WeakCopyTM.tm_weak_copy;
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/Turing.hs
+@@ -0,0 +1,83 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module Turing(Cell(..), Action(..), step, steps, is_final) where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified Product_Type;
++import qualified List;
++import qualified HOL;
++import qualified Arith;
++
++data Cell = Bk | Oc;
++
++data Action = WB | WO | L | R | Nop;
++
++update :: Action -> ([Cell], [Cell]) -> ([Cell], [Cell]);
++update WB (l, r) = (l, Bk : List.tl r);
++update WO (l, r) = (l, Oc : List.tl r);
++update L (l, r) = (if null l then ([], Bk : r) else (List.tl l, List.hd l : r));
++update R (l, r) = (if null r then (Bk : l, []) else (List.hd r : l, List.tl r));
++update Nop (l, r) = (l, r);
++
++equal_cell :: Cell -> Cell -> Bool;
++equal_cell Bk Oc = False;
++equal_cell Oc Bk = False;
++equal_cell Oc Oc = True;
++equal_cell Bk Bk = True;
++
++fetch :: [(Action, Arith.Nat)] -> Arith.Nat -> Cell -> (Action, Arith.Nat);
++fetch p n b =
++  let {
++    len = List.size_list p;
++  } in (if Arith.equal_nat n Arith.Zero_nat then (Nop, Arith.Zero_nat)
++         else (if equal_cell b Bk
++                then (if Arith.less_eq_nat len
++                           (Arith.minus_nat
++                             (Arith.times_nat
++                               (Arith.Nat_of_num (Arith.Bit0 Arith.One)) n)
++                             (Arith.Nat_of_num (Arith.Bit0 Arith.One)))
++                       then (Nop, Arith.Zero_nat)
++                       else List.nth p
++                              (Arith.minus_nat
++                                (Arith.times_nat
++                                  (Arith.Nat_of_num (Arith.Bit0 Arith.One)) n)
++                                (Arith.Nat_of_num (Arith.Bit0 Arith.One))))
++                else (if Arith.less_eq_nat len
++                           (Arith.minus_nat
++                             (Arith.times_nat
++                               (Arith.Nat_of_num (Arith.Bit0 Arith.One)) n)
++                             (Arith.Nat_of_num Arith.One))
++                       then (Nop, Arith.Zero_nat)
++                       else List.nth p
++                              (Arith.minus_nat
++                                (Arith.times_nat
++                                  (Arith.Nat_of_num (Arith.Bit0 Arith.One)) n)
++                                (Arith.Nat_of_num Arith.One)))));
++
++step ::
++  (Arith.Nat, ([Cell], [Cell])) ->
++    ([(Action, Arith.Nat)], Arith.Nat) -> (Arith.Nat, ([Cell], [Cell]));
++step (s, (l, r)) (p, off) =
++  (case fetch p (Arith.minus_nat s off) (if null r then Bk else List.hd r) of {
++    (a, sa) -> (sa, update a (l, r));
++  });
++
++steps ::
++  (Arith.Nat, ([Cell], [Cell])) ->
++    ([(Action, Arith.Nat)], Arith.Nat) ->
++      Arith.Nat -> (Arith.Nat, ([Cell], [Cell]));
++steps c p n =
++  (if Arith.equal_nat n Arith.Zero_nat then c
++    else steps (step c p) p (Arith.minus_nat n (Arith.Nat_of_num Arith.One)));
++
++is_final :: (Arith.Nat, ([Cell], [Cell])) -> Bool;
++is_final (s, (l, r)) = Arith.equal_nat s Arith.Zero_nat;
++
++}
+--- /dev/null
++++ b/thys/Universal_Turing_Machine/HaskellCode/WeakCopyTM.hs
+@@ -0,0 +1,64 @@
++{-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
++
++module
++  WeakCopyTM(tm_copy_begin_orig, tm_copy_loop_orig, tm_copy_end_new,
++              tm_weak_copy)
++  where {
++
++import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
++  (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
++  error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
++  zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
++  String, Bool(True, False), Maybe(Nothing, Just));
++import Data.Bits ((.&.), (.|.), (.^.));
++import qualified Prelude;
++import qualified Data.Bits;
++import qualified ComposedTMs;
++import qualified Turing;
++import qualified Arith;
++
++tm_copy_begin_orig :: [(Turing.Action, Arith.Nat)];
++tm_copy_begin_orig =
++  [(Turing.WB, Arith.Zero_nat),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.WO, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 Arith.One))),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 Arith.One))),
++    (Turing.L, Arith.Zero_nat)];
++
++tm_copy_loop_orig :: [(Turing.Action, Arith.Nat)];
++tm_copy_loop_orig =
++  [(Turing.R, Arith.Zero_nat),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.WB, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 Arith.One))),
++    (Turing.WO, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 Arith.One))),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 Arith.One))),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit1 Arith.One))),
++    (Turing.L, Arith.Nat_of_num Arith.One)];
++
++tm_copy_end_new :: [(Turing.Action, Arith.Nat)];
++tm_copy_end_new =
++  [(Turing.R, Arith.Zero_nat),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.WO, Arith.Nat_of_num (Arith.Bit1 Arith.One)),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 Arith.One))),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.R, Arith.Nat_of_num (Arith.Bit0 Arith.One)),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One))),
++    (Turing.WB, Arith.Nat_of_num (Arith.Bit0 (Arith.Bit0 Arith.One))),
++    (Turing.R, Arith.Zero_nat),
++    (Turing.L, Arith.Nat_of_num (Arith.Bit1 (Arith.Bit0 Arith.One)))];
++
++tm_weak_copy :: [(Turing.Action, Arith.Nat)];
++tm_weak_copy =
++  ComposedTMs.seq_tm (ComposedTMs.seq_tm tm_copy_begin_orig tm_copy_loop_orig)
++    tm_copy_end_new;
++
++}
+--- /dev/null
++++ b/thys/Vickrey_Clarke_Groves/VCG-withoutWrapper.scala
+@@ -0,0 +1,818 @@
++object VCG {
++
++abstract sealed class nat
++final case class Nat(a : BigInt) extends nat
++
++def integer_of_nat(x0 : nat) : BigInt = x0 match {
++  case Nat(x) => x
++}
++
++def equal_nata(m : nat, n : nat) : Boolean =
++  integer_of_nat(m) == integer_of_nat(n)
++
++trait equal[A] {
++  val `VCG.equal` : (A, A) => Boolean
++}
++def equal[A](a : A, b : A)(implicit A: equal[A]) : Boolean = A.`VCG.equal`(a, b)
++object equal {
++  implicit def `VCG.equal_integer` : equal[BigInt] = new equal[BigInt] {
++    val `VCG.equal` = (a : BigInt, b : BigInt) => a == b
++  }
++  implicit def `VCG.equal_prod`[A : equal, B : equal] : equal[(A, B)] = new
++    equal[(A, B)] {
++    val `VCG.equal` = (a : (A, B), b : (A, B)) => equal_proda[A, B](a, b)
++  }
++  implicit def `VCG.equal_list`[A : equal] : equal[List[A]] = new equal[List[A]]
++    {
++    val `VCG.equal` = (a : List[A], b : List[A]) => equal_lista[A](a, b)
++  }
++  implicit def `VCG.equal_set`[A : equal] : equal[set[A]] = new equal[set[A]] {
++    val `VCG.equal` = (a : set[A], b : set[A]) => equal_seta[A](a, b)
++  }
++  implicit def `VCG.equal_nat` : equal[nat] = new equal[nat] {
++    val `VCG.equal` = (a : nat, b : nat) => equal_nata(a, b)
++  }
++}
++
++def plus_nata(m : nat, n : nat) : nat =
++  Nat(integer_of_nat(m) + integer_of_nat(n))
++
++trait plus[A] {
++  val `VCG.plus` : (A, A) => A
++}
++def plus[A](a : A, b : A)(implicit A: plus[A]) : A = A.`VCG.plus`(a, b)
++object plus {
++  implicit def `VCG.plus_integer` : plus[BigInt] = new plus[BigInt] {
++    val `VCG.plus` = (a : BigInt, b : BigInt) => a + b
++  }
++  implicit def `VCG.plus_nat` : plus[nat] = new plus[nat] {
++    val `VCG.plus` = (a : nat, b : nat) => plus_nata(a, b)
++  }
++}
++
++def zero_nata : nat = Nat(BigInt(0))
++
++trait zero[A] {
++  val `VCG.zero` : A
++}
++def zero[A](implicit A: zero[A]) : A = A.`VCG.zero`
++object zero {
++  implicit def `VCG.zero_integer` : zero[BigInt] = new zero[BigInt] {
++    val `VCG.zero` = BigInt(0)
++  }
++  implicit def `VCG.zero_nat` : zero[nat] = new zero[nat] {
++    val `VCG.zero` = zero_nata
++  }
++}
++
++def less_eq_nat(m : nat, n : nat) : Boolean =
++  integer_of_nat(m) <= integer_of_nat(n)
++
++trait ord[A] {
++  val `VCG.less_eq` : (A, A) => Boolean
++  val `VCG.less` : (A, A) => Boolean
++}
++def less_eq[A](a : A, b : A)(implicit A: ord[A]) : Boolean =
++  A.`VCG.less_eq`(a, b)
++def less[A](a : A, b : A)(implicit A: ord[A]) : Boolean = A.`VCG.less`(a, b)
++object ord {
++  implicit def `VCG.ord_integer` : ord[BigInt] = new ord[BigInt] {
++    val `VCG.less_eq` = (a : BigInt, b : BigInt) => a <= b
++    val `VCG.less` = (a : BigInt, b : BigInt) => a < b
++  }
++  implicit def `VCG.ord_nat` : ord[nat] = new ord[nat] {
++    val `VCG.less_eq` = (a : nat, b : nat) => less_eq_nat(a, b)
++    val `VCG.less` = (a : nat, b : nat) => less_nat(a, b)
++  }
++}
++
++def less_nat(m : nat, n : nat) : Boolean = integer_of_nat(m) < integer_of_nat(n)
++
++trait preorder[A] extends ord[A] {
++}
++object preorder {
++  implicit def `VCG.preorder_integer` : preorder[BigInt] = new preorder[BigInt]
++    {
++    val `VCG.less_eq` = (a : BigInt, b : BigInt) => a <= b
++    val `VCG.less` = (a : BigInt, b : BigInt) => a < b
++  }
++  implicit def `VCG.preorder_nat` : preorder[nat] = new preorder[nat] {
++    val `VCG.less_eq` = (a : nat, b : nat) => less_eq_nat(a, b)
++    val `VCG.less` = (a : nat, b : nat) => less_nat(a, b)
++  }
++}
++
++trait order[A] extends preorder[A] {
++}
++object order {
++  implicit def `VCG.order_integer` : order[BigInt] = new order[BigInt] {
++    val `VCG.less_eq` = (a : BigInt, b : BigInt) => a <= b
++    val `VCG.less` = (a : BigInt, b : BigInt) => a < b
++  }
++  implicit def `VCG.order_nat` : order[nat] = new order[nat] {
++    val `VCG.less_eq` = (a : nat, b : nat) => less_eq_nat(a, b)
++    val `VCG.less` = (a : nat, b : nat) => less_nat(a, b)
++  }
++}
++
++trait semigroup_add[A] extends plus[A] {
++}
++object semigroup_add {
++  implicit def `VCG.semigroup_add_integer` : semigroup_add[BigInt] = new
++    semigroup_add[BigInt] {
++    val `VCG.plus` = (a : BigInt, b : BigInt) => a + b
++  }
++  implicit def `VCG.semigroup_add_nat` : semigroup_add[nat] = new
++    semigroup_add[nat] {
++    val `VCG.plus` = (a : nat, b : nat) => plus_nata(a, b)
++  }
++}
++
++trait monoid_add[A] extends semigroup_add[A] with zero[A] {
++}
++object monoid_add {
++  implicit def `VCG.monoid_add_integer` : monoid_add[BigInt] = new
++    monoid_add[BigInt] {
++    val `VCG.zero` = BigInt(0)
++    val `VCG.plus` = (a : BigInt, b : BigInt) => a + b
++  }
++  implicit def `VCG.monoid_add_nat` : monoid_add[nat] = new monoid_add[nat] {
++    val `VCG.zero` = zero_nata
++    val `VCG.plus` = (a : nat, b : nat) => plus_nata(a, b)
++  }
++}
++
++trait linorder[A] extends order[A] {
++}
++object linorder {
++  implicit def `VCG.linorder_integer` : linorder[BigInt] = new linorder[BigInt]
++    {
++    val `VCG.less_eq` = (a : BigInt, b : BigInt) => a <= b
++    val `VCG.less` = (a : BigInt, b : BigInt) => a < b
++  }
++  implicit def `VCG.linorder_nat` : linorder[nat] = new linorder[nat] {
++    val `VCG.less_eq` = (a : nat, b : nat) => less_eq_nat(a, b)
++    val `VCG.less` = (a : nat, b : nat) => less_nat(a, b)
++  }
++}
++
++trait ab_semigroup_add[A] extends semigroup_add[A] {
++}
++object ab_semigroup_add {
++  implicit def `VCG.ab_semigroup_add_integer` : ab_semigroup_add[BigInt] = new
++    ab_semigroup_add[BigInt] {
++    val `VCG.plus` = (a : BigInt, b : BigInt) => a + b
++  }
++  implicit def `VCG.ab_semigroup_add_nat` : ab_semigroup_add[nat] = new
++    ab_semigroup_add[nat] {
++    val `VCG.plus` = (a : nat, b : nat) => plus_nata(a, b)
++  }
++}
++
++trait comm_monoid_add[A] extends ab_semigroup_add[A] with monoid_add[A] {
++}
++object comm_monoid_add {
++  implicit def `VCG.comm_monoid_add_integer` : comm_monoid_add[BigInt] = new
++    comm_monoid_add[BigInt] {
++    val `VCG.zero` = BigInt(0)
++    val `VCG.plus` = (a : BigInt, b : BigInt) => a + b
++  }
++  implicit def `VCG.comm_monoid_add_nat` : comm_monoid_add[nat] = new
++    comm_monoid_add[nat] {
++    val `VCG.zero` = zero_nata
++    val `VCG.plus` = (a : nat, b : nat) => plus_nata(a, b)
++  }
++}
++
++def list_all[A](p : A => Boolean, x1 : List[A]) : Boolean = (p, x1) match {
++  case (p, Nil) => true
++  case (p, x :: xs) => p(x) && list_all[A](p, xs)
++}
++
++abstract sealed class set[A]
++final case class seta[A](a : List[A]) extends set[A]
++final case class coset[A](a : List[A]) extends set[A]
++
++def eq[A : equal](a : A, b : A) : Boolean = equal[A](a, b)
++
++def membera[A : equal](x0 : List[A], y : A) : Boolean = (x0, y) match {
++  case (Nil, y) => false
++  case (x :: xs, y) => eq[A](x, y) || membera[A](xs, y)
++}
++
++def member[A : equal](x : A, xa1 : set[A]) : Boolean = (x, xa1) match {
++  case (x, coset(xs)) => ! (membera[A](xs, x))
++  case (x, seta(xs)) => membera[A](xs, x)
++}
++
++def less_eq_set[A : equal](a : set[A], b : set[A]) : Boolean = (a, b) match {
++  case (coset(Nil), seta(Nil)) => false
++  case (a, coset(ys)) => list_all[A](((y : A) => ! (member[A](y, a))), ys)
++  case (seta(xs), b) => list_all[A](((x : A) => member[A](x, b)), xs)
++}
++
++def equal_seta[A : equal](a : set[A], b : set[A]) : Boolean =
++  less_eq_set[A](a, b) && less_eq_set[A](b, a)
++
++def equal_lista[A : equal](x0 : List[A], x1 : List[A]) : Boolean = (x0, x1)
++  match {
++  case (Nil, x21 :: x22) => false
++  case (x21 :: x22, Nil) => false
++  case (x21 :: x22, y21 :: y22) => eq[A](x21, y21) && equal_lista[A](x22, y22)
++  case (Nil, Nil) => true
++}
++
++def equal_proda[A : equal, B : equal](x0 : (A, B), x1 : (A, B)) : Boolean =
++  (x0, x1) match {
++  case ((x1, x2), (y1, y2)) => eq[A](x1, y1) && eq[B](x2, y2)
++}
++
++trait minus[A] {
++  val `VCG.minus` : (A, A) => A
++}
++def minus[A](a : A, b : A)(implicit A: minus[A]) : A = A.`VCG.minus`(a, b)
++object minus {
++  implicit def `VCG.minus_integer` : minus[BigInt] = new minus[BigInt] {
++    val `VCG.minus` = (a : BigInt, b : BigInt) => a - b
++  }
++}
++
++abstract sealed class num
++final case class One() extends num
++final case class Bit0(a : num) extends num
++final case class Bit1(a : num) extends num
++
++def id[A] : A => A = ((x : A) => x)
++
++def one_nat : nat = Nat(BigInt(1))
++
++def Suc(n : nat) : nat = plus_nata(n, one_nat)
++
++def filtera[A](p : A => Boolean, x1 : List[A]) : List[A] = (p, x1) match {
++  case (p, Nil) => Nil
++  case (p, x :: xs) =>
++    (p(x) match { case true => x :: filtera[A](p, xs)
++      case false => filtera[A](p, xs) })
++}
++
++def removeAll[A : equal](x : A, xa1 : List[A]) : List[A] = (x, xa1) match {
++  case (x, Nil) => Nil
++  case (x, y :: xs) =>
++    (eq[A](x, y) match { case true => removeAll[A](x, xs)
++      case false => y :: removeAll[A](x, xs) })
++}
++
++def inserta[A : equal](x : A, xs : List[A]) : List[A] =
++  (membera[A](xs, x) match { case true => xs case false => x :: xs })
++
++def insert[A : equal](x : A, xa1 : set[A]) : set[A] = (x, xa1) match {
++  case (x, coset(xs)) => coset[A](removeAll[A](x, xs))
++  case (x, seta(xs)) => seta[A](inserta[A](x, xs))
++}
++
++def fold[A, B](f : A => B => B, x1 : List[A], s : B) : B = (f, x1, s) match {
++  case (f, x :: xs, s) => fold[A, B](f, xs, (f(x))(s))
++  case (f, Nil, s) => s
++}
++
++def sup_set[A : equal](x0 : set[A], a : set[A]) : set[A] = (x0, a) match {
++  case (coset(xs), a) =>
++    coset[A](filtera[A](((x : A) => ! (member[A](x, a))), xs))
++  case (seta(xs), a) =>
++    fold[A, set[A]](((aa : A) => (b : set[A]) => insert[A](aa, b)), xs, a)
++}
++
++def bot_set[A] : set[A] = seta[A](Nil)
++
++def map[A, B](f : A => B, x1 : List[A]) : List[B] = (f, x1) match {
++  case (f, Nil) => Nil
++  case (f, x21 :: x22) => f(x21) :: map[A, B](f, x22)
++}
++
++def image[A, B](f : A => B, x1 : set[A]) : set[B] = (f, x1) match {
++  case (f, seta(xs)) => seta[B](map[A, B](f, xs))
++}
++
++def Pow[A : equal](x0 : set[A]) : set[set[A]] = x0 match {
++  case seta(x :: xs) =>
++    {
++      val a = Pow[A](seta[A](xs)) : (set[set[A]]);
++      sup_set[set[A]](a, image[set[A],
++                                set[A]](((aa : set[A]) => insert[A](x, aa)), a))
++    }
++  case seta(Nil) => insert[set[A]](bot_set[A], bot_set[set[A]])
++}
++
++def comp[A, B, C](f : A => B, g : C => A) : C => B = ((x : C) => f(g(x)))
++
++def max[A : ord](a : A, b : A) : A =
++  (less_eq[A](a, b) match { case true => b case false => a })
++
++def minus_nat(m : nat, n : nat) : nat =
++  Nat(max[BigInt](BigInt(0), integer_of_nat(m) - integer_of_nat(n)))
++
++def nth[A](x0 : List[A], n : nat) : A = (x0, n) match {
++  case (x :: xs, n) =>
++    (equal_nata(n, zero_nata) match { case true => x
++      case false => nth[A](xs, minus_nat(n, one_nat)) })
++}
++
++def upt(i : nat, j : nat) : List[nat] =
++  (less_nat(i, j) match { case true => i :: upt(Suc(i), j) case false => Nil })
++
++def maps[A, B](f : A => List[B], x1 : List[A]) : List[B] = (f, x1) match {
++  case (f, Nil) => Nil
++  case (f, x :: xs) => f(x) ++ maps[A, B](f, xs)
++}
++
++def foldr[A, B](f : A => B => B, x1 : List[A]) : B => B = (f, x1) match {
++  case (f, Nil) => id[B]
++  case (f, x :: xs) => comp[B, B, B](f(x), foldr[A, B](f, xs))
++}
++
++def filter[A](p : A => Boolean, x1 : set[A]) : set[A] = (p, x1) match {
++  case (p, seta(xs)) => seta[A](filtera[A](p, xs))
++}
++
++def remove[A : equal](x : A, xa1 : set[A]) : set[A] = (x, xa1) match {
++  case (x, coset(xs)) => coset[A](inserta[A](x, xs))
++  case (x, seta(xs)) => seta[A](removeAll[A](x, xs))
++}
++
++def remdups[A : equal](x0 : List[A]) : List[A] = x0 match {
++  case Nil => Nil
++  case x :: xs =>
++    (membera[A](xs, x) match { case true => remdups[A](xs)
++      case false => x :: remdups[A](xs) })
++}
++
++def remove1[A : equal](x : A, xa1 : List[A]) : List[A] = (x, xa1) match {
++  case (x, Nil) => Nil
++  case (x, y :: xs) =>
++    (eq[A](x, y) match { case true => xs case false => y :: remove1[A](x, xs) })
++}
++
++def the_elem[A](x0 : set[A]) : A = x0 match {
++  case seta(List(x)) => x
++}
++
++def Max[A : linorder](x0 : set[A]) : A = x0 match {
++  case seta(x :: xs) => fold[A, A](((a : A) => (b : A) => max[A](a, b)), xs, x)
++}
++
++def argmax[A, B : equal : linorder](f : A => B, a : set[A]) : set[A] =
++  filter[A](((x : A) => eq[B](f(x), Max[B](image[A, B](f, a)))), a)
++
++def map_filter[A, B](f : A => Option[B], x1 : List[A]) : List[B] = (f, x1)
++  match {
++  case (f, Nil) => Nil
++  case (f, x :: xs) => (f(x) match {
++                          case None => map_filter[A, B](f, xs)
++                          case Some(y) => y :: map_filter[A, B](f, xs)
++                        })
++}
++
++def map_project[A, B](f : A => Option[B], x1 : set[A]) : set[B] = (f, x1)
++  match {
++  case (f, seta(xs)) => seta[B](map_filter[A, B](f, xs))
++}
++
++def Image[A : equal, B](r : set[(A, B)], s : set[A]) : set[B] =
++  map_project[(A, B),
++               B](((a : (A, B)) =>
++                    {
++                      val (x, y) = a : ((A, B));
++                      (member[A](x, s) match { case true => Some[B](y)
++                        case false => None })
++                    }),
++                   r)
++
++def snd[A, B](x0 : (A, B)) : B = x0 match {
++  case (x1, x2) => x2
++}
++
++def Range[A, B](r : set[(A, B)]) : set[B] =
++  image[(A, B), B](((a : (A, B)) => snd[A, B](a)), r)
++
++def gen_length[A](n : nat, x1 : List[A]) : nat = (n, x1) match {
++  case (n, x :: xs) => gen_length[A](Suc(n), xs)
++  case (n, Nil) => n
++}
++
++def fst[A, B](x0 : (A, B)) : A = x0 match {
++  case (x1, x2) => x1
++}
++
++def Domain[A, B](r : set[(A, B)]) : set[A] =
++  image[(A, B), A](((a : (A, B)) => fst[A, B](a)), r)
++
++def converse[A, B](r : set[(A, B)]) : set[(B, A)] =
++  image[(A, B), (B, A)](((a : (A, B)) => {
++   val (x, y) = a : ((A, B));
++   (y, x)
++ }),
++                         r)
++
++def apsnd[A, B, C](f : A => B, x1 : (C, A)) : (C, B) = (f, x1) match {
++  case (f, (x, y)) => (x, f(y))
++}
++
++def finestpart[A : equal](x : set[A]) : set[set[A]] =
++  image[A, set[A]](((xa : A) => insert[A](xa, bot_set[A])), x)
++
++def product[A, B](x0 : set[A], x1 : set[B]) : set[(A, B)] = (x0, x1) match {
++  case (seta(xs), seta(ys)) =>
++    seta[(A, B)](maps[A, (A, B)](((x : A) =>
++                                   map[B, (A, B)](((a : B) => (x, a)), ys)),
++                                  xs))
++}
++
++def size_list[A] : (List[A]) => nat =
++  ((a : List[A]) => gen_length[A](zero_nata, a))
++
++def filterpositions2[A](p : A => Boolean, l : List[A]) : List[nat] =
++  maps[nat, nat](((n : nat) =>
++                   (p(nth[A](l, n)) match { case true => List(n)
++                     case false => Nil })),
++                  upt(zero_nata, size_list[A].apply(l)))
++
++def minus_set[A : equal](a : set[A], x1 : set[A]) : set[A] = (a, x1) match {
++  case (a, coset(xs)) => seta[A](filtera[A](((x : A) => member[A](x, a)), xs))
++  case (a, seta(xs)) =>
++    fold[A, set[A]](((aa : A) => (b : set[A]) => remove[A](aa, b)), xs, a)
++}
++
++def Outside[A : equal, B : equal](r : set[(A, B)], x : set[A]) : set[(A, B)] =
++  minus_set[(A, B)](r, product[A, B](x, Range[A, B](r)))
++
++def paste[A : equal, B : equal](p : set[(A, B)], q : set[(A, B)]) : set[(A, B)]
++  =
++  sup_set[(A, B)](Outside[A, B](p, Domain[A, B](q)), q)
++
++def eval_rel[A : equal, B](r : set[(A, B)], a : A) : B =
++  the_elem[B](Image[A, B](r, insert[A](a, bot_set[A])))
++
++def divmod_integer(k : BigInt, l : BigInt) : (BigInt, BigInt) =
++  (k == BigInt(0) match { case true => (BigInt(0), BigInt(0))
++    case false => (BigInt(0) < l match {
++                    case true => (BigInt(0) < k match {
++                                   case true => ((k: BigInt) => (l: BigInt) =>
++          l == 0 match { case true => (BigInt(0), k) case false => (k.abs /% l.abs) }).apply(k).apply(l)
++                                   case false => {
++           val (r, s) =
++             ((k: BigInt) => (l: BigInt) =>
++               l == 0 match { case true => (BigInt(0), k) case false => (k.abs /% l.abs) }).apply(k).apply(l) : ((BigInt,
++                                  BigInt));
++           (s == BigInt(0) match { case true => ((- r), BigInt(0))
++             case false => ((- r) - BigInt(1), l - s) })
++         }
++                                   })
++                    case false => (l == BigInt(0) match {
++                                    case true => (BigInt(0), k)
++                                    case false => apsnd[BigInt, BigInt,
++                 BigInt](((a : BigInt) => (- a)),
++                          (k < BigInt(0) match {
++                            case true => ((k: BigInt) => (l: BigInt) =>
++   l == 0 match { case true => (BigInt(0), k) case false => (k.abs /% l.abs) }).apply(k).apply(l)
++                            case false => {
++    val (r, s) =
++      ((k: BigInt) => (l: BigInt) =>
++        l == 0 match { case true => (BigInt(0), k) case false => (k.abs /% l.abs) }).apply(k).apply(l) : ((BigInt,
++                           BigInt));
++    (s == BigInt(0) match { case true => ((- r), BigInt(0))
++      case false => ((- r) - BigInt(1), (- l) - s) })
++  }
++                            }))
++                                    })
++                    })
++    })
++
++def nat_of_integer(k : BigInt) : nat = Nat(max[BigInt](BigInt(0), k))
++
++def modulo_integer(k : BigInt, l : BigInt) : BigInt =
++  snd[BigInt, BigInt](divmod_integer(k, l))
++
++def modulo_nat(m : nat, n : nat) : nat =
++  Nat(modulo_integer(integer_of_nat(m), integer_of_nat(n)))
++
++def randomEl[A](list : List[A], random : BigInt) : A =
++  nth[A](list, modulo_nat(nat_of_integer(random), size_list[A].apply(list)))
++
++def sum_list[A : monoid_add](xs : List[A]) : A =
++  (foldr[A, A](((a : A) => (b : A) => plus[A](a, b)), xs)).apply(zero[A])
++
++def sum[A : equal, B : comm_monoid_add](g : A => B, x1 : set[A]) : B = (g, x1)
++  match {
++  case (g, seta(xs)) => sum_list[B](map[A, B](g, remdups[A](xs)))
++}
++
++def insort_key[A, B : linorder](f : A => B, x : A, xa2 : List[A]) : List[A] =
++  (f, x, xa2) match {
++  case (f, x, Nil) => List(x)
++  case (f, x, y :: ys) =>
++    (less_eq[B](f(x), f(y)) match { case true => x :: y :: ys
++      case false => y :: insort_key[A, B](f, x, ys) })
++}
++
++def sort_key[A, B : linorder](f : A => B, xs : List[A]) : List[A] =
++  (foldr[A, List[A]](((a : A) => (b : List[A]) => insort_key[A, B](f, a, b)),
++                      xs)).apply(Nil)
++
++def sorted_list_of_set[A : equal : linorder](x0 : set[A]) : List[A] = x0 match {
++  case seta(xs) => sort_key[A, A](((x : A) => x), remdups[A](xs))
++}
++
++def injections_alg[A : equal,
++                    B : equal : linorder](x0 : List[A],
++   y : set[B]) : List[set[(A, B)]]
++  =
++  (x0, y) match {
++  case (Nil, y) => List(bot_set[(A, B)])
++  case (x :: xs, y) =>
++    maps[set[(A, B)],
++          set[(A, B)]](((r : set[(A, B)]) =>
++                         map[B, set[(A, B)]](((ya : B) =>
++       paste[A, B](r, insert[(A, B)]((x, ya), bot_set[(A, B)]))),
++      sorted_list_of_set[B](minus_set[B](y, Range[A, B](r))))),
++                        injections_alg[A, B](xs, y))
++}
++
++def insert_into_member_list[A : equal](new_el : A, sets : List[set[A]],
++s : set[A]) : List[set[A]]
++  =
++  sup_set[A](s, insert[A](new_el, bot_set[A])) :: remove1[set[A]](s, sets)
++
++def coarser_partitions_with_list[A : equal](new_el : A,
++     p : List[set[A]]) : List[List[set[A]]]
++  =
++  (insert[A](new_el, bot_set[A]) :: p) ::
++    map[set[A],
++         List[set[A]]](((a : set[A]) =>
++                         insert_into_member_list[A](new_el, p, a)),
++                        p)
++
++def all_coarser_partitions_with_list[A : equal](elem : A,
++         ps : List[List[set[A]]]) : List[List[set[A]]]
++  =
++  maps[List[set[A]],
++        List[set[A]]](((a : List[set[A]]) =>
++                        coarser_partitions_with_list[A](elem, a)),
++                       ps)
++
++def all_partitions_list[A : equal](x0 : List[A]) : List[List[set[A]]] = x0
++  match {
++  case Nil => List(Nil)
++  case e :: x =>
++    all_coarser_partitions_with_list[A](e, all_partitions_list[A](x))
++}
++
++def chosenAllocationAlg[A : equal : linorder, B : equal,
++                         C : comm_monoid_add : equal : linorder](n : set[A],
++                          omega : List[B], b : ((A, set[B])) => C,
++                          r : BigInt) : set[(A, set[B])]
++  =
++  randomEl[set[(A, set[B])]](map[nat, set[(A,
++    set[B])]](((a : nat) =>
++                nth[set[(A, set[B])]](map[set[(set[B], A)],
++   set[(A, set[B])]](((aa : set[(set[B], A)]) => converse[set[B], A](aa)),
++                      maps[List[set[B]],
++                            set[(set[B],
++                                  A)]](((l : List[set[B]]) =>
++ injections_alg[set[B], A](l, n)),
++all_partitions_list[B](omega))),
++                                       a)),
++               filterpositions2[set[(A, set[B])]](((x : set[(A, set[B])]) =>
++            member[set[(A, set[B])]](x, (comp[(set[(A, set[B])]) => C,
++       (set[set[(A, set[B])]]) => set[set[(A, set[B])]],
++       ((A, set[B])) =>
++         C](((a : (set[(A, set[B])]) => C) => (ba : set[set[(A, set[B])]]) =>
++              argmax[set[(A, set[B])], C](a, ba)),
++             ((a : ((A, set[B])) => C) => (ba : set[(A, set[B])]) =>
++               sum[(A, set[B]),
++                    C](a, ba)))).apply(b).apply(seta[set[(A,
++                   set[B])]](map[set[(set[B], A)],
++                                  set[(A,
++set[B])]](((a : set[(set[B], A)]) => converse[set[B], A](a)),
++           maps[List[set[B]],
++                 set[(set[B],
++                       A)]](((l : List[set[B]]) =>
++                              injections_alg[set[B], A](l, n)),
++                             all_partitions_list[B](omega))))))),
++           map[set[(set[B], A)],
++                set[(A, set[B])]](((a : set[(set[B], A)]) =>
++                                    converse[set[B], A](a)),
++                                   maps[List[set[B]],
++ set[(set[B],
++       A)]](((l : List[set[B]]) => injections_alg[set[B], A](l, n)),
++             all_partitions_list[B](omega))))),
++                              r)
++
++def toFunctionWithFallbackAlg[A : equal,
++                               B](r : set[(A, B)], fallback : B) : A => B
++  =
++  ((x : A) =>
++    (member[A](x, Domain[A, B](r)) match { case true => eval_rel[A, B](r, x)
++      case false => fallback }))
++
++def summedBidVectorAlg[A : equal, B : equal,
++                        C : comm_monoid_add](bids : ((A, set[B])) => C,
++      n : set[A], omega : set[B]) : ((A, set[B])) => C
++  =
++  toFunctionWithFallbackAlg[(A, set[B]),
++                             C](image[(A, set[B]),
++                                       ((A, set[B]),
++ C)](((pair : (A, set[B])) =>
++       (pair,
++         sum[set[B],
++              C](((g : set[B]) => bids((fst[A, set[B]](pair), g))),
++                  finestpart[B](snd[A, set[B]](pair))))),
++      product[A, set[B]](n, remove[set[B]](bot_set[B], Pow[B](omega)))),
++                                 zero[C])
++
++def Sup_set[A : equal](x0 : set[set[A]]) : set[A] = x0 match {
++  case seta(xs) =>
++    fold[set[A],
++          set[A]](((a : set[A]) => (b : set[A]) => sup_set[A](a, b)), xs,
++                   bot_set[A])
++}
++
++def pseudoAllocation[A : equal,
++                      B : equal](allocation : set[(A,
++            set[B])]) : set[(A, set[B])]
++  =
++  Sup_set[(A, set[B])](image[(A, set[B]),
++                              set[(A, set[B])]](((pair : (A, set[B])) =>
++          product[A, set[B]](insert[A](fst[A, set[B]](pair), bot_set[A]),
++                              finestpart[B](snd[A, set[B]](pair)))),
++         allocation))
++
++def maxbidAlg[A : equal,
++               B : equal](a : set[(A, set[B])], n : set[A],
++                           omega : set[B]) : ((A, set[B])) => nat
++  =
++  toFunctionWithFallbackAlg[(A, set[B]),
++                             nat](paste[(A, set[B]),
++ nat](product[(A, set[B]),
++               nat](product[A, set[B]](n, finestpart[B](omega)),
++                     insert[nat](zero_nata, bot_set[nat])),
++       product[(A, set[B]),
++                nat](pseudoAllocation[A, B](a),
++                      insert[nat](one_nat, bot_set[nat]))),
++                                   zero_nata)
++
++def tiebidsAlg[A : equal,
++                B : equal](a : set[(A, set[B])], n : set[A],
++                            omega : set[B]) : ((A, set[B])) => nat
++  =
++  summedBidVectorAlg[A, B, nat](maxbidAlg[A, B](a, n, omega), n, omega)
++
++def resolvingBidAlg[A : equal : linorder, B : equal,
++                     C : comm_monoid_add : equal : linorder](n : set[A],
++                      omega : List[B], bids : ((A, set[B])) => C,
++                      random : BigInt) : ((A, set[B])) => nat
++  =
++  tiebidsAlg[A, B](chosenAllocationAlg[A, B, C](n, omega, bids, random), n,
++                    seta[B](omega))
++
++def randomBidsAlg[A : equal,
++                   B : comm_monoid_add : equal : linorder](n : set[BigInt],
++                    omega : List[A], b : ((BigInt, set[A])) => B,
++                    random : BigInt) : ((BigInt, set[A])) => nat
++  =
++  resolvingBidAlg[BigInt, A,
++                   B](sup_set[BigInt](n, insert[BigInt](BigInt(0),
++                 bot_set[BigInt])),
++                       omega, b, random)
++
++def vcgaAlgWithoutLosers[A : equal,
++                          B : comm_monoid_add : equal : linorder](n : set[BigInt],
++                           omega : List[A], b : ((BigInt, set[A])) => B,
++                           r : BigInt) : set[(BigInt, set[A])]
++  =
++  Outside[BigInt,
++           set[A]](the_elem[set[(BigInt,
++                                  set[A])]](argmax[set[(BigInt, set[A])],
++            nat](((a : set[(BigInt, set[A])]) =>
++                   sum[(BigInt, set[A]),
++                        nat](randomBidsAlg[A, B](n, omega, b, r), a)),
++                  argmax[set[(BigInt, set[A])],
++                          B](((a : set[(BigInt, set[A])]) =>
++                               sum[(BigInt, set[A]), B](b, a)),
++                              seta[set[(BigInt,
++ set[A])]](map[set[(set[A], BigInt)],
++                set[(BigInt,
++                      set[A])]](((a : set[(set[A], BigInt)]) =>
++                                  converse[set[A], BigInt](a)),
++                                 maps[List[set[A]],
++                                       set[(set[A],
++     BigInt)]](((l : List[set[A]]) =>
++                 injections_alg[set[A],
++                                 BigInt](l,
++  sup_set[BigInt](insert[BigInt](BigInt(0), bot_set[BigInt]), n))),
++                all_partitions_list[A](omega))))))),
++                    insert[BigInt](BigInt(0), bot_set[BigInt]))
++
++def vcgaAlg[A : equal,
++             B : comm_monoid_add : equal : linorder](n : set[BigInt],
++              omega : List[A], b : ((BigInt, set[A])) => B,
++              r : BigInt) : set[(BigInt, set[A])]
++  =
++  paste[BigInt,
++         set[A]](product[BigInt,
++                          set[A]](n, insert[set[A]](bot_set[A],
++             bot_set[set[A]])),
++                  vcgaAlgWithoutLosers[A, B](n, omega, b, r))
++
++def vcgpAlg[A : comm_monoid_add : minus : linorder,
++             B](na : set[BigInt], omega : List[BigInt],
++                 b : ((BigInt, set[BigInt])) => A, r : B, n : BigInt,
++                 winningAllocation : set[(BigInt, set[BigInt])]) : A
++  =
++  minus[A](Max[A](image[set[(BigInt, set[BigInt])],
++                         A](((a : set[(BigInt, set[BigInt])]) =>
++                              sum[(BigInt, set[BigInt]), A](b, a)),
++                             image[set[(BigInt, set[BigInt])],
++                                    set[(BigInt,
++  set[BigInt])]](((f : set[(BigInt, set[BigInt])]) =>
++                   Outside[BigInt,
++                            set[BigInt]](f,
++  insert[BigInt](BigInt(0), bot_set[BigInt]))),
++                  seta[set[(BigInt,
++                             set[BigInt])]](map[set[(set[BigInt], BigInt)],
++         set[(BigInt,
++               set[BigInt])]](((a : set[(set[BigInt], BigInt)]) =>
++                                converse[set[BigInt], BigInt](a)),
++                               maps[List[set[BigInt]],
++                                     set[(set[BigInt],
++   BigInt)]](((l : List[set[BigInt]]) =>
++               injections_alg[set[BigInt],
++                               BigInt](l,
++sup_set[BigInt](remove[BigInt](n, na),
++                 insert[BigInt](BigInt(0), bot_set[BigInt])))),
++              all_partitions_list[BigInt](omega))))))),
++            sum[(BigInt, set[BigInt]),
++                 A](b, Outside[BigInt,
++                                set[BigInt]](winningAllocation,
++      insert[BigInt](n, bot_set[BigInt]))))
++
++def participantsSet[A, B](b : List[(A, B)]) : set[A] =
++  image[(A, B), A](((a : (A, B)) => fst[A, B](a)), seta[(A, B)](b))
++
++def Bid2funcBid[A : equal,
++                 B : equal](b : List[(A, (List[B],
++   BigInt))]) : ((A, set[B])) => BigInt
++  =
++  toFunctionWithFallbackAlg[(A, set[B]),
++                             BigInt](seta[((A, set[B]),
++    BigInt)](map[(A, (List[B], BigInt)),
++                  ((A, set[B]),
++                    BigInt)](((x : (A, (List[B], BigInt))) =>
++                               ((fst[A, (List[B], BigInt)](x),
++                                  seta[B]((comp[(List[B], BigInt), List[B],
++         (A, (List[B],
++               BigInt))](((a : (List[B], BigInt)) => fst[List[B], BigInt](a)),
++                          ((a : (A, (List[B], BigInt))) =>
++                            snd[A, (List[B], BigInt)](a)))).apply(x))),
++                                 (comp[(List[B], BigInt), BigInt,
++(A, (List[B],
++      BigInt))](((a : (List[B], BigInt)) => snd[List[B], BigInt](a)),
++                 ((a : (A, (List[B], BigInt))) =>
++                   snd[A, (List[B], BigInt)](a)))).apply(x))),
++                              b)),
++                                      BigInt(0))
++
++def goodsList[A, B : equal : linorder, C](b : List[(A, (List[B], C))]) : List[B]
++  =
++  sorted_list_of_set[B](Sup_set[B](image[(A, (List[B], C)),
++  set[B]](comp[(List[B], C), set[B],
++                (A, (List[B],
++                      C))](comp[List[B], set[B],
++                                 (List[B],
++                                   C)](((a : List[B]) => seta[B](a)),
++((a : (List[B], C)) => fst[List[B], C](a))),
++                            ((a : (A, (List[B], C))) =>
++                              snd[A, (List[B], C)](a))),
++           seta[(A, (List[B], C))](b))))
++
++def payments[A](b : List[(BigInt, (List[BigInt], BigInt))], r : A, n : BigInt,
++                 a : set[(BigInt, set[BigInt])]) : BigInt
++  =
++  vcgpAlg[BigInt,
++           A](participantsSet[BigInt, (List[BigInt], BigInt)](b),
++               goodsList[BigInt, BigInt, BigInt](b),
++               Bid2funcBid[BigInt, BigInt](b), r, n, a)
++
++def allocationPrettyPrint[A : equal : linorder,
++                           B : equal : linorder](a : set[(A,
++                   set[B])]) : set[List[(A, List[B])]]
++  =
++  insert[List[(A, List[B])]](map[A, (A, List[B])](((x : A) =>
++            (x, sorted_list_of_set[B](eval_rel[A, set[B]](a, x)))),
++           (comp[set[A], List[A],
++                  set[(A, set[B])]](((aa : set[A]) =>
++                                      sorted_list_of_set[A](aa)),
++                                     ((aa : set[(A, set[B])]) =>
++                                       Domain[A, set[B]](aa)))).apply(a)),
++                              bot_set[List[(A, List[B])]])
++
++} /* object VCG */

@@ -1,9 +1,0 @@
-{
-  "Binomial_Lemmas.thy": [],
-  "Card_Lemmas.thy": [],
-  "Sauer_Shelah_Lemma.thy": [],
-  "Shattering.thy": [
-    "Shattering.VC_dim",
-    "Shattering.shattered_by"
-  ]
-}

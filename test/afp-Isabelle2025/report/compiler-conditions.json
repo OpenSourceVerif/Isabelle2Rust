@@ -1,9 +1,0 @@
-{
-  "ISABELLE_GHC": "/home/spring/Isabelle/Isabelle2025/lib/scripts/ghc",
-  "ISABELLE_MLTON": "/home/spring/Isabelle/Isabelle2025/contrib/mlton-20241230-1/x86_64-linux/bin/mlton",
-  "ISABELLE_GOEXE": "",
-  "ISABELLE_OCAMLFIND": "",
-  "ISABELLE_CAKEML_HOME": "",
-  "ISABELLE_CC": "",
-  "ISABELLE_SMLNJ": ""
-}
