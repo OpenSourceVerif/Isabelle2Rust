@@ -62,6 +62,48 @@ python3 setup/install.py --prefix /srv/afp-deps --configure-only \
 
 明确复用已有 Isabelle 用户配置时另传 `--user-home /path/to/user-home`，其中只能注册当前固定 AFP。`--config` 可把本机配置写到其他位置。下载失败保留 `.part`，未验证文件不会解包。
 
+## Native_Word 的 OCaml 配置
+
+AFP 2025 的 `Native_Word` 适配使用 `Pervasives`，OCaml 5 已移除该模块，
+会在原会话 `export_code ... checking OCaml` 时报告 `Unbound module Pervasives`。
+Ubuntu 系统包可能提供 OCaml 5；请为本实验配置独立的 OCaml **4.14.2**，并在同一
+switch 中安装 findlib 和 Zarith。只调整 `OCAML_VERSION` 不会改变 Isabelle 使用的编译器；
+实际入口是 `setup/compiler-settings.local.json` 的 `ISABELLE_OCAMLFIND`。
+
+例如，在已安装 opam 的环境中：
+
+```bash
+opam switch create afp2025 ocaml-base-compiler.4.14.2
+opam install --switch=afp2025 ocamlfind zarith
+```
+
+将以下内容保存为可执行包装脚本（其中 opam、root 路径替换为本机绝对路径）：
+
+```sh
+#!/bin/sh
+exec /absolute/path/to/opam exec --root=/absolute/path/to/opam-root --switch=afp2025 -- ocamlfind "$@"
+```
+
+包装脚本让 `ocamlc`、`ocamlopt` 和库搜索路径来自同一 switch，避免只指定
+`ocamlfind` 路径却仍调用系统编译器。新安装或 `--configure-only` 时可传
+`--ocamlfind /absolute/path/to/wrapper`；已有配置可只把
+`compiler-settings.local.json` 中的 `ISABELLE_OCAMLFIND` 改为该包装脚本绝对路径，
+然后执行 `python3 setup/check.py --receipt setup/environment.local.json`。
+检查器会实际编译机器字相等的原适配并链接 Zarith，记录字节码及本地编译器版本，
+不执行生成的探针程序。不得通过置空 `ISABELLE_OCAMLFIND` 跳过条件理论来声称修复。
+
+配置修复与冻结候选数据是两个独立结果：历史 `scan/`、`report/` 保持原始失败事实，
+`tools/afp.py init` 仍继承原候选边界。验证完整会话或重新采集候选应写入新的独立目录；
+仅修复编译器配置不会自动把历史失败、受阻条目计为成功。
+
+可用两套真实工具链执行有界回归（从仓库根运行）：
+
+```bash
+AFP_TEST_OCAML4_FIND=/absolute/path/to/ocaml4-wrapper \
+AFP_TEST_OCAML5_FIND=/usr/bin/ocamlfind \
+python3 -B -m unittest discover -s test/afp-Isabelle2025/tests -p test_ocaml_compatibility.py -v
+```
+
 ## 唯一推荐流程
 
 以下命令从 AFP 主目录执行，也支持绝对路径和其他 cwd。默认读取本机配置；自定义配置时在子命令前加 `--config /path/server.local.json`，工作根可用 `--work /path/empty-work`。

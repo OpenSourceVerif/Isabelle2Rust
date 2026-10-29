@@ -15,6 +15,37 @@ from afp import runtime_arguments, verify_frozen
 from frozen import verify_sources
 
 
+def check_ocaml(path, env):
+    """Compile the Native_Word equality adaptation and link Zarith without running it.
+
+    AFP 2025 maps machine-word equality to Pervasives.(=). A compiler version
+    query and an installed Zarith package do not establish that this OCaml
+    interface still exists (OCaml 5 removed it). Use the native compiler and
+    flags used by Isabelle's OCaml checking command to validate the toolchain.
+    """
+    def output(*arguments, cwd=None):
+        return subprocess.check_output([str(path), *arguments], env=env, cwd=cwd,
+                                       text=True, stderr=subprocess.STDOUT,
+                                       stdin=subprocess.DEVNULL).strip()
+    version = output('ocamlc', '-version')
+    native_version = output('ocamlopt', '-version')
+    zarith = output('query', 'zarith')
+    with tempfile.TemporaryDirectory(prefix='afp-ocaml-check-') as temporary:
+        (Path(temporary) / 'ROOT.ml').write_text(
+            'module Uint = struct type t = int end\n'
+            'let equal_uint = (Pervasives.(=) : Uint.t -> Uint.t -> bool)\n'
+            'let zero = Z.zero\n')
+        try:
+            output('ocamlopt', '-w', '-p-u', '-package', 'zarith', '-linkpkg',
+                   'ROOT.ml', cwd=temporary)
+        except subprocess.CalledProcessError as error:
+            raise ValueError('OCaml cannot compile the AFP 2025 Native_Word adaptation; '
+                             'configure ISABELLE_OCAMLFIND with an OCaml 4.14.x toolchain '
+                             'and matching findlib/Zarith.\n' + error.output) from error
+    return {'version': version, 'native_version': native_version, 'zarith': zarith,
+            'native_word_check': 'passed', 'generated_programs_executed': False}
+
+
 def check(config, work=None):
     """Fail closed and retain honest individual failures for a new installation."""
     checks = []
@@ -73,7 +104,7 @@ def check(config, work=None):
                     require('go1.26.8 ' in result, result)
                     return result
                 if key == 'ISABELLE_OCAMLFIND':
-                    return {'version': output([path, 'ocamlc', '-version'], env), 'zarith': output([path, 'query', 'zarith'], env)}
+                    return check_ocaml(path, env)
                 require(path.is_file() and os.access(path, os.X_OK), 'Condition is not executable: ' + str(path))
                 if key in {'ISABELLE_CC', 'ISABELLE_GHC'}:
                     result = output([path, '--version'], env)

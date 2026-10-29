@@ -91,7 +91,7 @@ def make_config(args):
               'path_map': {}}
     go = args.go_root or prefix / 'go-1.26.8'
     compilers = {'ISABELLE_CC': shutil.which('cc') or '/usr/bin/cc',
-                 'ISABELLE_OCAMLFIND': shutil.which('ocamlfind') or '/usr/bin/ocamlfind',
+                 'ISABELLE_OCAMLFIND': str(args.ocamlfind) if args.ocamlfind else shutil.which('ocamlfind') or '/usr/bin/ocamlfind',
                  'ISABELLE_SMLNJ': shutil.which('sml') or '/usr/bin/sml',
                  'ISABELLE_GOEXE': str(go / 'bin'), 'ISABELLE_GOROOT': str(go),
                  'ISABELLE_CAKEML_HOME': str(args.cakeml or prefix / 'cakeml-2.0')}
@@ -158,6 +158,10 @@ def install(args):
             run(['cargo', '+1.94.0', 'fetch', '--locked', '--manifest-path', seed / 'Cargo.toml'], env)
     # apt may have installed tools absent when the process first started.
     for key, executable in [('ISABELLE_CC', 'cc'), ('ISABELLE_OCAMLFIND', 'ocamlfind'), ('ISABELLE_SMLNJ', 'sml')]:
+        # An explicit switch wrapper must survive rediscovery of system tools;
+        # findlib and its compiler/libraries must belong to the same toolchain.
+        if key == 'ISABELLE_OCAMLFIND' and args.ocamlfind:
+            continue
         compilers[key] = shutil.which(executable) or compilers[key]
     args.config.parent.mkdir(parents=True, exist_ok=True)
     common.write_json(Path(config['compiler_settings']), compilers)
@@ -188,6 +192,7 @@ def arguments(argv=None):
     p.add_argument('--java-heap-mb', type=int, default=1536)
     p.add_argument('--dry-run', action='store_true')
     p.add_argument('--skip-system-packages', action='store_true')
+    p.add_argument('--ocamlfind', type=Path, help='OCaml 4.14.x findlib wrapper (pins compiler and library paths)')
     p.add_argument('--configure-only', action='store_true', help='write local config for existing installations')
     for name in ('isabelle', 'afp', 'cakeml', 'go-root'):
         p.add_argument('--' + name, type=Path, help='existing location (configure-only)')
@@ -196,7 +201,7 @@ def arguments(argv=None):
         p.error('existing-location overrides require --configure-only')
     if args.max_heap_mb <= 0 or args.java_heap_mb <= 0:
         p.error('heap limits must be positive')
-    for name in ('prefix', 'config', 'work', 'user_home', 'isabelle', 'afp', 'cakeml', 'go_root'):
+    for name in ('prefix', 'config', 'work', 'user_home', 'isabelle', 'afp', 'cakeml', 'go_root', 'ocamlfind'):
         value = getattr(args, name)
         if value is not None:
             setattr(args, name, value.resolve())
