@@ -34,7 +34,7 @@ class OCamlConfigurationTests(unittest.TestCase):
                 '--config', str(config), '--ocamlfind', str(wrapper)],
                 capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            settings = json.loads((root / 'compiler-settings.local.json').read_text())
+            settings = json.loads(config.read_text())['compilers']
             self.assertEqual(settings['ISABELLE_OCAMLFIND'], str(wrapper))
 
     @unittest.skipUnless(os.environ.get('AFP_TEST_OCAML4_FIND'), 'opt-in OCaml 4 native compilation')

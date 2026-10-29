@@ -35,7 +35,7 @@ def undo(text, edits):
     return text
 
 def input_files(work):
-    metadata = c.read_json(work / 'sources.json')
+    metadata = c.read_record(work / 'sources.json')
     for name, expected in metadata['files'].items():
         need(sha(work / name) == expected, 'Changed observation input: ' + name)
     return metadata
@@ -46,7 +46,7 @@ def installed_source(name, installed, reference):
     return actual.decode()
 
 def natural_failure(work, serializer):
-    result = c.read_json(work / 'result.json')
+    result = c.read_record(work / 'result.json')
     command = result['command']
     need(command['status'] == 'failed' and command.get('returncode') == 1,
          'Observation must have an actual native exception exit')
@@ -121,7 +121,7 @@ def conjunction(work, project, installed, serializer):
     observed = undo(observed, metadata['proof_observer_adjustments'])
     observed = undo(observed, metadata['pointfree_additional_observation_edits'])
     ancestor = project / metadata['pointfree_source_observer']
-    observed = undo(observed, c.read_json(ancestor.parent / 'sources.json')['observation_edits'])
+    observed = undo(observed, c.read_record(ancestor.parent / 'sources.json')['observation_edits'])
     need(observed == text, 'Proof observer does not reverse exactly to installed algorithm')
     converter = source('Pure/Isar/code.ML')
     start = converter.index('fun eqn_conv conv ct ='); end = converter.index('\nfun apply_functrans', start)
@@ -133,7 +133,7 @@ def conjunction(work, project, installed, serializer):
     need('tac THEN_ALL_NEW (TRY o (fn i => REPEAT_ALL_NEW tac i));' in source('Pure/tactical.ML'), 'Changed recursive tactic')
     need('else op THEN (f j, INTERVAL f i (j - 1)) x;' in source('Pure/General/seq.ML'), 'Changed recursion order')
     need('lemma conjI: "\\<lbrakk>P; Q\\<rbrakk> \\<Longrightarrow> P \\<and> Q"' in source('HOL/HOL.thy'), 'Changed native rule')
-    certificate = c.read_json(work / 'nontermination-analysis.json')
+    certificate = c.read_record(work / 'nontermination-analysis.json')
     entries = {}; returns = {}
     for line in log.splitlines():
         match = re.match(r'DIAGNOSTIC tactic (enter|return) (\d+) (\S+) (.*)', line)
@@ -195,7 +195,7 @@ def pattern_cycle(work, project, installed, serializer):
     raise ValueError('No actual recursive cycle of the source-checked form')
 
 def native_request(formal, observation, constant, project):
-    sidecar = c.read_json(formal / 'process.log.json')
+    sidecar = c.read_record(formal / 'process.log.json')
     need(sidecar and sidecar.get('log') == c.relative(formal / 'process.log'), 'Native sidecar belongs to another log directory')
     need(sidecar and sidecar['status'] == 'failed' and sidecar.get('returncode') == 1, 'Formal process has no natural failed exit')
     need(not c.identity_matches(sidecar), 'Formal process still live')
@@ -231,7 +231,7 @@ def review(formal, observation, constant, family, serializer, project=None):
     project = Path(project or c.PROJECT).resolve()
     formal, observation = Path(formal).resolve(), Path(observation).resolve()
     need(formal.is_relative_to(project) and observation.is_relative_to(project), 'Evidence outside project')
-    command = c.read_json(formal / 'process.log.json', {})
+    command = c.read_record(formal / 'process.log.json', {})
     argv = command.get('command', [])
     executable = shutil.which(argv[0]) if argv else None
     need(executable is not None, 'Cannot identify the installed Isabelle executable')

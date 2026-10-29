@@ -2,7 +2,7 @@
 """Regression checks for scope integrity, failure isolation and bounded execution.
 
 These tests exercise the experiment tooling rather than Rust translation rules.
-Real Isabelle/Cargo smoke builds are documented separately in results.json.
+The native smoke command separately validates actual Isabelle/Cargo execution.
 """
 
 import _paths  # Locate AFP tools independently of cwd and unittest discovery.
@@ -23,6 +23,23 @@ from unittest.mock import patch
 import afp_common as common
 import run
 import scan
+import full
+import scan_frozen
+import scan_store
+from result_store import EntryStore
+
+
+def compiled_record(names, status="passed"):
+    """Current-format fixture: coverage must be derived from successful crate witnesses."""
+    scope = {"A.thy": names}
+    record = {"scan": {"status": "passed", "theories": ["A.thy"]}}
+    record["full_export"] = {
+        "scope_sha256": full.scope_digest(scope), "scan_sha256": full.entry_scan_signature(record),
+        "serializer_sha256": "fixture", "status": "complete",
+        "runs": [{"attempts": [{"target": "Rust", "status": "passed", "constants": names,
+                                 "files": ["crate/Cargo.toml"]}]}]}
+    record["full_compile"] = {"crate/Cargo.toml": {"stage1_compile": {"status": status}}}
+    return record
 
 
 class ScopeTests(unittest.TestCase):
@@ -104,58 +121,44 @@ class ScopeTests(unittest.TestCase):
                 self.assertIn('"E.Haskell_Test"', (here / "E/E_Rust_Export.thy").read_text())
 
     def test_coverage_uses_full_names_and_counts_compilation_separately(self):
-        # Imported/shared names do not inflate coverage. A failed crate may
-        # retain candidates, but must not increase successful compilation counts.
-        result = {"entries": {"A": {"stage1_compile": {"status": "passed"}},
-                              "B": {"stage1_compile": {"status": "failed"}}}}
-        exports = {"A": {"A.thy": ["A.f", "A.f"]}, "B": {"B.thy": ["A.f", "B.f"]}}
-        with tempfile.TemporaryDirectory() as temporary, patch.object(common, "HERE", Path(temporary)):
-            common.save_results(result, exports)
-            self.assertEqual(result["coverage"]["distinct_candidates"], 2)
-            self.assertEqual(result["coverage"]["distinct_stage1_compiled_candidates"], 1)
+        # Shared full names count once; a failed crate contributes no compiled names.
+        exports = {"A": {"A.thy": ["A.f", "A.f"]}, "B": {"A.thy": ["A.f", "B.f"]}}
+        result = {"entries": {"A": compiled_record(["A.f", "A.f"]),
+                              "B": compiled_record(["A.f", "B.f"], "failed")}}
+        with patch.object(full, "serializer_signature", return_value="fixture"):
+            coverage = full.coverage(result, exports)
+        self.assertEqual(coverage["distinct_candidates"], 2)
+        self.assertEqual(coverage["distinct_stage1_compiled_candidates"], 1)
 
 
 class FailureTests(unittest.TestCase):
     def test_changed_scope_does_not_inherit_compiled_coverage(self):
-        # Editing exports.json for an entry outside the selected batch leaves
-        # its old successful phase record intact. New names were never compiled
-        # and must not count until a build of the updated scope succeeds.
-        result = {"entries": {
-            "A": {"stage1_compile": {"status": "passed"},
-                  "scope_sha256": hashlib.sha256(b"A.f").hexdigest()},
-            "B": {"stage1_compile": {"status": "passed"},
-                  "scope_sha256": hashlib.sha256(b"B.f").hexdigest()}}}
-        exports = {"A": {"A.thy": ["A.f", "A.g"]}, "B": {"B.thy": ["B.f"]}}
-        with tempfile.TemporaryDirectory() as temporary, patch.object(common, "HERE", Path(temporary)):
-            common.save_results(result, exports)
-        self.assertEqual(result["coverage"]["distinct_candidates"], 3)
-        self.assertEqual(result["coverage"]["distinct_stage1_compiled_candidates"], 1)
+        # New candidates cannot inherit a previous crate's successful coverage.
+        result = {"entries": {"A": compiled_record(["A.f"]), "B": compiled_record(["B.f"])}}
+        exports = {"A": {"A.thy": ["A.f", "A.g"]}, "B": {"A.thy": ["B.f"]}}
+        with patch.object(full, "serializer_signature", return_value="fixture"):
+            coverage = full.coverage(result, exports)
+        self.assertEqual(coverage["distinct_candidates"], 3)
+        self.assertEqual(coverage["distinct_stage1_compiled_candidates"], 1)
 
-    def test_generate_only_persists_invalidated_compilation_coverage(self):
-        # Regenerating theories after editing exports.json must also checkpoint
-        # the stale build status. Otherwise results.json still presents the old
-        # crate as a pass even though no build covers the expanded export scope.
+    def test_state_reload_derives_invalidated_compilation_coverage(self):
+        # A saved success is never a saved coverage total. Reloading after a
+        # scope change derives zero compiled coverage without another JSON report.
         with tempfile.TemporaryDirectory() as temporary:
-            here = Path(temporary)
-            data = {"entries": {"E": {"theories": []}}, "order": ["E"]}
-            exports = {"E": {"A.thy": ["A.f", "A.g"]}}
-            result = {"entries": {"E": {
-                "status": "passed", "stage1_compile": {"status": "passed"},
-                "scope_sha256": hashlib.sha256(b"A.f").hexdigest()}}}
-            with patch.object(sys, "argv", ["run.py", "--generate-only"]), \
-                    patch.object(run, "environment", return_value=({}, {})), \
-                    patch.object(run, "manifest", return_value=data), \
-                    patch.object(run, "read_json", return_value=exports), \
-                    patch.object(run, "load_results", return_value=result), \
-                    patch.object(run, "generate"), patch.object(run, "build_lock", nullcontext), \
-                    patch.object(common, "HERE", here), redirect_stdout(io.StringIO()):
-                self.assertEqual(run.main(), 0)
-            report = here / "results.json"
-            self.assertTrue(report.is_file(), "Generation must checkpoint scope invalidation")
-            saved = json.loads(report.read_text())
-            self.assertEqual(saved["entries"]["E"]["status"], "stale")
-            self.assertEqual(saved["coverage"]["distinct_candidates"], 2)
-            self.assertEqual(saved["coverage"]["distinct_stage1_compiled_candidates"], 0)
+            base = Path(temporary)
+            record = compiled_record(["A.f"])
+            # An empty witness list avoids reading native XML in this store fixture.
+            record["full_export"]["runs"] = []
+            store = EntryStore(base, {"E": {"scan": record["scan"]}}, {"E": {"A.thy": ["A.f"]}})
+            store["E"] = record; store.commit("E")
+            scope = {"E": {"A.thy": ["A.f", "A.g"]}}
+            loaded = EntryStore(base, {"E": {"scan": record["scan"]}}, scope)
+            with patch.object(full, "serializer_signature", return_value="fixture"):
+                coverage = full.coverage({"entries": loaded}, scope)
+            self.assertEqual(coverage["distinct_candidates"], 2)
+            self.assertEqual(coverage["distinct_stage1_compiled_candidates"], 0)
+            self.assertFalse((base / "results.json").exists())
+            self.assertFalse((base / "exports.json").exists())
 
     def test_loading_log_identifies_the_failed_parent(self):
         # A timeout during a shared HOL parent is not a failure of an AFP
@@ -313,101 +316,71 @@ class FailureTests(unittest.TestCase):
             self.assertEqual(len(record["certificate_errors"]), 1)
 
     def test_failed_example_session_does_not_block_core_consumers(self):
-        # Collections/Containers-style entries also contain example sessions.
-        # Their examples can fail after the core heap succeeds. A downstream
-        # entry which imports only that core must still be scanned normally.
-        data = {"entries": {
-            "A": {"dependencies": [], "source_errors": [], "theories": [],
-                  "required_sessions": ["A", "A-Examples"]},
-            "B": {"dependencies": ["A"], "source_errors": [], "theories": [],
-                  "required_sessions": ["A", "B"]}}, "order": ["A", "B"]}
-        result = {"entries": {"A": {}, "B": {}}}
-        failed = {"status": "failed", "theory_loading": {"status": "failed"},
-                  "loading": [{"session": "A", "status": "passed"},
-                              {"session": "A-Examples", "status": "failed",
-                               "failed_sessions": ["A-Examples"]}]}
-        passed = {"status": "passed", "theory_loading": {"status": "passed"}}
-        with patch.object(sys, "argv", ["scan.py"]), \
-                patch.object(scan, "environment", return_value=({}, {})), \
-                patch.object(scan, "manifest", return_value=data), \
-                patch.object(scan, "read_json", return_value={}), \
-                patch.object(scan, "load_results", return_value=result), \
-                patch.object(scan, "scan_entry", side_effect=[failed, passed]) as execute, \
-                patch.object(scan, "write_json"), patch.object(scan, "save_results"), \
-                redirect_stdout(io.StringIO()):
-            self.assertEqual(scan.main(), 1)
-        self.assertEqual(execute.call_count, 2)
-        self.assertEqual(result["entries"]["B"]["scan"]["status"], "passed")
+        # A failed example session cannot erase the successfully loaded core
+        # from the set of contexts available to downstream export requests.
+        info = {"session_requirements": {"A": [], "A-Examples": ["A"], "B": ["A"]}}
+        scanned = {"loading": [{"session": "A", "status": "passed"},
+                              {"session": "A-Examples", "status": "failed"},
+                              {"session": "B", "status": "passed"}]}
+        self.assertEqual(full.maximal_sessions(info, scanned), ["B"])
 
-    def test_rescan_invalidates_previous_runtime_validation(self):
-        # Runtime assertions describe a particular generated crate. Discovering
-        # another executable constant changes that crate's scope, so its earlier
-        # semantic check must remain diagnostic history rather than a current pass.
-        data = {"entries": {"E": {"dependencies": [], "source_errors": [],
-                                   "theories": []}}, "order": ["E"]}
-        exports = {"E": {"A.thy": ["A.f"]}}
-        result = {"entries": {"E": {
-            "status": "passed", "stage1_compile": {"status": "passed"},
-            "runtime_validation": {"status": "passed", "assertions": 4}}}}
-        def discover(entry, info, args, env, scope):
-            scope[entry]["A.thy"] = ["A.f", "A.g"]
-            return {"status": "passed", "theory_loading": {"status": "passed"}}
-        with patch.object(sys, "argv", ["scan.py"]), \
-                patch.object(scan, "environment", return_value=({}, {})), \
-                patch.object(scan, "manifest", return_value=data), \
-                patch.object(scan, "read_json", return_value=exports), \
-                patch.object(scan, "load_results", return_value=result), \
-                patch.object(scan, "scan_entry", side_effect=discover), \
-                patch.object(scan, "write_json"), patch.object(scan, "save_results"), \
-                redirect_stdout(io.StringIO()):
-            self.assertEqual(scan.main(), 0)
-        record = result["entries"]["E"]
-        self.assertEqual(record["candidate_count"], 2)
-        self.assertEqual(record["stage1_compile"]["status"], "stale")
-        self.assertEqual(record["runtime_validation"], {"status": "stale", "assertions": 4})
+    def test_changed_scan_invalidates_previous_compilation_coverage(self):
+        # Current compilation evidence binds its scanned context. Changed theory
+        # coverage must invalidate it even when constant names stay identical.
+        record = compiled_record(["A.f"])
+        record["scan"]["theories"].append("Later.thy")
+        with patch.object(full, "serializer_signature", return_value="fixture"):
+            coverage = full.coverage({"entries": {"E": record}}, {"E": {"A.thy": ["A.f"]}})
+        self.assertEqual(coverage["distinct_stage1_compiled_candidates"], 0)
 
     def test_explicit_scan_retries_past_failed_prerequisites(self):
-        # Selecting a dependent entry after fixing its environment must let
-        # Isabelle rebuild prerequisites. Only failures observed in this batch
-        # may block it; an old report is not proof that the dependency still fails.
-        data = {"entries": {"A": {}, "B": {"dependencies": ["A"], "source_errors": [],
-                                         "theories": []}}, "order": ["A", "B"]}
-        result = {"entries": {"A": {"scan": {"theory_loading": {"status": "failed"}}},
-                              "B": {"status": "pending"}}}
-        done = {"status": "passed", "theory_loading": {"status": "passed"}}
-        with patch.object(sys, "argv", ["scan.py", "--entries", "B"]), \
-                patch.object(scan, "environment", return_value=({}, {})), \
-                patch.object(scan, "manifest", return_value=data), \
-                patch.object(scan, "read_json", return_value={}), \
-                patch.object(scan, "load_results", return_value=result), \
-                patch.object(scan, "scan_entry", return_value=done) as execute, \
-                patch.object(scan, "write_json"), patch.object(scan, "save_results"), \
-                redirect_stdout(io.StringIO()):
-            self.assertEqual(scan.main(), 0)
-        execute.assert_called_once()
+        # --retry-failed replaces a failed parent before scheduling its child.
+        # The child's dependency decision must read the parent's current receipt.
+        from test_scan_frozen import completed_fixture
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            info = {"sessions": ["A", "B"], "session_requirements": {"A": [], "B": ["A"]},
+                    "theories": [{"name": "E.A", "path": "A.thy", "session": "A"}]}
+            data = {"order": ["E"], "entries": {"E": info}}
+            units = {s: scan_store.unit_input("E", s, info, {}) for s in info["sessions"]}
+            store = scan_store.Store(base)
+            store.commit(store.next_attempt(units["A"]), {"schema": 1, "unit": units["A"],
+                "unit_id": scan_store.digest(units["A"]), "status": "unresolved_infrastructure",
+                "build": {"status": "failed"}, "failed_sessions": ["A"], "evidence": {}})
+            calls = []
+            def execute(store, unit, *args):
+                calls.append(unit["session"])
+                store, attempt, receipt = completed_fixture(base, unit)
+                return store.commit(attempt, receipt)
+            with patch.object(sys, "argv", ["scan_frozen.py", "--output-dir", str(base), "--retry-failed"]), \
+                 patch.object(common, "environment", return_value=({}, {})), \
+                 patch.object(scan_frozen, "validate_contract", return_value=({}, data, units)), \
+                 patch.object(scan_frozen, "run_unit", side_effect=execute), redirect_stdout(io.StringIO()):
+                self.assertEqual(scan_frozen.main(), 0)
+            self.assertEqual(calls, ["A", "B"])
 
     def test_one_entry_exception_does_not_stop_other_entries(self):
-        # Independent entries must still run after one filesystem/tool failure;
-        # checkpoint saving occurs after each attempt and the batch fails overall.
-        data = {"entries": {"A": {}, "B": {}}, "order": ["A", "B"]}
-        result = {"entries": {"A": {}, "B": {}}}
-        visited = []
-        def attempt(entry, *args):
-            visited.append(entry)
-            if entry == "A":
-                raise OSError("controlled failure")
-            args[2]["status"] = "passed"
-        with patch.object(sys, "argv", ["run.py", "--entries", "A", "B"]), \
-                patch.object(run, "environment", return_value=({}, {})), \
-                patch.object(run, "manifest", return_value=data), \
-                patch.object(run, "read_json", return_value={"A": {}, "B": {}}), \
-                patch.object(run, "load_results", return_value=result), \
-                patch.object(run, "generate"), patch.object(run, "build_lock", nullcontext), \
-                patch.object(run, "run_entry", side_effect=attempt), \
-                patch.object(run, "save_results") as save, redirect_stdout(io.StringIO()):
-            self.assertEqual(run.main(), 1)
-        self.assertEqual(visited, ["A", "B"])
-        self.assertEqual(save.call_count, 2)
+        # A filesystem/tool exception becomes the current failed unit receipt;
+        # a later independent unit remains runnable and can commit successfully.
+        from test_scan_frozen import fixture_unit, fixture_xml
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary); store = scan_store.Store(base)
+            args = SimpleNamespace(isabelle="isabelle", afp=base, timeout=0, skip_proofs=False)
+            units = [fixture_unit("A"), fixture_unit("B")]
+            def build(argv, log, args, env):
+                if argv[-1] == "A":
+                    raise OSError("controlled failure")
+                log.write_text("finished")
+                return {"status": "passed", "returncode": 0, "log": str(log)}
+            def inspect(session, args, env, log, **kwargs):
+                Path(env["AFP_SCAN_OUTPUT"]).write_text(fixture_xml(units[1]))
+                log.write_text("finished")
+                return {"status": "passed", "returncode": 0, "log": str(log)}
+            with patch.object(common, "command", side_effect=build), \
+                 patch.object(common, "build_lock", nullcontext), patch.object(scan, "inspect_session", side_effect=inspect):
+                receipts = [scan_frozen.run_unit(store, unit, args, {}, {}, {}) for unit in units]
+            self.assertEqual([r["status"] for r in receipts], ["unresolved_infrastructure", "complete"])
+            self.assertEqual(len(store.state.keys("receipt/")), 2)
 
 
 class ExecutionTests(unittest.TestCase):

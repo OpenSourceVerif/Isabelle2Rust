@@ -1,9 +1,11 @@
-#!/usr/bin/env python3
-"""Entry payloads preserve complete results across bounded-memory checkpoints."""
-
-import _paths  # Locate AFP tools independently of cwd and unittest discovery.
+"""Current entry state: atomic replacement, bounded storage and evidence checks."""
+import _paths
 import copy
+import os
 from pathlib import Path
+import signal
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -11,99 +13,81 @@ from unittest.mock import patch
 import afp_common as common
 import full
 from result_store import EntryStore
+from state import State
 
 
 class ResultStoreTests(unittest.TestCase):
     def store(self, root):
         base = root / "experiment"
-        records = {e: {"scan": {"status": "passed", "theories": [e + ".thy"],
-                               "semantic_identity": e},
-                       "full_export": {"status": "complete", "candidates": {
-                           e + ".f": {"Rust": {"status": "failed", "evidence": ["whole.xml"]}}},
-                           "runs": [], "artifacts": [], "languages": {"Rust": "failed"}}}
-                   for e in ("A", "B")}
-        store = EntryStore(base, copy.deepcopy(records), {})
+        scans = {e: {"scan": {"status": "passed", "theories": [e + ".thy"], "semantic_identity": e}} for e in ("A", "B")}
+        scopes = {e: {e + ".thy": [e + ".f"]} for e in scans}
+        store = EntryStore(base, scans, scopes)
+        records = {e: dict(copy.deepcopy(scans[e]), full_export={"status": "no_candidates", "runs": [], "candidates": {}, "languages": {"Go": "pending"}}) for e in scans}
         for entry, record in records.items():
-            store[entry] = copy.deepcopy(record)
-            store.commit(entry, {})
-        return base, store, records
+            store[entry] = record
+            store.commit(entry)
+        return base, store, scans, scopes, records
 
     def test_all_result_fields_survive_lazy_load_and_working_set_eviction(self):
-        # Paging to another entry must not reduce XML inventories, evidence,
-        # failed candidates, or scanner context identity to the summary fields.
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            with patch.object(common, "PROJECT", root):
-                _, store, records = self.store(root)
-                self.assertEqual(store["A"], records["A"])
-                self.assertEqual(store["B"], records["B"])
-                self.assertEqual(store["A"], records["A"])
-                self.assertNotIn("candidates", store.summaries["A"]["full_export"])
+        # Reading another entry must not discard committed phase results.
+        with tempfile.TemporaryDirectory() as temporary, patch.object(common, "PROJECT", Path(temporary)):
+            base, store, scans, scopes, records = self.store(Path(temporary))
+            reader = EntryStore(base, scans, scopes)
+            for entry in ("A", "B", "A"):
+                self.assertEqual(reader[entry], records[entry])
+            self.assertNotIn("scan", State(base).get("entry/A"))
+            self.assertFalse((base / "results.json").exists())
+            self.assertFalse((base / "entry-results").exists())
 
-    def test_uncommitted_new_payload_cannot_break_previous_atomic_index(self):
-        # A host interruption after the entry write but before results.json is
-        # replaced must leave the old payload and its old index fully usable.
+    def test_uncommitted_update_cannot_break_previous_committed_result(self):
+        # Real SIGKILL inside a SQLite transaction must roll back all changed
+        # rows, rather than exposing an entry from one generation and a gate from another.
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            with patch.object(common, "PROJECT", root):
-                base, store, records = self.store(root)
-                previous = copy.deepcopy(store.serialize({"entries": store}))
-                store["A"]["full_export"]["status"] = "blocked"
-                store.commit("A", {})
-                old = EntryStore(base, previous["entries"], previous["entry_files"])
-                self.assertEqual(old["A"], records["A"])
-                self.assertEqual(store["A"]["full_export"]["status"], "blocked")
-                self.assertNotEqual(old.files["A"]["path"], store.files["A"]["path"])
+            state = State(temporary)
+            state.update({"entry/A": {"value": 1}, "gate": {"value": 1}})
+            script = """import os,signal,sqlite3,sys
+c=sqlite3.connect(sys.argv[1]);c.execute('BEGIN IMMEDIATE')
+c.execute('UPDATE records SET value=? WHERE key=?', ('{\"value\":2}', 'entry/A'))
+os.kill(os.getpid(),signal.SIGKILL)
+"""
+            run = subprocess.run([sys.executable, "-B", "-c", script, str(Path(temporary) / "state.sqlite3")])
+            self.assertEqual(run.returncode, -signal.SIGKILL)
+            self.assertEqual(state.get("entry/A"), {"value": 1})
+            self.assertEqual(state.get("gate"), {"value": 1})
 
-    def test_legacy_migration_preserves_all_rows_and_keeps_old_checkpoint(self):
-        # The full migration checks every payload and the discovery signature;
-        # legacy and compact readers must return exactly the same entry data.
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            with patch.object(common, "PROJECT", root), \
-                    patch.object(full, "serializer_signature", return_value="test-serializer"):
-                base, _, records = self.store(root)
-                common.write_json(base / "manifest.json", {
-                    "order": ["A", "B"], "entries": {"A": {}, "B": {}}})
-                common.write_json(base / "exports.json", {
-                    "A": {"A.thy": ["A.f"]}, "B": {"B.thy": ["B.f"]}})
-                common.write_json(base / "results.json", {"entries": copy.deepcopy(records)})
-                report = full.compact_results(base)
-                self.assertEqual(report["entries_checked"], 2)
-                _, result, _ = full.load(base)
-                self.assertIsInstance(result["entries"], EntryStore)
-                self.assertEqual(dict(result["entries"]), records)
-                self.assertEqual(common.read_json(root / report["legacy"])["entries"], records)
+    def test_repeated_publication_keeps_only_latest_rows(self):
+        # Replace the former migration/history assertion with the required
+        # latest-only invariant: row count stays fixed across many commits.
+        with tempfile.TemporaryDirectory() as temporary, patch.object(common, "PROJECT", Path(temporary)):
+            base, store, scans, scopes, records = self.store(Path(temporary))
+            for number in range(20):
+                store["A"]["full_export"]["languages"]["Go"] = str(number)
+                store.commit("A")
+            self.assertEqual(State(base).keys(), ["entry/A", "entry/B"])
+            self.assertEqual(EntryStore(base, scans, scopes)["A"]["full_export"]["languages"]["Go"], "19")
+            self.assertEqual(list(base.iterdir()), [base / "state.sqlite3"])
 
-    def test_changed_payload_bytes_are_rejected(self):
-        # Existing evidence cannot be silently replaced by different valid JSON.
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            with patch.object(common, "PROJECT", root):
-                base, store, _ = self.store(root)
-                path = root / store.files["A"]["path"]
-                path.write_text('{"scan": {"status": "passed"}}')
-                reader = EntryStore(base, store.summaries, store.files)
-                with self.assertRaises(ValueError):
-                    reader["A"]
+    def test_changed_native_evidence_cannot_pass_export_checkpoint(self):
+        # The source digest is retained even though candidate views are derived.
+        with tempfile.TemporaryDirectory() as temporary, patch.object(common, "PROJECT", Path(temporary)):
+            base = Path(temporary); artifact = base / "code.rs"; artifact.write_text("original")
+            record = {"scan": {"status": "passed"}}
+            scope = {"A.thy": ["A.f"]}
+            record["full_export"] = {"status": "complete", "runs": [], "scope_sha256": full.scope_digest(scope),
+                "scan_sha256": full.entry_scan_signature(record), "serializer_sha256": "fixture",
+                "artifacts": [{"path": "code.rs", "sha256": full.file_digest(artifact)}]}
+            artifact.write_text("changed")
+            with patch.object(full, "serializer_signature", return_value="fixture"):
+                gate = full.export_checkpoint(base, {"order": ["A"]}, {"entries": {"A": record}}, {"A": scope})
+            self.assertFalse(gate["passed"])
+            self.assertIn("missing/changed export", [p["reason"] for p in gate["problems"]])
 
-    def test_phase_save_commits_mutated_entry_before_coverage_traversal(self):
-        # Export/compile mutate one working record. Aggregating every other
-        # entry must not evict that uncommitted result and lose completed work.
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            with patch.object(common, "PROJECT", root):
-                base, store, _ = self.store(root)
-                result = {"entries": store}
-                store["A"]["full_export"]["languages"]["Go"] = "passed"
-                exports = {"A": {"A.thy": ["A.f"]}, "B": {"B.thy": ["B.f"]}}
-                with patch.object(full, "serializer_signature", return_value="test-serializer"):
-                    full.save(base, result, exports, "A")
-                saved = common.read_json(base / "results.json")
-                reader = EntryStore(base, saved["entries"], saved["entry_files"])
-                self.assertEqual(reader["A"]["full_export"]["languages"]["Go"], "passed")
-                self.assertEqual(saved["coverage"]["distinct_candidates"], 2)
-                self.assertNotIn("candidates", saved["entries"]["A"]["full_export"])
+    def test_phase_save_commits_mutated_entry_before_other_reads(self):
+        with tempfile.TemporaryDirectory() as temporary, patch.object(common, "PROJECT", Path(temporary)):
+            base, store, scans, scopes, _ = self.store(Path(temporary))
+            store["A"]["full_export"]["languages"]["Go"] = "passed"
+            full.save(base, {"entries": store}, scopes, "A")
+            self.assertEqual(EntryStore(base, scans, scopes)["A"]["full_export"]["languages"]["Go"], "passed")
 
 
 if __name__ == "__main__":

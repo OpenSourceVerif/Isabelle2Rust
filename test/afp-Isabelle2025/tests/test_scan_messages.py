@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Full inherited diagnostics stay bound to the selected failed scan receipt."""
+"""Current diagnostics remain bound to committed scan receipts and original logs."""
 
 import _paths  # Locate AFP tools independently of cwd and unittest discovery.
 from pathlib import Path
@@ -8,13 +8,14 @@ import unittest
 from unittest.mock import patch
 
 import afp_common as common
-import candidate_scope
+import scan_evidence
+from state import State
 import full
 import full_audit
 import full_report
 
 
-class InheritedMessageTests(unittest.TestCase):
+class CurrentMessageTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
@@ -22,8 +23,9 @@ class InheritedMessageTests(unittest.TestCase):
         context = patch.object(common, "PROJECT", self.project)
         context.start()
         self.addCleanup(context.stop)
-        self.base = self.project / "downstream"
-        self.source = self.project / "original"
+        self.base = self.project / "run"
+        self.source = self.base
+        self.state = State(self.base)
         self.archive = self.source / "units/u/attempt-0001/scan-messages"
         self.archive.mkdir(parents=True)
         self.body = "long original compiler context\n" * 100 + "Error: Unbound module Pervasives\n"
@@ -32,34 +34,26 @@ class InheritedMessageTests(unittest.TestCase):
         self.load = self.source / "units/u/attempt-0001/load.log"
         self.load.write_text("Code check failed for OCaml")
         self.index = self.archive / "index.json"
-        common.write_json(self.index, {"S": {"status": "passed", "origin_verified": True,
+        common.write_record(self.index, {"S": {"status": "passed", "origin_verified": True,
             "command": {"status": "passed", "log": common.relative(self.log)},
             "messages_sha256": full.file_digest(self.log)}})
-        receipt = {"status": "unresolved_infrastructure", "evidence": {
-            str(self.index.relative_to(self.source)): {"sha256": full.file_digest(self.index)}}}
-        path = self.base / "baseline/receipts/u.json"
-        common.write_json(path, receipt)
-        common.write_json(self.base / "baseline/receipt-index.json", {"u": {"receipt": common.relative(path)}})
-        common.write_json(self.base / "candidate-baseline.json", {
-            "mode": "current_candidates", "source": common.relative(self.source)})
+        self.state.put("receipt/u", {"status": "unresolved_infrastructure",
+                                       "directory": "units/u/attempt-0001"})
         scan = {"status": "failed", "theories": [], "unit_ids": {"S": "u"}, "loading": [{
             "status": "failed", "session": "S", "failed_sessions": ["S"], "log": common.relative(self.load)}]}
         self.data = {"order": ["E"], "entries": {"E": {"theories": [{"path": "A.thy"}]}}}
         self.result = {"entries": {"E": {"scan": scan}}}
         self.exports = {"E": {}}
-        common.write_json(self.base / "results.json", self.result)
-        common.write_json(self.base / "exports.json", self.exports)
 
     def audit_report(self):
         audit = {"passed": True, "issues": [], "checks": {}, "issue_counts": {}}
         full_audit.audit_reports(self.base, self.data, self.result, self.exports, audit)
         return audit
 
-    def test_selected_receipt_uses_original_full_messages_after_a_new_scanner_attempt(self):
+    def test_committed_receipt_retains_full_messages_until_replacement_commit(self):
         # A later successful scanner head must not replace the failed command's
         # compiler details. The full old body exceeds the bounded excerpt length.
-        common.write_json(self.source / "units/u/current.json", {"receipt": "units/u/attempt-0002/receipt.json"})
-        common.write_json(self.source / "units/u/attempt-0002/receipt.json", {"status": "complete"})
+        common.write_record(self.source / "units/u/attempt-0002/attempt.json", {"status": "running"})
         events = list(full_report.failure_events(self.base, self.data, self.result))
         self.assertEqual(len(events), 1)
         self.assertIn(self.body, events[0]["error"])
@@ -67,11 +61,11 @@ class InheritedMessageTests(unittest.TestCase):
         self.assertTrue(events[0]["full_message_available"])
         self.assertEqual(self.result["entries"]["E"]["scan"]["status"], "failed")
 
-    def test_changed_message_index_is_not_used_as_selected_failure_evidence(self):
+    def test_changed_message_log_is_not_used_as_failure_evidence(self):
         # The receipt pins the archive index hash; even a plausible replacement
         # with the same session must not become accepted full-message evidence.
-        self.index.write_text(self.index.read_text() + " ")
-        messages = candidate_scope.messages(self.base, self.result["entries"]["E"]["scan"])
+        self.log.write_text(self.body + "changed")
+        messages = scan_evidence.messages(self.base, self.result["entries"]["E"]["scan"])
         self.assertFalse(messages["S"]["receipt_index_verified"])
         event = next(full_report.failure_events(self.base, self.data, self.result))
         self.assertFalse(event["full_message_available"])

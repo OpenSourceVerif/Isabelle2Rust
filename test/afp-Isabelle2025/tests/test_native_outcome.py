@@ -23,8 +23,7 @@ class NativeOutcomeTests(unittest.TestCase):
         self.work = full.next_attempt(common.WORK / "regression/tooling/native-outcome-regression")
         self.args = common.arguments(__doc__).parse_args([
             "--timeout", "0", "--max-heap-mb", "1200", "--java-heap-mb", "128",
-            "--stack-space-mb", "64", "--min-available-mb", "512",
-            "--compiler-settings", str(common.EXPERIMENT / "setup/compiler-settings.local.json")])
+            "--stack-space-mb", "64", "--min-available-mb", "512"])
         self.env, self.metadata = common.environment(self.args)
 
     def capture_fixture(self, source):

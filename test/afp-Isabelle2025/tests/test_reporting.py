@@ -60,7 +60,7 @@ class ReportingTests(unittest.TestCase):
             self.assertEqual(events[0]["error"], message)
             self.assertTrue(events[0]["full_message_available"])
             self.assertEqual(events[0]["message_source"], "result_record")
-            self.assertEqual(events[0]["evidence"], ["full/results.json"])
+            self.assertEqual(events[0]["evidence"], ["full/state.sqlite3"])
             self.assertEqual(list(inventory), [full_audit.failure_key(events[0])])
 
     def test_performance_excludes_failed_paths_and_requires_equal_scopes(self):
@@ -180,7 +180,7 @@ class ReportingTests(unittest.TestCase):
             wrong_scope = audit()
             self.assertEqual(wrong_scope["issue_counts"][reason], 1)
 
-    def test_failed_session_messages_are_bound_to_an_immutable_matching_database(self):
+    def test_failed_session_messages_use_checked_temporary_database(self):
         # Session databases are mutable shared caches. A successful rebuild or a
         # database outside the failed command interval cannot witness that failure.
         with tempfile.TemporaryDirectory() as temporary:
@@ -199,63 +199,52 @@ class ReportingTests(unittest.TestCase):
                 "started": started, "seconds": 5}]}}}}
             args = SimpleNamespace(isabelle="isabelle")
             env = {"ISABELLE_HEAPS": str(heap), "ML_IDENTIFIER": "ml"}
+            temporary_databases = []
             def capture(argv, log, arguments, snapshot_env):
                 self.assertNotEqual(snapshot_env["ISABELLE_HEAPS"], str(heap))
                 saved = Path(snapshot_env["ISABELLE_HEAPS"]) / "ml/log/S.db"
                 self.assertEqual(full.file_digest(saved), full.file_digest(database))
+                temporary_databases.append(saved)
                 log.write_text("Full unfiltered error message")
                 return {"status": "passed", "log": common.relative(log)}
             with patch.object(common, "PROJECT", project), patch.object(common, "command", side_effect=capture):
                 index = full.archive_scan_messages(base, record, args, env)
                 self.assertEqual(index["S"]["status"], "passed")
-                original = project / index["S"]["database"]
+                self.assertFalse(temporary_databases[-1].exists())
+                self.assertNotIn("database", index["S"])
                 references = index["S"]["references"]
-                checksum = full.file_digest(original)
+                self.assertEqual(index["S"]["database_sha256"], full.file_digest(database))
                 os.utime(database, (0, 0))
                 self.assertFalse(full.session_database_origin(database, "S", references)["origin_verified"])
                 with closing(sqlite3.connect(database)) as connection, connection:
                     connection.execute("UPDATE isabelle_session_info SET return_code = 0")
                 index = full.archive_scan_messages(base, record, args, env)
                 self.assertEqual(index["S"]["status"], "mismatched")
-                self.assertEqual(full.file_digest(original), checksum)
+                self.assertFalse(any(path.exists() for path in temporary_databases))
+                self.assertEqual(len(list((base / "scan-messages").rglob("messages.txt"))), 1)
 
-    def test_prerequisite_outcome_blocks_checkpoint_and_has_failure_catalog_entry(self):
-        # An auxiliary cache build is part of environment preparation. A pending
-        # or failed process cannot be hidden behind successful candidate scans.
+    def test_prerequisite_outcome_blocks_checkpoint_and_replacement_clears_failure(self):
+        # Current prerequisite failures block the gate; replacing the result
+        # with success removes that obsolete failure from the report inventory.
+        from state import State
         with tempfile.TemporaryDirectory() as temporary:
-            project = Path(temporary)
-            base = project / "full"
-            auxiliary = base / "prerequisites/HOL-Analysis"
-            auxiliary.mkdir(parents=True)
-            common.write_json(auxiliary / "running.json", {"pid": -1})
-            data = {"order": ["E"], "entries": {"E": {"theories": []}}}
-            result = {"entries": {"E": {"scan": {"status": "passed", "theories": []}}}}
-            exports = {"E": {}}
-            common.write_json(base / "results.json", result)
-            common.write_json(base / "exports.json", exports)
-            with patch.object(common, "PROJECT", project):
+            project = Path(temporary); base = project / "run"
+            State(base).put("run", {"sources": {}, "environment": {}})
+            auxiliary = base / "prerequisites/Parent"; auxiliary.mkdir(parents=True)
+            data, result, exports = {"order": []}, {"entries": {}}, {}
+            common.write_record(auxiliary / "running.json", {"pid": -1})
+            with patch.object(common, "PROJECT", project), patch("scan_frozen.make_units", return_value={}), patch("scan_frozen.checkpoint", side_effect=lambda *a: {"passed": True}):
                 self.assertFalse(full.scan_checkpoint(base, data, result, exports)["passed"])
-                (auxiliary / "build.log").write_text("out of memory")
-                check = {"status": "memory_limit", "log": "full/prerequisites/HOL-Analysis/build.log"}
-                common.write_json(auxiliary / "result.json", check)
+                log = auxiliary / "build.log"; log.write_text("out of memory")
+                common.write_record(auxiliary / "result.json", {"status": "memory_limit", "log": common.relative(log)})
                 events = list(full_report.failure_events(base, data, result))
                 self.assertEqual(events[0]["stage"], "prerequisite")
-                self.assertEqual(collections.Counter(map(full_audit.failure_key, events)),
-                                 full_audit.required_failure_inventory(base, data, result))
-                # Repairing the current build must clear its gate without
-                # dropping the complete earlier infrastructure failure.
-                history = auxiliary / "history/attempt-0001"
-                history.mkdir(parents=True)
-                common.write_json(history / "result.json", check)
-                common.write_json(auxiliary / "result.json", {"status": "passed"})
+                self.assertEqual(collections.Counter(map(full_audit.failure_key, events)), full_audit.required_failure_inventory(base, data, result))
+                common.write_record(auxiliary / "result.json", {"status": "passed"})
                 self.assertTrue(full.scan_checkpoint(base, data, result, exports)["passed"])
-                events = list(full_report.failure_events(base, data, result))
-                self.assertEqual(len(events), 1)
-                self.assertTrue(events[0]["historical"])
-                self.assertEqual(collections.Counter(map(full_audit.failure_key, events)),
-                                 full_audit.required_failure_inventory(base, data, result))
-                self.assertEqual(full_report.category(
-                    "java.lang.OutOfMemoryError: Java heap space")[0], "infrastructure")
+                self.assertEqual(list(full_report.failure_events(base, data, result)), [])
+                self.assertEqual(full_audit.required_failure_inventory(base, data, result), {})
+
 
     def test_report_audit_detects_wrong_compile_cell_and_omitted_failure(self):
         # Consistent totals do not prove catalog coverage: independently enumerate

@@ -16,7 +16,8 @@ import xml.etree.ElementTree as ET
 import afp_common as common
 import frontend_fault
 import full
-import candidate_scope
+from state import State
+import scan_evidence
 import declaration_scope
 
 
@@ -77,7 +78,7 @@ def audit_data(base, data, result, exports):
             failures[reason] += 1
             # Incomplete previews can have hundreds of thousands of pending
             # cells. Count every violation, retaining a bounded set of examples.
-            if len(issues) < 5000:
+            if len(issues) < 50:
                 issues.append(dict(reason=reason, **detail))
     need(len(data["entries"]) >= 800, "full AFP archive")
     need(set(data["entries"]) == set(result["entries"]) == set(exports), "all entry rows")
@@ -85,47 +86,35 @@ def audit_data(base, data, result, exports):
     environment = result.get("environment", {})
     need(environment.get("proofs") == "checked", "proof checking enabled")
     need(environment.get("command_timeout_seconds") == 0, "unlimited scan and export configuration")
-    source_manifest = common.read_json(base / "source-manifest.json", {})
-    need(bool(source_manifest), "source inventory present")
-    for name, checksum in source_manifest.items():
-        path = common.resolve_path(name)
-        need(path.is_file() and full.file_digest(path) == checksum,
-             "source file unchanged", path=name)
-    gate = common.read_json(base / "scan-checkpoint.json", {})
-    # The selected-candidate contract verifies discovery as inherited input.
-    # It does not claim that known upstream resource/coverage failures vanished.
-    current_candidates = (base / "candidate-baseline.json").is_file()
-    if current_candidates:
-        need(full.candidate_baseline_matches(base, result, exports),
-             "selected candidate snapshot and complete scan records unchanged")
-    else:
-        need(gate.get("passed") and gate.get("scan_signature") == full.scan_signature(result, exports),
-             "current scan checkpoint")
-    export_gate = common.read_json(base / "export-checkpoint.json", {})
+    run = State(base).get("run", {})
+    from scan_frozen import tools_identity
+    need(bool(run.get("tools")) and run["tools"] == tools_identity(), "pipeline sources unchanged")
+    for name, checksum in run.get("sources", {}).get("afp", {}).items():
+        path = Path(environment.get("afp_root", "__missing__")) / "thys" / name
+        need(path.is_file() and full.file_digest(path) == checksum, "AFP input unchanged", path=str(path))
+    gate = common.read_record(base / "scan-checkpoint.json", {})
+    need(gate.get("passed") and gate.get("scan_signature") == full.scan_signature(result, exports), "current scan checkpoint")
+    export_gate = common.read_record(base / "export-checkpoint.json", {})
     signature = full.export_signature(result)
     need(export_gate.get("passed") and export_gate.get("export_signature") == signature,
          "current export checkpoint")
+    compile_gate = common.read_record(base / "compile-checkpoint.json", {})
+    need(compile_gate.get("passed") and compile_gate.get("input_sha256") == full.inputs(base),
+         "current compile checkpoint")
     # A state file is not evidence of a live process: compare Linux birth
     # identity against /proc before deciding whether a recorded writer is live.
-    processes = common.read_json(base / "processes.json", {}).get("processes", {})
+    processes = common.read_record(base / "processes.json", {}).get("processes", {})
     for label, value in processes.items():
         actual = common.process_identity(value["pid"])
         old = value.get("identity")
         live = common.identity_matches(value)
         need(not live, "recorded upstream process finished", process=label, pid=value["pid"])
-    messages = common.read_json(base / "scan-messages/index.json", {})
+    messages = scan_evidence.read_messages(base)
     for session, value in messages.items():
         if not value.get("current"):
             continue
         need(value.get("status") == "passed", "full failed-session messages available", session=session)
         need(value.get("origin_verified"), "session database matches failed build", session=session)
-        if value.get("database"):
-            database = common.resolve_path(value["database"])
-            need(database.is_file() and full.file_digest(database) == value.get("database_sha256"),
-                 "failed-session database retained", session=session)
-            if database.is_file():
-                origin = full.session_database_origin(database, session, value.get("references", []))
-                need(origin["origin_verified"], "retained database matches failed command interval", session=session)
         if value.get("command", {}).get("log"):
             log = common.resolve_path(value["command"]["log"])
             need(log.is_file() and full.file_digest(log) == value.get("messages_sha256"),
@@ -134,7 +123,7 @@ def audit_data(base, data, result, exports):
         need(check.get("status") == "passed", "auxiliary prerequisite completed", prerequisite=name)
         log = common.resolve_path(check.get("log", "__missing__"))
         need(log.is_file(), "auxiliary prerequisite log retained", prerequisite=name)
-        identity = common.read_json(running, {})
+        identity = common.read_record(running, {})
         actual = common.process_identity(identity.get("pid", -1))
         old = identity.get("identity")
         need(not common.identity_matches(identity),
@@ -166,38 +155,28 @@ def audit_data(base, data, result, exports):
                                 or any(x["status"] != "passed" for x in
                                        scan.get("loading", []) + scan.get("inspections", [])))
             need(bool(observed_failure), "scan failure has direct cause", entry=entry)
-        inherited_messages = candidate_scope.messages(base, scan)
+        session_messages = scan_evidence.messages(base, scan)
         for phase in ("loading", "inspections"):
             for check in scan.get(phase, []):
-                # Selected snapshots already own immutable failed-session
-                # databases. Verify their complete messages without rebuilding
-                # the inherited failed session or changing its scan status.
+                # Current receipts own their failed-session diagnostics. Check
+                # those bytes without rerunning the failed native session.
                 failed_sessions = (check.get("failed_sessions", []) if check.get("status")
                                    not in {"passed", "blocked", "blocked_dependency"} else [])
                 for session in failed_sessions:
-                    message = messages.get(session) or inherited_messages.get(session, {})
+                    message = messages.get(session) or session_messages.get(session, {})
                     need(message.get("status") == "passed" and message.get("origin_verified"),
                          "scan failure has complete session messages", entry=entry, session=session)
-                    if message.get("receipt_index"):
-                        path = common.resolve_path(message["receipt_index"])
-                        need(path.is_file() and full.file_digest(path) == message.get("receipt_index_sha256"),
-                             "inherited message index matches selected receipt", entry=entry, session=session)
-                    path = common.resolve_path(message.get("database", "__missing__"))
-                    need(path.is_file() and full.file_digest(path) == message.get("database_sha256"),
-                         "inherited failure database retained", entry=entry, session=session)
-                    if path.is_file():
-                        origin = full.session_database_origin(path, session, message.get("references", []))
-                        need(origin["origin_verified"], "inherited database matches failed command interval",
-                             entry=entry, session=session)
+                    need(message.get("origin_verified") and message.get("session_returncode") not in (None, 0)
+                         and bool(message.get("session_uuid")) and bool(message.get("database_sha256")),
+                         "failed-session message origin recorded", entry=entry, session=session)
                     path = common.resolve_path(message.get("command", {}).get("log", "__missing__"))
                     need(path.is_file() and full.file_digest(path) == message.get("messages_sha256"),
-                         "inherited complete message bytes retained", entry=entry, session=session)
+                         "current complete message bytes retained", entry=entry, session=session)
                 if check.get("log"):
                     path = common.resolve_path(check["log"])
                     need(path.is_file(), "scan command log retained", entry=entry, path=check["log"])
-                if not current_candidates:
-                    need(check.get("status") not in {"timeout", "memory_limit", "running"},
-                         "scan resource failures resolved", entry=entry, phase=phase)
+                need(check.get("status") not in {"timeout", "memory_limit", "running"},
+                     "scan resource failures resolved", entry=entry, phase=phase)
         for diagnostic in scan.get("certificate_errors", []) + scan.get("context_merge_errors", []):
             if diagnostic.get("truncated"):
                 need((common.resolve_path(diagnostic.get("detail", "__missing__"))).is_file(),
@@ -332,9 +311,6 @@ def audit_data(base, data, result, exports):
     return {"passed": not issues, "checked": common.timestamp(), "issues": issues,
             "checks": dict(checked), "issue_counts": dict(failures), "retained_artifacts_checked": artifact_count,
             "input_sha256": full.inputs(base),
-            "experiment_scope": "current_candidates" if current_candidates else "full_scan",
-            "inherited_scan_counts": dict(collections.Counter(
-                r["scan"]["status"] for r in result["entries"].values())) if current_candidates else {},
             "compiled_distinct_candidates": {p: len(cs) for p, cs in compiled.items()}}
 
 
@@ -356,16 +332,10 @@ def required_failure_inventory(base, data, result):
         expected[failure_key(dict(entry=entry, phase=phase, stage=stage, status=status,
                                   evidence=evidence, constants=constants, target=target, manifest=manifest))] += 1
     root = base / "prerequisites"
-    for path in sorted(root.glob("**/result.json")):
-        check = common.read_json(path, {})
+    for name, check, path, _ in full.prerequisite_records(base):
         if check.get("status") not in {"passed", None}:
-            add("@prerequisite/" + path.relative_to(root).parts[0], "scan", "prerequisite",
+            add("@prerequisite/" + name, "scan", "prerequisite",
                 check["status"], [check["log"]] if check.get("log") else [common.relative(path)])
-    for path in sorted((base / "recovery").glob("*/result.json")):
-        check = common.read_json(path, {})
-        if check.get("status") not in {"passed", None}:
-            add(check.get("entry", "@execution"), check.get("phase", "scan"),
-                "process_interruption", check["status"], [check["log"]])
     for entry in data["order"]:
         record = result["entries"][entry]
         scan = record["scan"]
@@ -377,20 +347,20 @@ def required_failure_inventory(base, data, result):
             for value in scan.get(kind, []):
                 diagnostic = value if isinstance(value, dict) else {}
                 detail = diagnostic.get("detail")
-                # Complete short messages can survive solely in results.json;
+                # Complete short messages may be stored in the current receipt;
                 # the catalog must reference those bytes, not a cleaned XML.
                 evidence = detail if detail and (common.resolve_path(detail)).is_file() else common.relative(
-                    base / "results.json")
+                    base / "state.sqlite3")
                 add(entry, "scan", kind, "failed", [evidence],
                     [diagnostic["name"]] if diagnostic.get("name") else [])
         # A pure dependency receipt has no native command. Validation errors
         # after successful build/inspection are independent failure occurrences.
-        for path, receipt in candidate_scope.receipts(base, scan):
+        for path, receipt in scan_evidence.receipts(base, scan):
             if receipt.get("error"):
                 add(entry, "scan", "receipt_validation", "failed", [common.relative(path)])
         if scan["status"] == "blocked":
-            add(entry, "scan", "dependency", "blocked", [common.relative(base / "results.json")])
-        for stage in [*record.get("full_export_history", []), record.get("full_export", {})]:
+            add(entry, "scan", "dependency", "blocked", [common.relative(base / "state.sqlite3")])
+        for stage in [record.get("full_export", {})]:
             for run in stage.get("runs", []):
                 if run["command"]["status"] != "passed":
                     add(entry, "export", "process", run["command"]["status"], [run["command"]["log"]])
@@ -398,7 +368,7 @@ def required_failure_inventory(base, data, result):
                     if attempt["status"] == "failed":
                         add(entry, "export", attempt["stage"], "failed", [attempt["evidence"]],
                             attempt["constants"], attempt["target"])
-        for inventory in [*record.get("full_compile_history", []), record.get("full_compile", {})]:
+        for inventory in [record.get("full_compile", {})]:
             for manifest, item in inventory.items():
                 for phase in ("stage1_compile", "optimization", "stage2_compile"):
                     value = item.get(phase, {})
@@ -417,7 +387,7 @@ def audit_reports(base, data, result, exports, audit):
         audit["checks"][reason] = audit["checks"].get(reason, 0) + 1
         if not condition:
             audit["issue_counts"][reason] = audit["issue_counts"].get(reason, 0) + 1
-            if len(issues) < 5000:
+            if len(issues) < 50:
                 issues.append(dict(reason=reason, **detail))
     for name in ("README.md", "scan-failures.md", "export-failures.md", "compile-failures.md",
                  "entries.csv", "candidates.csv", "declarations.csv", "compilation.csv", "failures.jsonl",
@@ -524,12 +494,10 @@ def audit_reports(base, data, result, exports, audit):
     if (report / "failures.jsonl").is_file():
         actual, categories = collections.Counter(), collections.Counter()
         events = 0
-        historical = 0
         with (report / "failures.jsonl").open() as stream:
             for line in stream:
                 value = json.loads(line)
                 events += 1
-                historical += bool(value.get("historical"))
                 actual[failure_key(value)] += 1
                 categories[(value["phase"], value["category"], value.get("target") or "", value["status"])] += 1
                 need(value.get("error_sha256") == full.digest(value["error"].encode()),
@@ -540,13 +508,13 @@ def audit_reports(base, data, result, exports, audit):
                      "failure catalog has full diagnostics", entry=value["entry"])
                 if value.get("phase") == "scan" and value.get("stage") in {"loading", "inspections"}:
                     scan = result["entries"][value["entry"]]["scan"]
-                    messages = common.read_json(base / "scan-messages/index.json", {})
-                    inherited_messages = candidate_scope.messages(base, scan)
+                    messages = scan_evidence.read_messages(base)
+                    session_messages = scan_evidence.messages(base, scan)
                     for check in scan.get(value["stage"], []):
                         if check.get("log") not in value["evidence"]:
                             continue
                         for session in check.get("failed_sessions", []):
-                            message = messages.get(session) or inherited_messages.get(session, {})
+                            message = messages.get(session) or session_messages.get(session, {})
                             log = message.get("command", {}).get("log")
                             path = common.resolve_path(log) if log else None
                             need(path is not None and path.is_file() and log in value["evidence"]
@@ -556,9 +524,6 @@ def audit_reports(base, data, result, exports, audit):
         need(actual == required_failure_inventory(base, data, result),
              "failure catalog covers every actual failed command and diagnostic")
         need(events == summary.get("failure_events"), "failure event count consistent")
-        need(historical == summary.get("historical_failure_events", 0)
-             and events - historical == summary.get("current_failure_events", events),
-             "historical and current failure counts consistent")
         if (report / "failure-categories.csv").is_file():
             with (report / "failure-categories.csv").open() as stream:
                 rows = list(csv.DictReader(stream))
@@ -584,8 +549,9 @@ def main():
             audit["passed"] = False
         elif not args.data_only:
             audit_reports(base, data, result, exports, audit)
-        name = "audit-preview.json" if args.preview else "data-audit.json" if args.data_only else "completion-audit.json"
-        common.write_json(base / name, audit)
+        name = "audit-preview.json" if args.preview else "audit.json"
+        audit["with_report"] = not args.data_only and not args.preview
+        common.write_record(base / name, audit)
         print(json.dumps({"passed": audit["passed"], "issues": len(audit["issues"]), "checks": audit["checks"]}, indent=2))
         return int(not audit["passed"])
     if args.preview:

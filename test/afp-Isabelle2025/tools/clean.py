@@ -2,14 +2,11 @@
 """Preview or clean an owned AFP work directory, always protecting retained data."""
 import fcntl
 from pathlib import Path
-import shutil
 
 import afp_common as common
 
 
 CACHE = ('_build', '_tmp', 'cache')
-COMPILE = ('compilation', 'rust-stage2', 'logs/compile', 'optimizer-build.json', 'optimizer-build.log')
-EXPORT = ('exports', 'export-progress', 'export-checkpoint.json', 'frontend-faults', 'report')
 
 
 def validate_root(base):
@@ -32,55 +29,55 @@ def validate_root(base):
 
 
 def targets(base, reset=None):
-    """Select only fixed children of a marked experiment work directory."""
+    from state import State, NAME
     base = validate_root(base)
-    marker = common.read_json(base / 'afp-work.json', {})
-    if marker.get('kind') != 'afp-work-v1':
-        raise ValueError('Cleanup requires an initialized AFP work directory')
-    names = CACHE + (COMPILE if reset in ('compile', 'export') else ()) + (EXPORT if reset == 'export' else ())
+    if not (base / NAME).is_file() or not State(base).get("run"):
+        raise ValueError("Cleanup requires an initialized AFP work directory")
+    names = CACHE + (("compilation", "rust-stage2", "report") if reset else ()) + (("exports",) if reset == "export" else ())
     result = []
     for name in names:
         path = base / name
         if path.is_symlink() or not path.resolve().is_relative_to(base):
-            raise ValueError('Cleanup target is a symlink or escapes work: ' + name)
+            raise ValueError("Cleanup target escapes work: " + name)
         if path.exists():
             result.append(path)
     return result
 
 
 def clean(base, reset=None, apply=False):
-    """Deletion is opt-in; explicit resets also invalidate the relevant results."""
+    from state import State
+    base = validate_root(base)
     paths = targets(base, reset)
-    base = Path(base).resolve()
-    result = {'preview': not apply, 'reset': reset, 'paths': [str(p) for p in paths]}
+    result = {"preview": not apply, "reset": reset, "paths": [str(p) for p in paths]}
     if not apply:
         return result
-    # Use the same lock as export/compile. A busy run is rejected immediately,
-    # so cleanup cannot wait and then erase the output of a running phase.
-    lockpath = common.EXPERIMENT / 'setup/batch.lock'
+    lockpath = common.EXPERIMENT / "setup/batch.lock"
     lockpath.parent.mkdir(parents=True, exist_ok=True)
-    with lockpath.open('a') as lock:
+    with lockpath.open("a") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            raise ValueError('An AFP phase is running; cleanup refused') from None
+            raise ValueError("An AFP phase is running; cleanup refused") from None
         paths = targets(base, reset)
+        state = State(base)
+        from scan_frozen import active_children
+        if active_children(base):
+            raise ValueError("Native AFP children are still running; cleanup refused")
         if reset:
-            import full
-            _, state, exports = full.load(base)
-            for entry in list(state['entries']):
-                record = state['entries'][entry]
-                for key in list(record):
-                    if key.startswith('full_compile') or (reset == 'export' and key.startswith('full_export')):
-                        del record[key]
-                if isinstance(state['entries'], full.EntryStore):
-                    state['entries'].commit(entry, full.entry_compiled(record, exports[entry], full.serializer_signature()))
-            full.save(base, state, exports)
+            # Invalidate results before deleting their evidence. A crash during
+            # cleanup can leave unused files, but cannot leave a false success.
+            replacements = {}
+            for key in state.keys("entry/"):
+                record = state.get(key)
+                record.pop("full_compile", None)
+                if reset == "export":
+                    record.pop("full_export", None)
+                replacements[key] = record
+            remove = ["audit.json", "audit-preview.json", "compile-checkpoint.json"]
+            if reset == "export":
+                remove += ["export-checkpoint.json", *state.keys("export-progress/")]
+            state.update(replacements, remove)
         for path in paths:
-            # shutil.rmtree does not follow descendant symlinks on Linux.
-            # Only the fixed child names above can become deletion roots.
-            if path.is_dir():
-                shutil.rmtree(path)
-            else:
-                path.unlink()
+            state.remove_tree(path)
+        state.compact()
     return result

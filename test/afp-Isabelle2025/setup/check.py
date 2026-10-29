@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check server versions, all compiler conditions, sources and retained evidence."""
+"""Check a fresh server without requiring any previous experiment data."""
 import argparse
 import json
 import os
@@ -11,8 +11,7 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 import afp_common as common
-from afp import runtime_arguments, verify_frozen
-from frozen import verify_sources
+from afp import runtime_arguments
 
 
 def check_ocaml(path, env):
@@ -86,7 +85,8 @@ def check(config, work=None):
         return revision
     run('sibling RustLightAST', ast_revision)
     if env:
-        conditions = common.read_json(common.EXPERIMENT / 'scan/source-inputs.json')['conditions']
+        conditions = ('ISABELLE_CC', 'ISABELLE_OCAMLFIND', 'ISABELLE_SMLNJ',
+                      'ISABELLE_GOEXE', 'ISABELLE_CAKEML_HOME', 'ISABELLE_GHC', 'ISABELLE_MLTON')
         for key in conditions:
             def compiler(key=key):
                 value = env.get(key)
@@ -94,8 +94,6 @@ def check(config, work=None):
                 path = Path(value)
                 if key == 'ISABELLE_CAKEML_HOME':
                     require((path / 'basis_ffi.c').is_file() and os.access(path / 'bin/x86_64-linux/cake', os.X_OK), 'Incomplete CakeML component')
-                    from scan_store import file_digest
-                    require(file_digest(path / 'bin/x86_64-linux/cake') == conditions[key]['sha256'], 'CakeML binary differs from fixed component')
                     return str(path)
                 if key == 'ISABELLE_GOEXE':
                     goroot = Path(env.get('ISABELLE_GOROOT', '__missing__'))
@@ -113,12 +111,9 @@ def check(config, work=None):
                     return result
                 if key == 'ISABELLE_SMLNJ':
                     return output([path], env)
-                from scan_store import file_digest
-                require(file_digest(path) == conditions[key]['sha256'], 'Bundled MLton differs from fixed component')
                 return str(path)
             run(key, compiler)
         run('Scala bundled tool', lambda: output([options.isabelle, 'scala', '-e', 'println(util.Properties.versionString)'], env))
-        run('frozen source identity', lambda: verify_sources(common.EXPERIMENT / 'scan', options.afp, options.isabelle))
     def writable():
         # Check the nearest existing parent without populating empty work/.
         directory = Path(work or common.WORK).resolve()
@@ -128,7 +123,6 @@ def check(config, work=None):
             pass
         return str(directory)
     run('work parent writable', writable)
-    run('complete frozen evidence', verify_frozen)
     return {'passed': all(c['passed'] for c in checks), 'checked': common.timestamp(), 'checks': checks,
             'generated_programs_executed': False}
 
@@ -137,11 +131,13 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path)
     p.add_argument('--work', type=Path, help='check a dedicated work root instead of the configured one')
-    p.add_argument('--receipt', type=Path, help='optional server-local environment record')
     args = p.parse_args()
-    result = check(common.configure(args.config), args.work)
-    if args.receipt:
-        common.write_json(args.receipt.resolve(), result)
+    path = args.config or common.EXPERIMENT / 'setup/server.local.json'
+    config = common.configure(path)
+    result = check(config, args.work)
+    # The one local config owns the latest validation outcome as well as paths.
+    config['environment_check'] = result
+    common.write_json(path.resolve(), config)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return int(not result['passed'])
 

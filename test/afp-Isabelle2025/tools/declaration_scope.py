@@ -12,7 +12,7 @@ import full
 
 
 def contexts(info, scan, run):
-    """Read actual parents, using frozen ancestry only for inherited sources.
+    """Read actual parents, using scanned ancestry for failed context loading.
 
     A failed Context.begin_thy writes no context XML. Its branch number can be
     reconstructed only when the scanned maximal ancestry covers exactly the

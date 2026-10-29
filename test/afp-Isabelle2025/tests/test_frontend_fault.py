@@ -149,7 +149,7 @@ class SourceFailureCoverage(unittest.TestCase):
             common.write_json(base / 'exports.json', {})
             common.write_json(base / 'frontend-fault-cases.json', {
                 'schema': 1, 'serializer_sha256': 'serializer',
-                'candidate_scope_sha256': full.file_digest(base / 'exports.json'),
+                'candidate_scope_sha256': full.scope_digest({'One.thy': ['A.f'], 'Other.thy': ['A.f']}),
                 'cases': [{'entry': 'E', 'constant': 'A.f'}]})
             with patch.object(full, 'serializer_signature', return_value='serializer'):
                 with self.assertRaisesRegex(ValueError, 'unambiguous source declaration'):
@@ -161,36 +161,46 @@ class ReadOnlyNativeReviews(unittest.TestCase):
     def test_original_native_bytes_support_each_independent_source_case(self):
         # Each case supplies its own original singleton request and separate
         # observational input. No derived constant borrows another's verdict.
-        base = common.HERE / 'full/current-candidates-2026-10-27'
-        cases = [('ArrowImpossibilityGS', 'GS.Top', '0009', 'arrow-pattern-merge/attempt-0001', 'empty_overlap_merge_cycle'),
-                 ('ArrowImpossibilityGS', 'GS.swf', '0013', 'arrow-pattern-merge/attempt-0002', 'empty_overlap_merge_cycle'),
-                 ('ConcurrentGC', 'Global_Invariants.fA_rel', '0008', 'concurrentgc-conversion/attempt-0002', 'flexible_boolean_conjunction'),
-                 ('ConcurrentGC', 'Global_Invariants.fA_rel_inv', '0010', 'concurrentgc-conversion/attempt-0004', 'flexible_boolean_conjunction'),
-                 ('ConcurrentGC', 'Global_Invariants.fM_rel', '0011', 'concurrentgc-conversion/attempt-0003', 'flexible_boolean_conjunction'),
-                 ('ConcurrentGC', 'Global_Invariants.fM_rel_inv', '0014', 'concurrentgc-conversion/attempt-0005', 'flexible_boolean_conjunction')]
+        # Optional native reviews use the configured current run. No dated
+        # archive or checked-in experiment output is a prerequisite for tests.
+        base = common.WORK
+        registry = common.read_record(base / 'frontend-fault-cases.json', {})
+        if not registry.get('cases'):
+            self.skipTest('current run has no registered native source-fault evidence')
+        _, current, _ = full.load(base)
+        cases = []
+        for case in registry['cases']:
+            entry, constant = case['entry'], case['constant']
+            requests = [run for run in current['entries'][entry].get('full_export', {}).get('runs', [])
+                        if run.get('scope') == [constant] and run['command']['status'] == 'failed']
+            self.assertEqual(len(requests), 1)
+            cases.append((entry, constant, common.resolve_path(requests[0]['directory']),
+                          common.resolve_path(case['observation']), case['family']))
+        temporary = tempfile.TemporaryDirectory(prefix='afp-source-review-test-')
+        self.addCleanup(temporary.cleanup)
         records = []
-        for entry, constant, attempt, relative, family in cases:
+        for case_index, (entry, constant, formal, observation, family) in enumerate(cases):
             with self.subTest(constant=constant):
-                formal = base / 'exports' / entry / entry / ('attempt-' + attempt)
-                paths = [formal / name for name in ['process.log', 'process.log.json', 'scope.txt', 'contexts/merged.xml']]
+                paths = [formal / name for name in ['process.log', 'scope.txt', 'contexts/merged.xml']]
                 before = {path: fault.sha(path) for path in paths}
-                evidence = fault.review(formal, base / 'mechanism' / relative, constant, family, full.serializer_signature())
+                evidence = fault.review(formal, observation, constant, family, full.serializer_signature())
                 self.assertEqual(evidence['constant'], constant)
                 self.assertEqual(evidence['native_evidence']['command']['status'], 'failed')
                 self.assertFalse(evidence['native_evidence']['original_finished_exists'])
                 self.assertTrue(evidence['source_invariant']['source_observer_reverses_exactly'])
-                if constant == 'GS.Top':
+                if case_index == 0:
                     # Retain the native failed request and store only the
                     # derived review under an isolated test-output directory.
                     # The real exporter and its result database remain intact.
-                    private = full.next_attempt(base / 'tooling/source-fault-checkpoint-regression')
+                    private = Path(temporary.name) / 'review'
+                    private.mkdir()
                     run = {'directory': common.relative(formal), 'session': entry, 'scope': [constant],
-                           'command': common.read_json(formal / 'process.log.json'),
+                           'command': common.read_record(formal / 'process.log.json'),
                            'finished': False, 'attempts': []}
                     # Exercise the exact fresh-command representation as well
                     # as the original JSON sidecar used by independent review.
                     run['command']['identity'] = tuple(run['command']['identity'])
-                    run['source_fault'] = fault.prepare_record(run, base / 'mechanism' / relative,
+                    run['source_fault'] = fault.prepare_record(run, observation,
                                                                family, full.serializer_signature(), review_root=private)
                     scan = {'status': 'passed', 'theories': ['Fixture.thy']}
                     scope = {'Fixture.thy': [constant]}
@@ -213,8 +223,6 @@ class ReadOnlyNativeReviews(unittest.TestCase):
                         'Fixture': {'theories': [{'path': 'Fixture.thy'}]}}}
                     fixture_result = {'entries': {'Fixture': record}}
                     fixture_exports = {'Fixture': scope}
-                    common.write_json(private / 'results.json', fixture_result)
-                    common.write_json(private / 'exports.json', fixture_exports)
                     audited = full_audit.audit_data(private, fixture_data, fixture_result, fixture_exports)
                     self.assertFalse(audited['passed'])
                     for predicate, count in [('candidate has direct applicable witness', len(full.TARGETS)),
@@ -260,7 +268,7 @@ class ReadOnlyNativeReviews(unittest.TestCase):
                         'native_finished_still_missing': True, 'formal_result_database_modified': False})
                 self.assertEqual(before, {path: fault.sha(path) for path in paths})
                 records.append({'constant': constant, 'family': family, 'passed': True})
-        common.write_json(base / 'tooling/frontend-fault-prototype/read-only-integration.json', {
+        common.write_json(Path(temporary.name) / 'validation.json', {
             'checked': common.timestamp(), 'passed': True, 'cases': records,
             'formal_results_modified': False, 'export_gate_changed': False, 'native_code_started': False})
 

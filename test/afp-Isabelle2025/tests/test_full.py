@@ -82,7 +82,8 @@ class ExhaustiveTests(unittest.TestCase):
                 return {"status": "passed", "log": "optimization.log"}
             with patch.object(common, "PROJECT", root), \
                     patch.object(full, "compile_crates", side_effect=[
-                        {"status": "failed"}, {"status": "passed"}]) as compile_check, \
+                        {"status": "failed", "checks": [{"status": "failed", "returncode": 1}]},
+                        {"status": "passed", "checks": [{"status": "passed", "returncode": 0}]}]) as compile_check, \
                     patch.object(common, "command", side_effect=optimize):
                 full.compile_entry("E", record, root, SimpleNamespace(), {}, root / "cargo-opt")
             self.assertEqual(compile_check.call_count, 2)

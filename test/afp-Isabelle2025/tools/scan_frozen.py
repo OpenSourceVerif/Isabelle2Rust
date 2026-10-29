@@ -1,42 +1,29 @@
 #!/usr/bin/env python3
-"""Run only frozen AFP candidate discovery, resuming validated session receipts.
-
-Initialization is explicit. Subsequent invocations schedule pending sessions;
-a failed attempt requires a bounded repair plan. Completed sessions never enter
-the automatic queue, regardless of resource, diagnostic or tool version changes.
-"""
+"""Discover AFP candidates, retaining only current receipts and active work."""
 import collections
 import json
 import os
 from pathlib import Path
 import shutil
 import sys
+import tempfile
 import xml.etree.ElementTree as ET
 
 import afp_common as common
 import scan
+from state import State
 from scan_store import (METHOD, POLICY, SCHEMA, Store, aggregate, completed_receipt,
-                        digest, file_digest, inventory, publish, unit_input)
-
-TOOL_FILES = ("afp_common.py", "scan.py", "scan.ML", "scan_store.py", "scan_frozen.py",
-              "sessions.scala", "full.py", "run.py")
-
+                        digest, file_digest, inventory, unit_input)
 
 def tools_identity():
-    return {name: file_digest(common.HERE / name) for name in TOOL_FILES}
-
-
-def save_tools(base, identity):
-    directory = base / "tools" / digest(identity)
-    directory.mkdir(parents=True, exist_ok=True)
-    for name, sha in identity.items():
-        target = directory / name
-        if not target.exists():
-            shutil.copy2(common.HERE / name, target)
-        if file_digest(target) != sha:
-            raise ValueError("tool snapshot mismatch: " + name)
-    common.write_json(directory / "tools.json", identity)
-    return directory
+    """Bind this run to the actual pipeline sources without copying them."""
+    paths = list(common.HERE.glob("*.py")) + list(common.HERE.glob("*.ML")) + list(common.HERE.glob("*.scala"))
+    for directory, patterns in ((common.PROJECT / "translate", ("*.thy", "*.ML")),
+                                (common.PROJECT / "optimize", ("src/**/*.rs", "Cargo.toml", "Cargo.lock")),
+                                (common.PROJECT.parent / "RustLightAST", ("src/**/*.rs", "Cargo.toml", "Cargo.lock"))):
+        for pattern in patterns:
+            paths.extend(directory.glob(pattern))
+    return {common.relative(p): file_digest(p) for p in sorted(set(paths)) if p.is_file()}
 
 
 def compiler_identity(name, value, env):
@@ -140,87 +127,44 @@ def active_children(base):
 
 
 def initialize(base, args, env, metadata):
-    if (base / "scan-contract.json").exists():
-        raise ValueError("run is already frozen; resume without --initialize")
+    """Create one run, with one manifest and one input/configuration identity."""
     if base.exists() and any(base.iterdir()):
         raise ValueError("initialization requires an empty, isolated output directory")
-    args.manifest_dir = base / "discovery"
-    data = common.manifest(args, env)
-    counts = (len(data["entries"]), sum(len(i["sessions"]) for i in data["entries"].values()),
-              sum(len(i["theories"]) for i in data["entries"].values()))
-    if counts != (893, 922, 9122):
-        raise ValueError("unexpected AFP universe: " + repr(counts))
-    if any(i["source_errors"] for i in data["entries"].values()):
-        raise ValueError("manifest source errors require review before freezing")
-    # AODV is an expensive leaf. Reordering the leaf preserves prerequisites.
-    if "AODV" in data["order"]:
-        if any("AODV" in i["dependencies"] for i in data["entries"].values()):
-            raise ValueError("AODV is no longer a leaf")
-        data["order"] = [e for e in data["order"] if e != "AODV"] + ["AODV"]
-    sources = source_inputs(args, env, data)
-    unavailable = [name for name, value in sources["conditions"].items()
-                   if not value.get("exists") or not value.get("executable")]
-    if unavailable:
-        raise ValueError("conditional compiler prerequisites unavailable: " + repr(unavailable))
-    identity = tools_identity()
-    units = make_units(data, sources)
-    base.mkdir(parents=True, exist_ok=True)
-    common.write_json(base / "manifest.json", data)
-    common.write_json(base / "source-inputs.json", sources)
-    common.write_json(base / "units.json", units)
-    save_tools(base, identity)
-    contract = {"schema": SCHEMA, "policy": POLICY, "method": METHOD,
-                "created": common.timestamp(), "universe": counts,
-                "manifest_sha256": file_digest(base / "manifest.json"),
-                "sources_sha256": file_digest(base / "source-inputs.json"),
-                "units_sha256": file_digest(base / "units.json"), "tools": identity,
-                "environment": metadata, "resume_unit": "session",
-                "automatic_reopen_complete": False, "stop_after": "scan",
-                "diagnostics": "separate; certificate preprocessing is not discovery"}
-    common.write_json(base / "scan-contract.json", contract)
-    return contract
+    # Failed discovery leaves the output empty so initialization can be retried.
+    with tempfile.TemporaryDirectory(prefix="afp-init-") as temporary:
+        args.manifest_dir = Path(temporary)
+        data = common.manifest(args, env)
+        counts = (len(data["entries"]), sum(len(i["sessions"]) for i in data["entries"].values()),
+                  sum(len(i["theories"]) for i in data["entries"].values()))
+        if counts != (893, 922, 9122):
+            raise ValueError("unexpected AFP universe: " + repr(counts))
+        if any(i["source_errors"] for i in data["entries"].values()):
+            raise ValueError("manifest source errors require review")
+        sources = source_inputs(args, env, data)
+        unavailable = [name for name, value in sources["conditions"].items()
+                       if not value.get("exists") or not value.get("executable")]
+        if unavailable:
+            raise ValueError("conditional compiler prerequisites unavailable: " + repr(unavailable))
+        run = {"schema": 1, "created": common.timestamp(), "manifest": data,
+               "sources": sources, "tools": tools_identity(), "environment": metadata}
+        state = State(base)
+        state.put("run", run)
+        return run
 
 
 def validate_contract(base, args, env):
-    contract = common.read_json(base / "scan-contract.json")
-    if not contract or contract.get("policy") != POLICY or contract.get("method") != METHOD:
-        raise ValueError("missing or incompatible frozen contract")
-    for name, key in (("manifest.json", "manifest_sha256"), ("source-inputs.json", "sources_sha256"),
-                      ("units.json", "units_sha256")):
-        if file_digest(base / name) != contract[key]:
-            raise ValueError("frozen input record changed: " + name)
-    data = common.read_json(base / "manifest.json")
-    sources = common.read_json(base / "source-inputs.json")
-    actual = source_inputs(args, env, data)
-    if actual != sources:
-        common.write_json(base / "input-mismatch.json", {
-            "observed": common.timestamp(), "expected": digest(sources), "actual": digest(actual),
-            "action": "blocked; no candidate receipt invalidated or rescheduled"})
-        raise ValueError("frozen source/compiler inputs changed; bounded impact review required")
-    return contract, data, common.read_json(base / "units.json")
-
-
-def bounded_plan(base, args, units, store, identity, contract):
-    plan = common.read_json(args.repair_plan) if args.repair_plan else None
-    retries = set()
-    if plan:
-        retries = set(plan.get("sessions", []))
-        if not retries or not retries <= set(units) or retries == set(units):
-            raise ValueError("repair requires explicit, bounded session names")
-        if not plan.get("reason") or not plan.get("evidence"):
-            raise ValueError("repair requires a cause and concrete evidence references")
-        for path, sha in plan["evidence"].items():
-            if file_digest(Path(path)) != sha:
-                raise ValueError("repair evidence mismatch: " + path)
-        if any((store.read(units[s]) or {}).get("status") == "complete" for s in retries):
-            raise ValueError("repair plan cannot automatically reopen complete sessions")
-    if identity != contract["tools"] and (not plan or not plan.get("candidate_compatibility")):
-        raise ValueError("tool change requires an explicit candidate-compatibility repair record")
-    if plan:
-        path = base / "repairs" / (digest(plan) + ".json")
-        if not path.exists():
-            common.write_json(path, plan)
-    return retries
+    run = State(base).get("run")
+    if not run or run.get("schema") != 1:
+        raise ValueError("missing or incompatible run; initialize first")
+    actual = source_inputs(args, env, run["manifest"])
+    # AFP sessions may create exported files beside their sources. Only files
+    # present at initialization are immutable inputs; generated additions are outputs.
+    actual["afp"] = {k: actual["afp"].get(k) for k in run["sources"]["afp"]}
+    if actual != run["sources"]:
+        raise ValueError("source/compiler inputs changed; start a new run")
+    if tools_identity() != run["tools"]:
+        raise ValueError("pipeline sources changed; start a new run")
+    return run, run["manifest"], make_units(run["manifest"], run["sources"])
 
 
 def failure_receipt(store, attempt, unit, run, built, inspected=None, error=None):
@@ -232,7 +176,7 @@ def failure_receipt(store, attempt, unit, run, built, inspected=None, error=None
                "status": "unresolved_infrastructure", "committed": common.timestamp(),
                "build": built, "inspect": inspected, "error": error,
                "failed_sessions": failed_sessions, "tool_generation": run["tool_generation"],
-               "runtime": run["runtime"], "evidence": store.evidence(paths)}
+               "evidence": store.evidence(paths)}
     if any(c.get("status") == "interrupted" for c in checks):
         receipt["status"] = "interrupted"
     return receipt
@@ -245,11 +189,11 @@ def archive_failed_build(attempt, unit, built, args, env):
     full.archive_scan_messages(attempt, record, args, env)
 
 
-def run_unit(store, unit, args, env, runtime, identity, tools_dir):
+def run_unit(store, unit, args, env, runtime, identity):
     attempt = store.next_attempt(unit)
     run = {"unit_id": digest(unit), "tool_generation": digest(identity),
            "runtime": runtime, "started": common.timestamp()}
-    common.write_json(attempt / "attempt.json", run)
+    common.write_record(attempt / "attempt.json", run)
     (attempt / "theories.txt").write_text("\n".join(unit["requested"]) + "\n")
     actual = dict(env, AFP_SCAN_POLICY=POLICY, AFP_SCAN_UNIT=digest(unit),
                   AFP_SCAN_RUN=str(store.base), AFP_SCAN_THEORIES=str(attempt / "theories.txt"),
@@ -271,7 +215,7 @@ def run_unit(store, unit, args, env, runtime, identity, tools_dir):
                 archive_failed_build(attempt, unit, built, args, actual)
             else:
                 inspected = scan.inspect_session(unit["session"], args, actual,
-                    attempt / "scan.log", collector=tools_dir / "scan.ML")
+                    attempt / "scan.log", collector=common.HERE / "scan.ML")
                 inspected["session"] = unit["session"]
         if inspected and inspected["status"] == "passed":
             receipt = completed_receipt(store, attempt, unit, run, built, inspected)
@@ -318,11 +262,11 @@ def checkpoint(store, data, units, metadata):
         if states and all(s == "complete" for s in states) and scan["missing_theories"]:
             issues.append({"entry": entry, "status": "incomplete_theory_coverage",
                            "missing_theories": scan["missing_theories"]})
-    snapshot = publish(store, result, exports)
     gate = {"phase": "scan", "checked": common.timestamp(), "passed": not issues,
-            "unit_counts": dict(counts), "issues": issues, "snapshot": snapshot,
+            "unit_counts": dict(counts), "issues": issues,
+            "scan_signature": __import__("full").scan_signature(result, exports),
             "entries": len(data["entries"]), "candidate_count": result["coverage"]["distinct_candidates"]}
-    common.write_json(store.base / "scan-checkpoint.json", gate)
+    common.write_record(store.base / "scan-checkpoint.json", gate)
     return gate
 
 
@@ -331,13 +275,12 @@ def main():
     parser.set_defaults(timeout=0)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--initialize", action="store_true")
-    parser.add_argument("--repair-plan", type=Path)
     parser.add_argument("--prepare-only", action="store_true")
     args = parser.parse_args()
     if args.timeout or args.skip_proofs:
-        raise ValueError("frozen scans require timeout=0 and checked proofs")
-    if args.retry_failed or args.refresh_manifest:
-        raise ValueError("use an explicit bounded repair plan, not global refresh/retry flags")
+        raise ValueError("full scans require timeout=0 and checked proofs")
+    if args.refresh_manifest:
+        raise ValueError("start a new run to change the manifest")
     base = args.output_dir.resolve()
     env, metadata = common.environment(args)
     if args.initialize:
@@ -348,8 +291,8 @@ def main():
     if native:
         raise ValueError("previous native processes are still active: " + repr(native))
     identity = tools_identity()
-    tools_dir = save_tools(base, identity)
-    retries = bounded_plan(base, args, units, store, identity, contract)
+    retries = {s for s, unit in units.items() if args.retry_failed and
+               (store.read(unit) or {}).get("status") != "complete"}
     selected_entries = args.entries or data["order"]
     if not set(selected_entries) <= set(data["entries"]):
         raise ValueError("unknown selected entries")
@@ -363,20 +306,11 @@ def main():
         receipt = store.read(units[session])
         if not receipt or receipt["status"] in {"interrupted", "blocked_dependency"} or session in retries:
             queue.append(session)
-    run_dir = base / "runs"
-    run_dir.mkdir(exist_ok=True)
-    n = len(list(run_dir.glob("run-*.json"))) + 1
-    run_path = run_dir / f"run-{n:04d}.json"
-    runtime = {"environment": metadata, "min_available_mb": args.min_available_mb,
-               "tool_generation": digest(identity), "command": sys.argv,
+    runtime = {"min_available_mb": args.min_available_mb, "command": sys.argv,
                "pid": os.getpid(), "identity": common.process_identity(os.getpid())}
-    plan = {"started": common.timestamp(), "runtime": runtime, "sessions": queue,
-            "reason": "pending, interrupted, newly unblocked, or explicitly bounded repair",
-            "complete_sessions_reopened": [], "stop_after": "scan"}
-    common.write_json(run_path, plan)
     state = {"status": "prepared" if args.prepare_only else "running", "phase": "scan",
-             "run": str(run_path.relative_to(base)), **runtime}
-    common.write_json(base / "driver-state.json", state)
+             "started": common.timestamp(), **runtime}
+    common.write_record(base / "driver-state.json", state)
     if args.prepare_only:
         checkpoint(store, data, units, metadata)
         return 0
@@ -401,16 +335,16 @@ def main():
                        "committed": common.timestamp()}
             store.commit(attempt, receipt)
         else:
-            receipt = run_unit(store, unit, args, env, runtime, identity, tools_dir)
+            receipt = run_unit(store, unit, args, env, runtime, identity)
         state.update(current_session=session, last_status=receipt["status"], updated=common.timestamp())
-        common.write_json(base / "driver-state.json", state)
+        common.write_record(base / "driver-state.json", state)
         print("  " + receipt["status"], flush=True)
         # The receipt was already committed. Summaries are a recoverable view.
         checkpoint(store, data, units, metadata)
     gate = checkpoint(Store(base), data, units, metadata)
     state.update(status="scan_complete" if gate["passed"] else "scan_needs_review",
                  finished=common.timestamp(), unit_counts=gate["unit_counts"])
-    common.write_json(base / "driver-state.json", state)
+    common.write_record(base / "driver-state.json", state)
     print(json.dumps(gate, ensure_ascii=False), flush=True)
     return 0 if gate["passed"] else 1
 

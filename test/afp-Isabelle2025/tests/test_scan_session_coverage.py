@@ -51,7 +51,7 @@ def commit_fixture(store, unit, loaded):
     # transaction; these stand-ins do not claim that Isabelle was executed.
     attempt = store.next_attempt(unit)
     run = {'unit_id': ss.digest(unit), 'tool_generation': 'fixture', 'runtime': {}}
-    common.write_json(attempt / 'attempt.json', run)
+    common.write_record(attempt / 'attempt.json', run)
     (attempt / 'theories.txt').write_text('\n'.join(unit['requested']) + '\n')
     (attempt / 'catalogue.xml').write_text(catalogue_xml(unit, loaded))
     checks = []
@@ -59,7 +59,7 @@ def commit_fixture(store, unit, loaded):
         log = attempt / (name + '.log')
         log.write_text('Synthetic successful command for coverage regression.\n')
         check = {'status': 'passed', 'returncode': 0, 'log': common.relative(log)}
-        common.write_json(log.with_suffix('.log.json'), check)
+        common.write_record(log.with_suffix('.log.json'), check)
         checks.append(check)
     receipt = ss.completed_receipt(store, attempt, unit, run, *checks)
     store.commit(attempt, receipt)
@@ -102,7 +102,7 @@ class SessionCoverageTests(unittest.TestCase):
         for session, unit in self.units.items():
             commit_fixture(self.store, unit, self.loaded[session])
         gate = frozen.checkpoint(ss.Store(self.store.base), self.data, self.units, {})
-        result, exports = ss.load_snapshot(self.store.base)
+        result, exports = ss.aggregate(self.store, self.data, self.units, {})
         self.assertTrue(gate['passed'], gate)
         self.assertEqual(result['entries']['E']['status'], 'passed')
         self.assertEqual(result['entries']['E']['scan']['missing_theories'], [])
@@ -115,7 +115,7 @@ class SessionCoverageTests(unittest.TestCase):
         commit_fixture(self.store, self.units['Main'], self.loaded['Main'] + ['Lib.Docs'])
         commit_fixture(self.store, self.units['Test'], self.loaded['Test'])
         gate = frozen.checkpoint(self.store, self.data, self.units, {})
-        result, _ = ss.load_snapshot(self.store.base)
+        result, _ = ss.aggregate(self.store, self.data, self.units, {})
         self.assertFalse(gate['passed'])
         self.assertEqual(result['entries']['E']['status'], 'pending')
         self.assertEqual(result['entries']['E']['scan']['missing_theories'], [])
@@ -129,7 +129,7 @@ class SessionCoverageTests(unittest.TestCase):
         self.data = copy.deepcopy(self.data)
         self.data['entries']['E']['theories'].append(missing)
         gate = frozen.checkpoint(self.store, self.data, self.units, {})
-        result, _ = ss.load_snapshot(self.store.base)
+        result, _ = ss.aggregate(self.store, self.data, self.units, {})
         self.assertEqual(result['entries']['E']['status'], 'failed')
         self.assertFalse(gate['passed'])
         self.assertIn({'entry': 'E', 'status': 'incomplete_theory_coverage',
@@ -146,15 +146,18 @@ class SessionCoverageTests(unittest.TestCase):
 
 
 @unittest.skipUnless(os.environ.get('AFP_TEST_AUTOCORRES_COVERAGE') == '1',
-                     'opt-in retained AutoCorres2 catalogue regression')
+                     'opt-in current-run AutoCorres2 catalogue regression')
 class AutoCorresCatalogueTests(unittest.TestCase):
     def test_original_catalogues_satisfy_owned_and_union_coverage(self):
         # Read and verify retained evidence, then rebind only the unit ID in a
         # temporary XML fixture to exercise the new rule. No historical receipt
         # is upgraded, and the temporary fixture is not a native execution fact.
-        base = common.EXPERIMENT / 'scan'
-        data = common.read_json(base / 'manifest.json')
-        units = common.read_json(base / 'units.json')
+        from state import State
+        base = common.WORK
+        run = State(base).get('run')
+        self.assertIsNotNone(run, 'Run a current scan before enabling the native coverage check')
+        data = run['manifest']
+        units = frozen.make_units(data, run['sources'])
         info = data['entries']['AutoCorres2']
         store = ss.Store(base)
         covered = set()

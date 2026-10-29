@@ -108,13 +108,15 @@ class CatalogueNative(unittest.TestCase):
         with patch.object(common, "command", side_effect=with_directory), \
                 patch.object(scan, "command", side_effect=with_directory):
             receipt = frozen.run_unit(store, unit, args, env, {"environment": metadata},
-                                      frozen.tools_identity(), common.HERE)
+                                      frozen.tools_identity())
         self.assertEqual(receipt["status"], "complete", receipt)
         self.assertEqual(len(commands), 2)
         with patch.object(common, "command", side_effect=AssertionError("must reuse")), \
                 patch.object(scan, "command", side_effect=AssertionError("must reuse")):
             restored = ss.Store(base).recover(unit)
-        self.assertEqual(ss.digest(restored), ss.digest(receipt))
+        self.assertEqual(restored["catalogue"], receipt["catalogue"])
+        self.assertEqual(restored["status"], receipt["status"])
+        self.assertEqual(restored["evidence"], receipt["evidence"])
         self.assertEqual(len(store.attempts(unit)), 1)
         common.write_json(base / "validation.json", {
             "status": "passed", "unit_id": ss.digest(unit), "native_commands": len(commands),

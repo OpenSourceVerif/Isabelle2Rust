@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Validated, durable session receipts for a frozen candidate catalogue.
-
-A receipt, not either legacy summary JSON, is the completion fact. All paths
-inside the store are relative and validated. Tool/runtime identities remain
-evidence; only the frozen source/context/policy identifies a work unit.
-"""
+"""Current session receipts, with catalogues derived from retained native XML."""
 import hashlib
 import json
 import os
@@ -12,6 +7,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 import afp_common as common
+from state import State
 
 POLICY = "owned-constants-v1"
 METHOD = "declaration-catalogue-v1"
@@ -137,7 +133,7 @@ class Store:
         # Files are immutable within a writer generation. Validate each receipt
         # once on startup; a fresh Store performs the independent final audit.
         self._cache = {}
-        self._tools_checked = set()
+        self.state = State(self.base)
 
     def path(self, relative):
         path = (self.base / relative).resolve()
@@ -148,9 +144,6 @@ class Store:
     def unit_dir(self, unit):
         # Use a content identity, not an unchecked session name, as a filename.
         return self.base / "units" / digest(unit)
-
-    def pointer(self, unit):
-        return self.unit_dir(unit) / "current.json"
 
     def evidence(self, paths):
         evidence = {}
@@ -166,16 +159,6 @@ class Store:
         if (receipt.get("schema") != SCHEMA or receipt.get("unit") != unit
                 or receipt.get("unit_id") != digest(unit)):
             raise ValueError("receipt identity mismatch")
-        if (self.base / "scan-contract.json").is_file() and receipt.get("status") != "blocked_dependency":
-            generation = receipt.get("tool_generation")
-            if generation not in self._tools_checked:
-                directory = self.path("tools/" + str(generation))
-                files = common.read_json(directory / "tools.json")
-                if not files or digest(files) != generation:
-                    raise ValueError("missing/wrong tool generation manifest")
-                if any(file_digest(directory / name) != sha for name, sha in files.items()):
-                    raise ValueError("retained tool generation changed")
-                self._tools_checked.add(generation)
         for name, record in receipt.get("evidence", {}).items():
             path = self.path(name)
             if (not path.is_file() or path.stat().st_size != record["bytes"]
@@ -214,38 +197,50 @@ class Store:
         return receipt
 
     def read(self, unit):
-        pointer = common.read_json(self.pointer(unit))
-        if pointer is None:
+        raw = self.state.get("receipt/" + digest(unit))
+        if raw is None:
             return None
-        key = digest(unit)
-        cached = self._cache.get(key)
-        if cached and cached[0] == pointer:
+        # The catalogue lives only in native XML. Required contexts come from
+        # the run manifest, rather than another copy embedded in every receipt.
+        cached = self._cache.get(digest(unit))
+        if cached and cached[0] == raw:
             return cached[1]
-        path = self.path(pointer["receipt"])
-        if file_digest(path) != pointer["sha256"]:
-            raise ValueError("receipt pointer checksum mismatch")
-        receipt = self.validate(common.read_json(path), unit)
-        self._cache[key] = (pointer, receipt)
+        receipt = dict(raw, unit=unit)
+        for field in ("build", "inspect"):
+            if isinstance(receipt.get(field), str):
+                receipt[field] = common.read_record(common.resolve_path(receipt[field]))
+        if receipt.get("status") == "complete":
+            receipt["catalogue"] = parse_catalogue(self.path(receipt["xml"]), unit)
+        self.validate(receipt, unit)
+        self._cache[digest(unit)] = (raw, receipt)
         return receipt
 
     def commit(self, attempt, receipt):
-        """Crash before pointer: old receipt wins; orphan receipt is recoverable."""
+        """Commit the replacement before retiring the preceding attempt."""
         unit = receipt["unit"]
         current = self.read(unit)
-        if current and current["status"] == "complete":
-            if digest(current) == digest(receipt):
-                return current
-            raise ValueError("completed session is frozen; reopening is forbidden")
+        if current and current["status"] == "complete" and current != receipt:
+            raise ValueError("completed session cannot be reopened")
         self.validate(receipt, unit)
-        path = attempt / "receipt.json"
-        if path.exists():
-            if common.read_json(path) != receipt:
-                raise ValueError("immutable attempt receipt already exists")
-        else:
-            common.write_json(path, receipt)
-        common.write_json(self.pointer(unit), {
-            "receipt": str(path.relative_to(self.base)), "sha256": file_digest(path)})
+        raw = {k: v for k, v in receipt.items() if k not in {"unit", "catalogue", "runtime"}}
+        raw["directory"] = str(attempt.relative_to(self.base))
+        for field in ("build", "inspect"):
+            check = raw.get(field)
+            if check and check.get("log"):
+                path = common.resolve_path(check["log"] + ".json")
+                common.write_record(path, check)
+                raw[field] = common.relative(path)
+        self.state.update({"receipt/" + digest(unit): raw},
+                          remove=[str((attempt / "attempt.json").relative_to(self.base))])
+        self.prune(unit, attempt)
         return receipt
+
+    def prune(self, unit, keep):
+        # Retain the committed result and, during execution, at most one active
+        # replacement. Orphaned older attempts are retired on the next recovery.
+        for previous in self.attempts(unit):
+            if previous != keep:
+                self.state.remove_tree(previous)
 
     def next_attempt(self, unit):
         root = self.unit_dir(unit)
@@ -261,23 +256,27 @@ class Store:
         return sorted(self.unit_dir(unit).glob("attempt-*"))
 
     def recover(self, unit):
-        """Adopt durable orphan commits or successful XML without reinspection."""
+        """Recover an exited native child without repeating its expensive work."""
         current = self.read(unit)
+        raw = self.state.get("receipt/" + digest(unit), {})
+        committed = self.path(raw["directory"]) if raw.get("directory") else None
         if current and current["status"] == "complete":
+            self.prune(unit, committed)
             return current
         for attempt in reversed(self.attempts(unit)):
-            receipt = common.read_json(attempt / "receipt.json")
-            if receipt is not None:
-                # Failure/source/blocked receipts are durable facts too; a
-                # lost pointer must not cause identical crash attempts again.
-                return self.commit(attempt, receipt)
-            run = common.read_json(attempt / "attempt.json")
-            built = common.read_json(attempt / "load.log.json", {})
-            inspected = common.read_json(attempt / "scan.log.json", {})
+            if attempt == committed:
+                continue
+            run = common.read_record(attempt / "attempt.json")
+            built = common.read_record(attempt / "load.log.json", {})
+            inspected = common.read_record(attempt / "scan.log.json", {})
             if run and all(c.get("status") == "passed" and c.get("returncode") == 0
                            for c in (built, inspected)):
-                receipt = completed_receipt(self, attempt, unit, run, built, inspected)
-                return self.commit(attempt, receipt)
+                return self.commit(attempt, completed_receipt(self, attempt, unit, run, built, inspected))
+            # An uncommitted incomplete attempt may be retried, but not adopted
+            # as successful merely because a partial XML or log exists.
+            if any(common.identity_matches(c) for c in (built, inspected)):
+                raise ValueError("scan child is still running")
+            self.state.remove_tree(attempt)
         return current
 
 
@@ -288,8 +287,7 @@ def completed_receipt(store, attempt, unit, run, built, inspected):
     xml = attempt / "catalogue.xml"
     catalogue = parse_catalogue(xml, unit)
     evidence = store.evidence([attempt / n for n in (
-        "attempt.json", "theories.txt", "load.log", "load.log.json",
-        "scan.log", "scan.log.json", "catalogue.xml")])
+        "theories.txt", "load.log", "scan.log", "catalogue.xml")])
     return {"schema": SCHEMA, "unit": unit, "unit_id": digest(unit), "status": "complete",
             "committed": common.timestamp(), "build": built, "inspect": inspected,
             "xml": str(xml.relative_to(store.base)), "catalogue": catalogue,
@@ -342,29 +340,11 @@ def aggregate(store, data, units, metadata):
     return result, exports
 
 
-def publish(store, result, exports):
-    """Publish one joint snapshot; legacy views are explicitly nonauthoritative."""
-    value = {"schema": SCHEMA, "results": result, "exports": exports}
-    sha = digest(value)
-    path = store.base / "snapshots" / (sha + ".json")
-    if not path.exists():
-        common.write_json(path, value)
-    common.write_json(store.base / "scan-current.json",
-                      {"snapshot": str(path.relative_to(store.base)), "sha256": file_digest(path)})
-    # Compatibility views may briefly be different generations. Frozen readers
-    # resolve scan-current.json or session receipts, never this independent pair.
-    common.write_json(store.base / "exports.json", exports)
-    common.write_json(store.base / "results.json", result)
-    return sha
-
-
 def load_snapshot(base):
+    """Derive the current catalogue; there are no stored aggregate copies."""
+    from scan_frozen import make_units
     store = Store(base)
-    pointer = common.read_json(store.base / "scan-current.json")
-    if not pointer:
-        raise ValueError("frozen run has no committed aggregate snapshot")
-    path = store.path(pointer["snapshot"])
-    if file_digest(path) != pointer["sha256"]:
-        raise ValueError("aggregate snapshot checksum mismatch")
-    value = common.read_json(path)
-    return value["results"], value["exports"]
+    run = store.state.get("run")
+    if not run:
+        raise ValueError("Initialize the run first")
+    return aggregate(store, run["manifest"], make_units(run["manifest"], run["sources"]), run["environment"])

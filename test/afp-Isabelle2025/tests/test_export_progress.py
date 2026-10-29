@@ -58,7 +58,7 @@ class ExportProgressTests(unittest.TestCase):
         log.write_text('Run out of store - interrupting threads\n' if resource else 'fixture normal return\n')
         check = {'status': 'failed' if resource else 'passed',
                  'returncode': 1 if resource else 0, 'log': common.relative(log)}
-        common.write_json(work / 'process.log.json', check)
+        common.write_record(work / 'process.log.json', check)
         if not resource:
             (work / 'finished.xml').write_text('<finished/>')
             node = ET.Element('attempt', status='failed', stage='frontend', target='frontend')
@@ -96,7 +96,7 @@ class ExportProgressTests(unittest.TestCase):
         self.assertTrue(all(value['status'] == 'failed'
                             for cells in initial['full_export']['candidates'].values()
                             for value in cells.values()))
-        self.assertEqual(common.read_json(self.progress_path)['status'], 'complete')
+        self.assertEqual(common.read_record(self.progress_path)['status'], 'complete')
         self.assertEqual(before, [(path, path.read_bytes()) for path, _ in before])
 
     def test_terminal_journal_survives_lost_entry_publication(self):
@@ -105,7 +105,7 @@ class ExportProgressTests(unittest.TestCase):
         initial = copy.deepcopy(self.record)
         with patch.object(full, 'export_command', side_effect=self.native_files):
             self.export()
-        self.assertEqual(common.read_json(self.progress_path)['status'], 'complete')
+        self.assertEqual(common.read_record(self.progress_path)['status'], 'complete')
         with patch.object(full, 'export_command', side_effect=AssertionError('duplicate launch')):
             self.export(initial)
         self.assertEqual(len(self.calls), 2)
@@ -124,11 +124,11 @@ class ExportProgressTests(unittest.TestCase):
         # Pending scopes and accepted requests must form exactly one disjoint
         # partition per original context, rather than merely having equal size.
         initial = self.crash_after_second_child_exit()
-        original = common.read_json(self.progress_path)
+        original = common.read_record(self.progress_path)
         for pending in [[], [{'session': 'S', 'scope': ['A.f']}]]:
             progress = copy.deepcopy(original)
             progress.update(pending=pending, active=None)
-            common.write_json(self.progress_path, progress)
+            common.write_record(self.progress_path, progress)
             with self.subTest(pending=pending):
                 with self.assertRaisesRegex(ValueError, 'partition'):
                     self.export(copy.deepcopy(initial))
@@ -143,9 +143,9 @@ class ExportProgressTests(unittest.TestCase):
 
     def test_unsealed_completed_receipt_is_rejected(self):
         initial = self.crash_after_second_child_exit()
-        progress = common.read_json(self.progress_path)
+        progress = common.read_record(self.progress_path)
         progress['runs'][0].pop('evidence_sha256')
-        common.write_json(self.progress_path, progress)
+        common.write_record(self.progress_path, progress)
         with self.assertRaisesRegex(ValueError, 'no evidence digests'):
             self.export(initial)
 
@@ -157,16 +157,16 @@ class ExportProgressTests(unittest.TestCase):
 
     def test_another_live_scheduler_cannot_be_replaced(self):
         initial = self.crash_after_second_child_exit()
-        progress = common.read_json(self.progress_path)
+        progress = common.read_record(self.progress_path)
         progress['owner'] = {'pid': -99, 'identity': ['fixture', -99, 'birth']}
-        common.write_json(self.progress_path, progress)
+        common.write_record(self.progress_path, progress)
         with patch.object(common, 'identity_matches', return_value=True):
             with self.assertRaisesRegex(ValueError, 'live scheduler'):
                 self.export(initial)
 
     def test_live_child_is_not_launched_again(self):
         initial = self.crash_after_second_child_exit()
-        active = common.read_json(self.progress_path)['active']
+        active = common.read_record(self.progress_path)['active']
         def live(check):
             return check.get('log') == active['directory'] + '/process.log'
         with patch.object(common, 'identity_matches', side_effect=live):
@@ -178,19 +178,27 @@ class ExportProgressTests(unittest.TestCase):
         # Even plausible resource text cannot supply the missing return status.
         initial = self.crash_after_second_child_exit()
         active = self.calls[1][2]
-        check = common.read_json(active / 'process.log.json')
+        check = common.read_record(active / 'process.log.json')
         check.update(status='running')
         check.pop('returncode')
-        common.write_json(active / 'process.log.json', check)
+        common.write_record(active / 'process.log.json', check)
         active.joinpath('process.log').write_text('Run out of store - interrupting threads')
+        item = common.read_record(self.progress_path)['active']
+        # The reader still rejects inference from plausible partial output.
         with self.assertRaisesRegex(ValueError, 'no recorded process exit'):
+            full.export_progress_run(item, 'E', self.base, ['A'])
+        # Once all native children are gone, the scheduler retries only that
+        # pending request; the first completed singleton remains untouched.
+        with patch.object(full, 'export_command', side_effect=self.native_files):
             self.export(initial)
+        self.assertEqual([names for names, _, _ in self.calls], [['A.f'], ['A.g'], ['A.g']])
+        self.assertEqual(initial['full_export']['status'], 'complete')
 
     def test_foreign_active_directory_is_rejected(self):
         initial = self.crash_after_second_child_exit()
-        progress = common.read_json(self.progress_path)
+        progress = common.read_record(self.progress_path)
         progress['active']['directory'] = 'unrelated/attempt-0001'
-        common.write_json(self.progress_path, progress)
+        common.write_record(self.progress_path, progress)
         with self.assertRaisesRegex(ValueError, 'foreign request directory'):
             self.export(initial)
 
@@ -212,10 +220,11 @@ class ExportProgressTests(unittest.TestCase):
         self.assertIn('--maxheap 1200', self.calls[1][1]['ML_OPTIONS'])
         self.assertEqual(self.calls[2][1], self.env)
         self.assertIn('--maxheap 4500', self.env['ML_OPTIONS'])
-        self.assertEqual(self.record['full_export_history'][0]['runs'][0]['command']['status'], 'failed')
-        self.assertFalse(self.record['full_export_history'][0]['runs'][0]['finished'])
+        self.assertNotIn('full_export_history', self.record)
+        retry = common.read_record(self.progress_path)['retries'][0]
+        self.assertTrue((self.project / retry['directory'] / 'process.log').is_file())
         self.assertEqual(self.record['full_export']['status'], 'complete')
-        self.assertEqual(len(common.read_json(self.progress_path)['retries']), 1)
+        self.assertEqual(len(common.read_record(self.progress_path)['retries']), 1)
 
 
 if __name__ == '__main__':

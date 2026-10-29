@@ -50,7 +50,7 @@ def completed_fixture(base, unit, constants=("A.f",)):
     store = ss.Store(base)
     attempt = store.next_attempt(unit)
     run = {"unit_id": ss.digest(unit), "tool_generation": "fixture-method", "runtime": {"proofs": "checked"}}
-    common.write_json(attempt / "attempt.json", run)
+    common.write_record(attempt / "attempt.json", run)
     (attempt / "theories.txt").write_text("E.A\n")
     (attempt / "catalogue.xml").write_text(fixture_xml(unit, constants))
     checks = []
@@ -58,7 +58,7 @@ def completed_fixture(base, unit, constants=("A.f",)):
         log = attempt / (name + ".log")
         log.write_text("Independent fixture command completed.\n")
         check = {"status": "passed", "returncode": 0, "log": common.relative(log)}
-        common.write_json(log.with_suffix(".log.json"), check)
+        common.write_record(log.with_suffix(".log.json"), check)
         checks.append(check)
     return store, attempt, ss.completed_receipt(store, attempt, unit, run, *checks)
 
@@ -92,7 +92,7 @@ class FrozenTests(unittest.TestCase):
             receipt["inspect"]["returncode"] = -9
             with self.assertRaises(ValueError):
                 store.commit(attempt, receipt)
-            self.assertFalse(store.pointer(fixture_unit()).exists())
+            self.assertIsNone(store.state.get("receipt/" + ss.digest(fixture_unit())))
 
     def test_complete_receipt_is_reused_and_cannot_be_reopened(self):
         # Resume invokes no Isabelle command for a completed unit. Repaired
@@ -118,7 +118,7 @@ class FrozenTests(unittest.TestCase):
             (store.base / "exports.json").write_text('{"stale": true}')
             recovered = ss.Store(store.base).recover(unit)
             self.assertEqual(recovered["catalogue"], receipt["catalogue"])
-            self.assertTrue(store.pointer(unit).is_file())
+            self.assertIsNotNone(store.state.get("receipt/" + ss.digest(unit)))
             self.assertEqual(len(store.attempts(unit)), 1)
 
     def test_evidence_tampering_blocks_recovery_instead_of_rescanning(self):
@@ -132,16 +132,16 @@ class FrozenTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 ss.Store(store.base).recover(unit)
 
-    def test_sigkill_before_and_after_commit_pointer_recovers_same_candidates(self):
+    def test_sigkill_before_after_transaction_and_retirement_recovers_same_candidates(self):
         # Kill a real writer before the receipt, after the receipt, and after
-        # its atomic pointer. Every boundary recovers one identical candidate.
-        for boundary in ("receipt-before", "receipt-after", "pointer-after"):
+        # retirement starts. Every boundary recovers one identical candidate.
+        for boundary in ("receipt-before", "receipt-after", "retirement-before"):
             with self.subTest(boundary=boundary), tempfile.TemporaryDirectory() as temporary, \
                     patch.object(common, "PROJECT", Path(temporary)):
                 unit = fixture_unit()
                 store, attempt, receipt = completed_fixture(Path(temporary) / "run", unit)
                 payload = Path(temporary) / "payload.json"
-                common.write_json(payload, {"unit": unit, "receipt": receipt,
+                common.write_record(payload, {"unit": unit, "receipt": receipt,
                                            "base": str(store.base), "attempt": str(attempt)})
                 script = """
 import json, os, signal, sys
@@ -152,15 +152,21 @@ import scan_store as s
 c.PROJECT = Path(sys.argv[2])
 p = json.loads(Path(sys.argv[3]).read_text())
 boundary = sys.argv[4]
-original = c.write_json
-def write(path, value):
-    if path.name == 'receipt.json' and boundary == 'receipt-before':
+original = s.State.update
+def update(self, values, remove=()):
+    receipt = any(key.startswith('receipt/') for key in values)
+    if receipt and boundary == 'receipt-before':
         os.kill(os.getpid(), signal.SIGKILL)
-    original(path, value)
-    if ((path.name == 'receipt.json' and boundary == 'receipt-after') or
-        (path.name == 'current.json' and boundary == 'pointer-after')):
+    original(self, values, remove)
+    if receipt and boundary == 'receipt-after':
         os.kill(os.getpid(), signal.SIGKILL)
-c.write_json = write
+s.State.update = update
+prune = s.Store.prune
+def retire(self, unit, attempt):
+    if boundary == 'retirement-before':
+        os.kill(os.getpid(), signal.SIGKILL)
+    prune(self, unit, attempt)
+s.Store.prune = retire
 s.Store(Path(p['base'])).commit(Path(p['attempt']), p['receipt'])
 """
                 run = subprocess.run([sys.executable, "-B", "-c", script,
@@ -170,20 +176,18 @@ s.Store(Path(p['base'])).commit(Path(p['attempt']), p['receipt'])
                 self.assertEqual(recovered["catalogue"]["scope"], {"A.thy": ["A.f"]})
                 self.assertEqual(len(store.attempts(unit)), 1)
 
-    def test_joint_snapshot_survives_crash_between_compatibility_views(self):
-        # The authoritative joint snapshot is visible even if one legacy view
-        # was updated and the other still describes the previous generation.
+    def test_multi_record_publication_rolls_back_as_one_transaction(self):
+        # A failed publication must not mix generations of result and checkpoint.
         with tempfile.TemporaryDirectory() as temporary:
             store = ss.Store(temporary)
-            result, exports = {"entries": {"E": {"candidate_count": 1}}}, {"E": {"A.thy": ["A.f"]}}
-            original = common.write_json
-            def fail(path, value):
-                if path.name == "results.json":
-                    raise RuntimeError("injected publication interruption")
-                original(path, value)
-            with patch.object(common, "write_json", side_effect=fail), self.assertRaises(RuntimeError):
-                ss.publish(store, result, exports)
-            self.assertEqual(ss.load_snapshot(store.base), (result, exports))
+            store.state.update({"result": {"version": 1}, "gate": {"version": 1}})
+            with self.assertRaises(RuntimeError):
+                with store.state.connect() as db:
+                    db.execute("UPDATE records SET value=? WHERE key=?", ('{"version":2}', "result"))
+                    raise RuntimeError("injected interruption")
+            self.assertEqual(store.state.get("result"), {"version": 1})
+            self.assertEqual(store.state.get("gate"), {"version": 1})
+
 
     def test_partial_legacy_retry_preserves_later_session_candidates(self):
         # Earlier success followed by later failure is the deletion counterexample.
@@ -251,16 +255,19 @@ s.Store(Path(p['base'])).commit(Path(p['attempt']), p['receipt'])
         text = "Building Done ...\nFinished Done (0:00:01 elapsed time)\nBuilding Parent ...\nKilled\n"
         self.assertEqual(scan.failed_sessions_in_log(text, "failed"), ["Parent"])
 
-    def test_false_pass_and_unknown_kill_are_blocked_by_gate(self):
-        # Empty coverage and unknown kills used to pass the scan checkpoint.
-        for scan_record in ({"status": "passed", "theories": []},
-                            {"status": "failed", "loading": [{"status": "failed", "returncode": -9}]}):
+    def test_missing_receipt_and_unknown_kill_are_blocked_by_gate(self):
+        # Only committed validated receipts establish completion, regardless of
+        # any claimed summary. A killed command is still an unresolved outcome.
+        for killed in (False, True):
             with tempfile.TemporaryDirectory() as temporary:
-                data = {"order": ["E"], "entries": {"E": {"sessions": ["E"], "theories": [{"path": "A.thy"}]}}}
-                result = {"entries": {"E": {"scan": scan_record}}}
-                common.write_json(Path(temporary) / "results.json", result)
-                common.write_json(Path(temporary) / "exports.json", {"E": {}})
-                self.assertFalse(full.scan_checkpoint(Path(temporary), data, result, {"E": {}})["passed"])
+                store = ss.Store(temporary); unit = fixture_unit()
+                data = {"order": ["E"], "entries": {"E": {"sessions": ["E"], "theories": unit["theories"]}}}
+                if killed:
+                    receipt = {"schema": ss.SCHEMA, "unit": unit, "unit_id": ss.digest(unit),
+                               "status": "unresolved_infrastructure", "build": {"status": "failed", "returncode": -9}, "evidence": {}}
+                    store.commit(store.next_attempt(unit), receipt)
+                self.assertFalse(frozen.checkpoint(store, data, {"E": unit}, {})["passed"])
+
 
     def test_condition_build_uses_cache_validation_without_clean(self):
         # A compiler condition is already in Isabelle's meta_digest. Repeating
@@ -340,7 +347,7 @@ s.Store(Path(p['base'])).commit(Path(p['attempt']), p['receipt'])
         identity = common.process_identity(os.getpid())
         self.assertEqual(identity[1], os.getpid())
         self.assertEqual(len(identity), 3)
-        old = {"pid": os.getpid(), "identity": [-123, identity[-1]], "boot_id": identity[0]}
+        old = {"pid": os.getpid(), "identity": list(identity), "ppid": -123}
         self.assertTrue(common.identity_matches(old))
 
 

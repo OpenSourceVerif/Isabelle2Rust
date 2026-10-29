@@ -1,9 +1,8 @@
 {
   "repository": "/srv/Isabelle2Rust-workspace/Isabelle2Rust",
   "isabelle": "/srv/afp-deps/Isabelle2025/bin/isabelle",
-  "afp": "/srv/afp-deps/afp-2025-frozen",
+  "afp": "/srv/afp-deps/afp-2025-03-17",
   "work": "/srv/Isabelle2Rust-workspace/Isabelle2Rust/test/afp-Isabelle2025/work",
-  "compiler_settings": "/srv/Isabelle2Rust-workspace/Isabelle2Rust/test/afp-Isabelle2025/setup/compiler-settings.local.json",
   "resources": {
     "max_heap_mb": 4500,
     "java_heap_mb": 1536,
@@ -11,7 +10,14 @@
     "java_active_processors": 2,
     "min_available_mb": 512
   },
-  "path_map": {},
   "user_home": "/srv/afp-deps/user",
-  "cargo_bin": "/home/afp/.cargo/bin"
+  "cargo_bin": "/home/afp/.cargo/bin",
+  "compilers": {
+    "ISABELLE_CC": "/usr/bin/cc",
+    "ISABELLE_OCAMLFIND": "/srv/afp-deps/ocamlfind",
+    "ISABELLE_SMLNJ": "/usr/bin/sml",
+    "ISABELLE_GOEXE": "/srv/afp-deps/go-1.26.8/bin",
+    "ISABELLE_GOROOT": "/srv/afp-deps/go-1.26.8",
+    "ISABELLE_CAKEML_HOME": "/srv/afp-deps/cakeml-2.0"
+  }
 }

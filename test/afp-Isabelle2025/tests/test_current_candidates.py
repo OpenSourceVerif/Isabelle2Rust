@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A selected partial scan is an explicit scope, never a successful full scan."""
+"""Current candidate scopes cannot bypass coverage gates or retain replaced failures."""
 
 import _paths  # Locate AFP tools independently of cwd and unittest discovery.
 from pathlib import Path
@@ -14,92 +14,59 @@ import full
 
 class CurrentCandidateTests(unittest.TestCase):
     def fixture(self, root):
-        # One loaded entry and one unknown entry exercise the continuation
-        # boundary. The unknown entry must survive with no invented candidates.
-        source, base = root / "scan", root / "downstream"
-        data = {"order": ["A", "B"], "entries": {
-            "A": {"theories": [{"path": "A.thy"}]},
-            "B": {"theories": [{"path": "B.thy"}]}}}
-        result = {"environment": {"afp_root": str(root / "afp"), "proofs": "checked"},
-                  "entries": {
-                      "A": {"scan": {"status": "passed", "theories": ["A.thy"],
-                                     "semantic_identity": "A"}},
-                      "B": {"scan": {"status": "blocked", "theories": [],
-                                     "unit_states": {"B": "blocked_dependency"},
-                                     "semantic_identity": "B"}}}}
-        exports = {"A": {"A.thy": ["A.f"]}, "B": {"B.thy": []}}
-        common.write_json(source / "snapshots/current.json",
-                          {"results": result, "exports": exports})
-        common.write_json(source / "scan-current.json", {
-            "snapshot": "snapshots/current.json",
-            "sha256": full.file_digest(source / "snapshots/current.json")})
-        common.write_json(source / "manifest.json", data)
-        common.write_json(source / "scan-checkpoint.json", {"passed": False})
-        common.write_json(source / "source-inputs.json", {"afp": {}})
-        return source, base, result, exports
+        # The current run has one known and one blocked scope. No candidate
+        # handoff can bypass the scan checkpoint or remove the blocked row.
+        from state import State
+        base = root / "run"
+        State(base)
+        result = {"entries": {
+            "A": {"scan": {"status": "passed", "theories": ["A.thy"], "semantic_identity": "A"}},
+            "B": {"scan": {"status": "blocked", "theories": [], "semantic_identity": "B"}}}}
+        exports = {"A": {"A.thy": ["A.f"]}, "B": {}}
+        common.write_record(base / "scan-checkpoint.json", {"passed": False,
+                            "scan_signature": full.scan_signature(result, exports)})
+        return base, result, exports
 
-    def test_partial_snapshot_has_separate_contract_and_preserves_every_row(self):
-        # Accepting current candidates must not forge a successful scan gate,
-        # drop blocked entries, or reload the mutable global manifest.
+    def test_partial_scan_preserves_rows_and_cannot_bypass_checkpoint(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            with patch.object(common, "PROJECT", root), patch.object(common, "HERE", root / "tools"):
-                source, base, original, exports = self.fixture(root)
-                contract = full.initialize_candidates(base, source)
-                data, result, actual = full.load(base)
-                self.assertFalse(contract["scan_complete"])
-                self.assertEqual(contract["scan_counts"], {"passed": 1, "blocked": 1})
-                self.assertEqual(result["entries"], original["entries"])
-                self.assertEqual(actual, exports)
-                self.assertFalse((base / "scan-checkpoint.json").exists())
-                full.require_scan_gate(base, result, actual)
-                self.assertEqual(set(data["entries"]), {"A", "B"})
-                with self.assertRaises(ValueError):
-                    full.initialize_candidates(base, source)
+            base, result, exports = self.fixture(Path(temporary))
+            with self.assertRaisesRegex(ValueError, "passing scan-checkpoint"):
+                full.require_scan_gate(base, result, exports)
+            self.assertEqual(set(result["entries"]), {"A", "B"})
+            self.assertEqual(result["entries"]["B"]["scan"]["status"], "blocked")
+            self.assertFalse((base / "baseline").exists())
 
-    def test_candidate_or_scan_mutation_invalidates_the_accepted_boundary(self):
-        # A continuation cannot silently enlarge its candidates or turn an
-        # unknown upstream entry into a success after accepting the snapshot.
+    def test_candidate_or_scan_mutation_invalidates_the_checkpoint(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            with patch.object(common, "PROJECT", root), patch.object(common, "HERE", root / "tools"):
-                source, base, _, _ = self.fixture(root)
-                full.initialize_candidates(base, source)
-                _, result, exports = full.load(base)
-                changed = copy.deepcopy(exports)
-                changed["A"]["A.thy"].append("A.g")
-                with self.assertRaises(ValueError):
-                    full.require_scan_gate(base, result, changed)
-                result["entries"]["B"]["scan"]["status"] = "passed"
-                with self.assertRaises(ValueError):
-                    full.require_scan_gate(base, result, exports)
+            base, result, exports = self.fixture(Path(temporary))
+            common.write_record(base / "scan-checkpoint.json", {"passed": True,
+                                "scan_signature": full.scan_signature(result, exports)})
+            full.require_scan_gate(base, result, exports)
+            changed = copy.deepcopy(exports); changed["A"]["A.thy"].append("A.g")
+            with self.assertRaises(ValueError):
+                full.require_scan_gate(base, result, changed)
+            result["entries"]["B"]["scan"]["status"] = "passed"
+            with self.assertRaises(ValueError):
+                full.require_scan_gate(base, result, exports)
 
-    def test_snapshot_digest_is_checked_before_any_import(self):
-        # A stale pointer cannot import a newer or partially written snapshot.
+    def test_missing_current_run_is_rejected_before_loading_results(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            with patch.object(common, "PROJECT", root), patch.object(common, "HERE", root / "tools"):
-                source, base, _, _ = self.fixture(root)
-                with (source / "snapshots/current.json").open("a") as stream:
-                    stream.write(" ")
-                with self.assertRaises(ValueError):
-                    full.initialize_candidates(base, source)
-                self.assertFalse((base / "results.json").exists())
+            base = Path(temporary)
+            with self.assertRaisesRegex(ValueError, "Initialize"):
+                full.load(base)
+            self.assertFalse((base / "results.json").exists())
 
 
 class InheritedScanReportTests(unittest.TestCase):
     def record(self, root, status, receipt):
         # Saved receipts distinguish validation errors after successful native
         # commands from blocked sessions that never started a command.
-        base = root / "downstream"
-        path = base / "baseline/receipts/u.json"
-        common.write_json(path, receipt)
-        common.write_json(base / "baseline/receipt-index.json",
-                          {"u": {"receipt": common.relative(path)}})
+        from state import State
+        base = root / "run"
+        State(base).put("receipt/u", receipt)
         scan = {"status": status, "unit_ids": {"A": "u"},
                 "loading": [], "inspections": []}
         result = {"entries": {"A": {"scan": scan}}}
-        common.write_json(base / "results.json", result)
         return base, {"order": ["A"]}, result
 
     def test_receipt_validation_failure_has_its_own_complete_evidence(self):
@@ -120,7 +87,7 @@ class InheritedScanReportTests(unittest.TestCase):
                 self.assertEqual(list(full_audit.required_failure_inventory(base, data, result)),
                                  [full_audit.failure_key(events[0])])
 
-    def test_replaced_export_failure_remains_historical_with_full_xml(self):
+    def test_replaced_export_failure_is_absent_from_current_report(self):
         # Correcting a serializer configuration must preserve the old exception
         # and its log even after the candidate now has a newer result.
         import full_report
@@ -138,11 +105,8 @@ class InheritedScanReportTests(unittest.TestCase):
                                             "target": "frontend", "constants": ["A.f"],
                                             "evidence": "old.xml"}]}]}]
                 events = list(full_report.failure_events(base, data, result))
-                self.assertEqual(len(events), 1)
-                self.assertTrue(events[0]["historical"])
-                self.assertEqual(events[0]["error"], "No code equations for A.f")
-                self.assertEqual(list(full_audit.required_failure_inventory(base, data, result)),
-                                 [full_audit.failure_key(events[0])])
+                self.assertEqual(events, [])
+                self.assertEqual(full_audit.required_failure_inventory(base, data, result), {})
 
     def test_dependency_only_receipt_names_the_real_prerequisite(self):
         # No phantom failed command should be counted for a pure dependency

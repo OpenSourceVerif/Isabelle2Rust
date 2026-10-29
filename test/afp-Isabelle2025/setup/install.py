@@ -69,32 +69,26 @@ def unpack(name, prefix, top, destination):
         stage = Path(temporary)
         extract(archive, stage)
         tree = stage / top
-        if name == 'afp':
-            patch = SETUP / LOCK['afp']['patch']
-            if file_digest(patch) != LOCK['afp']['patch_sha256']:
-                raise ValueError('Frozen AFP patch digest mismatch')
-            run(['patch', '--batch', '--forward', '-p1', '-i', patch], cwd=tree)
         tree.rename(destination)
 
 
 def make_config(args):
-    """Generate local absolute paths; historical machine locations are never defaults."""
+    """Generate absolute paths for this installation and its work directory."""
     prefix = args.prefix.resolve()
     config = {'repository': str(REPOSITORY), 'isabelle': str(args.isabelle or prefix / 'Isabelle2025/bin/isabelle'),
-              'afp': str(args.afp or prefix / 'afp-2025-frozen'),
+              'afp': str(args.afp or prefix / 'afp-2025-03-17'),
               'work': str((args.work or EXPERIMENT / 'work').resolve()),
-              'compiler_settings': str(args.config.with_name('compiler-settings.local.json').resolve()),
               'user_home': str((args.user_home or prefix / 'user').resolve()),
               'cargo_bin': str(Path(os.environ.get('CARGO_HOME', Path.home() / '.cargo')) / 'bin'),
               'resources': {'max_heap_mb': args.max_heap_mb, 'java_heap_mb': args.java_heap_mb,
-                            'stack_space_mb': 512, 'java_active_processors': 2, 'min_available_mb': 512},
-              'path_map': {}}
+                            'stack_space_mb': 512, 'java_active_processors': 2, 'min_available_mb': 512}}
     go = args.go_root or prefix / 'go-1.26.8'
     compilers = {'ISABELLE_CC': shutil.which('cc') or '/usr/bin/cc',
                  'ISABELLE_OCAMLFIND': str(args.ocamlfind) if args.ocamlfind else shutil.which('ocamlfind') or '/usr/bin/ocamlfind',
                  'ISABELLE_SMLNJ': shutil.which('sml') or '/usr/bin/sml',
                  'ISABELLE_GOEXE': str(go / 'bin'), 'ISABELLE_GOROOT': str(go),
                  'ISABELLE_CAKEML_HOME': str(args.cakeml or prefix / 'cakeml-2.0')}
+    config['compilers'] = compilers
     return config, compilers
 
 
@@ -105,15 +99,15 @@ def plan(args):
             'system_packages': [] if args.skip_system_packages or args.configure_only else LOCK['system_packages'],
             'downloads': {} if args.configure_only else {k: LOCK[k] for k in ('isabelle', 'afp', 'go', 'cakeml', 'rustup')},
             'rustlightast': LOCK['rustlightast'], 'rust': LOCK['rust'],
-            'steps': ['apt update/install', 'verify and unpack archives', 'apply frozen AFP additions patch',
+            'steps': ['apt update/install', 'verify and unpack archives',
                       'install Rust 1.94.0, rustfmt, clippy', 'clone/check pinned sibling RustLightAST',
                       'register fixed AFP in isolated Isabelle USER_HOME', 'Isabelle ghc_setup',
                       'cargo fetch --locked (optimizer and generated-crate seed)',
                       'write server-local config and installed package versions',
                       'build fresh Rust/Go prerequisite heaps serially with proofs and timeout_build=false',
-                      'check versions, conditions, source identity, writability and frozen evidence']
+                      'check versions, compilers and work directory']
                      if not args.configure_only else ['write server-local configuration for existing installations'],
-            'config_path': str(args.config.resolve()), 'config': config, 'compilers': compilers,
+            'config_path': str(args.config.resolve()), 'config': config,
             'generated_programs_executed': False}
 
 
@@ -164,11 +158,11 @@ def install(args):
             continue
         compilers[key] = shutil.which(executable) or compilers[key]
     args.config.parent.mkdir(parents=True, exist_ok=True)
-    common.write_json(Path(config['compiler_settings']), compilers)
     common.write_json(args.config.resolve(), config)
     if not args.configure_only:
         installed = subprocess.check_output(['dpkg-query', '-W', '-f=${Package}\t${Version}\n', *LOCK['system_packages']], text=True)
-        common.write_json(args.config.with_name('installed.local.json'), {'packages': installed.splitlines(), 'dependencies': LOCK})
+        config['packages'] = installed.splitlines()
+        common.write_json(args.config.resolve(), config)
         env['AFP_CONFIG'] = str(args.config.resolve())
         # Environment initialization applies heap limits after getsettings.
         from afp import runtime_arguments
@@ -177,8 +171,7 @@ def install(args):
         build_env, _ = common.environment(options)
         run([config['isabelle'], 'build', '-b', *common.build_options(options),
              '-d', REPOSITORY, '-d', str(Path(config['afp']) / 'thys'), 'Rust', 'Go'], build_env)
-        run([sys.executable, SETUP / 'check.py', '--config', args.config,
-             '--receipt', args.config.with_name('environment.local.json')], env)
+        run([sys.executable, SETUP / 'check.py', '--config', args.config], env)
     print(json.dumps({'config': str(args.config.resolve()), 'configured_only': args.configure_only}, indent=2))
 
 

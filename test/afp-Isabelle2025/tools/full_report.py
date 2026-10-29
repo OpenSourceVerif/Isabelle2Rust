@@ -17,7 +17,7 @@ import xml.etree.ElementTree as ET
 
 import afp_common as common
 import full
-import candidate_scope
+import scan_evidence
 import declaration_scope
 
 CATEGORIES = (
@@ -103,37 +103,26 @@ def link(report_dir, path, label="完整证据"):
 
 def failure_events(base, data, result):
     """Stream complete exception bodies with immutable original evidence."""
-    message_index = common.read_json(base / "scan-messages/index.json", {})
+    message_index = scan_evidence.read_messages(base)
     # Auxiliary prerequisites have their own logs even when they precede all
     # candidate attempts. Retain their failures alongside the scan phase.
     prerequisite_root = base / "prerequisites"
-    for path in sorted(prerequisite_root.glob("**/result.json")):
-        check = common.read_json(path, {})
+    for name, check, path, _ in full.prerequisite_records(base):
         if check.get("status") not in {"passed", None}:
-            yield {"entry": "@prerequisite/" + path.relative_to(prerequisite_root).parts[0],
+            yield {"entry": "@prerequisite/" + name,
                    "phase": "scan", "stage": "prerequisite", "status": check["status"],
                    "constants": [], "target": None, "error": full.log_text(check),
-                   "historical": "history" in path.relative_to(prerequisite_root).parts,
                    "evidence": [check["log"]] if check.get("log") else [common.relative(path)]}
-    # Host interruption can occur before an entry has a result row. Its
-    # recovery observation and partial original logs remain historical evidence.
-    for path in sorted((base / "recovery").glob("*/result.json")):
-        check = common.read_json(path, {})
-        if check.get("status") not in {"passed", None}:
-            yield {"entry": check.get("entry", "@execution"), "phase": check.get("phase", "scan"),
-                   "stage": "process_interruption", "status": check["status"], "constants": [],
-                   "target": None, "historical": True, "error": full.log_text(check),
-                   "evidence": [check["log"], *check.get("evidence", [])]}
     for entry in data["order"]:
         record = result["entries"][entry]
         scan = record["scan"]
-        inherited_messages = candidate_scope.messages(base, scan)
+        session_messages = scan_evidence.messages(base, scan)
         documents = {}
         for phase in ("loading", "inspections"):
             for check in scan.get(phase, []):
                 if check["status"] in {"passed", "blocked", "blocked_dependency"}:
                     continue
-                messages = [message_index.get(s) or inherited_messages.get(s, {})
+                messages = [message_index.get(s) or session_messages.get(s, {})
                             for s in check.get("failed_sessions", [])]
                 usable = [x for x in messages if x.get("status") == "passed" and x.get("origin_verified")
                           and x.get("receipt_index_verified", True)]
@@ -166,33 +155,29 @@ def failure_events(base, data, result):
                 yield {"entry": entry, "phase": "scan", "stage": kind, "status": "failed",
                        "constants": [value["name"]] if value.get("name") else [], "target": None,
                        "error": message, "full_message_available": complete,
-                       # A complete legacy exception can outlive its temporary XML.
+                       # A complete scanner exception may be stored in its result record.
                        "message_source": "scan_xml" if path and path.is_file() else "result_record",
                        "evidence": [evidence] if path and path.is_file()
-                       else [common.relative(base / "results.json")]}
+                       else [common.relative(base / "state.sqlite3")]}
         # A scanner can reject otherwise successful native commands because
         # their XML context coverage is incomplete. Keep that receipt error.
-        for path, receipt in candidate_scope.receipts(base, scan):
+        for path, receipt in scan_evidence.receipts(base, scan):
             if receipt.get("error"):
                 yield {"entry": entry, "phase": "scan", "stage": "receipt_validation",
                        "status": "failed", "constants": [], "target": None,
                        "error": receipt["error"], "full_message_available": True,
-                       "inherited": True, "evidence": [common.relative(path)]}
+                       "evidence": [common.relative(path)]}
         if scan["status"] == "blocked":
-            dependencies = candidate_scope.dependencies(base, scan)
+            dependencies = scan_evidence.dependencies(base, scan)
             yield {"entry": entry, "phase": "scan", "stage": "dependency", "status": "blocked",
                    "constants": [], "target": None, "error": "Blocked by: " + ", ".join(dependencies),
-                   "evidence": [common.relative(base / "results.json")]}
-        # Earlier configuration attempts remain in the failure catalog even
-        # after their candidate cells have been replaced by fresh results.
-        stages = [(True, value) for value in record.get("full_export_history", [])]
-        stages.append((False, record.get("full_export", {})))
-        for historical, stage in stages:
+                   "evidence": [common.relative(base / "state.sqlite3")]}
+        # Only requests belonging to the current committed export are reported.
+        for stage in [record.get("full_export", {})]:
             for run in stage.get("runs", []):
                 if run["command"]["status"] != "passed":
                     yield {"entry": entry, "phase": "export", "stage": "process",
                            "status": run["command"]["status"], "constants": [], "target": None,
-                           "historical": historical,
                            "error": (("Verified shared frontend source algorithm failure: "
                                       + run["source_fault"]["family"] + "\n\n")
                                      if run.get("source_fault") else "") + full.log_text(run["command"]),
@@ -203,12 +188,10 @@ def failure_events(base, data, result):
                         continue
                     message = ET.parse(common.resolve_path(attempt["evidence"])).getroot().findtext("error", "")
                     yield {"entry": entry, "phase": "export", "stage": attempt["stage"], "status": "failed",
-                           "historical": historical, "target": attempt["target"], "constants": attempt["constants"], "error": message,
+                           "target": attempt["target"], "constants": attempt["constants"], "error": message,
                            "evidence": [attempt["evidence"], run["command"]["log"]],
                            "group_diagnostic": len(attempt["constants"]) > 1 and attempt["stage"] != "context_loading"}
-        compilations = [(True, value) for value in record.get("full_compile_history", [])]
-        compilations.append((False, record.get("full_compile", {})))
-        for historical, inventory in compilations:
+        for inventory in [record.get("full_compile", {})]:
             for manifest, compiled in inventory.items():
                 for phase in ("stage1_compile", "optimization", "stage2_compile"):
                     value = compiled.get(phase, {})
@@ -217,7 +200,7 @@ def failure_events(base, data, result):
                         if check["status"] == "passed":
                             continue
                         yield {"entry": entry, "phase": "compile", "stage": phase, "status": check["status"],
-                               "historical": historical, "manifest": manifest, "target": "Rust", "constants": [],
+                               "manifest": manifest, "target": "Rust", "constants": [],
                                "error": full.log_text(check), "evidence": [check["log"]]}
 
 
@@ -295,16 +278,8 @@ def case_context(report, entry, names, result, exports):
 def build_report(base, data, result, exports, verified=False):
     report = base / "report"
     report.mkdir(parents=True, exist_ok=True)
-    boundary = common.read_json(base / "candidate-baseline.json", {})
-    current_candidates = boundary.get("mode") == "current_candidates"
-    status = ("当前候选的后续导出与编译审计已通过" if current_candidates else "完成审计已通过") if verified else "实验进行中；本报告不是最终交付"
-    header = status + "。数据时间：" + result.get("updated", "未完成首次补扫") + "。\n\n"
-    if current_candidates:
-        header += ("本轮以选定的当前候选快照为前提，不补跑候选扫描。扫描状态沿用输入："
-                   + json.dumps(boundary.get("scan_counts", {}), ensure_ascii=False)
-                   + "；扫描完整性没有被宣称为通过。输入、摘要和 922 个会话回执见 "
-                   + link(report, base / "candidate-baseline.json", "候选范围契约")
-                   + "。全部 893 条目继续出现在统计中。\n\n")
+    status = "完成审计已通过" if verified else "实验进行中；本报告不是最终交付"
+    header = status + "。数据时间：" + result.get("updated", "未完成扫描") + "。\n\n"
     entries = []
     for entry in data["order"]:
         record = result["entries"][entry]
@@ -345,19 +320,14 @@ def build_report(base, data, result, exports, verified=False):
     examples = collections.defaultdict(list)
     missing = 0
     events = 0
-    historical = 0
-    historical_errors = collections.Counter()
     with (report / "failures.jsonl").open("w") as stream:
         for event in failure_events(base, data, result):
             key, label, explanation = category(event["status"] + "\n" + event["error"])
             event.update(category=key, category_label=label, error_sha256=full.digest(event["error"].encode()))
             stream.write(json.dumps(event, ensure_ascii=False) + "\n")
             events += 1
-            historical += bool(event.get("historical"))
             event_key = (event["phase"], key, event.get("target") or "", event["status"])
             errors[event_key] += 1
-            if event.get("historical"):
-                historical_errors[event_key] += 1
             missing += event.get("full_message_available") is False
             if len(examples[(event["phase"], key)]) < 3:
                 examples[(event["phase"], key)].append(event)
@@ -370,19 +340,14 @@ def build_report(base, data, result, exports, verified=False):
                "owned_theories": sum(r["expected_theories"] for r in entries),
                "scanned_theories": sum(r["scanned_theories"] for r in entries), "phase_counts": counts,
                "candidate_statuses": {t: dict(v) for t, v in cells.items()}, "rust_crates": len(crates),
-               "failure_events": events, "historical_failure_events": historical,
-               "current_failure_events": events - historical,
+               "failure_events": events,
                "missing_full_messages": missing, "performance": timings,
-               "input_sha256": full.inputs(base),
-               "experiment_scope": "current_candidates" if current_candidates else "full_scan",
-               "inherited_scan_complete": boundary.get("scan_complete") if current_candidates else None,
-               "inherited_scan_counts": boundary.get("scan_counts", {})}
+               "input_sha256": full.inputs(base)}
+
     common.write_json(report / "summary.json", summary)
-    error_rows = [{"phase": p, "category": c, "target": t, "status": s, "events": n,
-                   "current_events": n - historical_errors[(p, c, t, s)],
-                   "historical_events": historical_errors[(p, c, t, s)]}
-                  for (p, c, t, s), n in sorted(errors.items())]
-    write_csv(report / "failure-categories.csv", ["phase", "category", "target", "status", "events", "current_events", "historical_events"], error_rows)
+    error_rows = [{"phase": p, "category": c, "target": t, "status": status, "events": count}
+                  for (p, c, t, status), count in sorted(errors.items())]
+    write_csv(report / "failure-categories.csv", ["phase", "category", "target", "status", "events"], error_rows)
     overview = [
         "# AFP 全量导出总体报告\n\n", header,
         f"本轮范围为 {len(entries)} 个 AFP 条目、{summary['owned_theories']} 个所属理论。",
@@ -391,14 +356,11 @@ def build_report(base, data, result, exports, verified=False):
         "不同条目中的同名声明只在名字串统计中合并；各条目独立保留候选结果与证据。"
         f"按来源理论计 {summary['source_declarations']} 个声明身份，见 declarations.csv。\n\n",
         "## 方法与口径\n\n",
-        ("候选来自选定快照的全部自有常量声明，包括自动生成的辅助常量和仅有逻辑意义的定义；"
-         "发现阶段没有以代码方程或可执行性筛选。已知扫描失败与未知范围原样保留。"
-         if current_candidates else
-         "扫描保留有代码方程及证书异常的候选；异常不代表可执行性证明。复用完整扫描，"
-         "不限时补扫不完整内容，并补取旧临时文件清理后缺失的完整证书诊断。"),
+        "候选来自原始 AFP 理论的全部自有常量声明，包括自动生成的辅助常量和仅有逻辑意义的定义；"
+        "发现阶段没有以代码方程或可执行性筛选。扫描失败及未检查范围单独记录。",
         "每个常量组构造一次 Thingol 程序，供该组待处理的目标共用。整组失败继续拆分；",
         "单常量失败或必需上下文加载失败才形成候选失败证据。成功组的完整源码全部保留。"
-        "进程存储耗尽时，保留原始尝试并在新进程中缩小初始常量组；"
+        "进程存储耗尽时，保存当前拆分队列并在新进程中缩小常量组；"
         "六语言仍共享同组前端。正式单常量进程自然异常时，只有显式登记并独立重核原始上下文、"
         "带类型命题及递归源码不变式的源算法缺陷，才以 frontend_source_algorithm 判定六目标失败；"
         "原进程仍为 failed，缺失的原生完成回执不被补造。"
@@ -408,8 +370,8 @@ def build_report(base, data, result, exports, verified=False):
         "SML 是官方 ML 目标。Go 使用 AFP 2025 的 Go_Setup，其 code_go.ML 与",
         " isabelle-go-codegen 的 08b4c92 版本逐字节相同；AFP 适配理论另有整数按位映射。",
         "Rust 数值 profile 为 Rust_BigInt_Setup；这些设置合并为六语言共用的上下文。"
-        "六目标使用共同显式模块名 AFP_Code，以避免源命名空间划分制造模块依赖环；"
-        "旧配置尝试单列为历史证据。\n\n",
+        "六目标使用共同显式模块名 AFP_Code，以避免源命名空间划分制造模块依赖环。"
+        "\n\n",
         "## 全条目导出状态\n\n",
         table(["目标", "全部候选成功", "部分成功", "全部失败", "阻断", "完整扫描为空", "待执行"],
               [[t] + [counts[t].get(s, 0) for s in
@@ -436,21 +398,20 @@ def build_report(base, data, result, exports, verified=False):
         "- [完整失败正文及原始证据索引](failures.jsonl)、[分类统计](failure-categories.csv)、[机器统计](summary.json)。\n\n",
         "成功源码保存在本实验目录的 exports；Stage-2 源码保存在 rust-stage2。",
         "本轮新尝试的异常 XML、进程日志及补取的扫描会话数据库均保留。",
-        "复用的未截断证书正文可直接取自 results.json 原记录，目录注明 message_source；",
-        f"失败事件目录包含 {historical} 个已归档的执行或前置构建尝试（historical=true）；",
-        "当前是否受阻由阶段检查点判定，历史故障不会因修复而删除。旧 baseline/report 仅作历史来源，",
-        "不计作本轮最终结果。\n"]
+        "完整失败正文可从状态数据库及原始日志读取；",
+        "当前是否完成由阶段检查点判定；报告仅包含当前已提交结果，",
+        "已被替代的尝试不会累计到统计中。\n"]
     (report / "README.md").write_text("".join(overview))
     for phase, filename, title in (
             ("scan", "scan-failures.md", "候选扫描失败与诊断"),
             ("export", "export-failures.md", "六语言导出错误"),
             ("compile", "compile-failures.md", "Rust 两阶段编译错误")):
         parts = ["# " + title + "\n\n", header,
-                 "按实际失败/阻断事件计数，保留重复上下文、递归拆分和已归档的执行尝试。",
-                 "historical=true 的事件属于先前尝试，不代表当前检查点仍失败。",
+                 "按当前失败/阻断事件计数，保留不同上下文和必要的递归拆分。",
+                 "",
                  "候选失败率使用 candidates.csv 的单常量证据；条目状态分母见 entries.csv。\n\n",
-                 table(["类别", "目标", "状态", "当前事件", "历史事件"],
-                       [[r["category"], r["target"], r["status"], r["current_events"], r["historical_events"]]
+                 table(["类别", "目标", "状态", "事件数"],
+                       [[r["category"], r["target"], r["status"], r["events"]]
                         for r in error_rows if r["phase"] == phase]),
                  "\n\n完整异常正文及原始日志位置见 [failures.jsonl](failures.jsonl)。\n\n"]
         if phase == "compile":
@@ -466,8 +427,7 @@ def build_report(base, data, result, exports, verified=False):
             parts.extend(["## " + label + "\n\n", explanation + "\n\n"])
             for event in cases:
                 evidence = "、".join(link(report, p) for p in event["evidence"])
-                suffix = "（历史尝试）" if event.get("historical") else ""
-                parts.extend(["### " + event["entry"] + " / " + event["stage"] + suffix + "\n\n",
+                parts.extend(["### " + event["entry"] + " / " + event["stage"] + "\n\n",
                               "目标：" + str(event.get("target") or "通用设施") + "。" + evidence + "。\n\n"])
                 if event["constants"]:
                     parts.append(case_context(report, event["entry"], event["constants"], result, exports))
@@ -491,7 +451,7 @@ def main():
     else:
         with common.experiment_lock():
             data, result, exports = full.load(base)
-            audit = common.read_json(base / "data-audit.json", {})
+            audit = common.read_record(base / "audit.json", {})
             if not audit.get("passed") or audit.get("input_sha256") != full.inputs(base):
                 raise ValueError("A current independent completion audit is required for final reports")
             summary = build_report(base, data, result, exports, verified=True)

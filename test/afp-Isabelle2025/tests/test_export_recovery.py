@@ -67,14 +67,14 @@ class ExportRecoveryTests(unittest.TestCase):
         self.assertEqual(self.sizes, [8, 4, 2, 2, 4, 2, 2])
         self.assertEqual(stage["status"], "complete")
         self.assertEqual([len(run["scope"]) for run in stage["runs"]], [2] * 4)
-        history = self.record["full_export_history"]
-        self.assertEqual(len(history), 3)
-        self.assertTrue(all((self.project / old["runs"][0]["command"]["log"]).is_file() for old in history))
+        self.assertNotIn("full_export_history", self.record)
+        progress = common.read_record(self.base / "export-progress/E.json")
+        self.assertEqual(len(progress["retries"]), 1)
+        self.assertEqual(len(list((self.base / "exports/E/S").glob("attempt-*"))), 5)
         result = {"entries": {"E": self.record}}
         self.assertTrue(full.export_checkpoint(self.base, {"order": ["E"]}, result, {"E": scope})["passed"])
         events = list(full_report.failure_events(self.base, {"order": ["E"]}, result))
-        self.assertEqual(len(events), 3)
-        self.assertTrue(all(event["historical"] for event in events))
+        self.assertEqual(events, [])
         self.assertEqual(full_audit.required_failure_inventory(self.base, {"order": ["E"]}, result),
                          collections.Counter(map(full_audit.failure_key, events)))
 

@@ -20,7 +20,6 @@ class ExportModuleTests(unittest.TestCase):
         # This checks native serialization only and never runs target code.
         parser = common.arguments("Export module regression")
         args = parser.parse_args([
-            "--compiler-settings", str(common.EXPERIMENT / "setup/compiler-settings.local.json"),
             "--timeout", "0", "--max-heap-mb", "2000"])
         env, _ = common.environment(args)
         base = common.WORK / "regression/tooling/module-configuration-regression"

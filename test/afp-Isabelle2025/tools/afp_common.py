@@ -18,7 +18,7 @@ import tempfile
 
 HERE = Path(__file__).resolve().parent
 # The tool directory is a resource root; experiments and installations may
-# live elsewhere. Historical evidence is resolved at read time, never rewritten.
+# live elsewhere. Relative artifact references are resolved against the repository.
 EXPERIMENT = HERE.parent
 DEFAULT_PROJECT = next(p for p in EXPERIMENT.parents
                        if (p / "translate").is_dir() and (p / "ROOT").is_file())
@@ -50,27 +50,7 @@ def configure(path=None):
 
 
 def resolve_path(value):
-    """Map original machine paths and the old scan prefix to current roots.
-
-    New paths outside the repository remain absolute. Longest-prefix matching
-    prevents the general repository mapping from hiding the scan relocation.
-    This only interprets references; retained JSON/XML/log bytes stay intact.
-    """
-    name = str(value)
-    old = "/home/spring/Isabelle2Rust/Isabelle2Rust"
-    scan = "test/afp-Isabelle2025/full/scan-frozen-2026-10-22"
-    mappings = {scan: EXPERIMENT / "scan", old + "/" + scan: EXPERIMENT / "scan",
-                old: PROJECT}
-    if CONFIG.get("afp"):
-        mappings[old + "/temp/afp-Isabelle2025"] = Path(CONFIG["afp"])
-    if CONFIG.get("isabelle"):
-        home = Path(CONFIG["isabelle"]).resolve().parent.parent
-        mappings["/home/spring/Isabelle/Isabelle2025"] = home
-        mappings[old + "/temp/Isabelle2025_ref"] = home
-    mappings.update({k: Path(v) for k, v in CONFIG.get("path_map", {}).items()})
-    for source, destination in sorted(mappings.items(), key=lambda x: -len(x[0])):
-        if name == source or name.startswith(source + "/"):
-            return (destination / name[len(source):].lstrip("/")).resolve()
+    """Resolve repository-relative artifacts or absolute external work paths."""
     path = Path(value)
     return path.resolve() if path.is_absolute() else (PROJECT / path).resolve()
 
@@ -86,6 +66,40 @@ def isabelle_source_root(project=None):
 configure()
 BEGIN = "(* BEGIN GENERATED AFP RUST EXPORT SESSIONS *)"
 END = "(* END GENERATED AFP RUST EXPORT SESSIONS *)"
+
+
+def read_record(path, default=None):
+    """Read current run metadata from SQLite; standalone fixtures use JSON."""
+    from state import State, locate
+    path = Path(path).absolute()
+    base = locate(path)
+    return State(base).get(str(path.relative_to(base)), default) if base else read_json(path, default)
+
+
+def write_record(path, value):
+    """Replace one run record without creating another JSON sidecar."""
+    from state import State, locate
+    path = Path(path).absolute()
+    base = locate(path)
+    if base:
+        State(base).put(str(path.relative_to(base)), value)
+    else:
+        write_json(path, value)
+
+
+def has_record(path):
+    sentinel = object()
+    return read_record(path, sentinel) is not sentinel
+
+
+def remove_record(path):
+    from state import State, locate
+    path = Path(path).absolute()
+    base = locate(path)
+    if base:
+        State(base).update({}, [str(path.relative_to(base))])
+    elif path.exists():
+        path.unlink()
 
 
 def timestamp():
@@ -142,8 +156,6 @@ def arguments(description):
                         help="seconds per build/process; 0 disables both watchdog and session timeout")
     parser.add_argument("--stack-space-mb", type=int, default=512,
                         help="Poly/ML stack reserve; avoids the small default on large code certificates")
-    parser.add_argument("--compiler-settings", type=Path,
-                        help="JSON environment settings for AFP conditional external compilers")
     parser.add_argument("--max-heap-mb", type=int, default=4500)
     parser.add_argument("--java-heap-mb", type=int, default=1536)
     parser.add_argument("--java-active-processors", type=int, default=2,
@@ -195,12 +207,12 @@ def environment(args):
     # Explicit stack space is essential when inspecting deeply nested code equations.
     env["ML_OPTIONS"] = ("--minheap 256 --maxheap " + str(args.max_heap_mb)
                          + " --stackspace " + str(args.stack_space_mb))
-    compiler_settings = read_json(args.compiler_settings) if args.compiler_settings else {}
+    compiler_settings = CONFIG.get("compilers", {})
     if not isinstance(compiler_settings, dict) or any(
             not isinstance(k, str) or not k.startswith("ISABELLE_") or not isinstance(v, str)
             for k, v in compiler_settings.items()):
-        raise ValueError("compiler-settings must map ISABELLE_* names to string values")
-    # This file configures external conditional compilers, not arbitrary
+        raise ValueError("config.compilers must map ISABELLE_* names to string values")
+    # This section configures external conditional compilers, not arbitrary
     # Isabelle state, heap locations or proof/executor options.
     allowed_compilers = {"ISABELLE_CC", "ISABELLE_OCAMLFIND", "ISABELLE_GOEXE",
                          "ISABELLE_GOROOT", "ISABELLE_SMLNJ", "ISABELLE_CAKEML_HOME",
@@ -273,16 +285,10 @@ def process_parent(pid):
 
 
 def identity_matches(record):
-    """Read old sidecars without rewriting their original identity format."""
+    """Match the current boot, PID and birth time; parent changes are irrelevant."""
     actual = process_identity(record.get("pid", -1))
-    old = record.get("identity")
-    if not actual or not old:
-        return False
-    if len(old) == 3:
-        return list(actual) == list(old)
-    # Legacy records store (PPID, birth). Ignore reparenting but require the
-    # separately recorded boot ID; absent historical boot evidence is unknown.
-    return record.get("boot_id") == actual[0] and str(old[-1]) == actual[-1]
+    identity = record.get("identity")
+    return bool(actual and identity and list(actual) == list(identity))
 
 
 def stop_process(process):
@@ -334,9 +340,15 @@ def command(argv, log, args, env):
     outcome = {"status": "starting", "command": argv, "log": relative(log), "started": timestamp()}
     evidence = log.with_suffix(log.suffix + ".json")
     # A session may spend hours proving before its entry checkpoint is written.
-    # Its independent sidecar survives loss of the driver or WSL environment,
+    # Its database record survives loss of the driver or WSL environment,
     # while the text log remains the complete unmodified subprocess output.
-    write_json(evidence, outcome)
+    write_record(evidence, outcome)
+    # Every native descendant inherits the run marker, so cleanup can find it
+    # even when its original driver and parent process have disappeared.
+    from state import locate
+    base = locate(log)
+    if base:
+        env = dict(env, AFP_SCAN_RUN=str(base))
     minimum = available_mb()
     with log.open("w") as stream:
         stream.write("$ " + shlex.join(argv) + "\n")
@@ -346,7 +358,7 @@ def command(argv, log, args, env):
                                        stderr=subprocess.STDOUT, start_new_session=True)
         except OSError as error:
             outcome.update(status="failed", finished=timestamp(), error=str(error))
-            write_json(evidence, outcome)
+            write_record(evidence, outcome)
             raise
         reason = None
         try:
@@ -356,7 +368,7 @@ def command(argv, log, args, env):
                 boot = Path("/proc/sys/kernel/random/boot_id")
                 outcome.update(status="running", pid=process.pid, identity=process_identity(process.pid),
                                boot_id=boot.read_text().strip() if boot.is_file() else None)
-                write_json(evidence, outcome)
+                write_record(evidence, outcome)
                 while process.poll() is None:
                     memory = available_mb()
                     if memory is not None:
@@ -377,14 +389,14 @@ def command(argv, log, args, env):
             outcome.update(status="interrupted", returncode=process.returncode, finished=timestamp(),
                            seconds=round(time.monotonic() - start, 2), min_available_mb=minimum,
                            interruption=type(error).__name__)
-            write_json(evidence, outcome)
+            write_record(evidence, outcome)
             raise
         outcome.update(status=reason or ("passed" if process.returncode == 0 else "failed"),
                        returncode=process.returncode, finished=timestamp(),
                        seconds=round(time.monotonic() - start, 2), min_available_mb=minimum)
     if outcome["status"] != "passed":
         outcome["error_excerpt"] = ("\n".join(log.read_text(errors="replace").splitlines()[-24:]))[-12000:]
-    write_json(evidence, outcome)
+    write_record(evidence, outcome)
     return outcome
 
 
@@ -444,40 +456,6 @@ def manifest(args, env):
 
 def candidates(theories):
     return sorted({constant for constants in theories.values() for constant in constants})
-
-
-def load_results(metadata, entries, directory=None):
-    directory = HERE if directory is None else directory
-    result = read_json(directory / "results.json", {"schema_version": 1, "entries": {}})
-    previous = result.get("environment", {})
-    for key in ("isabelle", "afp_version", "afp_roots_sha256", "proofs"):
-        if key in previous and previous[key] != metadata[key]:
-            raise ValueError("Existing results use a different " + key +
-                             "; move results.json aside before changing the experiment")
-    result["environment"] = metadata
-    for entry in entries:
-        result["entries"].setdefault(entry, {"status": "pending"})
-    return result
-
-
-def save_results(result, exports, directory=None):
-    """Use full HOL names for coverage; count successful compilation separately."""
-    known = {c for theories in exports.values() for c in candidates(theories)}
-    compiled = set()
-    for entry, theories in exports.items():
-        record = result["entries"].get(entry, {})
-        names = candidates(theories)
-        digest = hashlib.sha256("\n".join(names).encode()).hexdigest()
-        # A manually extended export scope cannot inherit successful coverage
-        # from an earlier crate. Its recorded build must match the current names,
-        # even when this invocation selects a different entry for rebuilding.
-        if (record.get("stage1_compile", {}).get("status") == "passed"
-                and record.get("scope_sha256", digest) == digest):
-            compiled.update(names)
-    result["coverage"] = {"entries": len(result["entries"]), "distinct_candidates": len(known),
-                          "distinct_stage1_compiled_candidates": len(compiled)}
-    result["updated"] = timestamp()
-    write_json((HERE if directory is None else directory) / "results.json", result)
 
 
 def select(args, data, result, phase, required_phases=()):
