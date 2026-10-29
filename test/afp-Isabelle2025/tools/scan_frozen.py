@@ -309,6 +309,15 @@ def checkpoint(store, data, units, metadata):
                 cause = failures.get(blocker)
                 if not cause or (store.read(units[cause["session"]]) or {}).get("status") != "failed_source":
                     issues.append({"session": session, "status": "unresolved_dependency", "blocker": blocker})
+    # A complete receipt set is insufficient if its union omits a manifest
+    # theory. Preserve reviewed source/dependency failures as terminal states,
+    # but never certify a purportedly complete entry with a coverage gap.
+    for entry, record in result["entries"].items():
+        scan = record["scan"]
+        states = scan["unit_states"].values()
+        if states and all(s == "complete" for s in states) and scan["missing_theories"]:
+            issues.append({"entry": entry, "status": "incomplete_theory_coverage",
+                           "missing_theories": scan["missing_theories"]})
     snapshot = publish(store, result, exports)
     gate = {"phase": "scan", "checked": common.timestamp(), "passed": not issues,
             "unit_counts": dict(counts), "issues": issues, "snapshot": snapshot,

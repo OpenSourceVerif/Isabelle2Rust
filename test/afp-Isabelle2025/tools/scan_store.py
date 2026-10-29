@@ -38,8 +38,15 @@ def inventory(root):
 
 
 def expected_theories(info, session):
-    parents = set(info.get("session_requirements", {}).get(session, [])) | {session}
-    return sorted(t["name"] for t in info["theories"] if t["session"] in parents)
+    """Require the session's own theories, including conditional declarations.
+
+    ROOT `sessions` dependencies make theories available for imports; unlike
+    the parent heap, they need not load every dependency theory. Each owning
+    session supplies its own coverage receipt, and aggregation checks the full
+    entry union. The expected list remains part of the unit identity: retained
+    units keep their original requirement instead of being silently redefined.
+    """
+    return sorted(t["name"] for t in info["theories"] if t["session"] == session)
 
 
 def unit_input(entry, session, info, source):
@@ -311,7 +318,11 @@ def aggregate(store, data, units, metadata):
                     paths.add(path)
                 contexts[session] = receipt["catalogue"]["contexts"]
         states = [r["status"] if r else "pending" for r in receipts]
-        status = ("passed" if states and all(s == "complete" for s in states) else
+        # Successful per-session receipts must also cover the entry manifest.
+        # This detects omitted owning sessions or mismatched units without
+        # requiring a child heap to load every available dependency theory.
+        missing = [t for t in info["theories"] if t["path"] not in paths]
+        status = ("passed" if states and all(s == "complete" for s in states) and not missing else
                   "blocked" if states and all(s == "blocked_dependency" for s in states) else
                   "pending" if "pending" in states else "failed")
         identities = {s: digest(units[s]) for s in info["sessions"]}
@@ -320,7 +331,7 @@ def aggregate(store, data, units, metadata):
                 "unit_states": dict(zip(info["sessions"], states)),
                 "unit_ids": identities,
                 "semantic_identity": digest({"units": identities, "contexts": contexts}),
-                "missing_theories": [t for t in info["theories"] if t["path"] not in paths],
+                "missing_theories": missing,
                 "theory_loading": {"status": "passed" if loading and all(
                     c.get("status") == "passed" for c in loading) else "failed"}}
         result["entries"][entry] = {"status": status, "scan": scan,
