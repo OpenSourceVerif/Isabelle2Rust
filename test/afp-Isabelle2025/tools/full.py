@@ -8,6 +8,7 @@ following phase can start.
 """
 
 import collections
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import closing
 import copy
 from datetime import datetime
@@ -21,6 +22,7 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+import threading
 import xml.etree.ElementTree as ET
 
 import afp_common as common
@@ -164,6 +166,64 @@ def save(base, result, exports, entry=None):
     State(base).put("updated", result["updated"])
 
 
+def parallel_entries(base, result, exports, selected, workers, args, action):
+    """Run bounded independent entries with private lazy readers and checkpoints.
+
+    EntryStore deliberately caches only one mutable record. Each task therefore
+    owns its store, while SQLite atomically publishes only that entry. Slots are
+    reused after completion and give Cargo a bounded set of independent caches.
+    The coordinator alone submits new work; after an exception or interrupt it
+    cancels native siblings and joins workers before releasing the phase lock.
+    """
+    if workers <= 0 or len(set(selected)) != len(selected):
+        raise ValueError("Entry workers must be positive and entries unique")
+    if not selected:
+        return
+    scans = entry_headers(result)
+    cancel = threading.Event()
+    pending = {}
+    remaining = iter(selected)
+
+    def execute(entry, slot):
+        local = dict(result, entries=EntryStore(base, scans, exports))
+        options = copy.copy(args)
+        options.cancel_event = cancel
+        checkpoint = lambda: save(base, local, exports, entry)
+        if action(entry, local["entries"][entry], checkpoint, slot, options) is not False:
+            checkpoint()
+
+    pool = ThreadPoolExecutor(max_workers=min(workers, len(selected)))
+    def submit(slot):
+        entry = next(remaining, None)
+        if entry is not None:
+            pending[pool.submit(execute, entry, slot)] = slot
+    try:
+        for slot in range(min(workers, len(selected))):
+            submit(slot)
+        while pending:
+            done, _ = wait(pending, return_when=FIRST_COMPLETED)
+            # Inspect every finished result before scheduling any replacement.
+            for future in done:
+                future.result()
+            for future in done:
+                submit(pending.pop(future))
+    except BaseException:
+        cancel.set()
+        for future in pending:
+            future.cancel()
+        raise
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)
+        if isinstance(result["entries"], EntryStore):
+            # Subsequent gates must reload entries published by private stores.
+            result["entries"].cache_key = result["entries"].cache_record = None
+
+
+def compilation_environment(env, base, slot):
+    """Reuse one Cargo cache per active slot without inter-worker target locks."""
+    return dict(env, CARGO_TARGET_DIR=str(base / "_build" / f"cargo-slot-{slot}"))
+
+
 def infrastructure(text):
     """Keep configuration failures out of backend defect statistics."""
     patterns = {
@@ -281,13 +341,14 @@ def export_command(session, work, args, env):
         '(Thy_Info.get_theory "Go.Go_Setup"))) (ML_Context.eval_file ML_Compiler.flags) '
         '(Path.explode ' + common.quote(str(common.HERE / "full_capture.ML")) + ')')
     argv = [args.isabelle, "process", "-l", session, "-d", str(common.PROJECT),
-            "-d", str(args.afp / "thys"), "-o", "threads=1", "-o", "parallel_proofs=0",
+            "-d", str(args.afp / "thys"), *common.process_options(args),
             "-o", "timeout=" + str(args.timeout), "-o", "skip_proofs=false",
             "-T", "Rust.Rust_BigInt_Setup", "-T", "Go.Go_Setup", "-e", expression]
     # The outer recorder evaluates the unchanged exporter, then re-raises its
     # original exception. Its separate receipt cannot establish a completed
     # frontend or alter candidate verdicts when the request is interrupted.
-    actual = dict(env, AFP_FULL_OUTPUT=str(work), AFP_FULL_SCOPE=str(work / "scope.txt"),
+    actual = dict(env, AFP_EXPORT_REQUEST=str(work.resolve()),
+                  AFP_FULL_OUTPUT=str(work), AFP_FULL_SCOPE=str(work / "scope.txt"),
                   AFP_FULL_THEORIES=str(work / "theories.txt"),
                   AFP_ORIGINAL_EXPORT_ML=str(common.HERE / "full_export.ML"))
     # These raw processes only read existing heaps. The full experiment lock
@@ -627,7 +688,7 @@ def export_entry(entry, info, record, scope, base, args, env):
             accept(export_progress_run(progress["active"], entry, base, theory_names))
         except UnrecordedExit:
             from scan_frozen import active_children
-            if active_children(base):
+            if active_children(common.resolve_path(progress["active"]["directory"]), "AFP_EXPORT_REQUEST"):
                 raise ValueError("Export native children are still live") from None
             # Host loss can leave partial XML without an exit status. Keep the
             # pending scope and retry it; never adopt the partial files as a verdict.
@@ -925,25 +986,25 @@ def main():
             # Recheck retained singleton evidence before deciding which entries
             # need fresh processes; a verified source failure need not recur.
             review_source_faults(base, data, result, exports)
-            for i, entry in enumerate(selected, 1):
-                record = result["entries"][entry]
+            positions = {entry: i for i, entry in enumerate(selected, 1)}
+            serializer = serializer_signature()
+            def export_task(entry, record, checkpoint, slot, options):
                 old = record.get("full_export", {})
                 if (old.get("scope_sha256") == scope_digest(exports[entry])
-                        and old.get("serializer_sha256") == serializer_signature()
+                        and old.get("serializer_sha256") == serializer
                         and old.get("scan_sha256") == entry_scan_signature(record)) and old.get("status") in {
                         "complete", "no_candidates"}:
-                    continue
-                print(f"[export {i}/{len(selected)}] {entry}", flush=True)
-                export_entry(entry, data["entries"][entry], record, exports[entry], base, args, env)
-                save(base, result, exports, entry)
-                print("  " + json.dumps(record["full_export"]["languages"]), flush=True)
+                    return False
+                print(f"[export {positions[entry]}/{len(selected)}] {entry}", flush=True)
+                export_entry(entry, data["entries"][entry], record, exports[entry], base, options, dict(env))
+                print(f"  {entry}: " + json.dumps(record["full_export"]["languages"]), flush=True)
+            parallel_entries(base, result, exports, selected, args.export_workers, args, export_task)
             return 0
         if args.phase == "compile":
             review_source_faults(base, data, result, exports)
             gate = export_checkpoint(base, data, result, exports)
             if not gate["passed"]:
                 raise ValueError("Export checkpoint failed; inspect unresolved/environment failures first")
-            env["CARGO_TARGET_DIR"] = str(base / "_build/cargo-target")
             optimizer_target = base / "_build/optimizer-target"
             preparation = common.command(
                 [*shlex.split(args.cargo), "build", "--locked", "--offline",
@@ -953,11 +1014,12 @@ def main():
             if preparation["status"] != "passed":
                 raise ValueError("Optimizer preparation failed; see " + preparation["log"])
             optimizer = optimizer_target / "debug/cargo-opt"
-            for i, entry in enumerate(selected, 1):
-                print(f"[compile {i}/{len(selected)}] {entry}", flush=True)
-                compile_entry(entry, result["entries"][entry], base, args, env, optimizer,
-                              lambda entry=entry: save(base, result, exports, entry))
-                save(base, result, exports, entry)
+            positions = {entry: i for i, entry in enumerate(selected, 1)}
+            def compile_task(entry, record, checkpoint, slot, options):
+                print(f"[compile {positions[entry]}/{len(selected)}] {entry}", flush=True)
+                compile_entry(entry, record, base, options, compilation_environment(env, base, slot),
+                              optimizer, checkpoint)
+            parallel_entries(base, result, exports, selected, args.compile_workers, args, compile_task)
             return int(not compile_checkpoint(base, result)["passed"])
     return 0
 

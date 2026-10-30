@@ -6,7 +6,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from afp_common import (HERE, WORK, arguments, build_lock, build_options, candidates,
+from afp_common import (process_options, HERE, WORK, arguments, build_lock, build_options, candidates,
                         command,
                         quote, relative)
 
@@ -33,7 +33,7 @@ def inspect_session(session, args, env, log, *, directories=(), collector=None):
     extra = [option for directory in directories for option in ("-d", str(directory))]
     return command(
         [args.isabelle, "process", "-l", session, "-d", str(args.afp / "thys"), *extra,
-         "-o", "threads=1", "-o", "parallel_proofs=0",
+         *process_options(args),
          "-T", "Tools.Code_Generator", "-e", expression], log, args, env)
 
 

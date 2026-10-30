@@ -62,6 +62,10 @@ python3 tools/afp.py run
 
 默认单作业、单证明线程、开启证明、阶段不限时；ML heap 4500 MiB、Java heap 1536 MiB、stackspace 512 MiB、JVM 活动处理器 2、最低可用内存 512 MiB。可在本机配置的 `resources` 中调整；heap 参数不是总 RSS 上限。
 
+本机配置的 `scheduler` 独立控制 `build_jobs`、`threads`、`parallel_proofs`、`export_workers`、`compile_workers`、`cargo_jobs`。作业及线程数默认 1，`parallel_proofs` 默认 0（可选 0、1、2）。例如大内存服务器可分别设为 `8, 8, 2, 8, 8, 8`：8 个导出条目同时运行，每个 Isabelle 进程使用 8 线程；8 个编译条目同时进行 Stage-1、既有优化器和 Stage-2，每个 Cargo 最多 8 个编译作业。
+
+每个条目内的原生请求和三个 Rust 步骤仍按原顺序执行。编译槽使用独立、可复用的 Cargo target 目录，避免共享目录锁使作业串行；优化器只预编译一次。各条目使用独立惰性状态读取器，断点按条目事务提交；中断会取消并回收各自的子进程。总内存应同时考虑外层作业数和各进程的 ML/Java heap，可用服务 cgroup 限制总量。
+
 ## 运行与中断恢复
 
 `run` 自动依次执行环境检查、必要的初始化、扫描、扫描检查点、导出、导出检查点、编译、编译检查点、数据审计、报告及报告审计。任何一步失败即停止。

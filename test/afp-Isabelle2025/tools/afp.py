@@ -19,6 +19,11 @@ def runtime_arguments(config):
     for key, default in (("max_heap_mb", 4500), ("java_heap_mb", 1536), ("stack_space_mb", 512),
                          ("java_active_processors", 2), ("min_available_mb", 512)):
         values += ["--" + key.replace("_", "-"), str(config.get("resources", {}).get(key, default))]
+    # Defaults remain suitable for a laptop; a server explicitly budgets
+    # entry workers separately from the threads/jobs within each child.
+    for key, default in (("build_jobs", 1), ("threads", 1), ("parallel_proofs", 0),
+                         ("export_workers", 1), ("compile_workers", 1), ("cargo_jobs", 1)):
+        values += ["--" + key.replace("_", "-"), str(config.get("scheduler", {}).get(key, default))]
     return values + ["--timeout", "0"]
 
 

@@ -164,6 +164,11 @@ def arguments(description):
                         help="stop a command below this available-memory threshold; 0 disables")
     parser.add_argument("--skip-proofs", action="store_true",
                         help="explicit exploratory mode; recorded separately from checked proofs")
+    # Outer entry concurrency and per-child concurrency are independent:
+    # callers can budget their product for a server without changing verdicts.
+    for name in ("build-jobs", "threads", "export-workers", "compile-workers", "cargo-jobs"):
+        parser.add_argument("--" + name, type=int, default=1)
+    parser.add_argument("--parallel-proofs", type=int, choices=(0, 1, 2), default=0)
     parser.add_argument("--refresh-manifest", action="store_true")
     return parser
 
@@ -177,6 +182,11 @@ def environment(args):
             raise ValueError(name.replace("_", "-") + " must be positive")
     if args.min_available_mb < 0:
         raise ValueError("min-available-mb must be nonnegative")
+    for name in ("build_jobs", "threads", "export_workers", "compile_workers", "cargo_jobs"):
+        if getattr(args, name, 1) <= 0:
+            raise ValueError(name.replace("_", "-") + " must be positive")
+    if getattr(args, "parallel_proofs", 0) not in (0, 1, 2):
+        raise ValueError("parallel-proofs must be 0, 1 or 2")
     version = subprocess.check_output([args.isabelle, "version"], text=True).strip()
     if version != "Isabelle2025":
         raise ValueError("Expected Isabelle2025, got " + version)
@@ -224,12 +234,15 @@ def environment(args):
     env["ISABELLE_TOOL_JAVA_OPTIONS"] = (
         "-Djava.awt.headless=true -Xms128m -Xmx" + str(args.java_heap_mb) + "m -Xss16m"
         + " -XX:ActiveProcessorCount=" + str(args.java_active_processors))
-    env["CARGO_BUILD_JOBS"] = "1"
+    env["CARGO_BUILD_JOBS"] = str(getattr(args, "cargo_jobs", 1))
     env["ISABELLE_CARGO"] = str(Path(CONFIG.get("cargo_bin", Path.home() / ".cargo/bin")) / "cargo")
     metadata = {"isabelle": version, "afp_version": "2025", "afp_root": str(root),
                 "afp_roots_sha256": hashlib.sha256(roots.read_bytes()).hexdigest(),
                 "proofs": "skipped" if args.skip_proofs else "checked",
-                "threads": 1, "ml_heap_mb": args.max_heap_mb,
+                **{name: getattr(args, name, default) for name, default in (
+                    ("build_jobs", 1), ("threads", 1), ("parallel_proofs", 0),
+                    ("export_workers", 1), ("compile_workers", 1), ("cargo_jobs", 1))},
+                "ml_heap_mb": args.max_heap_mb,
                 "java_heap_mb": args.java_heap_mb, "java_active_processors": args.java_active_processors,
                 "command_timeout_seconds": args.timeout,
                 "stack_space_mb": args.stack_space_mb, "compiler_settings": compiler_settings}
@@ -335,6 +348,11 @@ def stop_process(process):
 
 def command(argv, log, args, env):
     """Monitor resources and retain command identity even across host shutdowns."""
+    # Worker cancellation is cooperative so the command's own finally block
+    # still terminates and reaps its native process tree and records its exit.
+    cancel = getattr(args, "cancel_event", None)
+    if cancel is not None and cancel.is_set():
+        raise RuntimeError("Parallel phase cancelled")
     log.parent.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
     outcome = {"status": "starting", "command": argv, "log": relative(log), "started": timestamp()}
@@ -374,7 +392,9 @@ def command(argv, log, args, env):
                     if memory is not None:
                         minimum = min(minimum, memory) if minimum is not None else memory
                     # Zero disables both watchdog and Isabelle's session timeout.
-                    if args.timeout and time.monotonic() - start > args.timeout:
+                    if cancel is not None and cancel.is_set():
+                        reason = "interrupted"
+                    elif args.timeout and time.monotonic() - start > args.timeout:
                         reason = "timeout"
                     elif memory is not None and memory < args.min_available_mb:
                         reason = "memory_limit"
@@ -397,12 +417,20 @@ def command(argv, log, args, env):
     if outcome["status"] != "passed":
         outcome["error_excerpt"] = ("\n".join(log.read_text(errors="replace").splitlines()[-24:]))[-12000:]
     write_record(evidence, outcome)
+    if reason == "interrupted":
+        raise RuntimeError("Parallel phase cancelled")
     return outcome
+
+
+def process_options(args):
+    """Use the same explicit prover settings for builds, scans and exports."""
+    return ["-o", "threads=" + str(getattr(args, "threads", 1)),
+            "-o", "parallel_proofs=" + str(getattr(args, "parallel_proofs", 0))]
 
 
 def build_options(args):
     # Disable document production, but check proofs unless explicitly requested.
-    options = ["-j", "1", "-o", "threads=1", "-o", "parallel_proofs=0",
+    options = ["-j", str(getattr(args, "build_jobs", 1)), *process_options(args),
                "-o", "document=false", "-o", "timeout=" + str(args.timeout),
                "-o", "skip_proofs=" + str(args.skip_proofs).lower()]
     # ROOT session options take precedence over the system's timeout default.

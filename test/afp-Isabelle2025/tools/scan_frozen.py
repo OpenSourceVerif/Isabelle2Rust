@@ -107,13 +107,15 @@ def make_units(data, sources):
     return units
 
 
-def active_children(base):
+def active_children(base, marker_name="AFP_SCAN_RUN"):
     """Find detached old natives by a run marker inherited through their env.
 
     This catches Poly/ML even when its Java parent died and PPID changed.
     Read only the one marker; never serialize arbitrary environment secrets.
     """
-    marker = ("AFP_SCAN_RUN=" + str(base)).encode()
+    # Export workers share a run but own separate immutable-heap requests.
+    # A request marker excludes unrelated live siblings during crash recovery.
+    marker = (marker_name + "=" + str(base)).encode()
     active = []
     for path in Path("/proc").iterdir():
         if path.name.isdigit() and int(path.name) != os.getpid():
