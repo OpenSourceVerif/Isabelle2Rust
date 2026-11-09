@@ -1178,7 +1178,7 @@ fun print_type_param_bound (vname, sort) =
               print_app_with_clone expected is_pseudo_fun
                 (box_prcs, clone_prcs) some_thm vars f (const, [])
           in
-            print_term_with_cons_and_box (need_box, box_prcs) print_const fxy (IConst const)
+            print_term_with_cons_and_box expected (need_box, box_prcs) print_const fxy (IConst const)
           end
       | print_term_raw _ _ _ _ _ _ (IVar NONE) =
           str "_"
@@ -1293,9 +1293,9 @@ fun print_type_param_bound (vname, sort) =
                       end
                 end)
           in
-            print_term_with_cons_and_box (need_box, box_prcs) print_app_term fxy t
+            print_term_with_cons_and_box expected (need_box, box_prcs) print_app_term fxy t
           end
-      | print_term_raw _ is_pseudo_fun (need_box, box_prcs, _)
+      | print_term_raw expected is_pseudo_fun (need_box, box_prcs, _)
           some_thm vars fxy (t as _ `|=> _) =
           (* A lambda is the term-level representation of a HOL function value.
              When such a value inhabits a recursive datatype field, the same
@@ -1303,7 +1303,7 @@ fun print_type_param_bound (vname, sort) =
              must also wrap the Rc<dyn Fn(..)> closure. *)
           let
             fun print_abs _ = print_lambda is_pseudo_fun some_thm vars t
-          in print_term_with_cons_and_box (need_box, box_prcs) print_abs fxy t end
+          in print_term_with_cons_and_box expected (need_box, box_prcs) print_abs fxy t end
       | print_term_raw expected is_pseudo_fun (need_box, box_prcs, clone_prcs)
           some_thm vars fxy (ICase case_expr) =
           case Code_Thingol.unfold_const_app (#primitive case_expr)
@@ -1322,7 +1322,7 @@ fun print_type_param_bound (vname, sort) =
                          branches, but the field's Box belongs around the complete
                          conditional expression, just as it does around an ordinary
                          application or lambda in the same constructor position. *)
-                      print_term_with_cons_and_box
+                      print_term_with_cons_and_box expected
                         (need_box, box_prcs) print_syntax fxy (ICase case_expr)
                     end
               | NONE => print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy case_expr
@@ -1338,18 +1338,58 @@ fun print_type_param_bound (vname, sort) =
     and print_term_app is_pseudo_fun some_thm vars fxy t = 
       print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars fxy t
     (** Prepend type constructor prefix (e.g. "List::") and apply Box wrapping if needed. **)
-    and print_term_with_cons_and_box (need_box, box_prcs) print_term fxy t =
+    and print_term_with_cons_and_box expected (need_box, box_prcs) print_term fxy t =
       let
         fun lookup_typeco t =
           (case (Code_Thingol.unfold_const_app t)
             of (SOME ((const as {sym as (Constant c), ...}), _))
               => lookup_constant_typeco sym
             | _ => NONE)
-        (* The `Enum::` prefix is the (possibly crate-qualified) name of the parent
-           datatype, taken straight from the deresolver so it matches the enum
-           declaration and resolves across modules without a glob import. *)
-        fun print_cons (SOME parent) = tyco_name_str parent
-          | print_cons NONE = ""
+        (* A constructor occurrence carries its fully instantiated result type.
+           A parameter absent from this variant's fields has no value-level
+           witness, even when another variant uses it. Supply that parameter in
+           Enum::<...>::; let Rust infer field-witnessed parameters using "_".
+           Existing typed PhantomData markers already provide their witnesses.
+           This avoids repeating large types on every Cons/Some/etc. Contextual
+           Rust shapes preserve the selected grouping of function-valued
+           parameters. These qualified paths are legal in patterns as well. *)
+        fun print_cons (SOME parent) =
+              let
+                val type_args =
+                  (case Code_Thingol.unfold_const_app t of
+                    SOME ({sym, range = result as (tyco `%% tys), ...}, _) =>
+                      if tyco = parent then
+                        let
+                          val shapes =
+                            (case expected of
+                              SOME {rust_shape = shape as Rust_Tyco (_, shapes), ...} =>
+                                if shape_type shape = result then shapes
+                                else map default_rust_shape tys
+                            | _ => map default_rust_shape tys);
+                          val needs_witness =
+                            (case lookup_constructor_fields sym of
+                              SOME (_, vs, fields) =>
+                                if length vs = length tys then
+                                  let
+                                    val witnessed = maps itype_variables fields
+                                      @ phantom_table (Type_Constructor parent);
+                                  in map (fn v => not (member (op =) witnessed v)) vs end
+                                else replicate (length tys) true
+                            | NONE => replicate (length tys) true);
+                        in
+                          if exists I needs_witness then
+                            map2 (fn needed => fn shape =>
+                              if needed then print_rust_shape shape else str "_")
+                              needs_witness shapes
+                          else []
+                        end
+                      else []
+                  | _ => []);
+                val args =
+                  if null type_args then []
+                  else [enum "," "::<" ">" type_args];
+              in SOME (rust_open (str (tyco_name_str parent) :: args)) end
+          | print_cons NONE = NONE
         (* An UNDER-applied constructor -- given fewer arguments than its domain,
            including the zero-argument case -- is eta-expanded into a closure by
            print_app_expr (saturated_application), so it must NOT get the `Tyco::`
@@ -1368,18 +1408,19 @@ fun print_type_param_bound (vname, sort) =
           (case Code_Thingol.unfold_const_app t
             of SOME ({sym = Constant c, ...}, _) => is_some (const_syntax c)
             | _ => false)
-        val typeco_s =
-          if is_eta_constr orelse has_const_syntax then ""
+        val typeco_prefix =
+          if is_eta_constr orelse has_const_syntax then NONE
           else print_cons (lookup_typeco t)
         (* When a `Tyco::` prefix is prepended, the constructor application is
            atomic (`Tyco::Cons(args)` never needs outer brackets), so print it at
            NOBR -- otherwise gen_print_app may brackify it at BR and the prefix
            lands outside the parens, producing the invalid `Tyco::(Cons(args))`.
            Non-prefixed terms keep fxy so infix operands still bracket correctly. *)
-        val term = print_term (if typeco_s = "" then fxy else NOBR)
+        val term = print_term (if is_none typeco_prefix then fxy else NOBR)
         val term_with_cons =
-          if typeco_s = "" then term
-          else rust_open [str (typeco_s ^ "::"), term]
+          (case typeco_prefix of
+            NONE => term
+          | SOME prefix => rust_open [prefix, str "::", term])
         val term_with_box =
           if need_box
           then (box_prcs term_with_cons)
