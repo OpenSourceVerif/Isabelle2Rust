@@ -3144,11 +3144,65 @@ fun print_type_param_bound (vname, sort) =
                   end
                 else ((ts, t), some_thm)
               end;
+            (* Different methods of one instance may use alpha-equivalent
+               typeschemes with different variable names. In particular, a
+               method without code equations can name the constructor arguments
+               in the reverse order to executable methods. The impl header
+               fixes one naming, so all typed payloads in an inlined method
+               must follow the substitution used for its signature, including
+               dictionary variables and lambda/case annotations.
+
+               Memoize by physical term identity: recognized case clauses and
+               their primitive can share continuations. Renaming those graphs
+               must preserve sharing rather than expand them as trees. *)
+            fun align_method_eqs source_ty target_ty eqs =
+              let
+                val renaming = add_default_shape_subst source_ty target_ty []
+                  |> map_filter (fn (v, Rust_Var w) =>
+                       if v = w then NONE else SOME (v, w)
+                     | _ => NONE);
+                fun rename v = the_default v (AList.lookup (op =) renaming v);
+                fun typ (ITyVar v) = ITyVar (rename v)
+                  | typ (c `%% tys) = c `%% map typ tys;
+                fun dict (Dict (rels, plain)) = Dict (rels, plain_dict plain)
+                and plain_dict (Dict_Const (inst, dss)) =
+                      Dict_Const (inst, map (fn (ty, ds) => (typ ty, map dict ds)) dss)
+                  | plain_dict (Dict_Var {var, index, length, class, unique}) =
+                      Dict_Var {var = rename var, index = index, length = length,
+                        class = class, unique = unique};
+                fun const {sym, typargs, dicts, dom, range, annotation} =
+                  {sym = sym, typargs = map typ typargs, dicts = map (map dict) dicts,
+                    dom = map typ dom, range = typ range,
+                    annotation = Option.map typ annotation};
+                val memo = Unsynchronized.ref [];
+                fun term t =
+                  (case AList.lookup pointer_eq (!memo) t of
+                    SOME result => result
+                  | NONE =>
+                      let
+                        val result =
+                          (case t of
+                            IConst c => IConst (const c)
+                          | IVar _ => t
+                          | a `$ b => term a `$ term b
+                          | (v, ty) `|=> (body, rty) =>
+                              (v, typ ty) `|=> (term body, typ rty)
+                          | ICase {term = scrutinee, typ = ty, clauses, primitive} =>
+                              ICase {term = term scrutinee, typ = typ ty,
+                                clauses = map (apply2 term) clauses,
+                                primitive = term primitive});
+                        val _ = memo := (t, result) :: !memo;
+                      in result end);
+              in
+                if null renaming then eqs
+                else map (apfst (fn (ts, body) => (map term ts, term body))) eqs
+              end;
             fun method_function classparam const_sym =
               case (lookup_constant_fun const_sym, method_type classparam)
-               of (SOME ((_, raw_eqs), _), SOME (mty, target)) =>
+               of (SOME (((_, source_ty), raw_eqs), _), SOME (mty, target)) =>
                     let
                       val eqs = filter (snd o snd) raw_eqs
+                        |> align_method_eqs source_ty mty
                     in SOME ((vs, mty), map (normalize_method_eq mty target) eqs) end
                 | (SOME ((tysm as (_, mty), raw_eqs), _), NONE) =>
                     let
