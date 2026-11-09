@@ -20,4 +20,17 @@ lemma rust_pac_uint32_of_char_code [code]:
   by (simp add: uint32_of_char_def[symmetric] uint32_of_int_code
       int_of_char_def integer_of_char_def of_int_of_char)
 
+text \<open>
+  The literal decoder has an unprimed logical wrapper whose code equation
+  redirects to a primed constant with an SML-only printing. Give that primed
+  constant its proved ordinary literal-decoding equation. String.literal
+  already enforces the seven-bit character invariant, so this is the same
+  total operation as the source wrapper, with no unchecked host conversion.
+\<close>
+
+lemma rust_pac_asciis_of_literal_code [code]:
+  "unsafe_asciis_of_literal' s = String.asciis_of_literal s"
+  by (simp add: unsafe_asciis_of_literal'_def[symmetric]
+      unsafe_asciis_of_literal_def)
+
 end
