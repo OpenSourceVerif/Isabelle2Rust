@@ -2299,7 +2299,12 @@ fun print_type_param_bound (vname, sort) =
     and print_case _ _ _ _ _ { clauses = [], ... } =
           (concat o map str) ["panic!(\"empty case\")", "\"empty case\""]
       | print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars _ (icase as { term = t, typ = _, clauses = clauses, ... }) =
-          (case print_irrefutable_case_parts is_pseudo_fun
+          (* A case is an expression even when its lowering starts with a
+             match or a binding block. Parenthesize that whole result so Rust
+             cannot end a statement or match arm before a following infix
+             operator. This covers ordinary and stable matches as well as
+             the single-irrefutable-clause binding block. *)
+          rust_parens [(case print_irrefutable_case_parts is_pseudo_fun
               (need_box, box_prcs, clone_prcs) some_thm vars icase of
             SOME (ps, body) => rust_bare_block (ps @ [body])
           | NONE => let
@@ -2357,7 +2362,7 @@ fun print_type_param_bound (vname, sort) =
                 (print_term_app is_pseudo_fun some_thm vars NOBR t)
                 (map print_select clauses
                   @ [rust_arm (str "_") (str "panic!(\"non-exhaustive match\")")])
-          end)
+          end)]
     (** Adapt the backend's default flat function value to a contextual parameter
         grouping.  One invocation builds the outer group and an ordinary flat
         lambda for all remaining arguments.  That inner lambda is printed with
