@@ -3184,9 +3184,15 @@ fun print_type_param_bound (vname, sort) =
             val params =
               map_index (fn (i, ty) =>
                 Pretty.block [str ("x" ^ Int.toString i ^ ": "), ty]) param_typs
+            (* Exception functions use the same explicit type arguments as
+               ordinary functions. The sort-bearing variable list may have a
+               different order from the type traversal used by call sites, so
+               derive the declaration order from the complete signature too.
+               Keep the original variable/sort pairs for the where-clause. *)
+            val generic_vars = itype_variables ty
             val generics =
-              if List.null vs then str ""
-              else enum "," "<" ">" (map (str o to_upper o fst) vs)
+              if null generic_vars then str ""
+              else enum "," "<" ">" (map (str o to_upper) generic_vars)
             val trait_bounds =
               if List.null vs then [] else map print_type_param_bound vs
             val sig_head =
