@@ -4434,9 +4434,18 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         fun is_constr_safe sym =
           (Code_Thingol.is_constr program sym
             handle Code_Symbol.Graph.UNDEF _ => false)
-        val _ = tracing ("[Thingol] "
-          ^ Code_Debug_Info.print_debug_info_sym sym ^ ": "
-          ^ Code_Debug_Info.print_debug_info_thingol_stmt (get_node program sym))
+        (* Statement diagnostics are observational: a formatter or output-channel
+           failure must not prevent serialization or replace its original exception.
+           Build the bounded statement text once and reuse it in the crash report.
+           Exn.result deliberately propagates interrupts, including cancellation. *)
+        fun diagnostic_text make =
+          (case Exn.result make () of
+            Exn.Res text => text
+          | Exn.Exn e => "<Thingol diagnostic unavailable: " ^ General.exnName e ^ ">");
+        val sym_text = diagnostic_text (fn () => Code_Debug_Info.print_debug_info_sym sym);
+        val stmt_text = diagnostic_text (fn () =>
+          Code_Debug_Info.print_debug_info_thingol_stmt (get_node program sym));
+        val _ = Exn.result (fn () => tracing ("[Thingol] " ^ sym_text ^ ": " ^ stmt_text)) ()
         val r = Exn.result (fn () =>
           (print_rust_stmt
             class_syntax tyco_syntax const_syntax (make_vars reserved_syms)
@@ -4446,11 +4455,12 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
             lookup_method_class inst_method_info lookup_class_methods constr_method_of)
             export stmt
           |> apfst (K NONE)) ()
-        val _ = (case r of
-            Exn.Exn e => warning ("RUST-STMT-CRASH at sym: " ^ Code_Debug_Info.print_debug_info_sym sym
+        val _ = Exn.result (fn () =>
+          (case r of
+            Exn.Exn e => warning ("RUST-STMT-CRASH at sym: " ^ sym_text
               ^ "\n  exn: " ^ General.exnMessage e
-              ^ "\n  stmt: " ^ Code_Debug_Info.print_debug_info_thingol_stmt (get_node program sym))
-          | _ => ())
+              ^ "\n  stmt: " ^ stmt_text)
+          | _ => ())) ()
       in
         Exn.release r
       end;
