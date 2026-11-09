@@ -635,12 +635,22 @@ fun print_type_param_bound (vname, sort) =
                 val inst_ty = mk_fun_ty (dom, range);
                 val subst0 = add_default_shape_subst decl_ty inst_ty [];
                 val (decl_args, decl_ret) = fun_typs decl_ty;
+                val n = Int.min (length decl_args, length dom);
+                val inst_result = mk_fun_ty (drop n dom, range);
                 val subst =
                   (case expected of
                     SOME {rust_shape, ...} =>
-                      bind_expected_shape decl_ret rust_shape subst0
+                      (* A result type variable may instantiate to more arrows.
+                         After those arguments are applied, the surrounding
+                         expectation describes only its remaining suffix. Do not
+                         bind that suffix as the whole declaration result: doing
+                         so would erase a returned function from argument shapes.
+                         Contextual layout can refine the complete result only
+                         when its erased HOL type agrees with that instance. *)
+                      if shape_type rust_shape = inst_result
+                      then bind_expected_shape decl_ret rust_shape subst0
+                      else subst0
                   | NONE => subst0);
-                val n = Int.min (length decl_args, length dom);
               in
                 map2 (expected_from subst)
                   (take n decl_args) (take n dom)
