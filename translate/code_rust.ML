@@ -1728,10 +1728,16 @@ fun print_type_param_bound (vname, sort) =
                 rust_term_parens [left, right]
                   (print_args NOBR expected_args [left, right])
             | ("HOL.If", [cond, then_t, else_t]) =>
-                rust_if
+                (* Rust may parse a leading block-like expression as a complete
+                   statement before a following infix operator. Emit the
+                   conditional as a parenthesized expression at every syntax
+                   boundary; this is also valid for a complete function body.
+                   Code_Printer.brackify treats a single Pretty node as atomic
+                   and cannot supply this grouping around rust_if's block. *)
+                rust_parens [rust_if
                   (print_term NONE some_thm vars NOBR cond)
                   (print_term expected some_thm vars NOBR then_t)
-                  (print_term expected some_thm vars NOBR else_t)
+                  (print_term expected some_thm vars NOBR else_t)]
             | _ => print_registered_syntax ())
           end
       | _ => brackify fxy (print_app_expr some_thm vars app))
