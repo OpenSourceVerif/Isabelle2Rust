@@ -1255,7 +1255,14 @@ fun print_type_param_bound (vname, sort) =
                                  back to flat, recursively constructing the same
                                  adapter while trying to print its own callee. *)
                               str (rv_lookup_var vars v)
-                          | _ => print_term_decl is_pseudo_fun some_thm vars NOBR t)
+                          | _ =>
+                              (* A computed callee (e.g. an If returning a
+                                 function) evaluates expressions before it yields
+                                 the Rc. Preserve expression cloning there: its
+                                 condition can consume a value that a branch
+                                 subsequently captures. Only the direct variable
+                                 above is merely borrowed as the call target. *)
+                              print_term_app is_pseudo_fun some_thm vars NOBR t)
                         fun call callee args =
                           rust_open(
                             str "(*"
