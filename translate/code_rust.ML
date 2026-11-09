@@ -3993,22 +3993,49 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
               Code_Symbol.Table.update (sym, box_list_of_constr sym)
           | _ => I)) stmt_list Code_Symbol.Table.empty
       in fn sym => the_default [] (Code_Symbol.Table.lookup tab sym) end;
-    (** Phantom type parameters of a datatype: declared generic params (vs) that
-        appear in NO constructor field type. Rust rejects an unused generic
-        (E0392), so each is materialised as a PhantomData<Ti> marker field. Order
-        follows vs so the enum declaration and the per-constructor markers agree.
-        Precomputed into phantom_table, keyed by the datatype's Type_Constructor. **)
-    fun phantom_vars_of_datatype (vs, cos) =
-      let
-        val used = cos |> maps (fn (_, tys) => maps type_names tys) |> distinct (op =)
-      in filter_out (member (op =) used) vs end;
+    (** Rust datatype parameters need a nonrecursive field witness. Merely
+        occurring in T<A>, or in another member of a mutually recursive group,
+        does not establish a use of A. Compute the least fixed point of witnessed
+        parameters: a datatype application propagates only arguments whose
+        corresponding declaration parameters already have a witness. This also
+        handles recursion nested in containers and parameter permutations.
+
+        Types without a generated datatype declaration (native tuples, functions,
+        and other code_printing types) retain their ordinary argument uses.
+        Unwitnessed parameters get the existing PhantomData representation.
+        The single table is shared by declarations, constructions and patterns;
+        declaration order keeps marker positions identical at all three sites. **)
     val phantom_table =
       let
-        val tab = fold (fn ((sym, stmt), _) =>
+        val datatypes = map_filter (fn ((sym, stmt), _) =>
           (case (sym, stmt) of
-            (Type_Constructor _, Code_Thingol.Datatype (vs, cos)) =>
-              Code_Symbol.Table.update (sym, phantom_vars_of_datatype (vs, cos))
-          | _ => I)) stmt_list Code_Symbol.Table.empty
+            (Type_Constructor tyco, Code_Thingol.Datatype data) => SOME (tyco, data)
+          | _ => NONE)) stmt_list;
+        val declarations = Symtab.make datatypes;
+        fun used_vars witnessed (ITyVar v) = [v]
+          | used_vars witnessed (tyco `%% tys) =
+              (case Symtab.lookup declarations tyco of
+                SOME (vs, _) =>
+                  if length vs = length tys then
+                    maps (fn (v, ty) =>
+                      if member (op =) (the_default [] (Symtab.lookup witnessed tyco)) v
+                      then used_vars witnessed ty else []) (vs ~~ tys)
+                  else maps (used_vars witnessed) tys
+              | NONE => maps (used_vars witnessed) tys);
+        fun close witnessed =
+          let
+            val next = Symtab.make (map (fn (tyco, (vs, cos)) =>
+              let
+                val used = maps (fn (_, tys) => maps (used_vars witnessed) tys) cos;
+              in (tyco, filter (member (op =) used) vs) end) datatypes);
+          in
+            if Symtab.dest next = Symtab.dest witnessed then next else close next
+          end;
+        val witnessed = close (Symtab.make (map (fn (tyco, _) => (tyco, [])) datatypes));
+        val tab = fold (fn (tyco, (vs, _)) =>
+          Code_Symbol.Table.update (Type_Constructor tyco,
+            filter_out (member (op =) (the_default [] (Symtab.lookup witnessed tyco))) vs))
+          datatypes Code_Symbol.Table.empty;
       in fn sym => the_default [] (Code_Symbol.Table.lookup tab sym) end;
     (** Look up whether a constant is a data constructor; returns SOME parent_tyco or NONE. **)
     fun lookup_constant_typeco_gen program sym =
