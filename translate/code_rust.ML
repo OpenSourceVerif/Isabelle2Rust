@@ -3354,16 +3354,21 @@ fun rust_program_of_program ctxt module_name reserved identifiers
     (** If sym is the chosen representative of an instance, the Inst stmt to emit
         in its place (carrying every method of that instance). **)
     fun repr_inst sym = AList.lookup (op =) inst_table sym;
-    (** An external Rust type has no datatype statement where its missing
-        superclass implementations can be emitted.  Its closure implementations
-        are therefore attached to exactly one reconstructed instance representative.
+    (** An external Rust type has no datatype statement, and an abstract code
+        type has only one declaration slot with no constructor slots to spare.
+        Their missing superclass implementations are therefore attached to
+        exactly one reconstructed instance representative.
         Replacing that representative's single Inst with one InstGroup preserves
         Code_Namespace's one-output-slot-per-input invariant while keeping every
-        impl in the module that already owns the external type's explicit impl. **)
+        impl in the module that already owns the type's explicit impl. **)
     fun emit_inst export sym data =
       (case AList.lookup (op =) orphan_closure_hosts sym of
           NONE => SOME (export, Inst data)
         | SOME closure_insts => SOME (export, InstGroup (data :: closure_insts)));
+    (* Closure impls already assigned to an explicit instance must not also be
+       emitted beside the datatype declaration. Both sites share these exact
+       class/type keys, so moving a host cannot duplicate or discard an impl. *)
+    val hosted_closure_keys = maps (map fst o snd) orphan_closure_hosts;
     fun namify_const variant base (nsp_const, nsp_type) =
       let
         val (base', nsp_const') = variant base nsp_const
@@ -3468,9 +3473,10 @@ fun rust_program_of_program ctxt module_name reserved identifiers
         (* Emit this group's missing superclass-closure impls right beside its
            datatypes.  A datatype is declared in exactly one group, so this needs
            no cross-group de-duplication; closure_inst_data is already distinct.
-           Types rendered by external code_printing syntax have no Datas statement
-           and are instead attached to an explicit instance by emit_inst above.
-           They are bundled into ONE InstGroup statement rather than one Inst each:
+           External types and abstract types without constructor slots have
+           their closure impls attached to an explicit instance by emit_inst above;
+           omit those already hosted entries here. Other closures are bundled
+           into ONE InstGroup statement rather than one Inst each:
            Code_Namespace.hierarchical_program forbids modify_stmts from returning
            more entries than it received, and a small datatype group (e.g.
            single-constructor `RBT.rbt` needing two closures) has fewer input syms
@@ -3479,7 +3485,8 @@ fun rust_program_of_program ctxt module_name reserved identifiers
         val closure_insts =
           maps (fn (_, (tyco, _)) =>
             map_filter (fn (cls, t, vs) =>
-              if t = tyco then SOME ((cls, t), (vs, [])) else NONE)
+              if t = tyco andalso not (member (op =) hosted_closure_keys (cls, t))
+              then SOME ((cls, t), (vs, [])) else NONE)
               closure_inst_data)
             datas
         val closure_stmts =
@@ -3975,19 +3982,25 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           in map (fn k => the (find_first (fn (s, t) => (s, canon_tyco t) = k) all_pairs0)) ks end
       in map (fn (s, t) => (s, t, vs_of_tyco t)) all_pairs end;
 
-    (** Missing superclass implementations for a code_printing-mapped type cannot
-        follow a Datas statement: the mapped Rust type is external and its HOL
-        Type_Constructor is deliberately not emitted.  Choose one reconstructed
-        instance of the same canonical Rust type as the unique output host.  The
+    (** Missing superclass implementations cannot consume a new output slot for
+        an external mapped type (no Datas statement) or an abstract code type
+        (one Datatype slot, no constructor slots). Choose one reconstructed
+        instance of the same canonical Rust type as the unique output host. The
         host's Inst statement is later widened to an InstGroup containing both the
         executable impl and these legality-only superclass impls.  Grouping by the
         representative symbol prevents duplicate Rust impls when several missing
-        superclasses belong to the same mapped type. **)
+        superclasses belong to the same Rust type. **)
     val orphan_closure_hosts =
       let
+        fun has_abstract_decl t =
+          (case Code_Symbol.Graph.get_node program (Type_Constructor t) of
+            Code_Thingol.Datatype (_, []) => true
+          | _ => false)
+          handle Code_Symbol.Graph.UNDEF _ => false;
         val orphan_insts =
           map (fn (cls, t, vs) => ((cls, t), (vs, [])))
-            (filter (fn (_, t, _) => is_some (tyco_syntax t)) closure_inst_data);
+            (filter (fn (_, t, _) =>
+              is_some (tyco_syntax t) orelse has_abstract_decl t) closure_inst_data);
         val host_syms =
           distinct (op =) (map_filter (fn ((_, t), _) =>
             Option.map (fn (host_sym, _) => host_sym)
