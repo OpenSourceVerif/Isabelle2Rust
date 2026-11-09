@@ -2646,6 +2646,34 @@ fun print_type_param_bound (vname, sort) =
           (Function (const, (vs_ty as (vs, ty), eqs))) =
           let
             val is_impl = is_some impl_method
+            (* A class result retains the arrows written outside Self, even
+               after a function instance replaces Self by its own arrows.
+               Instantiate that declaration as a shape before printing the
+               impl result. The same expectation reaches constructor bodies,
+               so a result-only constructor such as None gets matching type
+               arguments below enclosing containers. *)
+            val method_result_expected =
+              if not is_impl then NONE
+              else
+                (case inst_method_info (Constant const) of
+                  SOME (_, cp) =>
+                    (case classparam_decl cp of
+                      SOME (_, self_var, mty) =>
+                        (case match_class_self self_var mty ty of
+                          SOME self_ty =>
+                            let
+                              val arity = arrow_arity mty;
+                              val result_ty = drop_fun_type arity ty;
+                              val shape = instantiate_rust_shape
+                                [(self_var, default_rust_shape self_ty)]
+                                (drop_fun_type arity mty) result_ty;
+                            in
+                              if shape = default_rust_shape result_ty then NONE
+                              else SOME {hol_type = result_ty, rust_shape = shape}
+                            end
+                        | NONE => NONE)
+                    | NONE => NONE)
+                | NONE => NONE);
             fun to_tuple l prt = if (length l >= 2) then Pretty.block ([str "(", prt, str ")"]) else prt;
             (** Compute generic parameters <A, B> and where-clause trait bounds
                 from the type variables and sort constraints. **)
@@ -2702,7 +2730,8 @@ fun print_type_param_bound (vname, sort) =
                 val used_vars = build (Code_Thingol.add_varnames t)
                 val ts' = map (wildcard_unused_pattern used_vars) ts
                 val print_pattern_term = (print_term_pattern is_pseudo_fun some_thm vars NOBR)
-                val print_expr_term = (print_term_app is_pseudo_fun some_thm vars NOBR)
+                val print_expr_term = (print_term_expected method_result_expected is_pseudo_fun
+                      (false, box_new, clone) some_thm vars NOBR)
                 val (printed_patterns, lets) =
                   if exists pat_contains_boxed_field ts' then
                     print_shallow_box_patterns is_pseudo_fun some_thm vars ts'
@@ -2719,7 +2748,11 @@ fun print_type_param_bound (vname, sort) =
               let
                 val (_, t, some_thm, vars) = prepare_eqn eq;
               in
-                (case t of
+                (case method_result_expected of
+                  SOME expected =>
+                    [print_term_expected (SOME expected) is_pseudo_fun
+                      (false, box_new, clone) some_thm vars NOBR t]
+                | NONE => (case t of
                   (_ `|=> _) =>
                     let
                       val (cap_lets, closure_pretty) =
@@ -2739,7 +2772,7 @@ fun print_type_param_bound (vname, sort) =
                           if is_none (const_syntax const) then print_case_body () else default ()
                       | _ => print_case_body ())
                     end
-                | _ => [print_term_app is_pseudo_fun some_thm vars NOBR t])
+                | _ => [print_term_app is_pseudo_fun some_thm vars NOBR t]))
               end;
             (** Print the function signature and body:
                 generates dummy parameter names, type annotations, return type,
@@ -2768,11 +2801,14 @@ fun print_type_param_bound (vname, sort) =
                 val raw_ret_ty =
                   drop_fun_type (List.length dummy_parms) ty;
                 val ret_shape =
-                  (case function_result_rust_shape [] (Constant const) of
-                    SOME shape =>
-                      if shape_type shape = raw_ret_ty
-                      then shape else default_rust_shape raw_ret_ty
-                  | NONE => default_rust_shape raw_ret_ty);
+                  (case method_result_expected of
+                    SOME {rust_shape, ...} => rust_shape
+                  | NONE =>
+                      (case function_result_rust_shape [] (Constant const) of
+                        SOME shape =>
+                          if shape_type shape = raw_ret_ty
+                          then shape else default_rust_shape raw_ret_ty
+                      | NONE => default_rust_shape raw_ret_ty));
                 (* A function body's stable source shape is part of its Rust item
                    boundary.  Printing that shape on the signature lets a
                    dictionary-selected value remain nested even when it is wrapped
@@ -2801,7 +2837,8 @@ fun print_type_param_bound (vname, sort) =
                         val used_vars = build (Code_Thingol.add_varnames t);
                       in
                         (ts, vars, used_vars, [],
-                          print_term_app is_pseudo_fun some_thm vars NOBR t)
+                          print_term_expected method_result_expected is_pseudo_fun
+                            (false, box_new, clone) some_thm vars NOBR t)
                       end;
                   in
                     stable_match_compile is_pseudo_fun NONE vars
@@ -2837,7 +2874,8 @@ fun print_type_param_bound (vname, sort) =
                             (ListPair.zip (ts', param_tys));
                       in
                         (ts', surface_pats, lets, residuals, row_vars', used_vars,
-                          print_term_app is_pseudo_fun some_thm row_vars NOBR t)
+                          print_term_expected method_result_expected is_pseudo_fun
+                            (false, box_new, clone) some_thm row_vars NOBR t)
                       end;
                     val infos = map row_info eqs;
                     val indexed_infos = map_index I infos;
