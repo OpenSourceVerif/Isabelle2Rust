@@ -4035,9 +4035,36 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
               Code_Thingol.Datatype (vns, _) => map (fn v => (v, [])) vns
             | _ => [])
           handle Code_Symbol.Graph.UNDEF _ => [];
-        val tyco_vs = map (fn (_, ((_, t), (vs, _))) => (t, vs)) inst_table
-        fun vs_of_tyco t =
-          (case AList.lookup (op =) tyco_vs t of SOME vs => vs | NONE => datatype_vs t)
+        (* A legality-only superclass impl must be available to every explicit
+           descendant that requires it.  Taking an arbitrary instance of the
+           same type imports unrelated sibling bounds, e.g. FullExhaustive into
+           the Typerep impl needed by TermOf.
+
+           Intersect the per-parameter guarantees of just those descendants,
+           expanding superclass implications before intersecting.  Their bounds
+           already include executable superclass requirements from inst_table;
+           those common requirements must survive.  Each synthetic ancestor has
+           at least the same inducing descendants, so this also respects chains
+           of missing superclasses.  Reachable methods remain explicit impls and
+           never pass through this legality-only calculation. *)
+        fun implied_sort sort =
+          distinct (op =) (maps (fn c => c :: superclass_closure c) sort);
+        fun common_vs inherited vs =
+          map2 (fn (v, sort) => fn (_, inherited_sort) =>
+            (v, filter (member (op =) (implied_sort inherited_sort)) sort))
+            vs inherited;
+        fun minimal_sort sort =
+          filter_out (fn c => exists (fn other =>
+            member (op =) (superclass_closure other) c) sort) sort;
+        fun vs_of_pair s t =
+          (case map_filter (fn (_, ((c, tyco), (vs, _))) =>
+              if canon_tyco tyco = canon_tyco t
+                  andalso member (op =) (superclass_closure c) s
+              then SOME vs else NONE) inst_table of
+            [] => datatype_vs t
+          | vs :: vss =>
+              map (apsnd minimal_sort)
+                (fold common_vs vss (map (apsnd implied_sort) vs)));
         val missing =
           maps (fn (c, t) =>
              map_filter (fn s =>
@@ -4060,7 +4087,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         val all_pairs =
           let val ks = distinct (op =) (map (fn (s, t) => (s, canon_tyco t)) all_pairs0)
           in map (fn k => the (find_first (fn (s, t) => (s, canon_tyco t) = k) all_pairs0)) ks end
-      in map (fn (s, t) => (s, t, vs_of_tyco t)) all_pairs end;
+      in map (fn (s, t) => (s, t, vs_of_pair s t)) all_pairs end;
 
     (** Missing superclass implementations cannot consume a new output slot for
         an external mapped type (no Datas statement) or an abstract code type
