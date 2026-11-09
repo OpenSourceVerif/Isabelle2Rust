@@ -3372,6 +3372,31 @@ fun rust_program_of_program ctxt module_name reserved identifiers
       let
         val (base', nsp_type') = variant base nsp_type
       in (base', (nsp_const, nsp_type')) end;
+    (* Rust generic parameters share the namespace of nominal types and traits.
+       The printers use uppercase Thingol variable names, so reserve those names
+       before allocating any nominal name. This keeps declarations, recursive
+       references, imported names and trait bounds on the same deresolver entry;
+       renaming only a datatype header would leave its uses shadowed. Read only
+       declaration types, not equation bodies or their potentially shared DAGs.
+       Reconstructed impls also bind type variables, and marker-class blanket
+       impls introduce their own fixed T parameter. *)
+    fun reserve_type_vars vs =
+      fold (Name.declare o String.map Char.toUpper) vs;
+    fun reserve_stmt_type_vars (_, (stmt, _)) =
+      (case stmt of
+        Code_Thingol.Fun (((vs, ty), _), _) =>
+          reserve_type_vars (map fst vs @ itype_variables ty)
+      | Code_Thingol.Datatype (vs, _) => reserve_type_vars vs
+      | Code_Thingol.Class (v, (_, params)) =>
+          reserve_type_vars (v :: maps (itype_variables o snd) params)
+          #> (if null params then Name.declare "T" else I)
+      | Code_Thingol.Classinst {vs, ...} => reserve_type_vars (map fst vs)
+      | _ => I);
+    val reserved_types =
+      reserved
+      |> Code_Symbol.Graph.fold reserve_stmt_type_vars program
+      |> fold (fn (_, (_, (vs, _))) => reserve_type_vars (map fst vs)) inst_table
+      |> fold (fn (_, _, vs) => reserve_type_vars (map fst vs)) closure_inst_data;
     (** Assign Rust naming conventions per statement kind. **)
     fun namify_stmt (Code_Thingol.Fun _) = namify_const variant_snake_case
       | namify_stmt (Code_Thingol.Datatype _) = namify_type variant_upper_camel_case
@@ -3511,7 +3536,7 @@ fun rust_program_of_program ctxt module_name reserved identifiers
   in
     Code_Namespace.hierarchical_program ctxt {
       module_name = module_name, reserved = reserved, identifiers = identifiers,
-      empty_nsp = (reserved, reserved), namify_module = pair, namify_stmt = namify_stmt,
+      empty_nsp = (reserved, reserved_types), namify_module = pair, namify_stmt = namify_stmt,
       (* Rust modules may reference each other freely (cross-module refs are
          emitted as fully-qualified `crate::Mod::name` paths), so mutually
          recursive modules are legal -- unlike OCaml. Allowing cycles is required
