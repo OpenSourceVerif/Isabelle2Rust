@@ -1562,7 +1562,13 @@ fun print_type_param_bound (vname, sort) =
                   let
                     val decl_tail = drop_fun_type wanted_fn decl_ty;
                     val inst_tail = mk_fun_ty (drop wanted_fn dom, range);
-                    val subst = add_default_shape_subst decl_tail inst_tail [];
+                    (* The ordinary function's generic result is the same
+                       concrete Rust type as its dictionary-adapted arguments.
+                       Reuse their dictionary substitution: a function instance
+                       can select unary groups even when the erased result
+                       arrows would otherwise form one flat parameter group. *)
+                    val subst = dictionary_shape_subst const decl_ty
+                      (mk_fun_ty (dom, range));
                   in rust_shape_groups
                     (instantiate_rust_shape subst decl_tail inst_tail) end
               | NONE => [])
