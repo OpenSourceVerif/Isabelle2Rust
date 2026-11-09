@@ -1209,7 +1209,7 @@ fun print_type_param_bound (vname, sort) =
                         let
                           val (arg_tys, ret_ty) = fun_typs callee_ty
                           val explicit_arity =
-                            (case Code_Thingol.unfold_pat_abs t' of
+                            (case unfold_rust_pat_abs t' of
                               ([], _) => length arg_tys
                             | (binds, _) => length binds)
                           val given = length ts'
@@ -1955,6 +1955,28 @@ fun print_type_param_bound (vname, sort) =
     and direct_irrefutable_patterns pats =
       List.all pat_irrefutable pats andalso
         not (exists pat_contains_boxed_field pats)
+    (* Thingol can lift a one-clause case into a lambda parameter even when the
+       source pattern is refutable or traverses boxed datatype fields. Rust
+       parameters permit neither. Keep the original variable and case body for
+       those abstractions so print_case performs its ordinary failure handling
+       and staged Box extraction. Use this same unfolding for immediate-callee
+       arity analysis: lifting through a retained case would count binders that
+       the actual Rust closure does not accept. *)
+    and unfold_rust_pat_abs t =
+      let
+        fun split (abs as (v, ty) `|=> (body, _)) =
+              (case Code_Thingol.split_pat_abs abs of
+                SOME (bind as (pat, _), rest) =>
+                  if direct_irrefutable_patterns [pat]
+                  then SOME (bind, rest)
+                  else SOME ((IVar v, ty), body)
+              | NONE => NONE)
+          | split _ = NONE;
+        fun collect abs binds =
+          (case split abs of
+            SOME (bind, body) => collect body (bind :: binds)
+          | NONE => (rev binds, abs));
+      in collect t [] end
     and print_irrefutable_case_parts is_pseudo_fun (need_box, box_prcs, clone_prcs)
         some_thm vars (case_expr as {clauses = [_], ...}) =
           let
@@ -2329,7 +2351,7 @@ fun print_type_param_bound (vname, sort) =
       let
         val (binds0, body0) =
           (case bind_limit of
-            NONE => Code_Thingol.unfold_pat_abs t
+            NONE => unfold_rust_pat_abs t
           | SOME limit =>
               let
                 fun take_abs 0 body = ([], body)
@@ -2340,7 +2362,7 @@ fun print_type_param_bound (vname, sort) =
                 val limited as (binds, _) = take_abs limit t;
               in
                 if length binds = limit then limited
-                else Code_Thingol.unfold_pat_abs t
+                else unfold_rust_pat_abs t
               end);
         fun apply_eta_args body [] = body
           | apply_eta_args (ICase {term, typ, clauses, ...}) args =
