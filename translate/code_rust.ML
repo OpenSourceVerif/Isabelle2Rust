@@ -1685,43 +1685,63 @@ fun print_type_param_bound (vname, sort) =
                preserves the expression while carrying the mapped result type to
                rustc. *)
             fun force_mapped_result_type p =
-              (case range of
-                (tyco `%% (_ :: _)) =>
+              (case (drop (length ts) dom, range) of
+                ([], (tyco `%% (_ :: _))) =>
                   if is_some (tyco_syntax tyco)
                   then rust_open [
                     str "std::convert::identity::<", print_typ NOBR range,
                     str ">", rust_parens [p]]
                   else p
               | _ => p);
+            (* A syntax template consumes only its declared prefix. The
+               remaining arrows describe the returned Rc function, not extra
+               template arguments. If only part of that function is applied,
+               eta-expand the missing arguments before emitting one uncurried
+               call. Expected types are paired only with arguments present at
+               this application, never with all domains of a function result. *)
+            fun print_syntax_application wanted print_prefix =
+              if length ts < wanted orelse
+                  (length ts > wanted andalso length ts < length dom)
+              then print_term expected some_thm vars fxy
+                (Code_Thingol.saturated_application (length dom) app)
+              else
+                let
+                  val (ts1, ts2) = chop wanted ts;
+                  val expected1 = take wanted expected_args;
+                  val expected2 = take (length ts2) (drop wanted expected_args);
+                  val prefix = print_prefix expected1 ts1
+                    (if null ts2 then fxy else NOBR);
+                  val result =
+                    if null ts2 then prefix
+                    else rust_open [str "(*(", prefix, str "))",
+                      rust_term_parens ts2 (print_args NOBR expected2 ts2)];
+                in force_mapped_result_type result end;
             fun print_registered_syntax () =
               (case const_syntax name of
                 NONE => brackify fxy (print_app_expr some_thm vars app)
-              | SOME (_, Plain_printer s) =>
-                  force_mapped_result_type
-                    (brackify fxy (str s :: print_args BR expected_args ts))
+              | SOME (wanted, Plain_printer s) =>
+                  (* A plain path denotes a Rust item. Saturated calls use
+                     comma-separated argument lists; as a first-class function
+                     it goes through the same Rc eta wrapper as other terms. *)
+                  print_syntax_application wanted
+                    (fn expecteds => fn args => fn _ =>
+                      if wanted = 0 then str s
+                      else rust_open [str s,
+                        rust_term_parens args (print_args NOBR expecteds args)])
               | SOME (wanted, Complex_printer print) =>
-                  let
-                    val ((vs_tys, (ts1, rty)), ts2) =
-                      Code_Thingol.satisfied_application wanted app;
-                    val (expected1, expected2) = chop wanted expected_args;
-                    fun expected_of t =
-                      let val i = find_index (fn t' => t' = t) ts1
-                      in if i < 0 then NONE else List.nth (expected1, i) end;
-                    fun print_term_raw some_thm raw_vars fxy t =
-                      print_term (expected_of t) some_thm
-                        (raw_vars, rv_types vars) fxy t;
-                    fun print' fxy =
-                      print (print_term_raw some_thm) some_thm (rv_names vars) fxy (ts1 ~~ take wanted dom);
-                  in
-                    if null vs_tys then
-                      if null ts2 then
-                        force_mapped_result_type (print' fxy)
-                      else
-                        brackify fxy (print' APP :: print_args BR expected2 ts2)
-                    else
-                      print_term expected some_thm vars fxy
-                        (vs_tys `|==> (IConst const `$$ ts1, rty))
-                  end)
+                  print_syntax_application wanted
+                    (fn expecteds => fn args => fn context =>
+                      let
+                        fun expected_of t =
+                          let val i = find_index (fn t' => t' = t) args
+                          in if i < 0 then NONE else List.nth (expecteds, i) end;
+                        fun print_term_raw some_thm raw_vars fxy t =
+                          print_term (expected_of t) some_thm
+                            (raw_vars, rv_types vars) fxy t;
+                      in
+                        print (print_term_raw some_thm) some_thm (rv_names vars)
+                          context (args ~~ take wanted dom)
+                      end))
           in
             (case (name, ts) of
               ("String.Code.abort", _) =>
