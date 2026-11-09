@@ -19,8 +19,19 @@ code_identifier
 | code_module Power \<rightharpoonup> (Rust) Arith
 | code_module Code_Numeral \<rightharpoonup> (Rust) Arith
 
-code_printing
-  constant Code.abort \<rightharpoonup> (Rust) "panic'!( _ )"
+(* Code.abort is a primitive with two protocol arguments. Its Rust printing
+   is handled in Code_Rust: dynamic literal messages need decoding, the delayed
+   argument must stay unevaluated, and the result may have a function type.
+   A generic mixfix printer cannot express those evaluation/typing boundaries.
+   Keep a registration for target projection, and reject accidental fallback to
+   the generic syntax path instead of silently printing an incomplete macro. *)
+setup \<open>
+  Code_Target.set_printings (Code_Symbol.Constant
+    (\<^const_name>\<open>Code.abort\<close>,
+      [(Code_Rust.target, SOME (Code_Printer.complex_const_syntax
+        (2, fn _ => fn _ => fn _ => fn _ => fn _ => fn _ =>
+          error "Code.abort must use the Rust protocol printer")))]))
+\<close>
 
 
 (* Bools *)

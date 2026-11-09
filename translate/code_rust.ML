@@ -1724,7 +1724,52 @@ fun print_type_param_bound (vname, sort) =
                   end)
           in
             (case (name, ts) of
-              ("Product_Type.Pair", [left, right]) =>
+              ("String.Code.abort", _) =>
+                if length ts < 2 then
+                  (* An unapplied abort is a function value. Reuse ordinary
+                     eta expansion/capture handling until both protocol
+                     arguments (message and delayed fallback) are available. *)
+                  print_term expected some_thm vars fxy
+                    (Code_Thingol.saturated_application 2 app)
+                else
+                  let
+                    (* String.literal's executable datatype is an ASCII spine:
+                       Literal has seven low-to-high bits and its boxed tail.
+                       Decode the actual message value, not its ML source text,
+                       so computed messages retain every character. Local names
+                       live in this block and are introduced only after the
+                       caller's message expression has been printed/evaluated. *)
+                    val literal_sym = Constant "String.Literal";
+                    val _ =
+                      if is_some (const_syntax "String.Literal")
+                          orelse is_none (lookup_constant_typeco literal_sym)
+                      then error "Rust Code.abort requires the standard String.literal datatype"
+                      else ();
+                    val bits = map (fn i => "abort_b" ^ string_of_int i) (0 upto 6);
+                    val byte = space_implode " | "
+                      (map_index (fn (i, bit) =>
+                        "((" ^ bit ^ " as u8) << " ^ string_of_int i ^ ")") bits);
+                    val tail = if List.last (box_table literal_sym)
+                      then "*abort_tail" else "abort_tail";
+                    val loop_header = str ("while let " ^ constructor_name literal_sym ^
+                      "(" ^ space_implode ", " (bits @ ["abort_tail"]) ^ ") = abort_value");
+                  in
+                    (* A saturated abort diverges at every HOL result type,
+                       including function types. Neither the fallback nor any
+                       later application argument is evaluated or printed as a
+                       call on the never value. Rust coerces panic's ! to the
+                       surrounding result type. *)
+                    rust_parens [rust_bare_block [
+                      rust_open [str "let mut abort_value = ",
+                        print_term NONE some_thm vars NOBR (hd ts), str ";"],
+                      str "let mut abort_message = std::string::String::new();",
+                      rust_block loop_header [
+                        str ("abort_message.push(char::from(" ^ byte ^ "));"),
+                        str ("abort_value = " ^ tail ^ ";")],
+                      str "panic!(\"{}\", abort_message)"
+                    ]]
+                  end
+            | ("Product_Type.Pair", [left, right]) =>
                 rust_term_parens [left, right]
                   (print_args NOBR expected_args [left, right])
             | ("HOL.If", [cond, then_t, else_t]) =>
