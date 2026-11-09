@@ -3220,7 +3220,10 @@ val literals_rust = let
         val bytes = int_to_bytes k
         val byte_str = String.concatWith ", " (List.map Int.toString bytes)
       in
-        "BigInt::from_bytes_be(Sign::Plus, &[" ^ byte_str ^ "])"
+        (* A generated HOL datatype may itself be named Sign or BigInt.
+           Runtime numeral construction must not resolve through a user module's
+           local type namespace or its glob imports. *)
+        "num_bigint::BigInt::from_bytes_be(num_bigint::Sign::Plus, &[" ^ byte_str ^ "])"
       end
 in Literals {
   literal_string = print_rust_string,
