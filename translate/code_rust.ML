@@ -5,6 +5,11 @@
 signature CODE_RUST =
 sig
   val target: string
+
+  (* Set-like collection over a shared Thingol term; callbacks must be
+     idempotent and must not depend on the number of occurrences. *)
+  val fold_distinct_iterm_constants:
+    (Code_Thingol.const -> 'a -> 'a) -> Code_Thingol.iterm -> 'a -> 'a
 end;
 
 structure Code_Rust : CODE_RUST =
@@ -150,6 +155,38 @@ fun fold_iterm_constants f (IConst const) acc = f const acc
       |> fold_iterm_constants f primitive
       |> fold (fn (pat, body) =>
            fold_iterm_constants f pat #> fold_iterm_constants f body) clauses;
+
+(** Collect constants for set-like analyses of immutable Thingol terms.
+    ICase keeps both a recognized match and its primitive application; these
+    representations can share whole continuation subgraphs. Visit each physical
+    node once, in the original depth-first order, without dropping constants that
+    occur only in the primitive. Identity, rather than structural equality,
+    avoids recursively comparing the very graph being traversed.
+
+    The seen list belongs to this invocation: different accumulators, callbacks
+    and fixed-point iterations must observe the graph afresh. This deliberately
+    does not change the occurrence-sensitive fold above. Identity-list lookup is
+    quadratic in distinct nodes in the worst case, but never expands the shared
+    graph into an exponentially larger tree. **)
+fun fold_distinct_iterm_constants f term acc =
+  let
+    val seen = Unsynchronized.ref [];
+    fun visit t acc =
+      if member pointer_eq (!seen) t then acc
+      else
+        let
+          val _ = seen := t :: !seen;
+        in
+          (case t of
+            IConst const => f const acc
+          | IVar _ => acc
+          | t1 `$ t2 => acc |> visit t1 |> visit t2
+          | _ `|=> (body, _) => visit body acc
+          | ICase {term, clauses, primitive, ...} =>
+              acc |> visit term |> visit primitive
+              |> fold (fn (pat, body) => visit pat #> visit body) clauses)
+        end;
+  in visit term acc end;
 
 (** Return the final or penultimate component of a dot-qualified name. **)
 fun after_last_dot s =
@@ -3496,7 +3533,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           | add_plain_dict (Code_Thingol.Dict_Var {var, class, ...}) bounds =
               insert (op =) (var, class) bounds;
         fun add_term_dicts term bounds =
-          fold_iterm_constants
+          fold_distinct_iterm_constants
             (fn {dicts, ...} => fold (fold add_dict) dicts) term bounds;
         fun method_body_bounds sym =
           (case Code_Symbol.Graph.get_node program sym of
@@ -3679,7 +3716,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
               else bounds
           | NONE => bounds);
     fun add_called_term_bounds method_bounds term bounds =
-      fold_iterm_constants (add_called_const_bounds method_bounds) term bounds;
+      fold_distinct_iterm_constants (add_called_const_bounds method_bounds) term bounds;
     fun called_function_bounds method_bounds sym =
       (case Code_Symbol.Graph.get_node program sym of
         Code_Thingol.Fun ((_, raw_eqs), _) =>
