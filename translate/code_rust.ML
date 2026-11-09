@@ -4362,7 +4362,11 @@ val _ = Theory.setup
       evaluation_args = []})
   #> Code_Target.set_printings (Type_Constructor ("fun",
     [(target, SOME (2, fn_trait_impl_syntax))]))
+  (* Name allocation is shared by items, binders and their references. Reserve
+     the strict Rust 2018/2024 keywords here as well, even for older editions,
+     so HOL identifiers never become invalid declarations or call sites. *)
   #> fold (Code_Target.add_reserved target) [
+    "async", "await", "dyn", "gen",
     "Self", "abstract", "alignof", "and", "any", "as", "assert", "become", 
     "begin", "box", "break","case", "chan", "class", "const", "constraint", 
     "continue", "crate", "default", "defer", "do", "done", "downto", 
