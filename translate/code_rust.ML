@@ -863,27 +863,48 @@ fun print_type_param_bound (vname, sort) =
         erased itype; this is what lets successive applications of a polymorphic
         one-step operator accumulate `[A][B][C]` instead of stopping at
         `[A][B,C]`. **)
-    fun bind_expected_shape (ITyVar v) shape subst =
-          AList.update (op =) (v, shape) subst
-      | bind_expected_shape (decl as ("fun" `%% [_, _]))
-          (Rust_Fn (arg_shapes, ret_shape)) subst =
-          let val (decl_args, decl_ret) = fun_typs decl
-          in
-            if length decl_args = length arg_shapes
-            then subst
-              |> fold (fn (decl_arg, arg_shape) =>
-                   bind_expected_shape decl_arg arg_shape)
-                   (ListPair.zip (decl_args, arg_shapes))
-              |> bind_expected_shape decl_ret ret_shape
-            else subst
-          end
-      | bind_expected_shape (decl_tyco `%% decl_tys)
-          (Rust_Tyco (shape_tyco, arg_shapes)) subst =
-          if decl_tyco = shape_tyco andalso length decl_tys = length arg_shapes
-          then fold (fn (decl, shape) => bind_expected_shape decl shape)
-            (ListPair.zip (decl_tys, arg_shapes)) subst
-          else subst
-      | bind_expected_shape _ _ subst = subst;
+    (* A binding summary retains the final value for each variable in reverse
+       first-encounter order, as AList.update does on an empty substitution.
+       Replaying it with fold_rev preserves both the positions of existing
+       entries and the last binding's priority. Reapply cached summaries at
+       every occurrence: an intervening subtree may bind the same variable to
+       another representation. The cache is local to this matching query. *)
+    fun bind_expected_shape decl shape subst =
+      let
+        val memo = Unsynchronized.ref Symtab.empty;
+        fun same_pair ((a, b), (c, d)) =
+          pointer_eq (a, c) andalso pointer_eq (b, d);
+        fun apply bindings subst = fold_rev (AList.update (op =)) bindings subst;
+        fun bindings (ITyVar v) shape = [(v, shape)]
+          | bindings (decl as (tyco `%% _)) shape =
+              (case AList.lookup same_pair
+                  (the_default [] (Symtab.lookup (!memo) tyco)) (decl, shape) of
+                SOME result => result
+              | NONE =>
+                  let
+                    val result = compound decl shape;
+                    val _ = memo := Symtab.map_default (tyco, [])
+                      (cons ((decl, shape), result)) (!memo);
+                  in result end)
+        and compound (decl as ("fun" `%% [_, _]))
+              (Rust_Fn (arg_shapes, ret_shape)) =
+              let val (decl_args, decl_ret) = fun_typs decl
+              in
+                if length decl_args = length arg_shapes
+                then []
+                  |> fold (fn (decl_arg, arg_shape) =>
+                       apply (bindings decl_arg arg_shape))
+                       (ListPair.zip (decl_args, arg_shapes))
+                  |> apply (bindings decl_ret ret_shape)
+                else []
+              end
+          | compound (decl_tyco `%% decl_tys) (Rust_Tyco (shape_tyco, arg_shapes)) =
+              if decl_tyco = shape_tyco andalso length decl_tys = length arg_shapes
+              then fold (fn (decl, shape) => apply (bindings decl shape))
+                (ListPair.zip (decl_tys, arg_shapes)) []
+              else []
+          | compound _ _ = [];
+      in apply (bindings decl shape) subst end;
     (** Instantiate a declaration template with both its concrete HOL types and
         the contextual shapes already bound for result variables.  All adjacent
         arrows explicitly written in the template remain one Rust_Fn parameter
