@@ -11,6 +11,10 @@ sig
   val fold_distinct_iterm_constants:
     (Code_Thingol.const -> 'a -> 'a) -> Code_Thingol.iterm -> 'a -> 'a
 
+  (* Variable/class requirements from shared instance-dictionary evidence. *)
+  val add_distinct_dict_vars:
+    Code_Thingol.dict list list -> (string * string) list -> (string * string) list
+
   (* Set-like name queries on the recognized term representation. Preserve the
      upstream first-occurrence order and omit the alternate case primitive. *)
   val add_distinct_constsyms:
@@ -224,6 +228,30 @@ fun fold_distinct_iterm_constants f term acc =
           end
       end;
   in visit term acc end;
+
+(** Collect the variable/class requirements carried by instance dictionaries.
+    Product instances can reuse the same child evidence in both parameter slots.
+    Relations and argument types do not contribute requirements here; retain the
+    original left-to-right traversal of Dict_Var leaves without expanding shared
+    Dict_Const evidence as a tree. Cache only physical plain-dictionary identity,
+    bucketed by instance, so separate payloads for one instance are not merged.
+    Each invocation owns its seen state and preserves the caller's accumulator. **)
+fun add_distinct_dict_vars dictss bounds =
+  let
+    val seen = Unsynchronized.ref Code_Symbol.Table.empty;
+    fun add (Code_Thingol.Dict (_, Code_Thingol.Dict_Var {var, class, ...})) acc =
+          insert (op =) (var, class) acc
+      | add (Code_Thingol.Dict (_, plain as Code_Thingol.Dict_Const (inst, dss))) acc =
+          let
+            val key = Code_Symbol.Class_Instance inst;
+            val nodes = the_default [] (Code_Symbol.Table.lookup (!seen) key);
+          in
+            if member pointer_eq nodes plain then acc
+            else
+              let val _ = seen := Code_Symbol.Table.update (key, plain :: nodes) (!seen)
+              in fold (fn (_, ds) => fold add ds) dss acc end
+          end;
+  in fold (fold add) dictss bounds end;
 
 (** Name reservation follows the same case projection as add_constsyms:
     scrutinees, patterns and bodies, without the alternate primitive. Repeated
@@ -4061,15 +4089,9 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
            `Dict_Var` for `B: Equal`.  Rust type-checks every emitted method body,
            so retain those operational dictionaries in the reconstructed impl
            header instead of relying only on the method typescheme's sorts. *)
-        fun add_dict (Code_Thingol.Dict (_, plain)) bounds =
-              add_plain_dict plain bounds
-        and add_plain_dict (Code_Thingol.Dict_Const (_, dss)) bounds =
-              fold (fn (_, ds) => fold add_dict ds) dss bounds
-          | add_plain_dict (Code_Thingol.Dict_Var {var, class, ...}) bounds =
-              insert (op =) (var, class) bounds;
         fun add_term_dicts term bounds =
           fold_distinct_iterm_constants
-            (fn {dicts, ...} => fold (fold add_dict) dicts) term bounds;
+            (fn {dicts, ...} => add_distinct_dict_vars dicts) term bounds;
         fun method_body_bounds sym =
           (case Code_Symbol.Graph.get_node program sym of
             Code_Thingol.Fun ((_, raw_eqs), _) =>
