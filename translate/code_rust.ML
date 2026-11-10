@@ -3768,13 +3768,13 @@ fun rust_program_of_program ctxt module_name reserved identifiers
       | _ => I);
     (* Runtime type names and prelude traits occupy the same Rust namespace as
        generated datatypes/classes. Reserve the names emitted by closures,
-       phantom fields, Clone bounds and the optional BigInt mappings before
+       phantom fields, Clone/Sized bounds and the optional BigInt mappings before
        allocating source items. Declaration and reference names then follow the
        existing deresolver, while runtime imports and registered syntax retain
        their intended identities. Constructors have their own enum namespace. *)
     val reserved_types =
       reserved
-      |> fold Name.declare ["Rc", "PhantomData", "Clone", "Fn", "BigInt"]
+      |> fold Name.declare ["Rc", "PhantomData", "Clone", "Sized", "Fn", "BigInt"]
       |> Code_Symbol.Graph.fold reserve_stmt_type_vars program
       |> fold (fn (_, (_, (vs, _))) => reserve_type_vars (map fst vs)) inst_table
       |> fold (fn (_, _, vs) => reserve_type_vars (map fst vs)) closure_inst_data;
