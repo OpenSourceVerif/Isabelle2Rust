@@ -309,9 +309,13 @@ fun print_rust_stmt class_syntax tyco_syntax const_syntax reserved is_constr der
         must stay unqualified -- enum variants after `Enum::` and trait methods
         after `Type::` -- where the qualified path is carried by the prefix. **)
     fun deresolve_base sym = List.last (String.fields (fn c => c = #":") (deresolve sym));
-    fun box p = Pretty.block [str "Box<", p, str ">"]
+    (* Recursive-field indirection is the standard library allocation type,
+       independent of any generated HOL datatype named Box. Qualify both its
+       field type and constructor so staged pattern extraction dereferences
+       the same heap representation that construction allocated. *)
+    fun box p = Pretty.block [str "::std::boxed::Box<", p, str ">"]
     fun clone p = Pretty.block [p, str ".clone()"]
-    fun box_new p = Pretty.block [str "Box::new(", p, str ")"]
+    fun box_new p = Pretty.block [str "::std::boxed::Box::new(", p, str ")"]
     fun to_upper s = (String.implode (map Char.toUpper (String.explode s)))
     (** Print a type constructor application `Tyco<args>`. Box<> wrapping of a
         recursive datatype field is applied by print_datatype_decl from the
