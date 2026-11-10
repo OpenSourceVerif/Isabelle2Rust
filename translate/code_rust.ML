@@ -3648,6 +3648,32 @@ fun rust_program_of_program ctxt module_name reserved identifiers
       | namify_stmt (Code_Thingol.Classrel _) = namify_const variant_upper_camel_case
       | namify_stmt (Code_Thingol.Classparam _) = namify_const variant_snake_case
       | namify_stmt (Code_Thingol.Classinst _) = namify_const variant_upper_camel_case;
+    (* Nullary eager values must be classified before printing. Match clauses
+       can share continuation subgraphs even without the primitive application,
+       so membership must visit each physical node once rather than collect an
+       occurrence-expanded list. Keep the same term projection as
+       Code_Thingol.add_constsyms: scrutinees, patterns and bodies participate;
+       the alternative primitive representation does not. The local seen set
+       is fresh for each value and each symbol being queried. *)
+    fun has_value_reference sym term =
+      let
+        val seen = Unsynchronized.ref [];
+        fun visit t =
+          if member pointer_eq (!seen) t then false
+          else
+            let
+              val _ = seen := t :: !seen;
+            in
+              (case t of
+                IConst {sym = referenced, ...} => sym = referenced
+              | IVar _ => false
+              | left `$ right => visit left orelse visit right
+              | _ `|=> (body, _) => visit body
+              | ICase {term, clauses, ...} =>
+                  visit term orelse exists (fn (pat, body) =>
+                    visit pat orelse visit body) clauses)
+            end;
+      in visit term end;
     (** Convert a Thingol Fun statement into a Function binding.
         Also detects eta-expanded constants and self-referential values. **)
     fun binding_of_stmt (sym as Constant const, (export, Code_Thingol.Fun (((vs, ty), raw_eqs), _))) =
@@ -3662,7 +3688,7 @@ fun rust_program_of_program ctxt module_name reserved identifiers
             val (eqs', some_sym) = if null (filter_out (null o snd) vs) then case eqs
                of [(([], t), some_thm)] => if (not o null o fst o Code_Thingol.unfold_fun) ty
                   then ([(([IVar (SOME "x")], t `$ IVar (SOME "x")), some_thm)], NONE)
-                  else (eqs, SOME (sym, member (op =) (Code_Thingol.add_constsyms t []) sym))
+                  else (eqs, SOME (sym, has_value_reference sym t))
                 | _ => (eqs, NONE)
               else (eqs, NONE)
           in ((export, Function (const, (tysm', eqs'))), some_sym) end
