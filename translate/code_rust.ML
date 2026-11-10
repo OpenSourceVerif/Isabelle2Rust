@@ -4109,8 +4109,28 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         Isabelle supplies alongside their dictionary dependency metadata. *)
     val inst_methods =
       let
-        fun tycos_of (ITyVar _) = []
-          | tycos_of (tyco `%% tys) = tyco :: maps tycos_of tys;
+        (* Instance candidates follow the first occurrence of each qualified
+           constructor in a method signature. Traverse shared type arguments
+           once per query instead of building their occurrence-expanded list.
+           Names choose physical-identity buckets, not equivalence classes:
+           distinct arrows or container applications can lead to different
+           carrier types even when they have the same outer constructor. *)
+        fun tycos_of ty =
+          let
+            val seen_types = Unsynchronized.ref Symtab.empty;
+            val seen_names = Unsynchronized.ref Symtab.empty;
+            fun add name names =
+              if Symtab.defined (!seen_names) name then names
+              else (seen_names := Symtab.update (name, ()) (!seen_names); name :: names);
+            fun collect (ITyVar _) names = names
+              | collect (ty as (tyco `%% tys)) names =
+                  let val nodes = the_default [] (Symtab.lookup (!seen_types) tyco) in
+                    if member pointer_eq nodes ty then names
+                    else
+                      (seen_types := Symtab.update (tyco, ty :: nodes) (!seen_types);
+                       fold collect tys (add tyco names))
+                  end;
+          in rev (collect ty []) end;
         fun projected_classparams cls =
           map_filter (fn ((sym, stmt), _) =>
             (case (sym, stmt) of
@@ -4158,7 +4178,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                 if null candidate_classes then NONE
                 else
                   let
-                    val typcons = distinct (op =) (tycos_of ty)
+                    val typcons = tycos_of ty
                     val hit = reconstructed_instance candidate_classes const typcons
                   in
                     case hit of
