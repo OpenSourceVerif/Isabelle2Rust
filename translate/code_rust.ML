@@ -816,16 +816,35 @@ fun print_type_param_bound (vname, sort) =
       if exists term_requires_multiline_layout terms
       then rust_multiline_parens prts
       else rust_parens prts;
-    fun add_default_shape_subst (ITyVar v) inst subst =
-          if AList.defined (op =) subst v then subst
-          else (v, default_rust_shape inst) :: subst
-      | add_default_shape_subst (decl_tyco `%% decl_tys)
-          (inst_tyco `%% inst_tys) subst =
-          if decl_tyco = inst_tyco andalso length decl_tys = length inst_tys
-          then fold (fn (decl, inst) => add_default_shape_subst decl inst)
-            (ListPair.zip (decl_tys, inst_tys)) subst
-          else subst
-      | add_default_shape_subst _ _ subst = subst;
+    (* Declaration matching keeps the first binding for each variable. A shared
+       declaration/occurrence pair contributes no new bindings on later visits,
+       so visit each physical compound pair once per query. Keep both identities:
+       the same declaration node can occur with distinct instantiated nodes. *)
+    fun add_default_shape_subst decl inst subst =
+      let
+        val seen = Unsynchronized.ref Symtab.empty;
+        fun same_pair ((a, b), (c, d)) =
+          pointer_eq (a, c) andalso pointer_eq (b, d);
+        fun add (ITyVar v) inst subst =
+              if AList.defined (op =) subst v then subst
+              else (v, default_rust_shape inst) :: subst
+          | add (decl as (decl_tyco `%% decl_tys))
+              (inst as (inst_tyco `%% inst_tys)) subst =
+              if decl_tyco = inst_tyco andalso length decl_tys = length inst_tys
+              then
+                if member same_pair
+                    (the_default [] (Symtab.lookup (!seen) decl_tyco)) (decl, inst)
+                then subst
+                else
+                  let
+                    val result = fold (fn (decl, inst) => add decl inst)
+                      (ListPair.zip (decl_tys, inst_tys)) subst;
+                    val _ = seen := Symtab.map_default (decl_tyco, [])
+                      (cons (decl, inst)) (!seen);
+                  in result end
+              else subst
+          | add _ _ subst = subst;
+      in add decl inst subst end;
     (** Match an enclosing representation against a declaration result.  A type
         variable receives the complete contextual shape, rather than merely its
         erased itype; this is what lets successive applications of a polymorphic
@@ -856,35 +875,52 @@ fun print_type_param_bound (vname, sort) =
         the contextual shapes already bound for result variables.  All adjacent
         arrows explicitly written in the template remain one Rust_Fn parameter
         group; a bound result-variable shape becomes the returned group tree. **)
-    fun instantiate_rust_shape subst (ITyVar v) inst =
-          (case AList.lookup (op =) subst v of
-            SOME shape => shape
-          | NONE => default_rust_shape inst)
-      | instantiate_rust_shape subst (decl as ("fun" `%% [_, _])) inst =
-          let
-            val (decl_args, decl_ret) = fun_typs decl;
-            val (inst_args, inst_ret) = fun_typs inst;
-            val explicit = length decl_args;
-          in
-            if explicit > 0 andalso length inst_args >= explicit
-            then
+    (* The substitution is fixed for this query. Memoize each physical
+       declaration/instance pair so repeated container arguments share their
+       instantiated layout. Fn templates still consume exactly their explicitly
+       declared arrows, leaving the substituted result's groups intact. *)
+    fun instantiate_rust_shape subst decl inst =
+      let
+        val memo = Unsynchronized.ref Symtab.empty;
+        fun same_pair ((a, b), (c, d)) =
+          pointer_eq (a, c) andalso pointer_eq (b, d);
+        fun instantiate (ITyVar v) inst =
+              (case AList.lookup (op =) subst v of
+                SOME shape => shape
+              | NONE => default_rust_shape inst)
+          | instantiate (decl as (tyco `%% _)) inst =
+              (case AList.lookup same_pair
+                  (the_default [] (Symtab.lookup (!memo) tyco)) (decl, inst) of
+                SOME result => result
+              | NONE =>
+                  let
+                    val result = compound decl inst;
+                    val _ = memo := Symtab.map_default (tyco, [])
+                      (cons ((decl, inst), result)) (!memo);
+                  in result end)
+        and compound (decl as ("fun" `%% [_, _])) inst =
               let
-                val inst_explicit = take explicit inst_args;
-                val inst_tail = mk_fun_ty (drop explicit inst_args, inst_ret);
+                val (decl_args, decl_ret) = fun_typs decl;
+                val (inst_args, inst_ret) = fun_typs inst;
+                val explicit = length decl_args;
               in
-                Rust_Fn
-                  (map2 (instantiate_rust_shape subst) decl_args inst_explicit,
-                   instantiate_rust_shape subst decl_ret inst_tail)
+                if explicit > 0 andalso length inst_args >= explicit
+                then
+                  let
+                    val inst_explicit = take explicit inst_args;
+                    val inst_tail = mk_fun_ty (drop explicit inst_args, inst_ret);
+                  in
+                    Rust_Fn (map2 instantiate decl_args inst_explicit,
+                      instantiate decl_ret inst_tail)
+                  end
+                else default_rust_shape inst
               end
-            else default_rust_shape inst
-          end
-      | instantiate_rust_shape subst (decl_tyco `%% decl_tys)
-          (inst_tyco `%% inst_tys) =
-          if decl_tyco = inst_tyco andalso length decl_tys = length inst_tys
-          then Rust_Tyco (inst_tyco,
-            map2 (instantiate_rust_shape subst) decl_tys inst_tys)
-          else default_rust_shape (inst_tyco `%% inst_tys)
-      | instantiate_rust_shape _ _ inst = default_rust_shape inst;
+          | compound (decl_tyco `%% decl_tys) (inst_tyco `%% inst_tys) =
+              if decl_tyco = inst_tyco andalso length decl_tys = length inst_tys
+              then Rust_Tyco (inst_tyco, map2 instantiate decl_tys inst_tys)
+              else default_rust_shape (inst_tyco `%% inst_tys)
+          | compound _ inst = default_rust_shape inst;
+      in instantiate decl inst end;
     fun expected_from subst decl inst =
       SOME {hol_type = inst, rust_shape = instantiate_rust_shape subst decl inst};
     (** Derive each argument's Rust representation.  Besides declaration and
@@ -1079,16 +1115,34 @@ fun print_type_param_bound (vname, sort) =
         (const as {sym, dom, range, ...}: Code_Thingol.const) =
       let
         val base = argument_expecteds expected sym dom range;
+        (* Dictionary evidence is fixed for this call. Enrich each physical
+           argument-shape node once, preserving sharing and all existing Fn
+           groups when no dictionary selects a replacement. *)
+        val shape_memo = Unsynchronized.ref Symtab.empty;
         fun enrich_shape shape =
-          (case typearg_dictionary_shape const (shape_type shape) of
-            SOME evidenced => evidenced
-          | NONE =>
-              (case shape of
-                Rust_Fn (args, result) =>
-                  Rust_Fn (map enrich_shape args, enrich_shape result)
-              | Rust_Tyco (tyco, args) =>
-                  Rust_Tyco (tyco, map enrich_shape args)
-              | Rust_Var _ => shape));
+          let
+            val key = (case shape of
+              Rust_Tyco (tyco, _) => tyco | Rust_Fn _ => "fun" | Rust_Var v => v);
+          in
+            (case AList.lookup pointer_eq
+                (the_default [] (Symtab.lookup (!shape_memo) key)) shape of
+              SOME result => result
+            | NONE =>
+                let
+                  val result =
+                    (case typearg_dictionary_shape const (shape_type shape) of
+                      SOME evidenced => evidenced
+                    | NONE =>
+                        (case shape of
+                          Rust_Fn (args, result) =>
+                            Rust_Fn (map enrich_shape args, enrich_shape result)
+                        | Rust_Tyco (tyco, args) =>
+                            Rust_Tyco (tyco, map enrich_shape args)
+                        | Rust_Var _ => shape));
+                  val _ = shape_memo :=
+                    Symtab.map_default (key, []) (cons (shape, result)) (!shape_memo);
+                in result end)
+          end;
         fun enrich ty fallback =
           let
             val original =
@@ -1097,7 +1151,7 @@ fun print_type_param_bound (vname, sort) =
               | NONE => default_rust_shape ty);
             val enriched = enrich_shape original;
           in
-            if is_none fallback andalso enriched = original then NONE
+            if is_none fallback andalso equal_rust_shapes (enriched, original) then NONE
             else SOME {hol_type = ty, rust_shape = enriched}
           end;
       in map2 enrich dom base end;
@@ -1219,13 +1273,36 @@ fun print_type_param_bound (vname, sort) =
             | _ => length (hd (map (fst o fst) eqs)))
           end
       | NONE => fallback);
-    fun substitute_rust_shape subst (Rust_Var v) =
-          the_default (Rust_Var v) (AList.lookup (op =) subst v)
-      | substitute_rust_shape subst (Rust_Tyco (tyco, shapes)) =
-          Rust_Tyco (tyco, map (substitute_rust_shape subst) shapes)
-      | substitute_rust_shape subst (Rust_Fn (args, result)) =
-          Rust_Fn (map (substitute_rust_shape subst) args,
-            substitute_rust_shape subst result);
+    (* A fixed substitution replaces variables without recursively substituting
+       inside their replacement shapes. Preserve sharing of the declaration's
+       compound shapes within this call, including each original Fn group. *)
+    fun substitute_rust_shape subst root =
+      let
+        val memo = Unsynchronized.ref Symtab.empty;
+        fun substitute (Rust_Var v) =
+              the_default (Rust_Var v) (AList.lookup (op =) subst v)
+          | substitute shape =
+              let
+                val key = (case shape of Rust_Tyco (tyco, _) => tyco | _ => "fun");
+              in
+                (case AList.lookup pointer_eq
+                    (the_default [] (Symtab.lookup (!memo) key)) shape of
+                  SOME result => result
+                | NONE =>
+                    let
+                      val result =
+                        (case shape of
+                          Rust_Tyco (tyco, shapes) =>
+                            Rust_Tyco (tyco, map substitute shapes)
+                        | Rust_Fn (args, result) =>
+                            Rust_Fn (map substitute args, substitute result)
+                        | Rust_Var v =>
+                            the_default (Rust_Var v) (AList.lookup (op =) subst v));
+                      val _ = memo :=
+                        Symtab.map_default (key, []) (cons (shape, result)) (!memo);
+                    in result end)
+              end;
+      in substitute root end;
     (** Instantiate a function declaration's type variables with the concrete
         call occurrence and then refine those substitutions from its dictionaries.
         In particular, a variable instantiated by a multi-arrow HOL function may
@@ -1933,13 +2010,29 @@ fun print_type_param_bound (vname, sort) =
                         (* declared tyvar -> instantiated itype, by structural
                            match of the declared full type vs. the instantiated one. *)
                         val inst_ty = mk_fun_ty (dom, range)
+                        (* Generic argument inference keeps its first variable
+                           binding and matches constructor argument positions.
+                           Preserve that rule while visiting each shared physical
+                           declaration/occurrence pair once for this call. *)
+                        val seen = Unsynchronized.ref Symtab.empty
+                        fun same_pair ((a, b), (c, d)) =
+                          pointer_eq (a, c) andalso pointer_eq (b, d)
                         fun unify (ITyVar v, inst) subst =
                               if AList.defined (op =) subst v then subst
                               else (v, inst) :: subst
-                          | unify (_ `%% ds, _ `%% is) subst =
-                              if length ds = length is
-                              then List.foldl (fn ((d, i), s) => unify (d, i) s)
-                                     subst (ListPair.zip (ds, is))
+                          | unify (pair as (decl_tyco `%% ds, _ `%% is)) subst =
+                              if length ds = length is then
+                                if member same_pair
+                                    (the_default [] (Symtab.lookup (!seen) decl_tyco)) pair
+                                then subst
+                                else
+                                  let
+                                    val result = List.foldl
+                                      (fn ((d, i), s) => unify (d, i) s)
+                                      subst (ListPair.zip (ds, is))
+                                    val _ = seen := Symtab.map_default (decl_tyco, [])
+                                      (cons pair) (!seen)
+                                  in result end
                               else subst
                           | unify (_, _) subst = subst
                         val subst = unify (decl_ty, inst_ty) []
