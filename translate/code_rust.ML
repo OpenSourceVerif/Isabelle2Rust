@@ -644,16 +644,23 @@ fun print_type_param_bound (vname, sort) =
                 val subst =
                   (case expected of
                     SOME {rust_shape, ...} =>
-                      (* A result type variable may instantiate to more arrows.
-                         After those arguments are applied, the surrounding
-                         expectation describes only its remaining suffix. Do not
-                         bind that suffix as the whole declaration result: doing
-                         so would erase a returned function from argument shapes.
-                         Contextual layout can refine the complete result only
-                         when its erased HOL type agrees with that instance. *)
-                      if shape_type rust_shape = inst_result
-                      then bind_expected_shape decl_ret rust_shape subst0
-                      else subst0
+                      (* Extra applications consume groups from a polymorphic
+                         result before reaching this contextual boundary. Refine
+                         the matching result suffix while retaining every already
+                         selected argument group; binding the suffix as the whole
+                         declaration result would erase those returned arrows.
+                         This also preserves a selected callback layout beneath
+                         a final container without converting the container. *)
+                      let
+                        fun refine shape =
+                          if shape_type shape = shape_type rust_shape
+                          then rust_shape
+                          else (case shape of
+                            Rust_Fn (args, result) => Rust_Fn (args, refine result)
+                          | _ => shape);
+                        val result_shape =
+                          instantiate_rust_shape subst0 decl_ret inst_result;
+                      in bind_expected_shape decl_ret (refine result_shape) subst0 end
                   | NONE => subst0);
               in
                 map2 (expected_from subst)
