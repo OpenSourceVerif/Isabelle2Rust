@@ -561,8 +561,21 @@ fun print_type_param_bound (vname, sort) =
         " where Self: Sized;"; an inlined/stub method body uses " { .. }". **)
     fun print_method_sig method_name ty self_var tail =
       let
+        (* A method may repeat shared type arguments below an erased or
+           phantom container. Substitute Self once per physical compound node
+           in this signature, keeping unrelated type variables unchanged. *)
+        val self_memo = Unsynchronized.ref Symtab.empty;
         fun subst_self (ITyVar u) = ITyVar (if u = self_var then "Self" else u)
-          | subst_self (tyco `%% tys) = tyco `%% map subst_self tys
+          | subst_self (ty as (tyco `%% tys)) =
+              (case AList.lookup pointer_eq
+                  (the_default [] (Symtab.lookup (!self_memo) tyco)) ty of
+                SOME result => result
+              | NONE =>
+                  let
+                    val result = tyco `%% map subst_self tys;
+                    val _ = self_memo :=
+                      Symtab.map_default (tyco, []) (cons (ty, result)) (!self_memo);
+                  in result end);
         val ts = extract_typ print_typ (subst_self ty)
         val param_num = (List.length ts) - 1
         val ret_typ = List.last ts
@@ -1056,16 +1069,33 @@ fun print_type_param_bound (vname, sort) =
       (case inst_method_info sym of
         SOME (_, cp) => SOME cp
       | NONE => (case sym of Constant cp => SOME cp | _ => NONE));
-    fun match_class_self self_var (ITyVar v) inst =
-          if v = self_var then SOME inst else NONE
-      | match_class_self self_var (decl_tyco `%% decl_tys)
-          (inst_tyco `%% inst_tys) =
-          if decl_tyco = inst_tyco andalso length decl_tys = length inst_tys
-          then get_first (fn (decl, inst) =>
-            match_class_self self_var decl inst)
-            (ListPair.zip (decl_tys, inst_tys))
-          else NONE
-      | match_class_self _ _ _ = NONE;
+    (* Receiver discovery returns the first matching class variable in source
+       order. A preceding shared subtree may contain no such variable; remember
+       only failed physical declaration/occurrence pairs so those prefixes are
+       not traversed again. Both Self and the failed-pair set are query-local. *)
+    fun match_class_self self_var decl inst =
+      let
+        val failed = Unsynchronized.ref Symtab.empty;
+        fun same_pair ((a, b), (c, d)) =
+          pointer_eq (a, c) andalso pointer_eq (b, d);
+        fun match (ITyVar v) inst = if v = self_var then SOME inst else NONE
+          | match (decl as (decl_tyco `%% decl_tys))
+              (inst as (inst_tyco `%% inst_tys)) =
+              if decl_tyco = inst_tyco andalso length decl_tys = length inst_tys
+              then
+                if member same_pair
+                    (the_default [] (Symtab.lookup (!failed) decl_tyco)) (decl, inst)
+                then NONE
+                else
+                  (case get_first (fn (decl, inst) => match decl inst)
+                      (ListPair.zip (decl_tys, inst_tys)) of
+                    SOME result => SOME result
+                  | NONE =>
+                      (failed := Symtab.map_default (decl_tyco, [])
+                        (cons (decl, inst)) (!failed); NONE))
+              else NONE
+          | match _ _ = NONE;
+      in match decl inst end;
     (** Recover the semantic Self type of a class-method occurrence.  Self may
         occur inside a method argument such as `Set<Self>` or `Itself<Self>`, so
         it is found by structural matching rather than by selecting the first
@@ -3501,10 +3531,26 @@ fun print_type_param_bound (vname, sort) =
               Pretty.brk_indent 1 2,
               print_tyco_expr (Type_Constructor tyco, map (ITyVar o fst) vs)
             ]
-            fun subst_self_type self_var self_ty (ITyVar v) =
-                  if v = self_var then self_ty else ITyVar v
-              | subst_self_type self_var self_ty (tyco `%% tys) =
-                  tyco `%% map (subst_self_type self_var self_ty) tys;
+            (* Instance signatures replace the class variable by this impl's
+               concrete Self type. Keep repeated declaration arguments shared;
+               a fresh memo for each substitution fixes both the variable and
+               its replacement without mixing different method queries. *)
+            fun subst_self_type self_var self_ty root =
+              let
+                val memo = Unsynchronized.ref Symtab.empty;
+                fun substitute (ITyVar v) =
+                      if v = self_var then self_ty else ITyVar v
+                  | substitute (ty as (tyco `%% tys)) =
+                      (case AList.lookup pointer_eq
+                          (the_default [] (Symtab.lookup (!memo) tyco)) ty of
+                        SOME result => result
+                      | NONE =>
+                          let
+                            val result = tyco `%% map substitute tys;
+                            val _ = memo :=
+                              Symtab.map_default (tyco, []) (cons (ty, result)) (!memo);
+                          in result end);
+              in substitute root end;
             fun method_type classparam =
               (case lookup_class_methods class of
                 SOME (self_var, cps) =>
