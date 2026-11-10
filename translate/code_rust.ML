@@ -1867,13 +1867,16 @@ fun print_type_param_bound (vname, sort) =
                       then "*abort_tail" else "abort_tail";
                     val loop_header = str ("while let " ^ constructor_name literal_sym ^
                       "(" ^ space_implode ", " (bits @ ["abort_tail"]) ^ ") = abort_value");
-                  in
-                    (* A saturated abort diverges at every HOL result type,
-                       including function types. Neither the fallback nor any
-                       later application argument is evaluated or printed as a
-                       call on the never value. Rust coerces panic's ! to the
-                       surrounding result type. *)
-                    rust_parens [rust_bare_block [
+                    (* A saturated abort diverges at every HOL result type.
+                       Retain the result after all supplied arguments, including
+                       any consumed function-result arrows. Native operators need
+                       that type instead of selecting a trait implementation for !.
+                       An enclosing Rust shape takes precedence over the default. *)
+                    val result_shape = (case expected of
+                      SOME {rust_shape, ...} => rust_shape
+                    | NONE => default_rust_shape
+                        (mk_fun_ty (drop (length ts) dom, range)));
+                    val printed_abort = rust_parens [rust_bare_block [
                       rust_open [str "let mut abort_value = ",
                         print_term NONE some_thm vars NOBR (hd ts), str ";"],
                       str "let mut abort_message = std::string::String::new();",
@@ -1881,7 +1884,14 @@ fun print_type_param_bound (vname, sort) =
                         str ("abort_message.push(char::from(" ^ byte ^ "));"),
                         str ("abort_value = " ^ tail ^ ";")],
                       str "panic!(\"{}\", abort_message)"
-                    ]]
+                    ]];
+                  in
+                    (* Neither the delayed fallback nor later application
+                       arguments are evaluated or printed as calls on the
+                       diverging result. The identity only carries its type. *)
+                    rust_open [str "::std::convert::identity::<",
+                      print_rust_shape result_shape, str ">",
+                      rust_parens [printed_abort]]
                   end
             | ("Product_Type.Pair", [left, right]) =>
                 rust_term_parens [left, right]
