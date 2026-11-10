@@ -530,7 +530,10 @@ fun print_type_param_bound (vname, sort) =
           | _ => NONE)
       | term_type vars ((_, ty) `|=> (_, rty)) = SOME ("fun"`%%[ty, rty])
       | term_type vars (ICase {clauses = (_, body) :: _, ...}) = term_type vars body
-      | term_type _ (ICase {clauses = [], ...}) = NONE;
+      | term_type vars (ICase {clauses = [], primitive, ...}) =
+          (* Erasing undefined branches does not erase the original case
+             application's type, including arrows needed for partial application. *)
+          term_type vars primitive;
     fun term_requires_multiline_layout (_ `|=> _) = true
       | term_requires_multiline_layout (ICase _) = true
       | term_requires_multiline_layout _ = false;
@@ -1145,7 +1148,7 @@ fun print_type_param_bound (vname, sort) =
     fun print_term_gen is_pseudo_fun wrappers some_thm vars fxy t =
           print_term_expected NONE is_pseudo_fun wrappers some_thm vars fxy t
     and print_term_expected expected is_pseudo_fun
-        (wrappers as (need_box, box_prcs, _)) some_thm vars fxy t =
+        (wrappers as (need_box, box_prcs, clone_prcs)) some_thm vars fxy t =
           let
             (* A saturated class method whose Self is selected by a recursive
                function dictionary has a non-default result representation even
@@ -1155,9 +1158,14 @@ fun print_type_param_bound (vname, sort) =
                make that implicit default boundary explicit and adapt back to it.
                A real contextual expectation takes precedence. *)
             val effective_expected =
-              (case expected of
-                SOME _ => expected
-              | NONE =>
+              (case (t, expected) of
+                (_, SOME _) => expected
+              | (ICase {clauses = [], ...}, NONE) =>
+                  (* The original case application retains its result type even
+                     after all undefined branches have been erased. *)
+                  Option.map (fn ty => {hol_type = ty,
+                    rust_shape = default_rust_shape ty}) (term_type vars t)
+              | (_, NONE) =>
                   (case (term_type vars t, selected_term_rust_shape vars t) of
                     (SOME source_ty, SOME (source_shape as Rust_Fn _)) =>
                       let val target_shape = default_rust_shape source_ty in
@@ -1169,8 +1177,19 @@ fun print_type_param_bound (vname, sort) =
                       end
                   | _ => NONE));
           in
-          (case effective_expected of
-            SOME {rust_shape = target_shape as Rust_Fn _, ...} =>
+          (case (t, effective_expected) of
+            (ICase {clauses = [], ...}, SOME {rust_shape, ...}) =>
+              (* An empty case has no surviving branch to supply Rust's operand
+                 type. Keep its contextual shape on the diverging expression,
+                 particularly before overloaded native operators, and apply any
+                 recursive-field Box outside that typed result. *)
+              let
+                val printed = print_term_raw effective_expected is_pseudo_fun
+                  (false, box_prcs, clone_prcs) some_thm vars fxy t;
+                val typed = rust_open [str "::std::convert::identity::<",
+                  print_rust_shape rust_shape, str ">", rust_parens [printed]];
+              in if need_box then box_prcs typed else typed end
+          | (_, SOME {rust_shape = target_shape as Rust_Fn _, ...}) =>
               (case term_type vars t of
                 SOME source_ty =>
                   let
@@ -2313,8 +2332,10 @@ fun print_type_param_bound (vname, sort) =
       end
     (** Print a case expression.  A single irrefutable clause is emitted as a
         direct binding block; the remaining cases use match-based lowering. **)
+    (* Thingol removes undefined branches. An empty case is a single diverging
+       expression, which also coerces to a polymorphic result or a boxed field. *)
     and print_case _ _ _ _ _ { clauses = [], ... } =
-          (concat o map str) ["panic!(\"empty case\")", "\"empty case\""]
+          str "panic!(\"empty case\")"
       | print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars _ (icase as { term = t, typ = _, clauses = clauses, ... }) =
           (* A case is an expression even when its lowering starts with a
              match or a binding block. Parenthesize that whole result so Rust
