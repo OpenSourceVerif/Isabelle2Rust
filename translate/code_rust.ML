@@ -166,43 +166,11 @@ fun fold_iterm_constants f (IConst const) acc = f const acc
       |> fold (fn (pat, body) =>
            fold_iterm_constants f pat #> fold_iterm_constants f body) clauses;
 
-(** Collect constants for set-like analyses of immutable Thingol terms.
-    ICase keeps both a recognized match and its primitive application; these
-    representations can share whole continuation subgraphs. Visit each physical
-    node once, in the original depth-first order, without dropping constants that
-    occur only in the primitive. Identity, rather than structural equality,
-    avoids recursively comparing the very graph being traversed.
-
-    The seen list belongs to this invocation: different accumulators, callbacks
-    and fixed-point iterations must observe the graph afresh. This deliberately
-    does not change the occurrence-sensitive fold above. Identity-list lookup is
-    quadratic in distinct nodes in the worst case, but never expands the shared
-    graph into an exponentially larger tree. **)
-fun fold_distinct_iterm_constants f term acc =
-  let
-    val seen = Unsynchronized.ref [];
-    fun visit t acc =
-      if member pointer_eq (!seen) t then acc
-      else
-        let
-          val _ = seen := t :: !seen;
-        in
-          (case t of
-            IConst const => f const acc
-          | IVar _ => acc
-          | t1 `$ t2 => acc |> visit t1 |> visit t2
-          | _ `|=> (body, _) => visit body acc
-          | ICase {term, clauses, primitive, ...} =>
-              acc |> visit term |> visit primitive
-              |> fold (fn (pat, body) => visit pat #> visit body) clauses)
-        end;
-  in visit term acc end;
-
 (* A bounded-depth discriminator keeps unrelated physical nodes out of the
    same lookup list. It is only a bucket key: collisions are resolved exclusively
    with pointer_eq, never structural equality. Inspect at most two child levels,
    and never unfold the primitive or a whole clause list while forming a key. *)
-fun name_query_bucket term =
+fun iterm_query_bucket term =
   let
     fun key _ (IConst {sym, ...}) = Code_Symbol.marker sym
       | key _ (IVar v) = "v:" ^ the_default "" v
@@ -218,6 +186,45 @@ fun name_query_bucket term =
             (case clauses of [] => "" | (pat, _) :: _ => key (depth - 1) pat);
   in key 2 term end;
 
+(** Collect constants for set-like analyses of immutable Thingol terms.
+    ICase keeps both a recognized match and its primitive application; these
+    representations can share whole continuation subgraphs. Visit each physical
+    node once, in the original depth-first order, without dropping constants that
+    occur only in the primitive. Identity, rather than structural equality,
+    avoids recursively comparing the very graph being traversed.
+
+    The seen buckets belong to this invocation: different accumulators, callbacks
+    and fixed-point iterations must observe the graph afresh. This deliberately
+    does not change the occurrence-sensitive fold above. Shallow bucket keys
+    avoid scanning unrelated nodes on each visit; only physical identity inside
+    the bucket can suppress a visit. Equal symbols with different type arguments
+    or dictionaries remain separate payloads. A collision-heavy bucket may still
+    require quadratic lookup, but sharing never expands into a larger tree. **)
+fun fold_distinct_iterm_constants f term acc =
+  let
+    val seen = Unsynchronized.ref Symtab.empty;
+    fun visit t acc =
+      let
+        val key = iterm_query_bucket t;
+        val nodes = the_default [] (Symtab.lookup (!seen) key);
+      in
+        if member pointer_eq nodes t then acc
+        else
+          let
+            val _ = seen := Symtab.update (key, t :: nodes) (!seen);
+          in
+            (case t of
+              IConst const => f const acc
+            | IVar _ => acc
+            | t1 `$ t2 => acc |> visit t1 |> visit t2
+            | _ `|=> (body, _) => visit body acc
+            | ICase {term, clauses, primitive, ...} =>
+                acc |> visit term |> visit primitive
+                |> fold (fn (pat, body) => visit pat #> visit body) clauses)
+          end
+      end;
+  in visit term acc end;
+
 (** Name reservation follows the same case projection as add_constsyms:
     scrutinees, patterns and bodies, without the alternate primitive. Repeated
     physical compound nodes need not contribute their symbols twice. Atomic
@@ -230,7 +237,7 @@ fun add_distinct_constsyms term symbols =
       | visit (IVar _) acc = acc
       | visit t acc =
           let
-            val key = name_query_bucket t;
+            val key = iterm_query_bucket t;
             val nodes = the_default [] (Symtab.lookup (!seen) key);
           in
             if member pointer_eq nodes t then acc
@@ -261,7 +268,7 @@ fun add_distinct_varnames term names =
       | free (IVar NONE) = []
       | free (IVar (SOME v)) = [v]
       | free t =
-          let val key = name_query_bucket t in
+          let val key = iterm_query_bucket t in
             (case AList.lookup pointer_eq (the_default [] (Symtab.lookup (!memo) key)) t of
               SOME names => names
             | NONE =>
