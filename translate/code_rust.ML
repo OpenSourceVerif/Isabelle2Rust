@@ -2321,8 +2321,14 @@ fun print_type_param_bound (vname, sort) =
              cannot end a statement or match arm before a following infix
              operator. This covers ordinary and stable matches as well as
              the single-irrefutable-clause binding block. *)
+          (* A recursive constructor field boxes the result of the whole case,
+             including ordinary and staged matches. Keep the irrefutable binding
+             body unboxed here as well, so this outer field wrapper is applied
+             exactly once for every nonempty case-lowering path. *)
+          let
+            val printed_case =
           rust_parens [(case print_irrefutable_case_parts is_pseudo_fun
-              (need_box, box_prcs, clone_prcs) some_thm vars icase of
+              (false, box_prcs, clone_prcs) some_thm vars icase of
             SOME (ps, body) => rust_bare_block (ps @ [body])
           | NONE => let
             val has_boxed_patterns = exists (pat_contains_boxed_field o fst) clauses;
@@ -2380,6 +2386,7 @@ fun print_type_param_bound (vname, sort) =
                 (map print_select clauses
                   @ [rust_arm (str "_") (str "panic!(\"non-exhaustive match\")")])
           end)]
+          in if need_box then box_prcs printed_case else printed_case end
     (** Adapt the backend's default flat function value to a contextual parameter
         grouping.  One invocation builds the outer group and an ordinary flat
         lambda for all remaining arguments.  That inner lambda is printed with
