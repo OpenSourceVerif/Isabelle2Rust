@@ -3367,9 +3367,12 @@ fun print_type_param_bound (vname, sort) =
                must follow the substitution used for its signature, including
                dictionary variables and lambda/case annotations.
 
-               Memoize by physical term identity: recognized case clauses and
-               their primitive can share continuations. Renaming those graphs
-               must preserve sharing rather than expand them as trees. *)
+               Memoize physical term, compound-type and plain-dictionary
+               identities. Case continuations and repeated product parameters
+               can share subgraphs in each of these payloads. All caches belong
+               to this renaming, so different method substitutions cannot reuse
+               one another's results. Instance/type names only select buckets;
+               distinct payloads in one bucket must still be mapped separately. *)
             fun align_method_eqs source_ty target_ty eqs =
               let
                 val renaming = add_default_shape_subst source_ty target_ty []
@@ -3377,11 +3380,35 @@ fun print_type_param_bound (vname, sort) =
                        if v = w then NONE else SOME (v, w)
                      | _ => NONE);
                 fun rename v = the_default v (AList.lookup (op =) renaming v);
+                val type_memo = Unsynchronized.ref Symtab.empty;
                 fun typ (ITyVar v) = ITyVar (rename v)
-                  | typ (c `%% tys) = c `%% map typ tys;
+                  | typ (ty as (c `%% tys)) =
+                      (case AList.lookup pointer_eq
+                          (the_default [] (Symtab.lookup (!type_memo) c)) ty of
+                        SOME result => result
+                      | NONE =>
+                          let
+                            val result = c `%% map typ tys;
+                            (* Keep child entries added to this constructor bucket. *)
+                            val _ = type_memo :=
+                              Symtab.map_default (c, []) (cons (ty, result)) (!type_memo);
+                          in result end);
+                val dict_memo = Unsynchronized.ref Code_Symbol.Table.empty;
                 fun dict (Dict (rels, plain)) = Dict (rels, plain_dict plain)
-                and plain_dict (Dict_Const (inst, dss)) =
-                      Dict_Const (inst, map (fn (ty, ds) => (typ ty, map dict ds)) dss)
+                and plain_dict (plain as Dict_Const (inst, dss)) =
+                      let val key = Code_Symbol.Class_Instance inst in
+                        (case AList.lookup pointer_eq
+                            (the_default [] (Code_Symbol.Table.lookup (!dict_memo) key)) plain of
+                          SOME result => result
+                        | NONE =>
+                            let
+                              val result = Dict_Const (inst,
+                                map (fn (ty, ds) => (typ ty, map dict ds)) dss);
+                              (* Children may populate the same instance bucket. *)
+                              val _ = dict_memo := Code_Symbol.Table.map_default
+                                (key, []) (cons (plain, result)) (!dict_memo);
+                            in result end)
+                      end
                   | plain_dict (Dict_Var {var, index, length, class, unique}) =
                       Dict_Var {var = rename var, index = index, length = length,
                         class = class, unique = unique};
@@ -4291,14 +4318,25 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         map (fn (v', sort) =>
           if v = v' then (v', insert (op =) class sort) else (v', sort)))
         bounds vs;
+    (* Called-body requirements use the implementing method's own variable
+       names. The representative impl may use different names for the same
+       constructor slots, so collect sorts in the source method's parameter
+       order and merge them positionally, just like the original method sorts.
+       Ordinary function signatures continue to use their own named bounds. *)
+    fun called_method_vs method_bounds sym =
+      (case Code_Symbol.Graph.get_node program sym of
+        Code_Thingol.Fun (((source_vs, _), _), _) =>
+          merge_named_bounds (called_function_bounds method_bounds sym)
+            (map (apsnd (K [])) source_vs)
+      | _ => [])
+      handle Code_Symbol.Graph.UNDEF _ => [];
     fun close_instance_bounds table =
       let
         val method_bounds = method_bounds_lookup table;
         val table' = map (fn (repr_sym, ((class, tyco), (vs, methods))) =>
           let
             val vs' = fold (fn (_, method_sym) =>
-              merge_named_bounds
-                (called_function_bounds method_bounds method_sym)) methods vs;
+              merge_vs (called_method_vs method_bounds method_sym)) methods vs;
           in (repr_sym, ((class, tyco), (vs', methods))) end) table;
       in
         if table' = table then table else close_instance_bounds table'
