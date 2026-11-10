@@ -34,9 +34,9 @@ datatype binding =
 (** Intermediate statement IR: groups bindings into Rust-level declarations,
     produced from Code_Thingol stmts by modify_stmts before printing.
     Inst models a type-class instance as a Rust `impl Trait for Type { .. }`.
-    Isabelle eliminates Classinst nodes (dictionary elimination) before the
-    serializer runs, so instances are reconstructed from the specialized
-    `<class>_<Type>_inst.<method>` projection functions: Inst carries (class,
+    Classinst nodes describe dictionary dependencies; executable methods arrive
+    as specialized `<class>_<Type>_inst.<method>` projection functions, from which
+    this backend reconstructs the Rust implementation. Inst carries (class,
     tyco), the instance type variables vs (for the impl generics/bounds), and
     one entry per trait method (classparam name + the implementing constant's
     symbol, whose body is inlined at print time). **)
@@ -3724,9 +3724,13 @@ fun rust_program_of_program ctxt module_name reserved identifiers
       | modify_stmts ((stmts as (_, (_, Code_Thingol.Classparam _)) :: _)) =
           modify_class stmts
       | modify_stmts (stmts as ((_, (_, Code_Thingol.Classinst _)) :: _)) =
-          (* Isabelle eliminates Classinst before serialization in this toolchain;
-             any that survive carry no Rust-level content, so drop them. *)
-          map (K NONE) stmts
+          (* A dictionary node may lead a recursive group containing executable
+             methods: equality on a datatype nested through list depends on its
+             own equality dictionary. The dictionary descriptor has no separate
+             Rust body, but its Fun siblings still need the same reconstruction
+             and ordinary-function emission as a Fun-led group. *)
+          let val normal = keep_normal stmts
+          in emit_insts stmts @ (if null normal then [] else modify_funs normal) end
       | modify_stmts stmts = error ("Illegal mutual dependencies: " ^
           (Library.commas o map (Code_Symbol.quote ctxt o fst)) stmts);
   in
@@ -3797,7 +3801,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           else NONE) tycos) candidate_classes;
 
     (* Reconstruct type-class instances from the specialized projection functions
-        Isabelle leaves behind after dictionary elimination. *)
+        Isabelle supplies alongside their dictionary dependency metadata. *)
     val inst_methods =
       let
         fun tycos_of (ITyVar _) = []
