@@ -4560,10 +4560,27 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       (Code_Symbol.Graph.get_node program sym) 
       handle (Code_Symbol.Graph.UNDEF x) => Code_Thingol.NoStmt
 
-    (** Return every type constructor and type variable mentioned in an itype,
-        recursively visiting type arguments. The result may contain duplicates. **)
-    fun type_names (ITyVar vn) = [vn]
-      | type_names (tyco `%% tys) = tyco :: maps type_names tys;
+    (** Type-dependency and boxing queries use only the distinct names in a
+        field type. Preserve their first-occurrence order without expanding
+        shared type arguments before deduplication. Constructor names select
+        physical-identity buckets; different applications in one bucket still
+        contribute their complete children, including type-variable names. **)
+    fun type_names ty =
+      let
+        val seen_types = Unsynchronized.ref Symtab.empty;
+        val seen_names = Unsynchronized.ref Symtab.empty;
+        fun add name names =
+          if Symtab.defined (!seen_names) name then names
+          else (seen_names := Symtab.update (name, ()) (!seen_names); name :: names);
+        fun collect (ITyVar v) names = add v names
+          | collect (ty as (tyco `%% tys)) names =
+              let val nodes = the_default [] (Symtab.lookup (!seen_types) tyco) in
+                if member pointer_eq nodes ty then names
+                else
+                  (seen_types := Symtab.update (tyco, ty :: nodes) (!seen_types);
+                   fold collect tys (add tyco names))
+              end;
+      in rev (collect ty []) end;
 
     fun lookup_dependent_types_h program sym dpdncs =
       let 
@@ -4646,16 +4663,34 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
             (Type_Constructor tyco, Code_Thingol.Datatype data) => SOME (tyco, data)
           | _ => NONE)) stmt_list;
         val declarations = Symtab.make datatypes;
-        fun used_vars witnessed (ITyVar v) = [v]
-          | used_vars witnessed (tyco `%% tys) =
-              (case Symtab.lookup declarations tyco of
-                SOME (vs, _) =>
-                  if length vs = length tys then
-                    maps (fn (v, ty) =>
-                      if member (op =) (the_default [] (Symtab.lookup witnessed tyco)) v
-                      then used_vars witnessed ty else []) (vs ~~ tys)
-                  else maps (used_vars witnessed) tys
-              | NONE => maps (used_vars witnessed) tys);
+        (* A witness query follows only the parameter slots selected by this
+           fixed-point approximation. Its physical-type and variable sets are
+           fresh for every query: a later iteration may enable previously
+           unwitnessed slots of the same shared type object. Keep the existing
+           all-arguments fallback for native or arity-mismatched constructors. *)
+        fun used_vars witnessed ty =
+          let
+            val seen_types = Unsynchronized.ref Symtab.empty;
+            val seen_vars = Unsynchronized.ref Symtab.empty;
+            fun collect (ITyVar v) vars =
+                  if Symtab.defined (!seen_vars) v then vars
+                  else (seen_vars := Symtab.update (v, ()) (!seen_vars); v :: vars)
+              | collect (ty as (tyco `%% tys)) vars =
+                  let val nodes = the_default [] (Symtab.lookup (!seen_types) tyco) in
+                    if member pointer_eq nodes ty then vars
+                    else
+                      (seen_types := Symtab.update (tyco, ty :: nodes) (!seen_types);
+                       (case Symtab.lookup declarations tyco of
+                         SOME (vs, _) =>
+                           if length vs = length tys then
+                             fold (fn (v, ty) =>
+                               if member (op =)
+                                   (the_default [] (Symtab.lookup witnessed tyco)) v
+                               then collect ty else I) (vs ~~ tys) vars
+                           else fold collect tys vars
+                       | NONE => fold collect tys vars))
+                  end;
+          in rev (collect ty []) end;
         fun close witnessed =
           let
             val next = Symtab.make (map (fn (tyco, (vs, cos)) =>
