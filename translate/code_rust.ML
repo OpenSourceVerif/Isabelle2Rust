@@ -146,13 +146,27 @@ fun rust_fn sig_head bounds body =
   then rust_block sig_head body
   else Pretty.chunks ([sig_head] @ rust_where bounds @ [str "{", rust_indent body, str "}"]);
 
-(** Return the distinct type-variable names occurring in an itype, in the
-    declaration traversal order used for emitted Rust generic parameters. **)
+(** Return the distinct type-variable names in the existing Rust declaration
+    order: last source occurrence first. Visit type arguments right-to-left so
+    the first encounter of a shared subtree has the same priority as its last
+    occurrence in a left-to-right expansion. Constructor names only choose
+    physical-identity buckets; different applications in one bucket still
+    contribute their own variables. Both visited sets belong to this query. **)
 fun itype_variables ty =
   let
-    fun collect (ITyVar v, vars) = v :: vars
-      | collect (_ `%% tys, vars) = List.foldl collect vars tys
-  in distinct (op =) (collect (ty, [])) end;
+    val seen_types = Unsynchronized.ref Symtab.empty;
+    val seen_vars = Unsynchronized.ref Symtab.empty;
+    fun collect (ITyVar v) vars =
+          if Symtab.defined (!seen_vars) v then vars
+          else (seen_vars := Symtab.update (v, ()) (!seen_vars); v :: vars)
+      | collect (ty as (tyco `%% tys)) vars =
+          let val nodes = the_default [] (Symtab.lookup (!seen_types) tyco) in
+            if member pointer_eq nodes ty then vars
+            else
+              (seen_types := Symtab.update (tyco, ty :: nodes) (!seen_types);
+               fold_rev collect tys vars)
+          end;
+  in rev (collect ty []) end;
 
 (** Fold f over every IConst payload in a Thingol term, including constants in
     applications, abstractions, case scrutinees, primitives, patterns and bodies.
