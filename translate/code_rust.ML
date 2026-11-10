@@ -3887,7 +3887,10 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                           val cp_opt =
                             find_first (fn cp =>
                               after_last_dot const = after_last_dot cp ^ "_" ^ after_last_dot tyc) cps
-                        in Option.map (fn cp => (inst_s, (cls, tyc, vs', cp, sym))) cp_opt end
+                        (* The short naming segment recognises a method, but only
+                             the fully qualified class/type pair identifies its
+                             instance: distinct theories may both define rbt. *)
+                        in Option.map (fn cp => ((cls, tyc), (cls, tyc, vs', cp, sym))) cp_opt end
                   end
               end
           | _ => NONE)
@@ -3932,9 +3935,9 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       else map2 (fn (v, sort) => fn (_, inherited_sort) =>
         (v, union (op =) inherited_sort sort)) vs inherited;
     val inst_table_all =
-      map (fn seg =>
+      map (fn instance_key =>
         let
-          val members = filter (fn (s, _) => s = seg) inst_methods
+          val members = filter (fn (key, _) => key = instance_key) inst_methods
           val (_, (cls, tyc, vs0, _, repr_sym)) = hd members
           (* Different methods of one class instance may use different
              operational dictionaries.  They share the same type-constructor
