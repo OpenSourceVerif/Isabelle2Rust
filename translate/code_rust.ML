@@ -16,6 +16,10 @@ sig
   val add_distinct_constsyms:
     Code_Thingol.iterm -> Code_Symbol.T list -> Code_Symbol.T list
   val add_distinct_varnames: Code_Thingol.iterm -> string list -> string list
+
+  (* The upstream pattern-abstraction lift condition, using shared-term queries. *)
+  val split_distinct_pat_abs:
+    Code_Thingol.iterm -> ((Code_Thingol.iterm * Code_Thingol.itype) * Code_Thingol.iterm) option
 end;
 
 structure Code_Rust : CODE_RUST =
@@ -278,6 +282,26 @@ fun add_distinct_varnames term names =
                 in names end)
           end;
   in merge (free term) names end;
+
+(* A one-clause case on a lambda binder can supply its parameter pattern when
+   the pattern rebinds that name or the body no longer uses it freely. Keep the
+   upstream split_pat_abs conditions, including blank binders and scrutinee
+   identity; only replace its occurrence-based exists_var scans. The resulting
+   pattern still needs the Rust-specific irrefutability and Box-field checks. *)
+fun split_distinct_pat_abs ((NONE, ty) `|=> (body, _)) =
+      SOME ((IVar NONE, ty), body)
+  | split_distinct_pat_abs ((SOME v, ty) `|=> (body, _)) =
+      let
+        fun occurs term = member (op =) (add_distinct_varnames term []) v;
+      in
+        SOME (case body of
+          ICase {term = IVar (SOME w), clauses = [(pat, rest)], ...} =>
+            if v = w andalso (occurs pat orelse not (occurs rest))
+            then ((pat, ty), rest)
+            else ((IVar (SOME v), ty), body)
+        | _ => ((IVar (SOME v), ty), body))
+      end
+  | split_distinct_pat_abs _ = NONE;
 
 (* Use the upstream reservation policy with the bounded shared-graph query.
    Declaration order and filtering of mapped/qualified constants stay unchanged. *)
@@ -2175,7 +2199,7 @@ fun print_type_param_bound (vname, sort) =
     and unfold_rust_pat_abs t =
       let
         fun split (abs as (v, ty) `|=> (body, _)) =
-              (case Code_Thingol.split_pat_abs abs of
+              (case split_distinct_pat_abs abs of
                 SOME (bind as (pat, _), rest) =>
                   if direct_irrefutable_patterns [pat]
                   then SOME (bind, rest)
