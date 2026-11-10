@@ -612,10 +612,86 @@ fun print_type_param_bound (vname, sort) =
       | Rust_Tyco of string * rust_shape list
       | Rust_Fn of rust_shape list * rust_shape;
     type expected_type = {hol_type: itype, rust_shape: rust_shape};
-    fun shape_type (Rust_Var v) = ITyVar v
-      | shape_type (Rust_Tyco (tyco, shapes)) = tyco `%% map shape_type shapes
-      | shape_type (Rust_Fn (args, ret)) =
-          mk_fun_ty (map shape_type args, shape_type ret);
+    (* Equality of erased HOL types ignores Rust function grouping. Remember
+       pairs of physical compound nodes, since two independently constructed
+       shared types need not share their nodes with each other. Only completed
+       equal pairs are retained, and each comparison starts a fresh table. *)
+    fun equal_shape_types (left, right) =
+      let
+        val memo = Unsynchronized.ref Symtab.empty;
+        fun same_pair ((a, b), (c, d)) =
+          pointer_eq (a, c) andalso pointer_eq (b, d);
+        fun equal (left, right) =
+          pointer_eq (left, right) orelse
+          (case (left, right) of
+            (ITyVar a, ITyVar b) => a = b
+          | (a `%% args, b `%% others) =>
+              a = b andalso
+              (member same_pair (the_default [] (Symtab.lookup (!memo) a))
+                  (left, right) orelse
+                (length args = length others
+                  andalso ListPair.allEq equal (args, others)
+                  andalso (memo := Symtab.map_default (a, [])
+                    (cons (left, right)) (!memo); true)))
+          | _ => false);
+      in equal (left, right) end;
+    (* Representation equality also retains each Rust_Fn argument group.
+       Erased type equality cannot replace it: Fn(A, B) -> C and
+       Fn(A) -> Fn(B) -> C have equal HOL types but require different adapters.
+       Independently selected equation shapes may each contain shared subgraphs,
+       so memoize completed equal node pairs for this comparison as well. *)
+    fun equal_rust_shapes (left, right) =
+      let
+        val memo = Unsynchronized.ref Symtab.empty;
+        fun same_pair ((a, b), (c, d)) =
+          pointer_eq (a, c) andalso pointer_eq (b, d);
+        fun equal (left, right) =
+          pointer_eq (left, right) orelse
+          (case (left, right) of
+            (Rust_Var a, Rust_Var b) => a = b
+          | _ =>
+              let
+                val key = (case left of Rust_Tyco (tyco, _) => tyco | _ => "fun");
+              in
+                member same_pair (the_default [] (Symtab.lookup (!memo) key))
+                  (left, right) orelse
+                ((case (left, right) of
+                    (Rust_Tyco (a, args), Rust_Tyco (b, others)) =>
+                      a = b andalso ListPair.allEq equal (args, others)
+                  | (Rust_Fn (args, ret), Rust_Fn (others, result)) =>
+                      ListPair.allEq equal (args, others) andalso equal (ret, result)
+                  | _ => false)
+                  andalso (memo := Symtab.map_default (key, [])
+                    (cons (left, right)) (!memo); true))
+              end);
+      in equal (left, right) end;
+    (* Erasing a selected representation retains shared child shapes while
+       forgetting only Rust function-group boundaries. The memo belongs to this
+       conversion; constructor names choose buckets and physical identity
+       distinguishes different applications within each bucket. *)
+    fun shape_type root =
+      let
+        val memo = Unsynchronized.ref Symtab.empty;
+        fun erase (Rust_Var v) = ITyVar v
+          | erase shape =
+              let
+                val key = (case shape of Rust_Tyco (tyco, _) => tyco | _ => "fun");
+              in
+                (case AList.lookup pointer_eq
+                    (the_default [] (Symtab.lookup (!memo) key)) shape of
+                  SOME result => result
+                | NONE =>
+                    let
+                      val result =
+                        (case shape of
+                          Rust_Tyco (tyco, shapes) => tyco `%% map erase shapes
+                        | Rust_Fn (args, ret) => mk_fun_ty (map erase args, erase ret)
+                        | Rust_Var v => ITyVar v);
+                      val _ = memo :=
+                        Symtab.map_default (key, []) (cons (shape, result)) (!memo);
+                    in result end)
+              end;
+      in erase root end;
     (* Default representation has no dictionary-selected grouping. Preserve
        shared compound types while retaining one flat Rust_Fn group for adjacent
        codomain arrows. Each query maps physical nodes independently; constructor
@@ -855,7 +931,7 @@ fun print_type_param_bound (vname, sort) =
                          a final container without converting the container. *)
                       let
                         fun refine shape =
-                          if shape_type shape = shape_type rust_shape
+                          if equal_shape_types (shape_type shape, shape_type rust_shape)
                           then rust_shape
                           else (case shape of
                             Rust_Fn (args, result) => Rust_Fn (args, refine result)
@@ -936,7 +1012,7 @@ fun print_type_param_bound (vname, sort) =
           (case get_first (fn dict =>
               (case dictionary_rust_shape dict of
                 SOME shape =>
-                  if shape_type shape = ty then SOME shape else NONE
+                  if equal_shape_types (shape_type shape, ty) then SOME shape else NONE
               | NONE => NONE)) ds of
             SOME shape => shape
           | NONE => default_rust_shape ty);
@@ -989,7 +1065,7 @@ fun print_type_param_bound (vname, sort) =
         else get_first (fn dict =>
           (case dictionary_rust_shape dict of
             SOME shape =>
-              if shape_type shape = ty then SOME shape else NONE
+              if equal_shape_types (shape_type shape, ty) then SOME shape else NONE
           | NONE => NONE)) ds)
         (ListPair.zip (typargs, dicts));
     (** Ordinary dictionary-eliminated wrappers such as `HOL.eq` remain plain
@@ -1216,7 +1292,8 @@ fun print_type_param_bound (vname, sort) =
               drop_shape_arguments extra instantiated_shape;
           in
             if length args < wanted
-                orelse shape_type instantiated_shape <> inst_result_ty
+                orelse not (equal_shape_types
+                  (shape_type instantiated_shape, inst_result_ty))
             then NONE
             else
               (* Top-level function results already receive the caller's expected
@@ -1248,7 +1325,7 @@ fun print_type_param_bound (vname, sort) =
                 in
                   (case selected_term_rust_shape_seen (sym :: seen) vars body of
                     SOME shape =>
-                      if shape_type shape = result_ty then shape
+                      if equal_shape_types (shape_type shape, result_ty) then shape
                       else default_rust_shape result_ty
                   | NONE => default_rust_shape result_ty)
                 end;
@@ -1265,7 +1342,7 @@ fun print_type_param_bound (vname, sort) =
               (case shapes of
                 [] => SOME (default_rust_shape result_ty)
               | shape :: rest =>
-                  if forall (fn other => other = shape) rest
+                  if forall (fn other => equal_rust_shapes (other, shape)) rest
                   then SOME (signature_shape shape)
                   else SOME (default_rust_shape result_ty))
             end
@@ -1368,8 +1445,8 @@ fun print_type_param_bound (vname, sort) =
                   (case (term_type vars t, selected_term_rust_shape vars t) of
                     (SOME source_ty, SOME (source_shape as Rust_Fn _)) =>
                       let val target_shape = default_rust_shape source_ty in
-                        if shape_type source_shape = source_ty
-                            andalso source_shape <> target_shape
+                        if equal_shape_types (shape_type source_shape, source_ty)
+                            andalso not (equal_rust_shapes (source_shape, target_shape))
                         then SOME {hol_type = source_ty,
                           rust_shape = target_shape}
                         else NONE
@@ -1395,11 +1472,11 @@ fun print_type_param_bound (vname, sort) =
                     val source_shape =
                       (case selected_term_rust_shape vars t of
                         SOME shape =>
-                          if shape_type shape = source_ty
+                          if equal_shape_types (shape_type shape, source_ty)
                           then shape else default_rust_shape source_ty
                       | NONE => default_rust_shape source_ty);
                   in
-                  if source_shape <> target_shape
+                  if not (equal_rust_shapes (source_shape, target_shape))
                   then
                     let
                       val adapted = print_function_adapter target_shape
@@ -1609,7 +1686,7 @@ fun print_type_param_bound (vname, sort) =
                           val shapes =
                             (case expected of
                               SOME {rust_shape = shape as Rust_Tyco (_, shapes), ...} =>
-                                if shape_type shape = result then shapes
+                                if equal_shape_types (shape_type shape, result) then shapes
                                 else map default_rust_shape tys
                             | _ => map default_rust_shape tys);
                           val needs_witness =
@@ -2917,7 +2994,8 @@ fun print_type_param_bound (vname, sort) =
                                 [(self_var, default_rust_shape self_ty)]
                                 (drop_fun_type arity mty) result_ty;
                             in
-                              if shape = default_rust_shape result_ty then NONE
+                              if equal_rust_shapes (shape, default_rust_shape result_ty)
+                              then NONE
                               else SOME {hol_type = result_ty, rust_shape = shape}
                             end
                         | NONE => NONE)
@@ -3055,7 +3133,7 @@ fun print_type_param_bound (vname, sort) =
                   | NONE =>
                       (case function_result_rust_shape [] (Constant const) of
                         SOME shape =>
-                          if shape_type shape = raw_ret_ty
+                          if equal_shape_types (shape_type shape, raw_ret_ty)
                           then shape else default_rust_shape raw_ret_ty
                       | NONE => default_rust_shape raw_ret_ty));
                 (* A function body's stable source shape is part of its Rust item
