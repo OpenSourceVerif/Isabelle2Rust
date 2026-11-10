@@ -3839,15 +3839,31 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
         | (Constant _, Code_Thingol.Classparam cls) =>
             if include_projected then SOME cls else NONE
         | _ => NONE)) stmt_list);
-    (** Match a specialized instance-name segment against candidate classes and
-        type constructors. The result is the first (class, tyco) pair in the same
-        class-major order used by the former function/constructor scans. **)
-    fun reconstructed_instance candidate_classes inst_segment tycos =
-      get_first (fn cls =>
-        get_first (fn tyco =>
-          if after_last_dot cls ^ "_" ^ after_last_dot tyco ^ "_inst" = inst_segment
-          then SOME (cls, tyco)
-          else NONE) tycos) candidate_classes;
+    (** Match specialized methods against the existing instance-name convention.
+        A method's type can contain an unrelated constructor with the carrier's
+        short name before the carrier itself (e.g. a user prod inside a standard
+        product). When Isabelle records the unoverloaded method, its qualified
+        class and carrier identify the instance; signature traversal order must
+        not select another same-named type or class. Unregistered constructor
+        symbols retain the existing name-based fallback. **)
+    fun reconstructed_instance candidate_classes const tycos =
+      let
+        val thy = Proof_Context.theory_of ctxt;
+        val registered = Axclass.inst_of_param thy const;
+        val inst_segment = before_last_dot const;
+        fun matches_registered cls tyco =
+          (case registered of
+              NONE => true
+            | SOME (cp, carrier) =>
+                tyco = carrier andalso Axclass.class_of_param thy cp = SOME cls);
+      in
+        get_first (fn cls =>
+          get_first (fn tyco =>
+            if after_last_dot cls ^ "_" ^ after_last_dot tyco ^ "_inst" = inst_segment
+                andalso matches_registered cls tyco
+            then SOME (cls, tyco)
+            else NONE) tycos) candidate_classes
+      end;
 
     (* Reconstruct type-class instances from the specialized projection functions
         Isabelle supplies alongside their dictionary dependency metadata. *)
@@ -3909,8 +3925,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                 else
                   let
                     val typcons = distinct (op =) (tycos_of ty)
-                    val inst_s = before_last_dot const
-                    val hit = reconstructed_instance candidate_classes inst_s typcons
+                    val hit = reconstructed_instance candidate_classes const typcons
                   in
                     case hit of
                       NONE => NONE
@@ -4147,8 +4162,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
               if not (is_nullary_constr parent const) then NONE
               else
                 let
-                  val inst_s = before_last_dot const
-                  val hit = reconstructed_instance all_classes inst_s [parent]
+                  val hit = reconstructed_instance all_classes const [parent]
                 in
                   case hit of
                     NONE => NONE
