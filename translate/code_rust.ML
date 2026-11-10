@@ -10,6 +10,12 @@ sig
      idempotent and must not depend on the number of occurrences. *)
   val fold_distinct_iterm_constants:
     (Code_Thingol.const -> 'a -> 'a) -> Code_Thingol.iterm -> 'a -> 'a
+
+  (* Set-like name queries on the recognized term representation. Preserve the
+     upstream first-occurrence order and omit the alternate case primitive. *)
+  val add_distinct_constsyms:
+    Code_Thingol.iterm -> Code_Symbol.T list -> Code_Symbol.T list
+  val add_distinct_varnames: Code_Thingol.iterm -> string list -> string list
 end;
 
 structure Code_Rust : CODE_RUST =
@@ -187,6 +193,106 @@ fun fold_distinct_iterm_constants f term acc =
               |> fold (fn (pat, body) => visit pat #> visit body) clauses)
         end;
   in visit term acc end;
+
+(* A bounded-depth discriminator keeps unrelated physical nodes out of the
+   same lookup list. It is only a bucket key: collisions are resolved exclusively
+   with pointer_eq, never structural equality. Inspect at most two child levels,
+   and never unfold the primitive or a whole clause list while forming a key. *)
+fun name_query_bucket term =
+  let
+    fun key _ (IConst {sym, ...}) = Code_Symbol.marker sym
+      | key _ (IVar v) = "v:" ^ the_default "" v
+      | key 0 (_ `$ _) = "a"
+      | key 0 (_ `|=> _) = "l"
+      | key 0 (ICase _) = "m"
+      | key depth (left `$ right) =
+          "a:" ^ key (depth - 1) left ^ ":" ^ key (depth - 1) right
+      | key depth ((v, _) `|=> (body, _)) =
+          "l:" ^ the_default "" v ^ ":" ^ key (depth - 1) body
+      | key depth (ICase {term, clauses, ...}) =
+          "m:" ^ key (depth - 1) term ^ ":" ^
+            (case clauses of [] => "" | (pat, _) :: _ => key (depth - 1) pat);
+  in key 2 term end;
+
+(** Name reservation follows the same case projection as add_constsyms:
+    scrutinees, patterns and bodies, without the alternate primitive. Repeated
+    physical compound nodes need not contribute their symbols twice. Atomic
+    leaves do not recurse and need no identity cache. Preserve insertion order
+    and the caller's initial accumulator so local Rust names stay stable. **)
+fun add_distinct_constsyms term symbols =
+  let
+    val seen = Unsynchronized.ref Symtab.empty;
+    fun visit (IConst {sym, ...}) acc = insert (op =) sym acc
+      | visit (IVar _) acc = acc
+      | visit t acc =
+          let
+            val key = name_query_bucket t;
+            val nodes = the_default [] (Symtab.lookup (!seen) key);
+          in
+            if member pointer_eq nodes t then acc
+            else
+              let val _ = seen := Symtab.update (key, t :: nodes) (!seen) in
+                (case t of
+                  left `$ right => acc |> visit left |> visit right
+                | _ `|=> (body, _) => visit body acc
+                | ICase {term, clauses, ...} =>
+                    acc |> visit term
+                    |> fold (fn (pat, body) => visit pat #> visit body) clauses
+                | _ => acc)
+              end
+          end;
+  in visit term symbols end;
+
+(** A shared term may occur under different pattern or lambda binders. Cache its
+    intrinsic free-variable list, not the result of visiting it under one outer
+    scope: each parent removes its own binders before combining child results.
+    Lists have add_varnames' reverse first-occurrence order. Reversing a child's
+    list before insertion preserves that order, including when an existing seed
+    already contains a name. Each query owns its cache and ignores primitives. **)
+fun add_distinct_varnames term names =
+  let
+    val memo = Unsynchronized.ref Symtab.empty;
+    fun merge added existing = fold (insert (op =)) (rev added) existing;
+    fun free (IConst _) = []
+      | free (IVar NONE) = []
+      | free (IVar (SOME v)) = [v]
+      | free t =
+          let val key = name_query_bucket t in
+            (case AList.lookup pointer_eq (the_default [] (Symtab.lookup (!memo) key)) t of
+              SOME names => names
+            | NONE =>
+                let
+                  val names =
+                    (case t of
+                      left `$ right => merge (free right) (free left)
+                    | (v, _) `|=> (body, _) =>
+                        (case v of NONE => free body
+                         | SOME name => remove (op =) name (free body))
+                    | ICase {term, clauses, ...} =>
+                        fold (fn (pat, body) =>
+                          merge (subtract (op =) (free pat) (free body)))
+                            clauses (free term)
+                    | _ => []);
+                  (* Recursive children may have populated this same bucket. *)
+                  val _ = memo := Symtab.map_default (key, []) (cons (t, names)) (!memo);
+                in names end)
+          end;
+  in merge (free term) names end;
+
+(* Use the upstream reservation policy with the bounded shared-graph query.
+   Declaration order and filtering of mapped/qualified constants stay unchanged. *)
+fun intro_base_names_for no_syntax deresolve ts =
+  let
+    fun base_name sym =
+      if (case sym of Constant const => no_syntax const | _ => true)
+      then
+        let val name = deresolve sym in
+          if Long_Name.is_qualified name then NONE else SOME name
+        end
+      else NONE;
+  in
+    [] |> fold add_distinct_constsyms ts |> map_filter base_name |> intro_vars
+  end;
 
 (** Return the final or penultimate component of a dot-qualified name. **)
 fun after_last_dot s =
@@ -496,7 +602,7 @@ fun print_type_param_bound (vname, sort) =
     fun rv_lookup_shape vars v = Option.map snd (Symtab.lookup (rv_types vars) v);
     fun rv_intro_typed_pat_shape pat ty shape (vars: rust_var_ctxt) =
       let
-        val vs = build (Code_Thingol.add_varnames pat);
+        val vs = build (add_distinct_varnames pat);
         val names' = intro_vars vs (rv_names vars);
         val tys' =
           let
@@ -2371,7 +2477,7 @@ fun print_type_param_bound (vname, sort) =
                 fun row (pat, body) =
                   let
                     val vars' = rv_intro_typed_pat pat ty vars;
-                    val used_vars = build (Code_Thingol.add_varnames body);
+                    val used_vars = build (add_distinct_varnames body);
                   in
                     ([pat], vars', used_vars, [],
                       print_term_app is_pseudo_fun some_thm vars' NOBR body)
@@ -2384,7 +2490,7 @@ fun print_type_param_bound (vname, sort) =
               end;
             fun print_select (pat, body) =
               let
-                val used_vars = build (Code_Thingol.add_varnames body);
+                val used_vars = build (add_distinct_varnames body);
                 val pat' = wildcard_unused_pattern used_vars pat;
                 val vars' = rv_intro_typed_pat pat (#typ icase) vars;
                 val (p, lets) =
@@ -2513,7 +2619,8 @@ fun print_type_param_bound (vname, sort) =
                        so introduction cannot overwrite an existing variable key. *)
                     val eta_namectxt = snd (rv_names vars)
                       |> fold Name.declare (Symtab.keys (fst (rv_names vars)))
-                      |> fold (Code_Thingol.fold_varnames Name.declare) (body0 :: map fst binds0)
+                      |> fold (fn term => fold Name.declare (rev (add_distinct_varnames term [])))
+                        (body0 :: map fst binds0)
                     val names =
                       Name.invent eta_namectxt "eta_arg" (length missing_tys)
                     val eta_terms = map (IVar o SOME) names
@@ -2531,8 +2638,8 @@ fun print_type_param_bound (vname, sort) =
               end
           | NONE => (binds0, body0));
         val (outer_namemap, outer_namectxt) = rv_names vars;
-        val pat_vars = fold (Code_Thingol.add_varnames o fst) binds [];
-        val body_free = Code_Thingol.add_varnames t' [];
+        val pat_vars = fold (add_distinct_varnames o fst) binds [];
+        val body_free = add_distinct_varnames t' [];
         val captured_vars =
           filter (fn v =>
             Symtab.defined outer_namemap v
@@ -2776,7 +2883,7 @@ fun print_type_param_bound (vname, sort) =
             fun print_eqn eq =
               let
                 val (ts, t, some_thm, vars) = prepare_eqn eq;
-                val used_vars = build (Code_Thingol.add_varnames t)
+                val used_vars = build (add_distinct_varnames t)
                 val ts' = map (wildcard_unused_pattern used_vars) ts
                 val print_pattern_term = (print_term_pattern is_pseudo_fun some_thm vars NOBR)
                 val print_expr_term = (print_term_expected method_result_expected is_pseudo_fun
@@ -2832,7 +2939,7 @@ fun print_type_param_bound (vname, sort) =
                   |> intro_base_names_for (is_none o const_syntax)
                       deresolve (map (snd o fst) eqs)
                 fun eq_patterns_for_param_names ((ts, t), _) =
-                  let val used_vars = build (Code_Thingol.add_varnames t)
+                  let val used_vars = build (add_distinct_varnames t)
                   in map (wildcard_unused_pattern used_vars) ts end
                 val dummy_param_names =
                   (aux_params vars0 o map eq_patterns_for_param_names) eqs;
@@ -2883,7 +2990,7 @@ fun print_type_param_bound (vname, sort) =
                           |> rv_intro_base_names_for (is_none o const_syntax)
                               deresolve (t :: ts)
                           |> rv_intro_typed_pats (ListPair.zip (ts, param_tys));
-                        val used_vars = build (Code_Thingol.add_varnames t);
+                        val used_vars = build (add_distinct_varnames t);
                       in
                         (ts, vars, used_vars, [],
                           print_term_expected method_result_expected is_pseudo_fun
@@ -2916,7 +3023,7 @@ fun print_type_param_bound (vname, sort) =
                           |> rv_intro_base_names_for (is_none o const_syntax)
                               deresolve (t :: ts)
                           |> rv_intro_typed_pats (ListPair.zip (ts, param_tys));
-                        val used_vars = build (Code_Thingol.add_varnames t);
+                        val used_vars = build (add_distinct_varnames t);
                         val ts' = map (wildcard_unused_pattern used_vars) ts;
                         val (surface_pats, lets, residuals, row_vars') =
                           print_box_frontier_patterns is_pseudo_fun some_thm row_vars
@@ -2981,7 +3088,7 @@ fun print_type_param_bound (vname, sort) =
                         (_, _, _, residuals, _, used_vars, _) =
                       let
                         val residual_vars =
-                          fold (Code_Thingol.add_varnames o #2) residuals [];
+                          fold (add_distinct_varnames o #2) residuals [];
                       in List.all (fn v => member (op =) residual_vars v) used_vars end;
                     fun residual_rows (rep_i, rep_info) =
                       let
@@ -3064,7 +3171,7 @@ fun print_type_param_bound (vname, sort) =
                 fun print_irrefutable_eqn (eq as ((ts, t), _)) =
                   let
                     val (_, _, some_thm, vars) = prepare_eqn eq;
-                    val used_vars = build (Code_Thingol.add_varnames t);
+                    val used_vars = build (add_distinct_varnames t);
                     val ts' = map (wildcard_unused_pattern used_vars) ts;
                     (* Consume all signature arguments before any source pattern
                        binder enters scope. A sequence of lets could shadow a later
