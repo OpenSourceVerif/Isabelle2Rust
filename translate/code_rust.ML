@@ -616,12 +616,32 @@ fun print_type_param_bound (vname, sort) =
       | shape_type (Rust_Tyco (tyco, shapes)) = tyco `%% map shape_type shapes
       | shape_type (Rust_Fn (args, ret)) =
           mk_fun_ty (map shape_type args, shape_type ret);
-    fun default_rust_shape (ITyVar v) = Rust_Var v
-      | default_rust_shape (ty as ("fun" `%% [_, _])) =
-          let val (args, ret) = fun_typs ty
-          in Rust_Fn (map default_rust_shape args, default_rust_shape ret) end
-      | default_rust_shape (tyco `%% tys) =
-          Rust_Tyco (tyco, map default_rust_shape tys);
+    (* Default representation has no dictionary-selected grouping. Preserve
+       shared compound types while retaining one flat Rust_Fn group for adjacent
+       codomain arrows. Each query maps physical nodes independently; constructor
+       names only choose buckets, so different function/container applications
+       with the same name cannot reuse one another's shapes. *)
+    fun default_rust_shape ty =
+      let
+        val memo = Unsynchronized.ref Symtab.empty;
+        fun shape (ITyVar v) = Rust_Var v
+          | shape (ty as (tyco `%% tys)) =
+              (case AList.lookup pointer_eq
+                  (the_default [] (Symtab.lookup (!memo) tyco)) ty of
+                SOME result => result
+              | NONE =>
+                  let
+                    val result =
+                      (case ty of
+                        "fun" `%% [_, _] =>
+                          let val (args, ret) = fun_typs ty
+                          in Rust_Fn (map shape args, shape ret) end
+                      | _ => Rust_Tyco (tyco, map shape tys));
+                    (* Child conversions may have populated this same bucket. *)
+                    val _ = memo :=
+                      Symtab.map_default (tyco, []) (cons (ty, result)) (!memo);
+                  in result end);
+      in shape ty end;
     (** Print every level of a selected representation shape.  Falling back to
         `print_typ (shape_type shape)` for a non-function outer constructor would
         erase non-default function groupings in its arguments, for example turning
