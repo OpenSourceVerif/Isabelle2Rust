@@ -2707,6 +2707,19 @@ fun print_type_param_bound (vname, sort) =
                         fun bound_name (IVar (SOME v), row_vars, _) =
                               SOME (rv_lookup_var row_vars v)
                           | bound_name _ = NONE;
+                        (* A shared constructor arm can also contain wildcard
+                           rows whose body uses this printed name for another
+                           column. Binding it here would shadow that row's live
+                           outer field before its fallback is selected. A direct
+                           name is safe only when every row that uses the name
+                           binds it to this very field. Otherwise retain a fresh
+                           temporary and the existing row-local alias binding. *)
+                        fun shadows_row_use name (pat, row_vars, used_vars) =
+                          exists (fn v =>
+                            rv_lookup_var row_vars v = name andalso
+                              (case pat of
+                                IVar (SOME field_v) => v <> field_v
+                              | _ => true)) used_vars;
                         fun direct_field_name used_direct i need_box =
                           let
                             val entries = field_entries i;
@@ -2722,6 +2735,7 @@ fun print_type_param_bound (vname, sort) =
                               | [name] =>
                                   if need_box
                                     orelse member (op =) used_direct name
+                                    orelse exists (shadows_row_use name) entries
                                     orelse not (List.all (fn name' => name' = name) bound_names)
                                   then NONE
                                   else SOME name
