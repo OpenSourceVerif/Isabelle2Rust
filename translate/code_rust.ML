@@ -1829,7 +1829,7 @@ fun print_type_param_bound (vname, sort) =
           case Code_Thingol.unfold_const_app (#primitive case_expr)
               of SOME (app as ({ sym = Constant const, ... }, _)) =>
                   if is_none (const_syntax const)
-                  then print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy case_expr
+                  then print_case expected is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy case_expr
                   else
                     let
                       fun print_syntax f =
@@ -1845,27 +1845,32 @@ fun print_type_param_bound (vname, sort) =
                       print_term_with_cons_and_box expected
                         (need_box, box_prcs) print_syntax fxy (ICase case_expr)
                     end
-              | NONE => print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy case_expr
+              | NONE => print_case expected is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy case_expr
     (** Print a term without Box or clone wrapping (for declarations/signatures). **)
     and print_term_decl is_pseudo_fun some_thm vars fxy t =
       print_term_gen is_pseudo_fun (false, I, I) some_thm vars fxy t
     (** Print a pattern that has no boxed fields.  Boxed constructor fields are
         handled explicitly by print_shallow_box_patterns or stable_match_compile;
         the generic term printer must never emit a Box dereference pattern. **)
-    and print_term_pattern is_pseudo_fun some_thm vars fxy t =
+    and print_term_pattern expected is_pseudo_fun some_thm vars fxy t =
       let
         (* A pattern names its fields; it cannot contain representation adapters.
            Retain the selected shapes in the branch context, but print binder
            occurrences with the constructor declaration's own field layout.
            Flattening each binder independently would disagree with a field
-           whose result variable has been instantiated by a function. *)
+           whose result variable has been instantiated by a function. A case
+           supplies its scrutinee shape, which also qualifies nullary variants
+           such as None consistently with that value's selected type. *)
         val pattern_types =
           (case term_type vars t of
             SOME ty => rv_types (rv_intro_typed_pat_shape
-              t ty (default_rust_shape ty) vars)
+              t ty (case expected of
+                SOME {rust_shape, ...} => rust_shape
+              | NONE => default_rust_shape ty) vars)
           | NONE => rv_types vars);
         val pattern_vars = (rv_names vars, pattern_types);
-      in print_term_gen is_pseudo_fun (false, I, I) some_thm pattern_vars fxy t end
+      in print_term_expected expected is_pseudo_fun
+        (false, I, I) some_thm pattern_vars fxy t end
     (** Print a term as an expression (uses box_new and clone). **)
     and print_term_app is_pseudo_fun some_thm vars fxy t = 
       print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars fxy t
@@ -2424,14 +2429,15 @@ fun print_type_param_bound (vname, sort) =
     (** Bind a clause pattern, introducing its variables (printed as a pattern). **)
     and print_bind_typed is_pseudo_fun some_thm fxy pat ty vars =
       let val vars' = rv_intro_typed_pat pat ty vars
-      in (print_term_pattern is_pseudo_fun some_thm vars' fxy pat, vars') end
+      in (print_term_pattern NONE is_pseudo_fun some_thm vars' fxy pat, vars') end
     and print_bind_typed_shape is_pseudo_fun some_thm fxy pat ty shape vars =
       let
         val vars' = rv_intro_typed_pat_shape pat ty shape vars;
         val printed_pat =
           (case pat of
             IVar (SOME v) => str (rv_lookup_var vars' v)
-          | _ => print_term_pattern is_pseudo_fun some_thm vars' fxy pat);
+          | _ => print_term_pattern (SOME {hol_type = ty, rust_shape = shape})
+              is_pseudo_fun some_thm vars' fxy pat);
       in (printed_pat, vars') end
     and pat_contains_boxed_field pat =
       (case Code_Thingol.unfold_const_app pat of
@@ -2501,7 +2507,7 @@ fun print_type_param_bound (vname, sort) =
                     val lets = maps #2 printed_fields;
                   in ((constructor_pattern sym field_prts, lets), state') end
             | NONE =>
-                ((print_term_pattern is_pseudo_fun some_thm vars NOBR pat, []), state));
+                ((print_term_pattern NONE is_pseudo_fun some_thm vars NOBR pat, []), state));
         val initial_state = (0, snd (rv_names vars));
         val (printed, _) = fold_map (print_pat false) pats initial_state;
       in (map #1 printed, maps #2 printed) end
@@ -2545,7 +2551,7 @@ fun print_type_param_bound (vname, sort) =
                     ((constructor_pattern sym field_prts, lets, residuals), state')
                   end
             | NONE =>
-                ((print_term_pattern is_pseudo_fun some_thm vars NOBR pat, [], []), state));
+                ((print_term_pattern NONE is_pseudo_fun some_thm vars NOBR pat, [], []), state));
         val initial_state = (0, snd (rv_names vars));
         val (printed, (_, namectxt')) = fold_map (fn (pat, ty) =>
           print_pat false ty pat) pats_tys initial_state;
@@ -2587,7 +2593,7 @@ fun print_type_param_bound (vname, sort) =
             SOME (bind, body) => collect body (bind :: binds)
           | NONE => (rev binds, abs));
       in collect t [] end
-    and print_irrefutable_case_parts is_pseudo_fun (need_box, box_prcs, clone_prcs)
+    and print_irrefutable_case_parts expected is_pseudo_fun (need_box, box_prcs, clone_prcs)
         some_thm vars (case_expr as {clauses = [_], ...}) =
           let
             val (binds, body) = Code_Thingol.unfold_let (ICase case_expr);
@@ -2611,11 +2617,11 @@ fun print_type_param_bound (vname, sort) =
             val bind_pats = map (fst o fst) binds;
           in
             if direct_irrefutable_patterns bind_pats
-            then SOME (ps, print_term_gen is_pseudo_fun
+            then SOME (ps, print_term_expected expected is_pseudo_fun
               (need_box, box_prcs, clone_prcs) some_thm vars' NOBR body)
             else NONE
           end
-      | print_irrefutable_case_parts _ _ _ _ _ = NONE
+      | print_irrefutable_case_parts _ _ _ _ _ _ = NONE
     and stable_match_compile is_pseudo_fun some_thm vars columns rows fallback =
       let
         fun emit_row (_, _, _, lets, body) =
@@ -2874,9 +2880,9 @@ fun print_type_param_bound (vname, sort) =
         direct binding block; the remaining cases use match-based lowering. **)
     (* Thingol removes undefined branches. An empty case is a single diverging
        expression, which also coerces to a polymorphic result or a boxed field. *)
-    and print_case _ _ _ _ _ { clauses = [], ... } =
+    and print_case _ _ _ _ _ _ { clauses = [], ... } =
           str "panic!(\"empty case\")"
-      | print_case is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars _ (icase as { term = t, typ = _, clauses = clauses, ... }) =
+      | print_case expected is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars _ (icase as { term = t, typ = _, clauses = clauses, ... }) =
           (* A case is an expression even when its lowering starts with a
              match or a binding block. Parenthesize that whole result so Rust
              cannot end a statement or match arm before a following infix
@@ -2897,8 +2903,12 @@ fun print_type_param_bound (vname, sort) =
               print_term_expected
                 (SOME {hol_type = #typ icase, rust_shape = scrutinee_shape})
                 is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR t;
+            (* Branches construct the case result in the enclosing expected
+               representation. Dropping it here makes newly constructed tuple
+               fields fall back to flat functions, even inside an adapter whose
+               result already requires the dictionary-selected unary shape. *)
             val printed_case =
-          rust_parens [(case print_irrefutable_case_parts is_pseudo_fun
+          rust_parens [(case print_irrefutable_case_parts expected is_pseudo_fun
               (false, box_prcs, clone_prcs) some_thm vars icase of
             SOME (ps, body) => rust_bare_block (ps @ [body])
           | NONE => let
@@ -2914,7 +2924,8 @@ fun print_type_param_bound (vname, sort) =
                     val used_vars = build (add_distinct_varnames body);
                   in
                     ([pat], vars', used_vars, [],
-                      print_term_app is_pseudo_fun some_thm vars' NOBR body)
+                      print_term_expected expected is_pseudo_fun
+                        (false, box_prcs, clone_prcs) some_thm vars' NOBR body)
                   end;
                 val scrutinee = print_scrutinee ();
               in
@@ -2934,9 +2945,12 @@ fun print_type_param_bound (vname, sort) =
                       ([p], lets) => (p, lets)
                     | _ => error "Expected one shallow case pattern")
                   else
-                    (print_term_pattern is_pseudo_fun some_thm vars' NOBR pat', []);
+                    (print_term_pattern
+                      (SOME {hol_type = #typ icase, rust_shape = scrutinee_shape})
+                      is_pseudo_fun some_thm vars' NOBR pat', []);
                 val printed_body =
-                  print_term_app is_pseudo_fun some_thm vars' NOBR body;
+                  print_term_expected expected is_pseudo_fun
+                        (false, box_prcs, clone_prcs) some_thm vars' NOBR body;
                 val arm_body =
                   if null lets then printed_body
                   else rust_bare_block (lets @ [printed_body]);
@@ -3331,7 +3345,7 @@ fun print_type_param_bound (vname, sort) =
                 val (ts, t, some_thm, vars) = prepare_eqn eq;
                 val used_vars = build (add_distinct_varnames t)
                 val ts' = map (wildcard_unused_pattern used_vars) ts
-                val print_pattern_term = (print_term_pattern is_pseudo_fun some_thm vars NOBR)
+                val print_pattern_term = (print_term_pattern NONE is_pseudo_fun some_thm vars NOBR)
                 val print_expr_term = (print_term_expected method_result_expected is_pseudo_fun
                       (false, box_new, clone) some_thm vars NOBR)
                 val (printed_patterns, lets) =
@@ -3364,7 +3378,7 @@ fun print_type_param_bound (vname, sort) =
                     let
                       fun default () = [print_term_app is_pseudo_fun some_thm vars NOBR t];
                       fun print_case_body () =
-                        (case print_irrefutable_case_parts is_pseudo_fun
+                        (case print_irrefutable_case_parts NONE is_pseudo_fun
                             (false, box_new, clone) some_thm vars case_expr of
                           SOME (ps, body) => ps @ [body]
                         | NONE => default ())
@@ -3627,7 +3641,7 @@ fun print_type_param_bound (vname, sort) =
                       else
                         let
                           val pats = map
-                            (print_term_pattern is_pseudo_fun some_thm vars NOBR) ts';
+                            (print_term_pattern NONE is_pseudo_fun some_thm vars NOBR) ts';
                         in [rust_open [str "let ",
                           to_tuple pats (Pretty.block (commas_append pats)),
                           str " = ", scrutinee, str ";"]] end;
