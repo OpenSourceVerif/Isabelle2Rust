@@ -3889,17 +3889,65 @@ fun print_type_param_bound (vname, sort) =
           pair [] (print_def (K false) "fn" NONE binding)
       | print_stmt _ (Funs ((_, binding) :: exports_bindings, pseudo_funs)) =
           let
-            val print_def' = (fn definer => print_def (member (op =) pseudo_funs) definer NONE);
-            (* A self-referential nullary value cannot be represented by the eager
-               owned Rust model.  Emitting it as `fn x() { ... x() ... }` would
-               diverge while constructing productive codatatypes, while the former
-               item-level `let x = x();` was not valid Rust at all.  Reject this
-               unsupported semantic boundary instead of producing a crate that is
-               either ill-formed or observably wrong. *)
+            val bindings = binding :: map snd exports_bindings;
+            val group_syms = map (fn Function (name, _) => Constant name) bindings;
+            (* A constructor's returned function field already delays evaluation
+               through the ordinary Rc closure representation. A recursive call
+               below that lambda therefore does not make the nullary factory
+               eager. Retain the rejection when any group reference is evaluated
+               while constructing the value, including an immediately applied
+               lambda or a callback passed to an arbitrary consumer.
+
+               Only returned constructors (also below returned case branches)
+               establish this boundary. A constructor passed to a function may
+               have its fields forced immediately, so its lambdas remain part of
+               the eager scan. The two physical-node caches keep those contexts
+               separate without expanding shared case continuations. *)
+            fun has_eager_group_reference term =
+              let
+                val returned_seen = Unsynchronized.ref [];
+                val consumed_seen = Unsynchronized.ref [];
+                fun visit returned t =
+                  let val seen = if returned then returned_seen else consumed_seen in
+                    if member pointer_eq (!seen) t then false
+                    else
+                      let
+                        val _ = seen := t :: !seen;
+                        fun stored (_ `|=> _) = false
+                          | stored field = visit true field;
+                        fun ordinary () =
+                          (case t of
+                            IConst {sym, ...} => member (op =) group_syms sym
+                          | IVar _ => false
+                          | left `$ right => visit false left orelse visit false right
+                          | _ `|=> (body, _) => visit false body
+                          | ICase {term, clauses, ...} =>
+                              visit false term orelse exists (fn (pat, body) =>
+                                visit false pat orelse visit returned body) clauses);
+                      in
+                        if returned then
+                          (case Code_Thingol.unfold_const_app t of
+                            SOME ({sym, dom, ...}, fields) =>
+                              if is_constr sym andalso length fields = length dom
+                              then exists stored fields
+                              else ordinary ()
+                          | NONE => ordinary ())
+                        else ordinary ()
+                      end
+                  end;
+              in visit true term end;
+            fun unsafe_value (Function (name, (_, eqs))) =
+              member (op =) pseudo_funs (Constant name) andalso
+                exists (fn ((_, body), _) => has_eager_group_reference body) eqs;
+            val unsafe = filter unsafe_value bindings;
             val _ =
-              if null pseudo_funs then ()
+              if null unsafe then ()
               else error ("Rust target does not support self-referential nullary values: " ^
-                String.concatWith ", " (map deresolve pseudo_funs));
+                String.concatWith ", " (map (fn Function (name, _) =>
+                  deresolve (Constant name)) unsafe));
+            (* Guarded values use the same zero-argument function calls as
+               nonrecursive constants, including their ordinary type arguments. *)
+            val print_def' = (fn definer => print_def (K false) definer NONE);
             val head = "fn";
             val (ps, p) = split_last
               (print_def' head binding :: map (print_def' head o snd) exports_bindings);
