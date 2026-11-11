@@ -4146,41 +4146,49 @@ fun print_type_param_bound (vname, sort) =
                Only returned constructors (also below returned case branches)
                establish this boundary. A constructor passed to a function may
                have its fields forced immediately, so its lambdas remain part of
-               the eager scan. The two physical-node caches keep those contexts
-               separate without expanding shared case continuations. *)
+               the eager scan. A case selecting a stored closure preserves
+               this field-result context in its branches, but not its scrutinee.
+               Three physical-node caches distinguish returned values, stored
+               field results and consumed expressions without expanding shared
+               case continuations. *)
             fun has_eager_group_reference term =
               let
                 val returned_seen = Unsynchronized.ref [];
+                val field_seen = Unsynchronized.ref [];
                 val consumed_seen = Unsynchronized.ref [];
-                fun visit returned t =
-                  let val seen = if returned then returned_seen else consumed_seen in
+                fun visit returned field_result t =
+                  let
+                    val seen = if field_result then field_seen
+                      else if returned then returned_seen else consumed_seen;
+                  in
                     if member pointer_eq (!seen) t then false
                     else
                       let
                         val _ = seen := t :: !seen;
-                        fun stored (_ `|=> _) = false
-                          | stored field = visit true field;
                         fun ordinary () =
                           (case t of
                             IConst {sym, ...} => member (op =) group_syms sym
                           | IVar _ => false
-                          | left `$ right => visit false left orelse visit false right
-                          | _ `|=> (body, _) => visit false body
+                          | left `$ right =>
+                              visit false false left orelse visit false false right
+                          | _ `|=> (body, _) =>
+                              not field_result andalso visit false false body
                           | ICase {term, clauses, ...} =>
-                              visit false term orelse exists (fn (pat, body) =>
-                                visit false pat orelse visit returned body) clauses);
+                              visit false false term orelse exists (fn (pat, body) =>
+                                visit false false pat orelse
+                                visit returned field_result body) clauses);
                       in
                         if returned then
                           (case Code_Thingol.unfold_const_app t of
                             SOME ({sym, dom, ...}, fields) =>
                               if is_constr sym andalso length fields = length dom
-                              then exists stored fields
+                              then exists (visit true true) fields
                               else ordinary ()
                           | NONE => ordinary ())
                         else ordinary ()
                       end
                   end;
-              in visit true term end;
+              in visit true false term end;
             fun unsafe_value (Function (name, (_, eqs))) =
               member (op =) pseudo_funs (Constant name) andalso
                 exists (fn ((_, body), _) => has_eager_group_reference body) eqs;
