@@ -859,17 +859,13 @@ fun print_type_param_bound (vname, sort) =
                     val _ = memo := Symtab.map_default (tyco, [])
                       (cons ((decl, shape), result)) (!memo);
                   in result end)
-        and compound (decl as ("fun" `%% [_, _]))
-              (Rust_Fn (arg_shapes, ret_shape)) =
-              let val (decl_args, decl_ret) = fun_typs decl
-              in
-                if length decl_args = length arg_shapes
-                then []
-                  |> fold (fn (decl_arg, arg_shape) =>
-                       apply (bindings decl_arg arg_shape))
-                       (ListPair.zip (decl_args, arg_shapes))
-                  |> apply (bindings decl_ret ret_shape)
-                else []
+        and compound ("fun" `%% [decl_arg, decl_result])
+              (Rust_Fn (arg_shape :: arg_shapes, ret_shape)) =
+              let val tail = if null arg_shapes then ret_shape
+                else Rust_Fn (arg_shapes, ret_shape)
+              in []
+                |> apply (bindings decl_arg arg_shape)
+                |> apply (bindings decl_result tail)
               end
           | compound (decl_tyco `%% decl_tys) (Rust_Tyco (shape_tyco, arg_shapes)) =
               if decl_tyco = shape_tyco andalso length decl_tys = length arg_shapes
@@ -1380,14 +1376,62 @@ fun print_type_param_bound (vname, sort) =
       |> map (fn (v, shape) =>
           (v, the_default shape
             (typearg_dictionary_shape const (shape_type shape))));
-    (* Container-producing argument expressions fix the input representation of
-       an ordinary polymorphic call. Propagate only through saturated calls and
-       local bindings; do not inspect function equations, lambdas or cases.
+    (* A function wrapper can adapt arrow groups, but not change the layout of
+       a container hidden in its domain or result. Those positions constrain
+       higher-order generic arguments just like ordinary container arguments.
+       Preserve sharing while inspecting nested function positions. *)
+    fun has_selected_container shape =
+      let
+        val memo = Unsynchronized.ref Symtab.empty;
+        fun selected shape =
+          let
+            val key = (case shape of
+              Rust_Tyco (tyco, _) => tyco | Rust_Fn _ => "fun" | Rust_Var v => v);
+          in
+            (case AList.lookup pointer_eq
+                (the_default [] (Symtab.lookup (!memo) key)) shape of
+              SOME result => result
+            | NONE =>
+                let
+                  val result = (case shape of
+                    Rust_Tyco _ =>
+                      not (equal_rust_shapes
+                        (shape, default_rust_shape (shape_type shape)))
+                  | Rust_Fn (args, result) => exists selected (result :: args)
+                  | Rust_Var _ => false);
+                  val _ = memo := Symtab.map_default (key, [])
+                    (cons (shape, result)) (!memo);
+                in result end)
+          end;
+      in selected shape end;
+    fun instantiate_callable_shape subst decl_ty inst_ty wanted given result_shape =
+      let
+        val result = substitute_rust_shape subst result_shape;
+        val (decl_args, _) = fun_typs decl_ty;
+        val (inst_args, _) = fun_typs inst_ty;
+      in
+        if given < wanted
+        then Rust_Fn
+          (map2 (instantiate_rust_shape subst)
+             (drop given (take wanted decl_args))
+             (drop given (take wanted inst_args)), result)
+        else drop_shape_arguments (given - wanted) result
+      end;
+    (* Declared result layouts are independent of caller bindings. Cache only
+       queries that did not encounter a recursive fallback: such results do
+       not depend on the current seen path. A cycle generation invalidates
+       caching for every enclosing query, retaining the existing fallback. *)
+    val result_shape_cache = Unsynchronized.ref Symtab.empty;
+    val result_shape_cycles = Unsynchronized.ref (0: IntInf.int);
+    (* Container-producing arguments and function values fix the input
+       representation of an ordinary polymorphic call. Follow local bindings,
+       callable result signatures and syntactic lambda results; case inference
+       remains with the existing case printer.
        The memo belongs to this binding context and inference query. Shared
        physical expressions are evaluated once, including negative results;
        bounded bucket keys and pointer equality never unfold a shared subtree.
        No container value is rebuilt. Explicit dictionaries retain precedence. *)
-    fun refine_container_argument_shapes vars const args decl_ty inst_ty subst =
+    fun refine_container_argument_shapes seen vars const args decl_ty inst_ty subst =
       let
         val memo = Unsynchronized.ref Symtab.empty;
         fun argument_shape t =
@@ -1400,6 +1444,7 @@ fun print_type_param_bound (vname, sort) =
                   val result =
                     (case t of
                       IVar (SOME v) => rv_lookup_shape vars v
+                    | _ `|=> _ => selected_term_rust_shape_seen seen vars t
                     | _ =>
                         (case Code_Thingol.unfold_const_app t of
                           SOME (const, args) => produced_shape const args
@@ -1421,17 +1466,13 @@ fun print_type_param_bound (vname, sort) =
                   let
                     val wanted = ordinary_function_arity sym (length dom);
                     val inst_ty = mk_fun_ty (dom, range);
-                  in
-                    if length args < wanted then NONE
-                    else
-                      let
-                        val subst = dictionary_shape_subst const decl_ty inst_ty
-                          |> refine const args decl_ty inst_ty;
-                      in SOME (drop_shape_arguments (length args - wanted)
-                        (instantiate_rust_shape subst
-                          (drop_fun_type wanted decl_ty)
-                          (drop_fun_type wanted inst_ty))) end
-                  end
+                    val declared_shape =
+                      the_default (default_rust_shape (drop_fun_type wanted decl_ty))
+                        (function_result_rust_shape seen sym);
+                    val subst = dictionary_shape_subst const decl_ty inst_ty
+                      |> refine const args decl_ty inst_ty;
+                  in SOME (instantiate_callable_shape subst decl_ty inst_ty
+                    wanted (length args) declared_shape) end
               | NONE => NONE))
         and refine (const: Code_Thingol.const) args decl_ty inst_ty subst =
           let
@@ -1440,9 +1481,9 @@ fun print_type_param_bound (vname, sort) =
             val n = Int.min (length args, length decl_args);
             fun refine_argument ((decl, inst), arg) subst =
               (case argument_shape arg of
-                SOME (shape as Rust_Tyco _) =>
+                SOME shape =>
                   if equal_shape_types (shape_type shape, inst) andalso
-                      not (equal_rust_shapes (shape, default_rust_shape inst))
+                      has_selected_container shape
                   then bind_expected_shape decl shape subst
                   else subst
               | _ => subst);
@@ -1454,8 +1495,8 @@ fun print_type_param_bound (vname, sort) =
               (v, the_default shape
                 (typearg_dictionary_shape const (shape_type shape)))) inferred
           end;
-      in refine const args decl_ty inst_ty subst end;
-    fun ordinary_argument_expecteds expected vars
+      in refine const args decl_ty inst_ty subst end
+    and ordinary_argument_expecteds expected vars
         (const as {sym, dom, range, ...}: Code_Thingol.const) args =
       let val base = dictionary_argument_expecteds expected const in
         (case lookup_constant_fun sym of
@@ -1470,16 +1511,16 @@ fun print_type_param_bound (vname, sort) =
                   | NONE => I)
                 (ListPair.zip (take n decl_args, take n base))
                 (dictionary_shape_subst const decl_ty inst_ty);
-              val subst = refine_container_argument_shapes vars const args
+              val subst = refine_container_argument_shapes [] vars const args
                 decl_ty inst_ty contextual;
             in map2 (expected_from subst) (take n decl_args) (take n dom)
               @ drop n base end
         | NONE => base)
-      end;
+      end
     (** Source representation of a saturated trait call, used before an
         enclosing expected type is applied.  Extra HOL applications consume the
         returned function according to its dictionary-selected Rust groups. **)
-    fun trait_term_rust_shape t =
+    and trait_term_rust_shape t =
       (case Code_Thingol.unfold_const_app t of
         SOME (const as {sym, ...}, ts) =>
           (case trait_method_arity sym of
@@ -1489,7 +1530,7 @@ fun print_type_param_bound (vname, sort) =
                 (drop_shape_arguments (length ts - wanted))
                 (trait_result_shape const)
           | NONE => NONE)
-      | NONE => NONE);
+      | NONE => NONE)
     (** Recover the representation produced by an ordinary polymorphic call.
         Rust traits attach dictionary evidence to the concrete type used for a
         declaration variable.  That evidence affects occurrences of the variable
@@ -1501,7 +1542,7 @@ fun print_type_param_bound (vname, sort) =
         contributes that shape as the declaration template.  The `seen` guard
         makes mutually recursive definitions fall back to their ordinary declared
         representation instead of recursively inspecting bodies forever. **)
-    fun selected_term_rust_shape_seen seen vars t =
+    and selected_term_rust_shape_seen seen vars t =
       let val (callee, args) = Code_Thingol.unfold_app t in
         (case callee of
           IVar (SOME v) => Option.map
@@ -1510,6 +1551,19 @@ fun print_type_param_bound (vname, sort) =
             (case trait_term_rust_shape t of
               SOME shape => SOME shape
             | NONE => ordinary_term_rust_shape seen vars const args)
+        | _ `|=> _ =>
+            let
+              val (raw_binds, body) = Code_Thingol.unfold_abs callee;
+              val binds = map (apfst IVar) raw_binds;
+              val vars' = rv_intro_typed_pats binds vars;
+            in
+              (case selected_term_rust_shape_seen seen vars' body of
+                SOME result =>
+                  let val shape = drop_shape_arguments (length args)
+                    (Rust_Fn (map (default_rust_shape o snd) binds, result))
+                  in if has_selected_container shape then SOME shape else NONE end
+              | NONE => NONE)
+            end
         | _ => trait_term_rust_shape t)
       end
     and ordinary_term_rust_shape seen vars
@@ -1518,76 +1572,79 @@ fun print_type_param_bound (vname, sort) =
         SOME (((_, decl_ty), _), _) =>
           let
             val wanted = ordinary_function_arity sym (length dom);
-            val decl_result_ty = drop_fun_type wanted decl_ty;
             val inst_ty = mk_fun_ty (dom, range);
-            val inst_result_ty = drop_fun_type wanted inst_ty;
             val declared_shape =
-              the_default (default_rust_shape decl_result_ty)
+              the_default (default_rust_shape (drop_fun_type wanted decl_ty))
                 (function_result_rust_shape seen sym);
             val subst = dictionary_shape_subst const decl_ty inst_ty
-              |> refine_container_argument_shapes vars const args decl_ty inst_ty;
-            val instantiated_shape =
-              substitute_rust_shape subst declared_shape;
-            val extra = Int.max (0, length args - wanted);
-            val result_shape =
-              drop_shape_arguments extra instantiated_shape;
+              |> refine_container_argument_shapes seen vars const args decl_ty inst_ty;
+            val shape = instantiate_callable_shape subst decl_ty inst_ty
+              wanted (length args) declared_shape;
           in
-            if length args < wanted
-                orelse not (equal_shape_types
-                  (shape_type instantiated_shape, inst_result_ty))
+            if not (equal_shape_types
+                (shape_type shape, drop_fun_type (length args) inst_ty))
             then NONE
             else
-              (* Top-level function results already receive the caller's expected
-                 polymorphic boundary through argument_expecteds.  Reporting an
-                 independently reconstructed Fn source shape here would insert an
-                 outer adapter first and discard that call context, e.g. flattening
-                 `comp` before its result variable is bound by `word_rec`.  Ordinary
-                 result discovery is needed only for a selected function shape
-                 hidden below an enclosing type constructor. *)
-              (case result_shape of Rust_Tyco _ => SOME result_shape | _ => NONE)
+              (* Keep ordinary function grouping contextual unless a container
+                 position has a fixed layout that an eta wrapper cannot change. *)
+              (case shape of Rust_Tyco _ => SOME shape
+              | _ => if has_selected_container shape then SOME shape else NONE)
           end
       | NONE => NONE)
     and function_result_rust_shape seen sym =
-      if member (op =) seen sym then NONE
+      if member (op =) seen sym then
+        (result_shape_cycles := !result_shape_cycles + 1; NONE)
       else
-        (case lookup_constant_fun sym of
-          SOME (((_, ty), raw_eqs), _) =>
-            let
-              val wanted = ordinary_function_arity sym (arrow_arity ty);
-              val result_ty = drop_fun_type wanted ty;
-              val eqs = filter (snd o snd) raw_eqs;
-              val arg_tys = fst (fun_typs ty);
-              fun equation_shape ((pats, body), _) =
-                let
-                  val vars =
-                    (reserved, Symtab.empty)
-                    |> rv_intro_typed_pats
-                        (ListPair.zip (pats, take (length pats) arg_tys));
-                in
-                  (case selected_term_rust_shape_seen (sym :: seen) vars body of
-                    SOME shape =>
-                      if equal_shape_types (shape_type shape, result_ty) then shape
-                      else default_rust_shape result_ty
-                  | NONE => default_rust_shape result_ty)
-                end;
-              val shapes = map equation_shape eqs;
-              (* A top-level function result already has an explicit eta adapter
-                 boundary in print_term_expected and therefore remains the
-                 backend's canonical flat Rust Fn in ordinary function signatures.
-                 Preserve a selected shape here only when it is nested below a
-                 type constructor, where a function adapter cannot convert the
-                 enclosing value (for example `Set<nested-Fn>`). *)
-              fun signature_shape (shape as Rust_Tyco _) = shape
-                | signature_shape _ = default_rust_shape result_ty;
-            in
-              (case shapes of
-                [] => SOME (default_rust_shape result_ty)
-              | shape :: rest =>
-                  if forall (fn other => equal_rust_shapes (other, shape)) rest
-                  then SOME (signature_shape shape)
-                  else SOME (default_rust_shape result_ty))
-            end
-        | NONE => NONE);
+        let val key = Code_Symbol.marker sym in
+          (case Symtab.lookup (!result_shape_cache) key of
+            SOME result => result
+          | NONE =>
+              let
+                val generation = !result_shape_cycles;
+                val result =
+                  (case lookup_constant_fun sym of
+                    SOME (((_, ty), raw_eqs), _) =>
+                      let
+                        val wanted = ordinary_function_arity sym (arrow_arity ty);
+                        val result_ty = drop_fun_type wanted ty;
+                        val eqs = filter (snd o snd) raw_eqs;
+                        val arg_tys = fst (fun_typs ty);
+                        fun equation_shape ((pats, body), _) =
+                          let
+                            val vars =
+                              (reserved, Symtab.empty)
+                              |> rv_intro_typed_pats
+                                  (ListPair.zip (pats, take (length pats) arg_tys));
+                          in
+                            (case selected_term_rust_shape_seen (sym :: seen) vars body of
+                              SOME shape =>
+                                if equal_shape_types (shape_type shape, result_ty) then shape
+                                else default_rust_shape result_ty
+                            | NONE => default_rust_shape result_ty)
+                          end;
+                        val shapes = map equation_shape eqs;
+                        (* Ordinary function grouping stays canonical unless a
+                           container position fixes its layout. Preserve that
+                           layout even in a returned closure: eta adaptation
+                           cannot change the container value it returns. *)
+                        fun signature_shape (shape as Rust_Tyco _) = shape
+                          | signature_shape shape =
+                              if has_selected_container shape then shape
+                              else default_rust_shape result_ty;
+                      in
+                        (case shapes of
+                          [] => SOME (default_rust_shape result_ty)
+                        | shape :: rest =>
+                            if forall (fn other => equal_rust_shapes (other, shape)) rest
+                            then SOME (signature_shape shape)
+                            else SOME (default_rust_shape result_ty))
+                      end
+                  | NONE => NONE);
+                val _ = if generation = !result_shape_cycles
+                  then result_shape_cache := Symtab.update (key, result) (!result_shape_cache)
+                  else ();
+              in result end)
+        end;
     fun selected_term_rust_shape vars t =
       selected_term_rust_shape_seen [] vars t;
     (** Shared constructor-pattern helpers. They recognize native tuple syntax,
@@ -1667,13 +1724,11 @@ fun print_type_param_bound (vname, sort) =
     and print_term_expected expected is_pseudo_fun
         (wrappers as (need_box, box_prcs, clone_prcs)) some_thm vars fxy t =
           let
-            (* A saturated class method whose Self is selected by a recursive
-               function dictionary has a non-default result representation even
-               when no enclosing constructor or call supplies an expected shape.
-               In that position the surrounding function signature, tuple, or
-               local expression still uses the backend's ordinary flat type, so
-               make that implicit default boundary explicit and adapt back to it.
-               A real contextual expectation takes precedence. *)
+            (* Dictionary-selected functions may need an implicit adapter
+               back to the ordinary flat grouping when no context is supplied.
+               Preserve fixed container positions in the source shape: an eta
+               wrapper cannot rebuild them, and the function item uses that
+               same result layout. A real contextual expectation takes precedence. *)
             val effective_expected =
               (case (t, expected) of
                 (_, SOME _) => expected
@@ -1689,7 +1744,8 @@ fun print_type_param_bound (vname, sort) =
                         if equal_shape_types (shape_type source_shape, source_ty)
                             andalso not (equal_rust_shapes (source_shape, target_shape))
                         then SOME {hol_type = source_ty,
-                          rust_shape = target_shape}
+                          rust_shape = if has_selected_container source_shape
+                            then source_shape else target_shape}
                         else NONE
                       end
                   | _ => NONE));
@@ -1866,7 +1922,13 @@ fun print_type_param_bound (vname, sort) =
              constructor-field Box decision used for constants and applications
              must also wrap the Rc<dyn Fn(..)> closure. *)
           let
-            fun print_abs _ = print_lambda is_pseudo_fun some_thm vars t
+            fun print_abs _ =
+              (case expected of
+                SOME {rust_shape = shape as Rust_Fn _, ...} =>
+                  if has_selected_container shape
+                  then print_function_adapter shape is_pseudo_fun some_thm vars t
+                  else print_lambda is_pseudo_fun some_thm vars t
+              | _ => print_lambda is_pseudo_fun some_thm vars t)
           in print_term_with_cons_and_box expected (need_box, box_prcs) print_abs fxy t end
       | print_term_raw expected is_pseudo_fun (need_box, box_prcs, clone_prcs)
           some_thm vars fxy (ICase case_expr) =
@@ -2133,7 +2195,7 @@ fun print_type_param_bound (vname, sort) =
                        arrows would otherwise form one flat parameter group. *)
                     val inst_ty = mk_fun_ty (dom, range);
                     val subst = dictionary_shape_subst const decl_ty inst_ty
-                      |> refine_container_argument_shapes vars const ts decl_ty inst_ty;
+                      |> refine_container_argument_shapes [] vars const ts decl_ty inst_ty;
                   in rust_shape_groups
                     (instantiate_rust_shape subst decl_tail inst_tail) end
               | NONE => [])
@@ -2241,7 +2303,7 @@ fun print_type_param_bound (vname, sort) =
                                 mk_fun_ty (drop (length decl_doms_all) dom, range)
                             in contextual_subst
                               |> refine_expected_result expected decl_final inst_result
-                              |> refine_container_argument_shapes vars const ts decl_ty inst_ty
+                              |> refine_container_argument_shapes [] vars const ts decl_ty inst_ty
                             end
                       in
                         if null return_only orelse null gens then NONE
@@ -3438,9 +3500,20 @@ fun print_type_param_bound (vname, sort) =
                 | NONE => (case t of
                   (_ `|=> _) =>
                     let
-                      val (cap_lets, closure_pretty) =
-                        print_lambda_parts is_pseudo_fun some_thm vars t
-                    in cap_lets @ [closure_pretty] end
+                      fun plain () =
+                        let val (cap_lets, closure_pretty) =
+                          print_lambda_parts is_pseudo_fun some_thm vars t
+                        in cap_lets @ [closure_pretty] end;
+                    in
+                      (case selected_term_rust_shape vars t of
+                        SOME shape =>
+                          if has_selected_container shape then
+                            [print_term_expected
+                              (SOME {hol_type = shape_type shape, rust_shape = shape})
+                              is_pseudo_fun (false, box_new, clone) some_thm vars NOBR t]
+                          else plain ()
+                      | NONE => plain ())
+                    end
                 | ICase case_expr =>
                     let
                       fun default () = [print_term_app is_pseudo_fun some_thm vars NOBR t];
