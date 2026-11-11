@@ -1380,14 +1380,36 @@ fun print_type_param_bound (vname, sort) =
       |> map (fn (v, shape) =>
           (v, the_default shape
             (typearg_dictionary_shape const (shape_type shape))));
-    (* Inspect only the immediate producer's declaration and dictionaries.
-       A fresh enum/collect result can have a selected function representation
-       below its container even when no local variable records it. Do not
-       inspect the producer's arguments or equations: that would turn this
-       local inference into recursive expression/call-graph discovery. *)
-    fun direct_dictionary_result_shape t =
-      (case Code_Thingol.unfold_const_app t of
-        SOME (const as {sym, dom, range, ...}, args) =>
+    (* Container-producing argument expressions fix the input representation of
+       an ordinary polymorphic call. Propagate only through saturated calls and
+       local bindings; do not inspect function equations, lambdas or cases.
+       The memo belongs to this binding context and inference query. Shared
+       physical expressions are evaluated once, including negative results;
+       bounded bucket keys and pointer equality never unfold a shared subtree.
+       No container value is rebuilt. Explicit dictionaries retain precedence. *)
+    fun refine_container_argument_shapes vars const args decl_ty inst_ty subst =
+      let
+        val memo = Unsynchronized.ref Symtab.empty;
+        fun argument_shape t =
+          let val key = iterm_query_bucket t in
+            (case AList.lookup pointer_eq
+                (the_default [] (Symtab.lookup (!memo) key)) t of
+              SOME result => result
+            | NONE =>
+                let
+                  val result =
+                    (case t of
+                      IVar (SOME v) => rv_lookup_shape vars v
+                    | _ =>
+                        (case Code_Thingol.unfold_const_app t of
+                          SOME (const, args) => produced_shape const args
+                        | NONE => NONE));
+                  val _ = memo := Symtab.map_default (key, [])
+                    (cons (t, result)) (!memo);
+                in result end)
+          end
+        and produced_shape
+            (const as {sym, dom, range, ...}: Code_Thingol.const) args =
           (case trait_method_arity sym of
             SOME wanted =>
               if length args < wanted then NONE
@@ -1399,30 +1421,24 @@ fun print_type_param_bound (vname, sort) =
                   let
                     val wanted = ordinary_function_arity sym (length dom);
                     val inst_ty = mk_fun_ty (dom, range);
-                    val subst = dictionary_shape_subst const decl_ty inst_ty;
                   in
                     if length args < wanted then NONE
-                    else SOME (drop_shape_arguments (length args - wanted)
-                      (instantiate_rust_shape subst
-                        (drop_fun_type wanted decl_ty)
-                        (drop_fun_type wanted inst_ty)))
+                    else
+                      let
+                        val subst = dictionary_shape_subst const decl_ty inst_ty
+                          |> refine const args decl_ty inst_ty;
+                      in SOME (drop_shape_arguments (length args - wanted)
+                        (instantiate_rust_shape subst
+                          (drop_fun_type wanted decl_ty)
+                          (drop_fun_type wanted inst_ty))) end
                   end
               | NONE => NONE))
-      | NONE => NONE);
-    (* A bound container, or one directly produced with dictionary evidence,
-       fixes the Rust input representation of an ordinary polymorphic call.
-       Function values remain adaptable; only container shapes constrain this
-       inference. This changes the surrounding call's generic substitution, not
-       the container value. Explicit dictionaries retain precedence. *)
-    fun refine_container_argument_shapes vars
-        (const: Code_Thingol.const) args decl_ty inst_ty subst =
-      let
-        val (decl_args, _) = fun_typs decl_ty;
-        val (inst_args, _) = fun_typs inst_ty;
-        val n = Int.min (length args, length decl_args);
-        fun argument_shape (IVar (SOME v)) = rv_lookup_shape vars v
-          | argument_shape t = direct_dictionary_result_shape t;
-        fun refine ((decl, inst), arg) subst =
+        and refine (const: Code_Thingol.const) args decl_ty inst_ty subst =
+          let
+            val (decl_args, _) = fun_typs decl_ty;
+            val (inst_args, _) = fun_typs inst_ty;
+            val n = Int.min (length args, length decl_args);
+            fun refine_argument ((decl, inst), arg) subst =
               (case argument_shape arg of
                 SOME (shape as Rust_Tyco _) =>
                   if equal_shape_types (shape_type shape, inst) andalso
@@ -1430,14 +1446,15 @@ fun print_type_param_bound (vname, sort) =
                   then bind_expected_shape decl shape subst
                   else subst
               | _ => subst);
-        val inferred = fold refine
-          (ListPair.zip (ListPair.zip (take n decl_args, take n inst_args),
-            take n args)) subst;
-      in
-        map (fn (v, shape) =>
-          (v, the_default shape
-            (typearg_dictionary_shape const (shape_type shape)))) inferred
-      end;
+            val inferred = fold refine_argument
+              (ListPair.zip (ListPair.zip (take n decl_args, take n inst_args),
+                take n args)) subst;
+          in
+            map (fn (v, shape) =>
+              (v, the_default shape
+                (typearg_dictionary_shape const (shape_type shape)))) inferred
+          end;
+      in refine const args decl_ty inst_ty subst end;
     fun ordinary_argument_expecteds expected vars
         (const as {sym, dom, range, ...}: Code_Thingol.const) args =
       let val base = dictionary_argument_expecteds expected const in
