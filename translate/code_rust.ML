@@ -1381,6 +1381,57 @@ fun print_type_param_bound (vname, sort) =
       |> map (fn (v, shape) =>
           (v, the_default shape
             (typearg_dictionary_shape const (shape_type shape))));
+    (* A bound container value already has a concrete Rust representation.
+       An ordinary polymorphic call must instantiate its declaration variables
+       with that representation, rather than forcing an unrelated default from
+       another, newly constructed argument. Function values remain adaptable;
+       only container bindings constrain this inference. Read the binding table
+       directly: do not recursively re-traverse argument terms or rebuild values.
+       Explicit dictionary evidence retains precedence over ordinary inference. *)
+    fun refine_bound_argument_shapes vars
+        (const: Code_Thingol.const) args decl_ty inst_ty subst =
+      let
+        val (decl_args, _) = fun_typs decl_ty;
+        val (inst_args, _) = fun_typs inst_ty;
+        val n = Int.min (length args, length decl_args);
+        fun refine ((decl, inst), IVar (SOME v)) subst =
+              (case rv_lookup_shape vars v of
+                SOME (shape as Rust_Tyco _) =>
+                  if equal_shape_types (shape_type shape, inst) andalso
+                      not (equal_rust_shapes (shape, default_rust_shape inst))
+                  then bind_expected_shape decl shape subst
+                  else subst
+              | _ => subst)
+          | refine _ subst = subst;
+        val inferred = fold refine
+          (ListPair.zip (ListPair.zip (take n decl_args, take n inst_args),
+            take n args)) subst;
+      in
+        map (fn (v, shape) =>
+          (v, the_default shape
+            (typearg_dictionary_shape const (shape_type shape)))) inferred
+      end;
+    fun ordinary_argument_expecteds expected vars
+        (const as {sym, dom, range, ...}: Code_Thingol.const) args =
+      let val base = dictionary_argument_expecteds expected const in
+        (case lookup_constant_fun sym of
+          SOME (((_, decl_ty), _), _) =>
+            let
+              val inst_ty = mk_fun_ty (dom, range);
+              val (decl_args, _) = fun_typs decl_ty;
+              val n = Int.min (length decl_args, length dom);
+              val contextual = fold (fn (decl, some_expected) =>
+                  case some_expected of
+                    SOME {rust_shape, ...} => bind_expected_shape decl rust_shape
+                  | NONE => I)
+                (ListPair.zip (take n decl_args, take n base))
+                (dictionary_shape_subst const decl_ty inst_ty);
+              val subst = refine_bound_argument_shapes vars const args
+                decl_ty inst_ty contextual;
+            in map2 (expected_from subst) (take n decl_args) (take n dom)
+              @ drop n base end
+        | NONE => base)
+      end;
     (** Source representation of a saturated trait call, used before an
         enclosing expected type is applied.  Extra HOL applications consume the
         returned function according to its dictionary-selected Rust groups. **)
@@ -1414,10 +1465,10 @@ fun print_type_param_bound (vname, sort) =
         | IConst const =>
             (case trait_term_rust_shape t of
               SOME shape => SOME shape
-            | NONE => ordinary_term_rust_shape seen const args)
+            | NONE => ordinary_term_rust_shape seen vars const args)
         | _ => trait_term_rust_shape t)
       end
-    and ordinary_term_rust_shape seen
+    and ordinary_term_rust_shape seen vars
         (const as {sym, dom, range, ...}: Code_Thingol.const) args =
       (case lookup_constant_fun sym of
         SOME (((_, decl_ty), _), _) =>
@@ -1429,7 +1480,8 @@ fun print_type_param_bound (vname, sort) =
             val declared_shape =
               the_default (default_rust_shape decl_result_ty)
                 (function_result_rust_shape seen sym);
-            val subst = dictionary_shape_subst const decl_ty inst_ty;
+            val subst = dictionary_shape_subst const decl_ty inst_ty
+              |> refine_bound_argument_shapes vars const args decl_ty inst_ty;
             val instantiated_shape =
               substitute_rust_shape subst declared_shape;
             val extra = Int.max (0, length args - wanted);
@@ -1993,7 +2045,7 @@ fun print_type_param_bound (vname, sort) =
             val expected_args =
               if is_trait_method_call
               then trait_argument_expecteds const
-              else dictionary_argument_expecteds expected const
+              else ordinary_argument_expecteds expected vars const ts
             (** Mirror the eta-expansion in binding_of_stmt: a single equation with
                 empty LHS (e.g., [size_list = gen_length zero_nat]) is eta-expanded
                 to one argument before being emitted as a Rust function. **)
@@ -2030,8 +2082,9 @@ fun print_type_param_bound (vname, sort) =
                        Reuse their dictionary substitution: a function instance
                        can select unary groups even when the erased result
                        arrows would otherwise form one flat parameter group. *)
-                    val subst = dictionary_shape_subst const decl_ty
-                      (mk_fun_ty (dom, range));
+                    val inst_ty = mk_fun_ty (dom, range);
+                    val subst = dictionary_shape_subst const decl_ty inst_ty
+                      |> refine_bound_argument_shapes vars const ts decl_ty inst_ty;
                   in rust_shape_groups
                     (instantiate_rust_shape subst decl_tail inst_tail) end
               | NONE => [])
@@ -2116,12 +2169,16 @@ fun print_type_param_bound (vname, sort) =
                               else subst
                           | unify (_, _) subst = subst
                         val subst = unify (decl_ty, inst_ty) []
+                        val shape_subst = dictionary_shape_subst const decl_ty inst_ty
+                          |> refine_bound_argument_shapes vars const ts decl_ty inst_ty
                       in
                         if null return_only orelse null gens then NONE
                         else SOME (enum "," "::<" ">"
                           (map (fn v =>
                              case AList.lookup (op =) subst v of
-                               SOME ity => print_typ NOBR ity
+                               SOME ity =>
+                                 print_rust_shape (the_default (default_rust_shape ity)
+                                   (AList.lookup (op =) shape_subst v))
                              | NONE => str "_") gens))
                       end)
             (* Rust permits several traits in scope to expose the same associated
