@@ -1005,8 +1005,13 @@ fun print_type_param_bound (vname, sort) =
           | _ => replicate (length dom) NONE);
         val result = pad (case lookup_constructor_fields sym of
           SOME constructor =>
-            (case expected of SOME _ => constructor_expecteds constructor
-             | NONE => replicate (length dom) NONE)
+            (* The datatype declaration already fixes its fields' Rust function
+               groups. Instantiate that template even when no outer expression
+               supplies a result expectation: substituting a function for a
+               result variable must not flatten its arrows into the field's own
+               parameter group. An explicit surrounding shape still refines the
+               declaration-variable substitution in constructor_expecteds. *)
+            constructor_expecteds constructor
         | NONE =>
             (case (lookup_constant_fun sym, expected) of
               (NONE, SOME exp) => syntax_result_expecteds exp
@@ -1798,11 +1803,15 @@ fun print_type_param_bound (vname, sort) =
     and print_term_pattern is_pseudo_fun some_thm vars fxy t =
       let
         (* A pattern names its fields; it cannot contain representation adapters.
-           Retain the selected shapes in the branch context, but suppress their
-           value-side normalization while printing these binder occurrences. *)
-        val pattern_types = fold (fn v =>
-          Symtab.map_entry v (fn (ty, _) => (ty, default_rust_shape ty)))
-          (build (add_distinct_varnames t)) (rv_types vars);
+           Retain the selected shapes in the branch context, but print binder
+           occurrences with the constructor declaration's own field layout.
+           Flattening each binder independently would disagree with a field
+           whose result variable has been instantiated by a function. *)
+        val pattern_types =
+          (case term_type vars t of
+            SOME ty => rv_types (rv_intro_typed_pat_shape
+              t ty (default_rust_shape ty) vars)
+          | NONE => rv_types vars);
         val pattern_vars = (rv_names vars, pattern_types);
       in print_term_gen is_pseudo_fun (false, I, I) some_thm pattern_vars fxy t end
     (** Print a term as an expression (uses box_new and clone). **)
