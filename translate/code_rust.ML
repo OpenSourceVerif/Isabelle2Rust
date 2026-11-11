@@ -930,6 +930,24 @@ fun print_type_param_bound (vname, sort) =
       in instantiate decl inst end;
     fun expected_from subst decl inst =
       SOME {hol_type = inst, rust_shape = instantiate_rust_shape subst decl inst};
+    (* Match the contextual result suffix without erasing any earlier returned
+       function groups. Both inferred arguments and explicit generic arguments
+       must use this same refinement; a result-only variable has no term
+       argument from which Rust could recover its selected representation. *)
+    fun refine_expected_result expected decl_result inst_result subst =
+      (case expected of
+        SOME {rust_shape, ...} =>
+          let
+            fun refine shape =
+              if equal_shape_types (shape_type shape, shape_type rust_shape)
+              then rust_shape
+              else (case shape of
+                Rust_Fn (args, result) => Rust_Fn (args, refine result)
+              | _ => shape);
+            val result_shape =
+              instantiate_rust_shape subst decl_result inst_result;
+          in bind_expected_shape decl_result (refine result_shape) subst end
+      | NONE => subst);
     (** Derive each argument's Rust representation.  Besides declaration and
         instantiation types, an ordinary function now consumes the expected
         representation of its result.  Matching that result back to declaration
@@ -963,26 +981,7 @@ fun print_type_param_bound (vname, sort) =
                 val n = Int.min (length decl_args, length dom);
                 val inst_result = mk_fun_ty (drop n dom, range);
                 val subst =
-                  (case expected of
-                    SOME {rust_shape, ...} =>
-                      (* Extra applications consume groups from a polymorphic
-                         result before reaching this contextual boundary. Refine
-                         the matching result suffix while retaining every already
-                         selected argument group; binding the suffix as the whole
-                         declaration result would erase those returned arrows.
-                         This also preserves a selected callback layout beneath
-                         a final container without converting the container. *)
-                      let
-                        fun refine shape =
-                          if equal_shape_types (shape_type shape, shape_type rust_shape)
-                          then rust_shape
-                          else (case shape of
-                            Rust_Fn (args, result) => Rust_Fn (args, refine result)
-                          | _ => shape);
-                        val result_shape =
-                          instantiate_rust_shape subst0 decl_ret inst_result;
-                      in bind_expected_shape decl_ret (refine result_shape) subst0 end
-                  | NONE => subst0);
+                  refine_expected_result expected decl_ret inst_result subst0;
               in
                 map2 (expected_from subst)
                   (take n decl_args) (take n dom)
@@ -2174,8 +2173,31 @@ fun print_type_param_bound (vname, sort) =
                               else subst
                           | unify (_, _) subst = subst
                         val subst = unify (decl_ty, inst_ty) []
-                        val shape_subst = dictionary_shape_subst const decl_ty inst_ty
-                          |> refine_bound_argument_shapes vars const ts decl_ty inst_ty
+                        (* Printing a turbofish disables Rust's ordinary type
+                           inference for every generic argument, not just the
+                           result-only ones. Reuse the argument expectations and
+                           contextual result that the call itself already uses,
+                           including shapes below containers. Bound values and
+                           explicit dictionary evidence retain their precedence. *)
+                        val shape_subst =
+                          if null return_only orelse null gens then []
+                          else
+                            let
+                              val arg_count = Int.min
+                                (length decl_doms_all, length expected_args)
+                              val contextual_subst = fold
+                                (fn (decl, SOME {rust_shape, ...}) =>
+                                      bind_expected_shape decl rust_shape
+                                  | (_, NONE) => I)
+                                (ListPair.zip (take arg_count decl_doms_all,
+                                  take arg_count expected_args))
+                                (dictionary_shape_subst const decl_ty inst_ty)
+                              val inst_result =
+                                mk_fun_ty (drop (length decl_doms_all) dom, range)
+                            in contextual_subst
+                              |> refine_expected_result expected decl_final inst_result
+                              |> refine_bound_argument_shapes vars const ts decl_ty inst_ty
+                            end
                       in
                         if null return_only orelse null gens then NONE
                         else SOME (enum "," "::<" ">"
