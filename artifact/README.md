@@ -33,13 +33,15 @@ artifact/run-fpp --run artifact/runs/smoke boundary --case fpp-add
 
 # Full 313-root run, with fresh model work for every task.
 artifact/run-fpp --run artifact/runs/fpp-full prepare
+# If preparation was paused: explicit same-version continuation.
+artifact/run-fpp --run artifact/runs/fpp-full resume-prepare
 artifact/run-fpp --run artifact/runs/fpp-full run
 artifact/run-fpp --run artifact/runs/fpp-full pause
 artifact/run-fpp --run artifact/runs/fpp-full resume
 artifact/run-fpp --run artifact/runs/fpp-full report
 ```
 
-`prepare` makes no model calls and admits exact input/reference suites. A failed task receives a retained mechanical failure outcome and stays in the 313 denominator. Systemic preparation failures pause dispatch; later preparation skips already recorded failures and continues remaining tasks. It does not silently overwrite an old failure or claim that task was admitted. Completed model failures are never restarted or replaced by a successful retry. A new experiment requires a new run directory.
+`prepare` makes no model calls and admits exact input/reference suites. Preparation holds the same exclusive controller lock as model dispatch. `pause` drains the current preparation and prevents the next task; `resume-prepare` validates the unchanged release/configuration before clearing the pause and continuing. A failed task receives a retained mechanical failure outcome and stays in the 313 denominator. Systemic preparation failures pause dispatch; later preparation skips already recorded failures and continues remaining tasks. It does not silently overwrite an old failure or claim that task was admitted. Completed model failures are never restarted or replaced by a successful retry. A new experiment requires a new run directory.
 
 `run` uses DeepSeek Flash, at most **five concurrent task processes**, **48 attempted requests and 4200 active seconds per task**, including charged preparation and previous transport segments. The global reservation ceiling is the sum of the per-task limits. Requests reserve a slot atomically before network submission; a crash does not refund a reservation. A controller lock inherited by children prevents overlapping controllers. Pause stops new dispatch and drains active tasks. Resume retains the same release/configuration identity, request ledger, model state and prior costs. Transport continuation archives previous outcomes and restores only the transport control penalty; repeated transport errors pause for investigation. Unreconciled crashed worker markers stop automatic restart.
 

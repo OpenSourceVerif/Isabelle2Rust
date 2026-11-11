@@ -101,13 +101,17 @@ def report(run,rows):
     result={'selected_roots':len(rows),'completed':len(outcomes),'accepted':accepted,'failed':len(outcomes)-accepted,'pending':len(rows)-len(outcomes),'accepted_over_all_roots':accepted/len(rows),'completed_acceptance_rate':accepted/len(outcomes) if outcomes else None,'first_complete_automatic_rate':accepted/len(rows) if len(outcomes)==len(rows) else None,'target':.95,'target_met':len(outcomes)==len(rows) and accepted/len(rows)>=.95,'includes_builtin_repairs':True,'requests':sum(r['calls'] for r in account),'known_usage':{k:sum(r['known_usage'][k] for r in account) for k in ['prompt_tokens','completion_tokens','total_tokens']},'unknown_usage_requests':sum(len(r['unknown_usage_requests']) for r in account),'failures':[{'case':r['case'],'status':r['result']['status']} for r in outcomes if not r.get('policy_accepted')]}
     save(run/'report.json',result);return result
 
-def dispatch(run,rows,rel):
+def dispatch(run,rows,rel,resume=False):
     with (run/'controller.lock').open('a+') as lease:
         fcntl.flock(lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        stop=run/'STOP_DISPATCH'
+        if stop.exists():
+            if not resume:raise Failure('paused','Use explicit resume')
         pending=[r['id'] for r in rows if not (run/'tasks'/r['id']/'outcome.json').exists()];active={};errors=0;stop=run/'STOP_DISPATCH'
         for key in pending:
             marker=run/'tasks'/key/'process.json'
             if marker.exists() and read(marker).get('state')=='running':raise Failure('unreconciled_worker',key)
+        if resume and stop.exists():stop.unlink()  # All admission/worker checks passed under lease.
         while pending or active:
             while pending and len(active)<5 and not stop.exists():
                 key=pending.pop(0);task=run/'tasks'/key;task.mkdir(parents=True,exist_ok=True)
@@ -135,8 +139,16 @@ def dispatch(run,rows,rel):
     return report(run,rows)
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True);p.add_argument('command',choices=['prepare','run','pause','resume','report','boundary','_child']);p.add_argument('--case',action='append');a=p.parse_args();run=a.run.resolve();run.mkdir(parents=True,exist_ok=True);allrows=art.manifest()['cases']
+    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True);p.add_argument('command',choices=['prepare','resume-prepare','run','pause','resume','report','boundary','_child']);p.add_argument('--case',action='append');a=p.parse_args();run=a.run.resolve();run.mkdir(parents=True,exist_ok=True);allrows=art.manifest()['cases']
     if a.command=='pause':save(run/'STOP_DISPATCH',{'reason':'user_pause','policy':'drain active tasks'});return
+    if a.command in {'prepare','resume-prepare'}:
+        # Share dispatch's exclusive lease before selection/release initialization.
+        with (run/'controller.lock').open('a+') as lease:
+            fcntl.flock(lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            return execute(a,run,allrows)
+    return execute(a,run,allrows)
+
+def execute(a,run,allrows):
     selection=run/'selection.json'
     if selection.exists():ids=read(selection)['ids']
     else:
@@ -146,11 +158,16 @@ def main():
     rows=[r for r in allrows if r['id'] in ids]
     if a.command=='report':print(json.dumps(report(run,rows),indent=2));return
     rel=release(run,rows);fpp_budget.initialize(run,rel)
-    if a.command=='prepare':
+    if a.command in {'prepare','resume-prepare'}:
+        stop=run/'STOP_DISPATCH'
+        if stop.exists():
+            if a.command!='resume-prepare':raise Failure('paused','Use resume-prepare for explicit same-version mechanical continuation')
+            stop.unlink()  # Release/configuration was validated above, under lease.
         art.install_execution(run)
         def forbidden(*args,**kwargs):raise RuntimeError('Mechanical preparation forbids model calls')
         provider.Provider.call=forbidden
         for row in rows:
+            if stop.exists():break  # Drain the current preparation; start no next task.
             ad=run/'preparation'/row['id']/'admission.json'
             if ad.exists():
                 art.admission(row,run);continue
@@ -166,6 +183,7 @@ def main():
                 if result['status'] in {'preparation_exception','missing_tool_repository','unreaped_isabelle_writer','isabelle_lock_timeout','isabelle_export_infrastructure_error'}:
                     save(run/'STOP_DISPATCH',{'reason':'mechanical_systemic_failure','case':row['id']});raise
 
+        save(run/'preparation-status.json',{'paused':stop.exists(),'pending':[r['id'] for r in rows if not (run/'preparation'/r['id']/'admission.json').exists() and not (run/'preparation'/r['id']/'failure.json').exists()]})
         return
     if a.command in {'boundary','_child'}:
         if not a.case or len(a.case)!=1:raise Failure('case_required','Select one task')
@@ -173,13 +191,10 @@ def main():
             if os.environ.get('I2R_FPP_RELEASE')!=rel['identity']:raise Failure('unleased_worker','Internal worker requires the active controller lease')
             os.fstat(int(os.environ['I2R_FPP_LEASE_FD']))
         row=next(r for r in rows if r['id']==a.case[0]);return child(row,run,rel,a.command=='boundary')
-    if a.command=='resume':
-        stop=run/'STOP_DISPATCH'
-        if stop.exists():stop.unlink()
     if a.command=='run' and (run/'STOP_DISPATCH').exists():raise Failure('paused','Use explicit resume')
     for row in rows:
         if (run/'tasks'/row['id']/'outcome.json').exists():continue
         art.admission(row,run)
-    print(json.dumps(dispatch(run,rows,rel),indent=2))
+    print(json.dumps(dispatch(run,rows,rel,resume=a.command=='resume'),indent=2))
 
 if __name__=='__main__':main()
