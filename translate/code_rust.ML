@@ -4697,17 +4697,21 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           stmt_list
       end;
 
-    (* Native comparison code_printing removes the implementing Fun nodes,
+    (* Native primitive code_printing removes the implementing Fun nodes,
        but the surviving dictionary still records their class parameters and
        implementing constants. Restore those same methods through the existing
-       instance path. Equality and order have compatible native representations
-       across integer/int/nat; arithmetic aliases (notably truncated nat minus)
-       require a separate representation decision and are not reconstructed here. *)
-    val mapped_comparison_methods =
+       instance path. Equality, order, zero, one, addition and multiplication
+       agree across the existing integer/int/nat representations. Incompatible
+       arithmetic aliases (notably truncated nat minus) require a separate
+       representation decision and are not reconstructed here. *)
+    val mapped_primitive_methods =
       maps (fn ((_, stmt), _) =>
         case stmt of
           Code_Thingol.Classinst {class, tyco, vs, inst_params, ...} =>
-            if member (op =) [\<^class>\<open>equal\<close>, \<^class>\<open>ord\<close>] class
+            if member (op =)
+                [\<^class>\<open>equal\<close>, \<^class>\<open>ord\<close>,
+                 \<^class>\<open>zero\<close>, \<^class>\<open>one\<close>,
+                 \<^class>\<open>plus\<close>, \<^class>\<open>times\<close>] class
                 andalso is_some (tyco_syntax tyco)
             then map_filter
               (fn ((cp, ({sym = method_sym as Constant c, ...}, _)), (_, active)) =>
@@ -4718,7 +4722,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                 | _ => NONE) inst_params
             else []
         | _ => []) stmt_list;
-    val inst_methods = projected_inst_methods @ mapped_comparison_methods;
+    val inst_methods = projected_inst_methods @ mapped_primitive_methods;
 
     (** All instance-method constants (suppressed as standalone functions). **)
     val inst_method_syms = map (fn (_, (_, _, _, _, sym)) => sym) inst_methods;
