@@ -782,33 +782,6 @@ fun print_type_param_bound (vname, sort) =
     fun rv_lookup_var vars v = lookup_var (rv_names vars) v;
     fun rv_lookup_type vars v = Option.map fst (Symtab.lookup (rv_types vars) v);
     fun rv_lookup_shape vars v = Option.map snd (Symtab.lookup (rv_types vars) v);
-    fun rv_intro_typed_pat_shape pat ty shape (vars: rust_var_ctxt) =
-      let
-        val vs = build (add_distinct_varnames pat);
-        val names' = intro_vars vs (rv_names vars);
-        val tys' =
-          let
-            fun add_pat_ty t ty shape =
-              (case t of
-                IVar (SOME v) => Symtab.update (v, (ty, shape))
-              | IVar NONE => I
-              | _ =>
-                  (case Code_Thingol.unfold_const_app t of
-                    SOME ({dom, ...}, ts) =>
-                      if length dom = length ts
-                      then fold (fn (t, field_ty) =>
-                        add_pat_ty t field_ty (default_rust_shape field_ty))
-                        (ListPair.zip (ts, dom))
-                      else fold (fn v => Symtab.update
-                        (v, (ty, default_rust_shape ty))) vs
-                  | NONE => fold (fn v => Symtab.update
-                      (v, (ty, default_rust_shape ty))) vs))
-          in add_pat_ty pat ty shape (rv_types vars) end
-      in (names', tys') end;
-    fun rv_intro_typed_pat pat ty vars =
-      rv_intro_typed_pat_shape pat ty (default_rust_shape ty) vars;
-    fun rv_intro_typed_pats pats_tys vars =
-      fold (fn (pat, ty) => rv_intro_typed_pat pat ty) pats_tys vars;
     fun term_type vars (IConst {dom, range, ...}) = SOME (mk_fun_ty (dom, range))
       | term_type vars (IVar (SOME v)) = rv_lookup_type vars v
       | term_type _ (IVar NONE) = NONE
@@ -1039,6 +1012,45 @@ fun print_type_param_bound (vname, sort) =
               (NONE, SOME exp) => syntax_result_expecteds exp
             | _ => function_expecteds ()));
       in result end;
+    fun rv_intro_typed_pat_shape pat ty shape (vars: rust_var_ctxt) =
+      let
+        val vs = build (add_distinct_varnames pat);
+        val names' = intro_vars vs (rv_names vars);
+        val tys' =
+          let
+            fun add_pat_ty t ty shape =
+              (case t of
+                IVar (SOME v) => Symtab.update (v, (ty, shape))
+              | IVar NONE => I
+              | _ =>
+                  (case Code_Thingol.unfold_const_app t of
+                    SOME ({sym, dom, range, ...}, ts) =>
+                      if length dom = length ts
+                      then
+                        let
+                          (* Pattern fields use exactly the constructor's value-
+                             side substitution. In particular, a product or list
+                             parameter may carry nested function groups chosen
+                             by a surrounding class dictionary. *)
+                          val expected_fields = argument_expecteds
+                            (SOME {hol_type = ty, rust_shape = shape}) sym dom range;
+                        in
+                          fold (fn ((t, field_ty), expected) =>
+                            add_pat_ty t field_ty
+                              (case expected of SOME {rust_shape, ...} => rust_shape
+                              | NONE => default_rust_shape field_ty))
+                            (ListPair.zip (ListPair.zip (ts, dom), expected_fields))
+                        end
+                      else fold (fn v => Symtab.update
+                        (v, (ty, default_rust_shape ty))) vs
+                  | NONE => fold (fn v => Symtab.update
+                      (v, (ty, default_rust_shape ty))) vs))
+          in add_pat_ty pat ty shape (rv_types vars) end
+      in (names', tys') end;
+    fun rv_intro_typed_pat pat ty vars =
+      rv_intro_typed_pat_shape pat ty (default_rust_shape ty) vars;
+    fun rv_intro_typed_pats pats_tys vars =
+      fold (fn (pat, ty) => rv_intro_typed_pat pat ty) pats_tys vars;
     fun classparam_decl cp =
       (case lookup_method_class (Constant cp) of
         SOME class =>
@@ -1783,8 +1795,16 @@ fun print_type_param_bound (vname, sort) =
     (** Print a pattern that has no boxed fields.  Boxed constructor fields are
         handled explicitly by print_shallow_box_patterns or stable_match_compile;
         the generic term printer must never emit a Box dereference pattern. **)
-    and print_term_pattern is_pseudo_fun some_thm vars fxy t = 
-      print_term_gen is_pseudo_fun (false, I, I) some_thm vars fxy t
+    and print_term_pattern is_pseudo_fun some_thm vars fxy t =
+      let
+        (* A pattern names its fields; it cannot contain representation adapters.
+           Retain the selected shapes in the branch context, but suppress their
+           value-side normalization while printing these binder occurrences. *)
+        val pattern_types = fold (fn v =>
+          Symtab.map_entry v (fn (ty, _) => (ty, default_rust_shape ty)))
+          (build (add_distinct_varnames t)) (rv_types vars);
+        val pattern_vars = (rv_names vars, pattern_types);
+      in print_term_gen is_pseudo_fun (false, I, I) some_thm pattern_vars fxy t end
     (** Print a term as an expression (uses box_new and clone). **)
     and print_term_app is_pseudo_fun some_thm vars fxy t = 
       print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars fxy t
@@ -2506,11 +2526,21 @@ fun print_type_param_bound (vname, sort) =
           let
             val (binds, body) = Code_Thingol.unfold_let (ICase case_expr);
             fun print_let ((pat, ty), t) vars =
-              vars
-              |> print_bind_typed is_pseudo_fun some_thm NOBR pat ty
-              |>> (fn p => rust_open
-                  [str "let ", p, str " = ",
-                  print_term_app is_pseudo_fun some_thm vars NOBR t, str ";"])
+              let
+                (* A let-bound tuple or datatype retains the representation of
+                   its scrutinee. Its function-valued fields may use dictionary-
+                   selected groups rather than the default flattened arrows. *)
+                val shape = the_default (default_rust_shape ty)
+                  (selected_term_rust_shape vars t);
+                val expected = SOME {hol_type = ty, rust_shape = shape};
+              in
+                vars
+                |> print_bind_typed_shape is_pseudo_fun some_thm NOBR pat ty shape
+                |>> (fn p => rust_open
+                    [str "let ", p, str " = ",
+                    print_term_expected expected is_pseudo_fun
+                      (false, box_prcs, clone_prcs) some_thm vars NOBR t, str ";"])
+              end
             val (ps, vars') = fold_map print_let binds vars;
             val bind_pats = map (fst o fst) binds;
           in
@@ -2777,6 +2807,16 @@ fun print_type_param_bound (vname, sort) =
              body unboxed here as well, so this outer field wrapper is applied
              exactly once for every nonempty case-lowering path. *)
           let
+            (* Pattern variables inherit the representation of the value being
+               matched, including function groups nested below tuple/datatype
+               parameters. Reconstructing them from the erased HOL type loses
+               that information before the branch invokes a bound callback. *)
+            val scrutinee_shape = the_default (default_rust_shape (#typ icase))
+              (selected_term_rust_shape vars t);
+            fun print_scrutinee () =
+              print_term_expected
+                (SOME {hol_type = #typ icase, rust_shape = scrutinee_shape})
+                is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR t;
             val printed_case =
           rust_parens [(case print_irrefutable_case_parts is_pseudo_fun
               (false, box_prcs, clone_prcs) some_thm vars icase of
@@ -2790,13 +2830,13 @@ fun print_type_param_bound (vname, sort) =
                 val ty = #typ icase;
                 fun row (pat, body) =
                   let
-                    val vars' = rv_intro_typed_pat pat ty vars;
+                    val vars' = rv_intro_typed_pat_shape pat ty scrutinee_shape vars;
                     val used_vars = build (add_distinct_varnames body);
                   in
                     ([pat], vars', used_vars, [],
                       print_term_app is_pseudo_fun some_thm vars' NOBR body)
                   end;
-                val scrutinee = print_term_app is_pseudo_fun some_thm vars NOBR t;
+                val scrutinee = print_scrutinee ();
               in
                 stable_match_compile is_pseudo_fun some_thm vars
                   [(scrutinee, ty)] (map row clauses)
@@ -2806,7 +2846,7 @@ fun print_type_param_bound (vname, sort) =
               let
                 val used_vars = build (add_distinct_varnames body);
                 val pat' = wildcard_unused_pattern used_vars pat;
-                val vars' = rv_intro_typed_pat pat (#typ icase) vars;
+                val vars' = rv_intro_typed_pat_shape pat (#typ icase) scrutinee_shape vars;
                 val (p, lets) =
                   if pat_contains_boxed_field pat' then
                     (case print_shallow_box_patterns
@@ -2833,7 +2873,7 @@ fun print_type_param_bound (vname, sort) =
             then print_stable_match ()
             else
               rust_match
-                (print_term_app is_pseudo_fun some_thm vars NOBR t)
+                (print_scrutinee ())
                 (map print_select clauses
                   @ [rust_arm (str "_") (str "panic!(\"non-exhaustive match\")")])
           end)]
@@ -2865,10 +2905,21 @@ fun print_type_param_bound (vname, sort) =
           (ListPair.zip (outer_names, outer_tys)) `|==> (inner_lambda, inner_ty);
         val inner_expected =
           SOME {hol_type = inner_ty, rust_shape = inner_shape};
+        (* A syntactic abstraction can choose its parameter representation at
+           creation. Print its own binders using the contextual shapes instead
+           of passing a differently shaped tuple through an eta wrapper into a
+           separately printed flat callback. Existing function values still need
+           the ordinary wrapper to preserve their established representation. *)
+        fun has_outer_binders 0 _ = true
+          | has_outer_binders n (_ `|=> (body, _)) =
+              has_outer_binders (n - 1) body
+          | has_outer_binders _ _ = false;
+        val adapted_lambda =
+          if has_outer_binders outer_arity t then t else outer_lambda;
         val closure =
           print_lambda_gen_limit_expected inner_expected (SOME outer_shapes)
             false (SOME outer_arity)
-            is_pseudo_fun some_thm vars outer_lambda;
+            is_pseudo_fun some_thm vars adapted_lambda;
       in
         rust_open [str "((", closure, str ") as ",
           print_rust_shape target_shape, str ")"]
