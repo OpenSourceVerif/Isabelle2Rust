@@ -3890,6 +3890,26 @@ fun print_type_param_bound (vname, sort) =
                       val eqs = filter (snd o snd) raw_eqs
                       val target = arrow_arity mty
                     in SOME (tysm, map (normalize_method_eq mty target) eqs) end
+                | (NONE, SOME (mty, target)) =>
+                    (case const_sym of
+                      Constant c =>
+                        if is_some (const_syntax c) then
+                          let
+                            (* Reuse the registered native expression as the
+                               method body. Its projection was removed by target
+                               preparation, not because the method is unreachable;
+                               emitting a panic stub would silently lose behavior. *)
+                            val names = Name.invent Name.context "native_arg" target;
+                            val args = map (IVar o SOME) names;
+                            val dom = take target (fst (fun_typs mty));
+                            val result = drop_fun_type target mty;
+                            val native = IConst {sym = const_sym,
+                              typargs = map (ITyVar o fst) vs, dicts = [],
+                              dom = dom, range = result, annotation = NONE};
+                            val body = Library.foldl (op `$) (native, args);
+                          in SOME ((vs, mty), [((args, body), (NONE, true))]) end
+                        else NONE
+                    | _ => NONE)
                 | _ => NONE
             fun print_method (classparam, method_sym) =
               let
@@ -4580,7 +4600,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
 
     (* Reconstruct type-class instances from the specialized projection functions
         Isabelle supplies alongside their dictionary dependency metadata. *)
-    val inst_methods =
+    val projected_inst_methods =
       let
         (* Instance candidates follow the first occurrence of each qualified
            constructor in a method signature. Traverse shared type arguments
@@ -4677,6 +4697,29 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           stmt_list
       end;
 
+    (* Native comparison code_printing removes the implementing Fun nodes,
+       but the surviving dictionary still records their class parameters and
+       implementing constants. Restore those same methods through the existing
+       instance path. Equality and order have compatible native representations
+       across integer/int/nat; arithmetic aliases (notably truncated nat minus)
+       require a separate representation decision and are not reconstructed here. *)
+    val mapped_comparison_methods =
+      maps (fn ((_, stmt), _) =>
+        case stmt of
+          Code_Thingol.Classinst {class, tyco, vs, inst_params, ...} =>
+            if member (op =) [\<^class>\<open>equal\<close>, \<^class>\<open>ord\<close>] class
+                andalso is_some (tyco_syntax tyco)
+            then map_filter
+              (fn ((cp, ({sym = method_sym as Constant c, ...}, _)), (_, active)) =>
+                    if active andalso is_some (const_syntax c)
+                        andalso not (Code_Symbol.Graph.defined program method_sym)
+                    then SOME ((class, tyco), (class, tyco, vs, cp, method_sym))
+                    else NONE
+                | _ => NONE) inst_params
+            else []
+        | _ => []) stmt_list;
+    val inst_methods = projected_inst_methods @ mapped_comparison_methods;
+
     (** All instance-method constants (suppressed as standalone functions). **)
     val inst_method_syms = map (fn (_, (_, _, _, _, sym)) => sym) inst_methods;
     (** Canonical key for a type constructor at the Rust level. A code_printing-
@@ -4718,7 +4761,12 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       map (fn instance_key =>
         let
           val members = filter (fn (key, _) => key = instance_key) inst_methods
-          val (_, (cls, tyc, vs0, _, repr_sym)) = hd members
+          val (_, (cls, tyc, vs0, _, method_repr)) = hd members
+          (* A mapped method has no Fun slot. Its existing dictionary node is
+             the output host, so no extra namespace statement is introduced. *)
+          val repr_sym =
+            if Code_Symbol.Graph.defined program method_repr then method_repr
+            else Class_Instance (tyc, cls)
           (* Different methods of one class instance may use different
              operational dictionaries.  They share the same type-constructor
              parameters, so union their sorts positionally into one impl header. *)
