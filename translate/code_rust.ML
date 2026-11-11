@@ -1380,28 +1380,56 @@ fun print_type_param_bound (vname, sort) =
       |> map (fn (v, shape) =>
           (v, the_default shape
             (typearg_dictionary_shape const (shape_type shape))));
-    (* A bound container value already has a concrete Rust representation.
-       An ordinary polymorphic call must instantiate its declaration variables
-       with that representation, rather than forcing an unrelated default from
-       another, newly constructed argument. Function values remain adaptable;
-       only container bindings constrain this inference. Read the binding table
-       directly: do not recursively re-traverse argument terms or rebuild values.
-       Explicit dictionary evidence retains precedence over ordinary inference. *)
-    fun refine_bound_argument_shapes vars
+    (* Inspect only the immediate producer's declaration and dictionaries.
+       A fresh enum/collect result can have a selected function representation
+       below its container even when no local variable records it. Do not
+       inspect the producer's arguments or equations: that would turn this
+       local inference into recursive expression/call-graph discovery. *)
+    fun direct_dictionary_result_shape t =
+      (case Code_Thingol.unfold_const_app t of
+        SOME (const as {sym, dom, range, ...}, args) =>
+          (case trait_method_arity sym of
+            SOME wanted =>
+              if length args < wanted then NONE
+              else Option.map (drop_shape_arguments (length args - wanted))
+                (trait_result_shape const)
+          | NONE =>
+              (case lookup_constant_fun sym of
+                SOME (((_, decl_ty), _), _) =>
+                  let
+                    val wanted = ordinary_function_arity sym (length dom);
+                    val inst_ty = mk_fun_ty (dom, range);
+                    val subst = dictionary_shape_subst const decl_ty inst_ty;
+                  in
+                    if length args < wanted then NONE
+                    else SOME (drop_shape_arguments (length args - wanted)
+                      (instantiate_rust_shape subst
+                        (drop_fun_type wanted decl_ty)
+                        (drop_fun_type wanted inst_ty)))
+                  end
+              | NONE => NONE))
+      | NONE => NONE);
+    (* A bound container, or one directly produced with dictionary evidence,
+       fixes the Rust input representation of an ordinary polymorphic call.
+       Function values remain adaptable; only container shapes constrain this
+       inference. This changes the surrounding call's generic substitution, not
+       the container value. Explicit dictionaries retain precedence. *)
+    fun refine_container_argument_shapes vars
         (const: Code_Thingol.const) args decl_ty inst_ty subst =
       let
         val (decl_args, _) = fun_typs decl_ty;
         val (inst_args, _) = fun_typs inst_ty;
         val n = Int.min (length args, length decl_args);
-        fun refine ((decl, inst), IVar (SOME v)) subst =
-              (case rv_lookup_shape vars v of
+        fun argument_shape (IVar (SOME v)) = rv_lookup_shape vars v
+          | argument_shape t = direct_dictionary_result_shape t;
+        fun refine ((decl, inst), arg) subst =
+              (case argument_shape arg of
                 SOME (shape as Rust_Tyco _) =>
                   if equal_shape_types (shape_type shape, inst) andalso
                       not (equal_rust_shapes (shape, default_rust_shape inst))
                   then bind_expected_shape decl shape subst
                   else subst
-              | _ => subst)
-          | refine _ subst = subst;
+              | _ => subst);
         val inferred = fold refine
           (ListPair.zip (ListPair.zip (take n decl_args, take n inst_args),
             take n args)) subst;
@@ -1425,7 +1453,7 @@ fun print_type_param_bound (vname, sort) =
                   | NONE => I)
                 (ListPair.zip (take n decl_args, take n base))
                 (dictionary_shape_subst const decl_ty inst_ty);
-              val subst = refine_bound_argument_shapes vars const args
+              val subst = refine_container_argument_shapes vars const args
                 decl_ty inst_ty contextual;
             in map2 (expected_from subst) (take n decl_args) (take n dom)
               @ drop n base end
@@ -1480,7 +1508,7 @@ fun print_type_param_bound (vname, sort) =
               the_default (default_rust_shape decl_result_ty)
                 (function_result_rust_shape seen sym);
             val subst = dictionary_shape_subst const decl_ty inst_ty
-              |> refine_bound_argument_shapes vars const args decl_ty inst_ty;
+              |> refine_container_argument_shapes vars const args decl_ty inst_ty;
             val instantiated_shape =
               substitute_rust_shape subst declared_shape;
             val extra = Int.max (0, length args - wanted);
@@ -2088,7 +2116,7 @@ fun print_type_param_bound (vname, sort) =
                        arrows would otherwise form one flat parameter group. *)
                     val inst_ty = mk_fun_ty (dom, range);
                     val subst = dictionary_shape_subst const decl_ty inst_ty
-                      |> refine_bound_argument_shapes vars const ts decl_ty inst_ty;
+                      |> refine_container_argument_shapes vars const ts decl_ty inst_ty;
                   in rust_shape_groups
                     (instantiate_rust_shape subst decl_tail inst_tail) end
               | NONE => [])
@@ -2196,7 +2224,7 @@ fun print_type_param_bound (vname, sort) =
                                 mk_fun_ty (drop (length decl_doms_all) dom, range)
                             in contextual_subst
                               |> refine_expected_result expected decl_final inst_result
-                              |> refine_bound_argument_shapes vars const ts decl_ty inst_ty
+                              |> refine_container_argument_shapes vars const ts decl_ty inst_ty
                             end
                       in
                         if null return_only orelse null gens then NONE
