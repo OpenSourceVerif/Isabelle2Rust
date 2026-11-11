@@ -1,0 +1,252 @@
+{
+  "frozen": {
+    "identity": "a5742a1a2f2fb8cb14125b69b7860eff90b8ec160a74d64d4c54e5474a77b0ff",
+    "tests": [
+      "use i2r_candidate::{map, List};\nuse std::cell::Cell;\n\nfn collect_i32(xs: &List<i32>) -> Vec<i32> {\n    match xs {\n        List::Nil => Vec::new(),\n        List::Cons(head, tail) => {\n            let mut rest = collect_i32(tail.as_ref());\n            let mut out = Vec::with_capacity(1 + rest.len());\n            out.push(*head);\n            out.append(&mut rest);\n            out\n        }\n    }\n}\n\nstruct NoCloneA { n: i32 }\nstruct NoCloneB { n: i32 }\n\n#[test]\nfn map_nil_returns_nil_without_calling_function() {\n    let called = Cell::new(0usize);\n    let out: List<i32> = map(\n        |x: i32| {\n            called.set(called.get() + 1);\n            x\n        },\n        List::Nil,\n    );\n    assert_eq!(called.get(), 0);\n    match out {\n        List::Nil => {}\n        List::Cons(_, _) => panic!(),\n    }\n}\n\n#[test]\nfn map_singleton_applies_function_once() {\n    let called = Cell::new(0usize);\n    let input = List::Cons(41i32, Box::new(List::Nil));\n    let out = map(\n        |x: i32| {\n            called.set(called.get() + 1);\n            x + 1\n        },\n        input,\n    );\n    assert_eq!(called.get(), 1);\n    match out {\n        List::Cons(42, tail) => match *tail {\n            List::Nil => {}\n            List::Cons(_, _) => panic!(),\n        },\n        List::Nil => panic!(),\n    }\n}\n\n#[test]\nfn map_preserves_order_and_multiplicity() {\n    let called = Cell::new(0usize);\n    let input = List::Cons(\n        1i32,\n        Box::new(List::Cons(\n            2i32,\n            Box::new(List::Cons(\n                2i32,\n                Box::new(List::Cons(3i32, Box::new(List::Nil))),\n            )),\n        )),\n    );\n    let out = map(\n        |x: i32| {\n            called.set(called.get() + 1);\n            x * 10\n        },\n        input,\n    );\n    assert_eq!(called.get(), 4);\n    assert_eq!(collect_i32(&out), vec![10, 20, 20, 30]);\n}\n\n#[test]\nfn map_does_not_require_clone_or_ord() {\n    let input = List::Cons(\n        NoCloneA { n: 5 },\n        Box::new(List::Cons(\n            NoCloneA { n: -1 },\n            Box::new(List::Nil),\n        )),\n    );\n    let out: List<NoCloneB> = map(|a: NoCloneA| NoCloneB { n: a.n * 2 }, input);\n    match out {\n        List::Cons(NoCloneB { n: 10 }, tail) => match *tail {\n            List::Cons(NoCloneB { n: -2 }, tail2) => match *tail2 {\n                List::Nil => {}\n                List::Cons(_, _) => panic!(),\n            },\n            List::Nil => panic!(),\n            List::Cons(_, _) => panic!(),\n        },\n        List::Nil => panic!(),\n        List::Cons(_, _) => panic!(),\n    }\n}\n\n#[test]\nfn list_nil_and_cons_expose_source_structure() {\n    let nil_i32: List<i32> = List::Nil;\n    let nil_string: List<String> = List::Nil;\n    match nil_i32 {\n        List::Nil => {}\n        List::Cons(_, _) => panic!(),\n    }\n    match nil_string {\n        List::Nil => {}\n        List::Cons(_, _) => panic!(),\n    }\n\n    let singleton = List::Cons(9u8, Box::new(List::Nil));\n    match singleton {\n        List::Cons(head, tail) => {\n            assert_eq!(head, 9u8);\n            match *tail {\n                List::Nil => {}\n                List::Cons(_, _) => panic!(),\n            }\n        }\n        List::Nil => panic!(),\n    }\n\n    let repeated = List::Cons(\n        1i32,\n        Box::new(List::Cons(1i32, Box::new(List::Nil))),\n    );\n    match repeated {\n        List::Cons(1, tail) => match *tail {\n            List::Cons(1, tail2) => match *tail2 {\n                List::Nil => {}\n                List::Cons(_, _) => panic!(),\n            },\n            _ => panic!(),\n        },\n        _ => panic!(),\n    }\n}\n"
+    ],
+    "unit_tests": [],
+    "obligations": [
+      {
+        "source": "constant:Highorder_Func_Test.map",
+        "category": "public_behavior",
+        "test_name": "map_nil_returns_nil_without_calling_function",
+        "case": "Nil input; closure increments a Cell if invoked",
+        "expected_basis": "Source equation map f [] = [] gives Nil and applies f zero times, so the counter remains 0."
+      },
+      {
+        "source": "constant:List.list.Nil",
+        "category": "public_behavior",
+        "test_name": "map_nil_returns_nil_without_calling_function",
+        "case": "Nil input and Nil result",
+        "expected_basis": "List.list.Nil is the empty constructor with no fields; the map equation preserves Nil."
+      },
+      {
+        "source": "constant:Highorder_Func_Test.map",
+        "category": "public_behavior",
+        "test_name": "map_singleton_applies_function_once",
+        "case": "Cons(41, Nil), f(x)=x+1",
+        "expected_basis": "Source equation map f (x # xs) = f x # map f xs gives Cons(f(41), map f []) = Cons(42, Nil); f is applied once."
+      },
+      {
+        "source": "constant:List.list.Cons",
+        "category": "public_behavior",
+        "test_name": "map_singleton_applies_function_once",
+        "case": "Singleton Cons head and Nil tail",
+        "expected_basis": "Cons carries exactly one head 41 and recursive tail Nil; the mapped result is one Cons cell with head 42 and tail Nil."
+      },
+      {
+        "source": "constant:List.list.Nil",
+        "category": "public_behavior",
+        "test_name": "map_singleton_applies_function_once",
+        "case": "Recursive tail is Nil",
+        "expected_basis": "Nil is empty; mapping the tail by map f [] = [] returns Nil."
+      },
+      {
+        "source": "constant:Highorder_Func_Test.map",
+        "category": "public_behavior",
+        "test_name": "map_preserves_order_and_multiplicity",
+        "case": "Input Cons values 1,2,2,3; f(x)=x*10",
+        "expected_basis": "Source recurrence applies f once per head in head-to-tail order and preserves order and duplicates, giving [10,20,20,30] and four calls."
+      },
+      {
+        "source": "constant:List.list.Cons",
+        "category": "public_behavior",
+        "test_name": "map_preserves_order_and_multiplicity",
+        "case": "Four Cons cells including duplicated 2",
+        "expected_basis": "Each Cons supplies one head and one recursive tail; mapping preserves head order and multiplicity rather than deduplicating."
+      },
+      {
+        "source": "constant:List.list.Nil",
+        "category": "public_behavior",
+        "test_name": "map_preserves_order_and_multiplicity",
+        "case": "Terminal Nil of a four-element list",
+        "expected_basis": "The empty tail maps to Nil by map f [] = [], terminating the recursion."
+      },
+      {
+        "source": "constant:Highorder_Func_Test.map",
+        "category": "public_behavior",
+        "test_name": "map_does_not_require_clone_or_ord",
+        "case": "Non-Clone non-Ord input NoCloneA and output NoCloneB",
+        "expected_basis": "Source map has only type variables a and b, a function a -> b, and the recursive equations; it performs no copying or ordering, so NoCloneA values 5,-1 map to NoCloneB values 10,-2."
+      },
+      {
+        "source": "constant:List.list.Cons",
+        "category": "public_behavior",
+        "test_name": "map_does_not_require_clone_or_ord",
+        "case": "Cons cells with NoCloneA heads",
+        "expected_basis": "Cons stores one head and one recursive tail; no Clone or Ord operation is required to step through these cons cells."
+      },
+      {
+        "source": "constant:List.list.Nil",
+        "category": "public_behavior",
+        "test_name": "map_does_not_require_clone_or_ord",
+        "case": "Terminal Nil for NoCloneA input",
+        "expected_basis": "Nil is valid for every element type; the recursive mapping of the empty tail returns Nil without requiring extra bounds."
+      },
+      {
+        "source": "type:List.list",
+        "category": "public_behavior",
+        "test_name": "list_nil_and_cons_expose_source_structure",
+        "case": "Nil at i32 and String; singleton Cons; repeated Cons heads",
+        "expected_basis": "Source List.list has exactly two constructors Nil and Cons, with Nil empty and Cons carrying one head plus one recursive tail; no deduplication or reordering is introduced."
+      },
+      {
+        "source": "constant:List.list.Nil",
+        "category": "public_behavior",
+        "test_name": "list_nil_and_cons_expose_source_structure",
+        "case": "Nil instantiated at i32 and String",
+        "expected_basis": "List.list.Nil has no fields and is polymorphic, so List::Nil is a valid empty list at every element type."
+      },
+      {
+        "source": "constant:List.list.Cons",
+        "category": "public_behavior",
+        "test_name": "list_nil_and_cons_expose_source_structure",
+        "case": "Singleton Cons and repeated-head Cons",
+        "expected_basis": "Cons carries exactly one head and one recursive tail; repeated heads remain separate cons cells and are not collapsed."
+      }
+    ],
+    "interfaces": {
+      "crate::List": [
+        {
+          "signature": "pub enum List<T> ",
+          "file": "src/lib.rs",
+          "scope": [],
+          "module_scope": [],
+          "kind": "enum_item",
+          "attributes": [],
+          "declaration": "pub enum List<T> {\n    Nil,\n    Cons(T, Box<List<T>>),\n}"
+        }
+      ],
+      "crate::List::Nil": [
+        {
+          "signature": "Nil",
+          "file": "src/lib.rs",
+          "scope": [
+            "List"
+          ],
+          "module_scope": [],
+          "kind": "enum_variant",
+          "attributes": [],
+          "declaration": "Nil"
+        }
+      ],
+      "crate::List::Cons": [
+        {
+          "signature": "Cons",
+          "file": "src/lib.rs",
+          "scope": [
+            "List"
+          ],
+          "module_scope": [],
+          "kind": "enum_variant",
+          "attributes": [],
+          "declaration": "Cons(T, Box<List<T>>)"
+        }
+      ],
+      "crate::map": [
+        {
+          "signature": "pub fn map<A, B, F>(f: F, xs: List<A>) -> List<B>\nwhere\n    F: Fn(A) -> B,\n",
+          "file": "src/lib.rs",
+          "scope": [],
+          "module_scope": [],
+          "kind": "function_item",
+          "attributes": []
+        }
+      ]
+    },
+    "authoring_evidence": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/isabelle2rust-agent/state/correctness-fpp-20261109/runs/smoke16-r4/fpp-map/diagnostics/support-tests/a5742a1a2f2fb8cb14125b69b7860eff90b8ec160a74d64d4c54e5474a77b0ff-generation-0001",
+    "status": "frozen_before_execution",
+    "authoring_policy": "source-author-only-v1",
+    "scope": "Source-grounded finite tests with mechanical obligations and actual execution; not a formal proof or all internal-operation coverage."
+  },
+  "failure": {
+    "status": "support_test_compile_failed",
+    "frozen_identity": "a5742a1a2f2fb8cb14125b69b7860eff90b8ec160a74d64d4c54e5474a77b0ff",
+    "diagnostic": "   Compiling i2r_candidate v0.1.0 (/Users/lujiayi/Repositories/Isabelle2Rust-workspace/isabelle2rust-agent/state/correctness-fpp-20261109/runs/smoke16-r4/fpp-map/diagnostics/cumulative)\nerror[E0004]: non-exhaustive patterns: `List::Cons(i32::MIN..=41_i32, _)` and `List::Cons(43_i32..=i32::MAX, _)` not covered\n  --> tests/source_contract_0.rs:51:11\n   |\n51 |     match out {\n   |           ^^^ patterns `List::Cons(i32::MIN..=41_i32, _)` and `List::Cons(43_i32..=i32::MAX, _)` not covered\n   |\nnote: `List<i32>` defined here\n  --> src/lib.rs:3:1\n   |\n 3 | pub enum List<T> {\n   | ^^^^^^^^^^^^^^^^\n 4 |     Nil,\n 5 |     Cons(T, Box<List<T>>),\n   |     ---- not covered\n   = note: the matched value is of type `List<i32>`\nhelp: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern, a match arm with multiple or-patterns as shown, or multiple match arms\n   |\n56 ~         List::Nil => panic!(),\n57 ~         List::Cons(i32::MIN..=41_i32, _) | List::Cons(43_i32..=i32::MAX, _) => todo!(),\n   |\n\nFor more information about this error, try `rustc --explain E0004`.\nerror: could not compile `i2r_candidate` (test \"source_contract_0\") due to 1 previous error\nwarning: build failed, waiting for other jobs to finish...\n",
+    "immutable_test_sources": [
+      "use i2r_candidate::{map, List};\nuse std::cell::Cell;\n\nfn collect_i32(xs: &List<i32>) -> Vec<i32> {\n    match xs {\n        List::Nil => Vec::new(),\n        List::Cons(head, tail) => {\n            let mut rest = collect_i32(tail.as_ref());\n            let mut out = Vec::with_capacity(1 + rest.len());\n            out.push(*head);\n            out.append(&mut rest);\n            out\n        }\n    }\n}\n\nstruct NoCloneA { n: i32 }\nstruct NoCloneB { n: i32 }\n\n#[test]\nfn map_nil_returns_nil_without_calling_function() {\n    let called = Cell::new(0usize);\n    let out: List<i32> = map(\n        |x: i32| {\n            called.set(called.get() + 1);\n            x\n        },\n        List::Nil,\n    );\n    assert_eq!(called.get(), 0);\n    match out {\n        List::Nil => {}\n        List::Cons(_, _) => panic!(),\n    }\n}\n\n#[test]\nfn map_singleton_applies_function_once() {\n    let called = Cell::new(0usize);\n    let input = List::Cons(41i32, Box::new(List::Nil));\n    let out = map(\n        |x: i32| {\n            called.set(called.get() + 1);\n            x + 1\n        },\n        input,\n    );\n    assert_eq!(called.get(), 1);\n    match out {\n        List::Cons(42, tail) => match *tail {\n            List::Nil => {}\n            List::Cons(_, _) => panic!(),\n        },\n        List::Nil => panic!(),\n    }\n}\n\n#[test]\nfn map_preserves_order_and_multiplicity() {\n    let called = Cell::new(0usize);\n    let input = List::Cons(\n        1i32,\n        Box::new(List::Cons(\n            2i32,\n            Box::new(List::Cons(\n                2i32,\n                Box::new(List::Cons(3i32, Box::new(List::Nil))),\n            )),\n        )),\n    );\n    let out = map(\n        |x: i32| {\n            called.set(called.get() + 1);\n            x * 10\n        },\n        input,\n    );\n    assert_eq!(called.get(), 4);\n    assert_eq!(collect_i32(&out), vec![10, 20, 20, 30]);\n}\n\n#[test]\nfn map_does_not_require_clone_or_ord() {\n    let input = List::Cons(\n        NoCloneA { n: 5 },\n        Box::new(List::Cons(\n            NoCloneA { n: -1 },\n            Box::new(List::Nil),\n        )),\n    );\n    let out: List<NoCloneB> = map(|a: NoCloneA| NoCloneB { n: a.n * 2 }, input);\n    match out {\n        List::Cons(NoCloneB { n: 10 }, tail) => match *tail {\n            List::Cons(NoCloneB { n: -2 }, tail2) => match *tail2 {\n                List::Nil => {}\n                List::Cons(_, _) => panic!(),\n            },\n            List::Nil => panic!(),\n            List::Cons(_, _) => panic!(),\n        },\n        List::Nil => panic!(),\n        List::Cons(_, _) => panic!(),\n    }\n}\n\n#[test]\nfn list_nil_and_cons_expose_source_structure() {\n    let nil_i32: List<i32> = List::Nil;\n    let nil_string: List<String> = List::Nil;\n    match nil_i32 {\n        List::Nil => {}\n        List::Cons(_, _) => panic!(),\n    }\n    match nil_string {\n        List::Nil => {}\n        List::Cons(_, _) => panic!(),\n    }\n\n    let singleton = List::Cons(9u8, Box::new(List::Nil));\n    match singleton {\n        List::Cons(head, tail) => {\n            assert_eq!(head, 9u8);\n            match *tail {\n                List::Nil => {}\n                List::Cons(_, _) => panic!(),\n            }\n        }\n        List::Nil => panic!(),\n    }\n\n    let repeated = List::Cons(\n        1i32,\n        Box::new(List::Cons(1i32, Box::new(List::Nil))),\n    );\n    match repeated {\n        List::Cons(1, tail) => match *tail {\n            List::Cons(1, tail2) => match *tail2 {\n                List::Nil => {}\n                List::Cons(_, _) => panic!(),\n            },\n            _ => panic!(),\n        },\n        _ => panic!(),\n    }\n}\n"
+    ]
+  },
+  "files": {
+    "src/lib.rs": "/// Generic algebraic list with exactly the source constructors Nil and Cons.\npub enum List<T> {\n    Nil,\n    Cons(T, Box<List<T>>),\n}\n\n/// Source equations:\n///   map f [] = []\n///   map f (x # xs) = f x # map f xs\npub fn map<A, B, F>(f: F, xs: List<A>) -> List<B>\nwhere\n    F: Fn(A) -> B,\n{\n    match xs {\n        List::Nil => List::Nil,\n        List::Cons(x, xs) => {\n            let y = f(x);\n            let ys = map(f, *xs);\n            List::Cons(y, Box::new(ys))\n        }\n    }\n}\n"
+  },
+  "mapping": [
+    {
+      "source": "type:List.list",
+      "rust": "`pub enum List<T> { Nil, Cons(T, Box<List<T>>) }`",
+      "rust_item": "crate::List",
+      "kind": "native",
+      "basis": "Exact source type page declares List.list with constructors Nil and Cons('a, List.list 'a); the Rust enum has exactly those two variants and a boxed recursive tail.",
+      "conditions": [
+        "Exactly two constructors: Nil and Cons.",
+        "Cons carries one element and one recursive tail.",
+        "Box is only recursion indirection and does not add sharing semantics beyond source list values.",
+        "No ordering, deduplication, or additional invariants are introduced."
+      ],
+      "type_parameters": {
+        "'a": "T"
+      }
+    },
+    {
+      "source": "constant:List.list.Nil",
+      "rust": "`List::Nil` variant of `List<T>`",
+      "rust_item": "crate::List::Nil",
+      "kind": "native",
+      "basis": "Source page declares List.list.Nil as the empty-list constructor with no fields and no equations.",
+      "conditions": [
+        "Empty list is represented by the Nil variant.",
+        "Usable for every element type T.",
+        "No separate runtime function is introduced.",
+        "Evaluating Nil does not invoke the map function."
+      ],
+      "type_parameters": {
+        "'a": "T"
+      }
+    },
+    {
+      "source": "constant:List.list.Cons",
+      "rust": "`List::Cons(head, tail)` where `tail` is `Box<List<T>>`",
+      "rust_item": "crate::List::Cons",
+      "kind": "native",
+      "basis": "Source page declares List.list.Cons with an element field and a recursive List.list field; the Rust variant preserves head/tail arity and order.",
+      "conditions": [
+        "Cons contains exactly one head element and one recursive tail.",
+        "Head order and multiplicity are preserved.",
+        "No deduplication, reordering, or merging of cons cells occurs.",
+        "Box only stores the recursive tail ownership."
+      ],
+      "type_parameters": {
+        "'a": "T"
+      }
+    },
+    {
+      "source": "constant:Highorder_Func_Test.map",
+      "rust": "`pub fn map<A, B, F>(f: F, xs: List<A>) -> List<B> where F: Fn(A) -> B` with direct structural recursion",
+      "rust_item": "crate::map",
+      "kind": "direct",
+      "basis": "Source equations map f [] = [] and map f (x # xs) = f x # map f xs are matched by the Nil and Cons arms; each Cons applies f once to the head and recursively maps the tail.",
+      "conditions": [
+        "Nil maps to Nil without calling f.",
+        "Cons(x, xs) evaluates f(x) once, recursively maps the tail, and conses the results in source order.",
+        "Input length and multiplicity are preserved.",
+        "No sorting, deduplication, mutation, or alternate traversal is used."
+      ],
+      "type_parameters": {
+        "'a": "A",
+        "'b": "B"
+      }
+    }
+  ],
+  "proposal": {
+    "action": "binding_fix",
+    "reason": "The failure is a test-only exhaustiveness defect. In `map_singleton_applies_function_once`, `out: List<i32>` is matched with only `List::Cons(42, tail)` and `List::Nil`, omitting other `Cons` heads. The source equation still requires `Cons(41, Nil)` to map to `Cons(42, Nil)`; adding a wildcard `Cons` panic arm preserves that expected success and panics for any other head without changing the literal `42`, the source case, or any assertion invocation.",
+    "edits": [
+      {
+        "kind": "integration",
+        "index": 0,
+        "old": "        List::Nil => panic!(),\n    }\n}\n\n#[test]\nfn map_preserves_order_and_multiplicity() {",
+        "new": "        List::Cons(_, _) => panic!(),\n        List::Nil => panic!(),\n    }\n}\n\n#[test]\nfn map_preserves_order_and_multiplicity() {"
+      }
+    ]
+  }
+}

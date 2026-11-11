@@ -1,0 +1,25 @@
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 15 tests
+test __i2r_source_contract_0::bubble_min_empty_and_singleton_follow_source_equations ... ok
+test __i2r_source_contract_0::bubble_min_moves_minimum_to_front_for_non_clone_non_ord_items ... ok
+test __i2r_source_contract_0::bubble_min_keeps_equal_keys_in_source_order ... ok
+test __i2r_source_contract_0::case_list_empty_selects_nil_branch ... ok
+test __i2r_source_contract_0::cons_prepends_without_clone_and_preserves_tail_order ... ok
+test __i2r_source_contract_0::bubblesort_empty_and_singleton_follow_source_equations ... ok
+test __i2r_source_contract_0::case_list_cons_selects_cons_branch_with_head_and_tail ... ok
+test __i2r_source_contract_0::bubblesort_uses_orderings_less_not_rust_ord ... ok
+test __i2r_source_contract_0::bubblesort_preserves_equal_key_order ... ok
+test __i2r_source_contract_0::hol_if_false_returns_else_and_does_not_evaluate_then ... ok
+test __i2r_source_contract_0::bubblesort_sorts_non_clone_non_ord_items ... ok
+test __i2r_source_contract_0::hol_if_true_returns_then_and_does_not_evaluate_else ... ok
+test __i2r_source_contract_0::nil_returns_empty_list_without_clone ... ok
+test __i2r_source_contract_0::orderings_less_is_strict_for_non_ord_item ... ok
+test __i2r_source_contract_0::hol_undefined_panics_instead_of_returning_value - should panic ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,19 @@
+{
+  "source_model_provenance_name": "source-model.json",
+  "source_model_sha256": "ad95af65cf66128bf6a693e3d55113a8485a6cebaf4c0591fb23086dafebccdd",
+  "contracts": [
+    {
+      "kind": "complete_structural_encoding",
+      "type": "((nat \\<times> nat) Tree_Test.tree)",
+      "constructor_tags": [
+        0,
+        1
+      ],
+      "all_fields_including_record_extensions": true
+    }
+  ],
+  "source_input_domain": [],
+  "fixture_arguments": [],
+  "observation": "(let result = ((Leftist_Heap_Test.empty :: ((nat \\<times> nat) Tree_Test.tree)) ) in (encode_352bcd74a0 (result)))",
+  "partial_or_finite_scope_disclosed": true
+}

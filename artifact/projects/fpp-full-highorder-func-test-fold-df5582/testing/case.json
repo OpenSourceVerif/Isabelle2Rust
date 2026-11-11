@@ -1,0 +1,27 @@
+{
+  "id": "fpp-full-highorder-func-test-fold-df5582",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Bounded source-typed fixtures; exact full structural constructor tags/fields. Function and set values observed only on recorded finite domains; not exhaustive/extensional proof. No authored expected outputs.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "behavior-only"
+  },
+  "observation_contracts": [
+    {
+      "kind": "function_fixture",
+      "type": "(nat \\<Rightarrow> (nat \\<Rightarrow> nat))",
+      "recipe": "codomain fixture seeded by original seed plus sum of argument observation; deterministic total finite observation"
+    },
+    {
+      "kind": "function_fixture",
+      "type": "(nat \\<Rightarrow> nat)",
+      "recipe": "codomain fixture seeded by original seed plus sum of argument observation; deterministic total finite observation"
+    }
+  ],
+  "source_input_domain": []
+}

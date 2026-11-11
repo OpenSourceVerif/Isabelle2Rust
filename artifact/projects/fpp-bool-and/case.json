@@ -1,0 +1,14 @@
+{
+  "id": "fpp-bool-and",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "FPP original source observation: [if BasicDef_Test.AND (input!0 mod 2 = 1) (input!1 mod 2 = 1) then 1 else 0]; inputs follow fixed fpp_suites domain. No semantic claim outside tested observations.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "No performance measurement in correctness-only mode; equivalent observation used for behavioral checks."
+  }
+}

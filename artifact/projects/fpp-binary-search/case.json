@@ -1,0 +1,14 @@
+{
+  "id": "fpp-binary-search",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Original FPP observation: (case search_Test.binary_search (length input mod 8) (sort input) of None \\<Rightarrow> [0] | Some n \\<Rightarrow> [1,n]); finite fpp_suites input domain. Signed integers use injective zigzag wire encoding. Higher-order functions/states are observed by explicit finite applications, not claimed equal from finite tests.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Behavior-only identity preparation/encoding; no timing."
+  }
+}

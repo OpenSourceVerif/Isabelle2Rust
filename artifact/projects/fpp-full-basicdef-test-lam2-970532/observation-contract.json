@@ -1,0 +1,18 @@
+{
+  "source_model_provenance_name": "source-model.json",
+  "source_model_sha256": "73efa6d3d35e0ff6510279b95ed6f5e67d91540f4378e0edd838054aeb100e92",
+  "contracts": [
+    {
+      "kind": "function_fixture",
+      "type": "(nat \\<Rightarrow> nat)",
+      "recipe": "codomain fixture seeded by original seed plus sum of argument observation; deterministic total finite observation"
+    }
+  ],
+  "source_input_domain": [],
+  "fixture_arguments": [
+    "(\\<lambda>arg7a9bcd751d. ((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) + sum_list ((List.Cons (arg7a9bcd751d) List.Nil))) mod 9))",
+    "(((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)) mod 9)"
+  ],
+  "observation": "(let result = ((BasicDef_Test.lam2 :: ((nat \\<Rightarrow> nat) \\<Rightarrow> (nat \\<Rightarrow> nat))) ((\\<lambda>arg7a9bcd751d. ((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) + sum_list ((List.Cons (arg7a9bcd751d) List.Nil))) mod 9))) ((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)) mod 9))) in (List.Cons (result) List.Nil))",
+  "partial_or_finite_scope_disclosed": true
+}

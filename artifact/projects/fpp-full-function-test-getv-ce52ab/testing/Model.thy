@@ -1,0 +1,5 @@
+theory Model imports "source/2_functionalprog/Function_Test" begin
+
+definition observe :: "nat list \<Rightarrow> nat list" where
+"observe input = (let result = ((Function_Test.getv :: ((nat \<Rightarrow> (nat option)) \<Rightarrow> (nat \<Rightarrow> (nat option)))) ((\<lambda>arg3a0ed10400. (if (((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) + sum_list ((List.Cons (arg3a0ed10400) List.Nil))) mod 3 = 0 then Option.None else Option.Some ((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) + sum_list ((List.Cons (arg3a0ed10400) List.Nil))) mod 9)))) ((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)) mod 9))) in (case (result) of Option.None \<Rightarrow> (List.Cons (0) List.Nil) | Option.Some v \<Rightarrow> List.Cons 1 (List.Cons (v) List.Nil)))"
+end

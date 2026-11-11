@@ -1,0 +1,85 @@
+[generation]
+workflow = "knowledge-v5"
+strategy = "structured"
+max_ownership_candidates = 3
+max_output_tokens = 24000
+temperature = 0.2
+thinking = "disabled"
+
+[repair]
+enabled = true
+max_attempts = 50
+identical_failure_limit = 3
+
+[testing]
+transport = "auto" # arbitrary: UBig; checked: u128; explicit native-i128/dashu-ibig also supported
+max_input_bits = "auto" # checked:128, arbitrary:unbounded; explicit 0 or positive value overrides
+fixed = true
+regression = true
+differential = true
+random_cases = 100
+final_cases = 200
+seed = 20261030
+process_timeout = 15
+clippy = "off"
+
+[source_optimization]
+enabled = false
+max_proposals = 1
+proof_timeout = 180
+min_speedup = 1.05
+
+[performance]
+protocol = "kernel-v2"
+input_bits = 128 # paired workload for arbitrary and checked; larger arbitrary tests remain separate
+mode = "kernel"
+enabled = true
+samples = 7
+warmups = 2
+iterations = 200
+
+[performance.v2]
+processes = 5
+samples_per_process = 10
+warmup_min_seconds = 1.0
+warmup_max_seconds = 10.0
+warmup_stability_ratio = 1.15
+target_batch_ns = 20000000
+max_batch = 262144
+estimated_prepared_budget_bytes = 134217728
+
+[budgets]
+build_seconds = 1200
+model_seconds = 300
+max_model_calls = 70
+
+[preprocessing]
+mode = "auto"
+numeric_mode = "checked"
+max_plan_attempts = 20
+max_context_chars = 1500000
+include_adapter_reference = false
+
+[preprocessing.model]
+max_output_tokens = 24000
+temperature = 0.2
+thinking = "disabled"
+
+[context_management]
+enabled = true # trial-local versioned evidence, focused repair and compact history
+max_history_turns = 4
+history_characters = 90000
+code_characters = 45000
+
+# Portable defaults; machine paths and credentials are optional local overrides.
+[tools]
+isabelle = "isabelle"
+afp = ""
+cargo = "cargo"
+ocamlfind = "ocamlfind"
+rust_toolchain = "1.94.0"
+
+[model]
+endpoint = "https://api.deepseek.com"
+name = "deepseek-flash"
+credential_variable = "DEEPSEEK_API_KEY"

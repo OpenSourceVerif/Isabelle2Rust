@@ -1,0 +1,5 @@
+theory Model imports "source/2_functionalprog/BasicDef_Test" begin
+
+definition observe :: "nat list \<Rightarrow> nat list" where
+"observe input = (let result = ((BasicDef_Test.lam2 :: ((nat \<Rightarrow> nat) \<Rightarrow> (nat \<Rightarrow> nat))) ((\<lambda>arg7a9bcd751d. ((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) + sum_list ((List.Cons (arg7a9bcd751d) List.Nil))) mod 9))) ((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)) mod 9))) in (List.Cons (result) List.Nil))"
+end

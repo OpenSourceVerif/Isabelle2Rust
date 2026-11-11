@@ -1,0 +1,27 @@
+{
+  "source_model_provenance_name": "source-model.json",
+  "source_model_sha256": "210fdf868dbc3e30100c4def8360d4afd7120cd7837ead7c054a91a3918621f0",
+  "contracts": [
+    {
+      "kind": "annotated_tree_fixture",
+      "domain": "Leaf or singleton Node; metadata1 is exact singleton height/rank. Partial split fixtures wrap a nonempty root."
+    },
+    {
+      "kind": "complete_structural_encoding",
+      "type": "((nat \\<times> nat) Tree_Test.tree)",
+      "constructor_tags": [
+        0,
+        1
+      ],
+      "all_fields_including_record_extensions": true
+    }
+  ],
+  "source_input_domain": [
+    "split input is a nonempty singleton; original source has Node equation and no Leaf equation."
+  ],
+  "fixture_arguments": [
+    "(Tree_Test.Node Tree_Test.Leaf (Product_Type.Pair (((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) mod 9) 1) Tree_Test.Leaf)"
+  ],
+  "observation": "(let result = ((AVL_Set_Code_Test.split_max :: (((nat \\<times> nat) Tree_Test.tree) \\<Rightarrow> (((nat \\<times> nat) Tree_Test.tree) \\<times> nat))) ((Tree_Test.Node Tree_Test.Leaf (Product_Type.Pair (((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) mod 9) 1) Tree_Test.Leaf))) in (List.append (encode_352bcd74a0 ((fst (result)))) (List.Cons ((snd (result))) List.Nil)))",
+  "partial_or_finite_scope_disclosed": true
+}

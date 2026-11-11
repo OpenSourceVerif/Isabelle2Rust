@@ -1,0 +1,127 @@
+{
+  "generation": {
+    "workflow": "segmented-v8",
+    "strategy": "structured",
+    "max_ownership_candidates": 0,
+    "max_output_tokens": 32768,
+    "temperature": 0.2,
+    "thinking": "enabled"
+  },
+  "repair": {
+    "enabled": true,
+    "max_attempts": 0,
+    "identical_failure_limit": 0
+  },
+  "testing": {
+    "transport": "auto",
+    "max_input_bits": "auto",
+    "fixed": true,
+    "regression": true,
+    "differential": true,
+    "random_cases": 40,
+    "final_cases": 0,
+    "seed": 2026110901,
+    "process_timeout": 30,
+    "clippy": "off",
+    "reference_policy": "available-per-input-v1"
+  },
+  "source_optimization": {
+    "enabled": false,
+    "max_proposals": 1,
+    "proof_timeout": 180,
+    "min_speedup": 1.05
+  },
+  "performance": {
+    "protocol": "kernel-v2",
+    "input_bits": 128,
+    "mode": "kernel",
+    "enabled": false,
+    "samples": 7,
+    "warmups": 2,
+    "iterations": 200,
+    "v2": {
+      "processes": 5,
+      "samples_per_process": 10,
+      "warmup_min_seconds": 1.0,
+      "warmup_max_seconds": 10.0,
+      "warmup_stability_ratio": 1.15,
+      "target_batch_ns": 20000000,
+      "max_batch": 262144,
+      "estimated_prepared_budget_bytes": 134217728
+    }
+  },
+  "budgets": {
+    "build_seconds": 900,
+    "model_seconds": 600,
+    "max_model_calls": 48
+  },
+  "preprocessing": {
+    "mode": "auto",
+    "numeric_mode": "checked",
+    "max_plan_attempts": 0,
+    "max_context_chars": 180000,
+    "include_adapter_reference": false,
+    "model": {
+      "max_output_tokens": 32768,
+      "temperature": 0.2,
+      "thinking": "enabled",
+      "reasoning_effort": "low"
+    }
+  },
+  "context_management": {
+    "enabled": true,
+    "max_history_turns": 6,
+    "history_characters": 100000,
+    "code_characters": 90000,
+    "limit_authority": "provider",
+    "local_character_limits": "inactive as rejection limits; retained only as optional compaction/page-cost hints"
+  },
+  "tools": {
+    "isabelle": "isabelle",
+    "afp": "",
+    "cargo": "cargo",
+    "ocamlfind": "ocamlfind",
+    "rust_toolchain": "1.94.0"
+  },
+  "model": {
+    "endpoint": "https://api.deepseek.com",
+    "name": "deepseek-flash",
+    "credential_variable": "DEEPSEEK_API_KEY"
+  },
+  "segmented": {
+    "schema_version": 1,
+    "algorithm_policy": "preserve-source-route",
+    "development_performance": false,
+    "no_progress_limit": 16,
+    "max_request_characters": 180000,
+    "source_page_characters": 16000,
+    "initial_source_characters": 70000,
+    "initial_code_characters": 60000,
+    "review_categories": [
+      "completeness",
+      "semantics",
+      "interfaces",
+      "ownership",
+      "support"
+    ],
+    "support_tests": true
+  },
+  "v8": {
+    "schema_version": 1,
+    "repair_escalate_after": 2,
+    "repair_stall_limit": 6,
+    "connector_stall_limit": 6,
+    "diagnostic_read_limit": 8,
+    "performance_refinement": false,
+    "optimization_no_gain_limit": 2,
+    "minimum_speedup": 1.03,
+    "maximum_regression": 1.03,
+    "profile_repetitions": 3,
+    "profile_timeout": 60,
+    "final_failure_policy": "stop_and_report",
+    "unit_policy": "semantic-components",
+    "correctness_only": true,
+    "small_program_max_entities": 12,
+    "small_program_max_source_characters": 16000
+  }
+}

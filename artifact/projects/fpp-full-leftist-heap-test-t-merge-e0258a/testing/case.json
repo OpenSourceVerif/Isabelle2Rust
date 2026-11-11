@@ -1,0 +1,21 @@
+{
+  "id": "fpp-full-leftist-heap-test-t-merge-e0258a",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Bounded source-typed fixtures; exact full structural constructor tags/fields. Function and set values observed only on recorded finite domains; not exhaustive/extensional proof. No authored expected outputs.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "behavior-only"
+  },
+  "observation_contracts": [
+    {
+      "kind": "annotated_tree_fixture",
+      "domain": "Leaf or singleton Node; metadata1 is exact singleton height/rank. Partial split fixtures wrap a nonempty root."
+    }
+  ],
+  "source_input_domain": []
+}

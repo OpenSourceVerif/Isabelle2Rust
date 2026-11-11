@@ -1,0 +1,17 @@
+{
+  "source_model_provenance_name": "source-model.json",
+  "source_model_sha256": "ad95af65cf66128bf6a693e3d55113a8485a6cebaf4c0591fb23086dafebccdd",
+  "contracts": [
+    {
+      "kind": "annotated_tree_fixture",
+      "domain": "Leaf or singleton Node; metadata1 is exact singleton height/rank. Partial split fixtures wrap a nonempty root."
+    }
+  ],
+  "source_input_domain": [],
+  "fixture_arguments": [
+    "(if ((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) mod 2 = 0 then Tree_Test.Leaf else Tree_Test.Node Tree_Test.Leaf (Product_Type.Pair (((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) mod 9) 1) Tree_Test.Leaf)",
+    "(if ((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)) mod 2 = 0 then Tree_Test.Leaf else Tree_Test.Node Tree_Test.Leaf (Product_Type.Pair (((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)) mod 9) 1) Tree_Test.Leaf)"
+  ],
+  "observation": "(let result = ((Leftist_Heap_Test.T_merge :: (((nat \\<times> nat) Tree_Test.tree) \\<Rightarrow> (((nat \\<times> nat) Tree_Test.tree) \\<Rightarrow> nat))) ((if ((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) mod 2 = 0 then Tree_Test.Leaf else Tree_Test.Node Tree_Test.Leaf (Product_Type.Pair (((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) mod 9) 1) Tree_Test.Leaf)) ((if ((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)) mod 2 = 0 then Tree_Test.Leaf else Tree_Test.Node Tree_Test.Leaf (Product_Type.Pair (((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)) mod 9) 1) Tree_Test.Leaf))) in (List.Cons (result) List.Nil))",
+  "partial_or_finite_scope_disclosed": true
+}

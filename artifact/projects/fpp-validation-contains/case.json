@@ -1,0 +1,14 @@
+{
+  "id": "fpp-validation-contains",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Original source observation: (let ys=tl input; k=hd(input@[0]) mod Suc(List.length ys) in [if Listprog_Test.contains (chars (take k ys)) (chars (drop k ys)) then 1 else 0]); explicit finite input domain in inputs.json. Signed wire zigzag. Finite observation is not universal equivalence.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Behavior-only identity preparation/encoding; no timing."
+  }
+}

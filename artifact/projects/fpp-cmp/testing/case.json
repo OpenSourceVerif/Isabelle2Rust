@@ -1,0 +1,14 @@
+{
+  "id": "fpp-cmp",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Original FPP observation: [case Cmp_Test.cmp (input!0) (input!1) of Cmp_Test.LT \\<Rightarrow> 0 | Cmp_Test.EQ \\<Rightarrow> 1 | Cmp_Test.GT \\<Rightarrow> 2]; finite fpp_suites input domain. Signed integers use injective zigzag wire encoding. Higher-order functions/states are observed by explicit finite applications, not claimed equal from finite tests.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Behavior-only identity preparation/encoding; no timing."
+  }
+}

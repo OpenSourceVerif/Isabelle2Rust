@@ -1,0 +1,14 @@
+{
+  "id": "fpp-full-highorder-func-test-fof1-651fab",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Native-u128 wire naturals. Exact Model.observe deterministically builds bounded typed values: nat0..8,int-4..4,lists0..3,char abc-space; generic type variables instantiated nat. Encodes output list lengths/options/product fields/int signs without computing target algorithm or expected results.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "behavior-only"
+  }
+}

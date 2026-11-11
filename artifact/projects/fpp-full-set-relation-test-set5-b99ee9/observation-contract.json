@@ -1,0 +1,16 @@
+{
+  "source_model_provenance_name": "source-model.json",
+  "source_model_sha256": "3d39e7b2a0faff089d365f9aa809719e57773c6ce0e74b9c98c5e464f238d2f4",
+  "contracts": [
+    {
+      "kind": "finite_set_membership",
+      "type": "(nat set)",
+      "domain_expression": "(List.map (\\<lambda>i. ((i) mod 9)) [0..<9])",
+      "exhaustive": false
+    }
+  ],
+  "source_input_domain": [],
+  "fixture_arguments": [],
+  "observation": "(let result = ((Set_Relation_Test.Set5 :: (nat set)) ) in (List.Cons (List.length (List.map (\\<lambda>i. ((i) mod 9)) [0..<9])) (List.concat (List.map (\\<lambda>p. (List.Cons (if p \\<in> (result) then 1 else 0) List.Nil)) (List.map (\\<lambda>i. ((i) mod 9)) [0..<9])))))",
+  "partial_or_finite_scope_disclosed": true
+}

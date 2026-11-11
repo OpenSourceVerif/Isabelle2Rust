@@ -1,0 +1,16 @@
+{
+  "id": "fpp-mirror",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [
+    "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/Isabelle2Rust/test/fpp/4_ds_algo/bintree/Tree_Test.thy"
+  ],
+  "contract": "FPP original source observation: Tree_Test.preorder (Tree_Test.mirror (fixture input)); inputs follow fixed fpp_suites domain. No semantic claim outside tested observations.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "No performance measurement in correctness-only mode; equivalent observation used for behavioral checks."
+  }
+}

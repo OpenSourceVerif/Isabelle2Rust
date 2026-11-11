@@ -1,0 +1,37 @@
+{
+  "source_model_provenance_name": "source-model.json",
+  "source_model_sha256": "5c16187a916329607ab1a813aacd9dc3883455ab4a62df3411ae3477074989cf",
+  "contracts": [
+    {
+      "kind": "complete_structural_encoding",
+      "type": "(unit Function_Test.info.info_ext)",
+      "constructor_tags": [
+        0
+      ],
+      "all_fields_including_record_extensions": true
+    },
+    {
+      "kind": "finite_set_membership",
+      "type": "((unit Function_Test.info.info_ext) set)",
+      "domain_expression": "(List.map (\\<lambda>i. (fixture_a70ca95382_2 (i))) [0..<9])",
+      "exhaustive": false
+    },
+    {
+      "kind": "complete_structural_encoding",
+      "type": "((unit Function_Test.info.info_ext) Function_Test.valT)",
+      "constructor_tags": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "all_fields_including_record_extensions": true
+    }
+  ],
+  "source_input_domain": [],
+  "fixture_arguments": [
+    "(int (((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) mod 9) - 4)"
+  ],
+  "observation": "(let result = ((Function_Test.kvs1 :: (int \\<Rightarrow> (((unit Function_Test.info.info_ext) Function_Test.valT) option))) ((int (((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) mod 9) - 4))) in (case (result) of Option.None \\<Rightarrow> (List.Cons (0) List.Nil) | Option.Some v \\<Rightarrow> List.Cons 1 (encode_3bfe553bb3 (v))))",
+  "partial_or_finite_scope_disclosed": true
+}

@@ -1,0 +1,118 @@
+{
+  "identity": "31ffa80e4bf5f44e6ff5221b534fccf983a9beb84ee055f6eae2183b6393b613",
+  "tests": [
+    "use i2r_candidate::{mirror, Tree};\n\nstruct NoTraits(i32);\n\nfn assert_leaf<A>(t: &Tree<A>) {\n    match t {\n        Tree::Leaf => {}\n        Tree::Node(_, _, _) => panic!(\"expected Leaf\"),\n    }\n}\n\n#[test]\nfn mirror_leaf_returns_leaf() {\n    let out: Tree<NoTraits> = mirror(Tree::<NoTraits>::Leaf);\n    assert_leaf(&out);\n}\n\n#[test]\nfn mirror_one_node_stays_single_node_with_value() {\n    let input: Tree<NoTraits> =\n        Tree::Node(Box::new(Tree::Leaf), NoTraits(7), Box::new(Tree::Leaf));\n    let out = mirror(input);\n    match out {\n        Tree::Node(l, x, r) => {\n            assert_eq!(x.0, 7);\n            assert_leaf(&*l);\n            assert_leaf(&*r);\n        }\n        Tree::Leaf => panic!(\"expected Node\"),\n    }\n}\n\n#[test]\nfn mirror_deeper_swaps_recursively_mirrored_children() {\n    let left: Tree<NoTraits> =\n        Tree::Node(Box::new(Tree::Leaf), NoTraits(1), Box::new(Tree::Leaf));\n    let right: Tree<NoTraits> = Tree::Node(\n        Box::new(Tree::Node(\n            Box::new(Tree::Leaf),\n            NoTraits(3),\n            Box::new(Tree::Leaf),\n        )),\n        NoTraits(4),\n        Box::new(Tree::Leaf),\n    );\n    let input: Tree<NoTraits> = Tree::Node(Box::new(left), NoTraits(2), Box::new(right));\n\n    let out = mirror(input);\n    match out {\n        Tree::Node(out_l, out_x, out_r) => {\n            assert_eq!(out_x.0, 2);\n\n            match &*out_l {\n                Tree::Node(l2, x2, r2) => {\n                    assert_eq!(x2.0, 4);\n                    assert_leaf(&**l2);\n                    match &**r2 {\n                        Tree::Node(l3, x3, r3) => {\n                            assert_eq!(x3.0, 3);\n                            assert_leaf(&**l3);\n                            assert_leaf(&**r3);\n                        }\n                        Tree::Leaf => panic!(\"expected Node at right-right\"),\n                    }\n                }\n                Tree::Leaf => panic!(\"expected Node at left\"),\n            }\n\n            match &*out_r {\n                Tree::Node(l4, x4, r4) => {\n                    assert_eq!(x4.0, 1);\n                    assert_leaf(&**l4);\n                    assert_leaf(&**r4);\n                }\n                Tree::Leaf => panic!(\"expected Node at right\"),\n            }\n        }\n        Tree::Leaf => panic!(\"expected Node at root\"),\n    }\n}\n"
+  ],
+  "unit_tests": [],
+  "obligations": [
+    {
+      "source": "constant:Tree_Test.mirror",
+      "category": "public_behavior",
+      "test_name": "mirror_leaf_returns_leaf",
+      "case": "mirror(Tree::<NoTraits>::Leaf)",
+      "expected_basis": "Source equation mirror ⟨⟩ = ⟨⟩ returns Leaf. NoTraits is neither Clone nor Ord, so the call also checks that mirror adds no accidental bounds."
+    },
+    {
+      "source": "constant:Tree_Test.tree.Leaf",
+      "category": "public_behavior",
+      "test_name": "mirror_leaf_returns_leaf",
+      "case": "Tree::<NoTraits>::Leaf is supplied as input and Leaf is expected as output",
+      "expected_basis": "Tree_Test.tree.Leaf is the nullary constructor of Tree_Test.tree with no payload, and the first source equation mirror ⟨⟩ = ⟨⟩ preserves it."
+    },
+    {
+      "source": "constant:Tree_Test.mirror",
+      "category": "public_behavior",
+      "test_name": "mirror_one_node_stays_single_node_with_value",
+      "case": "mirror(Node(Leaf, NoTraits(7), Leaf))",
+      "expected_basis": "By the second source equation mirror ⟨l,x,r⟩ = ⟨mirror r,x,mirror l⟩, with l = Leaf and r = Leaf, both recursive mirrors are Leaf, so the result is Node(Leaf, 7, Leaf)."
+    },
+    {
+      "source": "constant:Tree_Test.tree.Node",
+      "category": "public_behavior",
+      "test_name": "mirror_one_node_stays_single_node_with_value",
+      "case": "Tree::Node(Box::new(Leaf), NoTraits(7), Box::new(Leaf)) is constructed and mirrored",
+      "expected_basis": "Tree_Test.tree.Node has source fields [left subtree, value, right subtree]; the test constructs that exact order and checks the output keeps value 7 in the middle of a Node."
+    },
+    {
+      "source": "constant:Tree_Test.mirror",
+      "category": "public_behavior",
+      "test_name": "mirror_deeper_swaps_recursively_mirrored_children",
+      "case": "mirror(Node(Node(Leaf,1,Leaf), 2, Node(Node(Leaf,3,Leaf), 4, Leaf)))",
+      "expected_basis": "The second source equation gives Node(mirror right, 2, mirror left). Independently, mirror(Node(Leaf,3,Leaf)) = Node(Leaf,3,Leaf), so mirror(right) = Node(Leaf,4,Node(Leaf,3,Leaf)); mirror(left) = Node(Leaf,1,Leaf). The expected tree checked by the test is therefore Node(Node(Leaf,4,Node(Leaf,3,Leaf)), 2, Node(Leaf,1,Leaf))."
+    },
+    {
+      "source": "constant:Tree_Test.tree.Node",
+      "category": "public_behavior",
+      "test_name": "mirror_deeper_swaps_recursively_mirrored_children",
+      "case": "Nested Node constructions with values 1, 2, 3, and 4 and Leaf children",
+      "expected_basis": "Each Node in the input uses source field order left subtree, value, right subtree. The checked output follows the source equation by recursively mirroring the right subtree into the left position and the left subtree into the right position."
+    },
+    {
+      "source": "constant:Tree_Test.tree.Leaf",
+      "category": "public_behavior",
+      "test_name": "mirror_deeper_swaps_recursively_mirrored_children",
+      "case": "Leaf appears as the empty children throughout the nested input and expected output",
+      "expected_basis": "Leaf is nullary and the first source equation states mirror ⟨⟩ = ⟨⟩, so every Leaf subtree encountered recursively remains Leaf."
+    },
+    {
+      "source": "type:Tree_Test.tree",
+      "category": "public_behavior",
+      "test_name": "mirror_deeper_swaps_recursively_mirrored_children",
+      "case": "Tree<NoTraits> is built using only the source constructors Leaf and Node",
+      "expected_basis": "Tree_Test.tree has exactly constructors Leaf and Node, with Node fields [left subtree, value, right subtree]. NoTraits supplies no Clone, Copy, Eq, Ord, or numeric operations, matching the unconstrained source type variable."
+    }
+  ],
+  "interfaces": {
+    "crate::Tree": [
+      {
+        "signature": "pub enum Tree<A> ",
+        "file": "src/lib.rs",
+        "scope": [],
+        "module_scope": [],
+        "kind": "enum_item",
+        "attributes": [],
+        "declaration": "pub enum Tree<A> {\n    Leaf,\n    Node(Box<Tree<A>>, A, Box<Tree<A>>),\n}"
+      }
+    ],
+    "crate::Tree::Leaf": [
+      {
+        "signature": "Leaf",
+        "file": "src/lib.rs",
+        "scope": [
+          "Tree"
+        ],
+        "module_scope": [],
+        "kind": "enum_variant",
+        "attributes": [],
+        "declaration": "Leaf"
+      }
+    ],
+    "crate::Tree::Node": [
+      {
+        "signature": "Node",
+        "file": "src/lib.rs",
+        "scope": [
+          "Tree"
+        ],
+        "module_scope": [],
+        "kind": "enum_variant",
+        "attributes": [],
+        "declaration": "Node(Box<Tree<A>>, A, Box<Tree<A>>)"
+      }
+    ],
+    "crate::mirror": [
+      {
+        "signature": "pub fn mirror<A>(t: Tree<A>) -> Tree<A> ",
+        "file": "src/lib.rs",
+        "scope": [],
+        "module_scope": [],
+        "kind": "function_item",
+        "attributes": []
+      }
+    ]
+  },
+  "authoring_evidence": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/isabelle2rust-agent/state/correctness-fpp-20261109/runs/remaining4-r11/fpp-mirror/diagnostics/support-tests/31ffa80e4bf5f44e6ff5221b534fccf983a9beb84ee055f6eae2183b6393b613-generation-0001",
+  "status": "frozen_before_execution",
+  "authoring_policy": "source-author-only-v1",
+  "scope": "Source-grounded finite tests with mechanical obligations and actual execution; not a formal proof or all internal-operation coverage."
+}

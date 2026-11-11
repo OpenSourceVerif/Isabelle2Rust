@@ -1,0 +1,18 @@
+{
+  "source_model_provenance_name": "source-model.json",
+  "source_model_sha256": "73efa6d3d35e0ff6510279b95ed6f5e67d91540f4378e0edd838054aeb100e92",
+  "contracts": [
+    {
+      "kind": "finite_function_observation",
+      "type": "(int \\<Rightarrow> int)",
+      "domain_expression": "(List.map (\\<lambda>i. (int ((i) mod 9) - 4)) [0..<9])",
+      "exhaustive": false
+    }
+  ],
+  "source_input_domain": [],
+  "fixture_arguments": [
+    "(int (((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) mod 9) - 4)"
+  ],
+  "observation": "(let result = ((BasicDef_Test.make_pair :: (int \\<Rightarrow> ((int \\<Rightarrow> int) \\<times> int))) ((int (((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) mod 9) - 4))) in (List.append (List.Cons (List.length (List.map (\\<lambda>i. (int ((i) mod 9) - 4)) [0..<9])) (List.concat (List.map (\\<lambda>p. (List.Cons (if ((((fst (result))) p)) < 0 then nat (-2*((((fst (result))) p))-1) else nat (2*((((fst (result))) p)))) List.Nil)) (List.map (\\<lambda>i. (int ((i) mod 9) - 4)) [0..<9])))) (List.Cons (if ((snd (result))) < 0 then nat (-2*((snd (result)))-1) else nat (2*((snd (result))))) List.Nil)))",
+  "partial_or_finite_scope_disclosed": true
+}

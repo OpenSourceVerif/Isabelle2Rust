@@ -1,0 +1,28 @@
+{
+  "source_model_provenance_name": "source-model.json",
+  "source_model_sha256": "2be74cf96138eb2871230d38f828f29caa8f08c55406a7fa8a451ef8f52cd464",
+  "contracts": [
+    {
+      "kind": "exact_rational_real",
+      "fixture": "rational numerator -4..4 denominator1..3",
+      "observation": "exact normalized Rat.quotient_of via proved rational-real inverse; no float or rounded approximation"
+    },
+    {
+      "kind": "complete_structural_encoding",
+      "type": "Classes_Test.Number",
+      "constructor_tags": [
+        0,
+        1,
+        2
+      ],
+      "all_fields_including_record_extensions": true
+    }
+  ],
+  "source_input_domain": [],
+  "fixture_arguments": [
+    "(fixture_9267ab675f_2 ((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)))",
+    "(fixture_9267ab675f_2 ((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)))"
+  ],
+  "observation": "(let result = ((Classes_Test.addnum :: (Classes_Test.Number \\<Rightarrow> (Classes_Test.Number \\<Rightarrow> Classes_Test.Number))) ((fixture_9267ab675f_2 ((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)))) ((fixture_9267ab675f_2 ((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1))))) in (encode_9267ab675f (result)))",
+  "partial_or_finite_scope_disclosed": true
+}

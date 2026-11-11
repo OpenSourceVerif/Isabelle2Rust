@@ -1,0 +1,17 @@
+{
+  "source_model_provenance_name": "source-model.json",
+  "source_model_sha256": "7a6be653877f8778825fa27d9ab4e2aa864cf160d2d2626cb46215aa27bddf23",
+  "contracts": [
+    {
+      "kind": "priority_queue_fixture",
+      "domain": "zero to three pushes through original PriorityQueue_Test.push; abstract invariant preserved"
+    }
+  ],
+  "source_input_domain": [],
+  "fixture_arguments": [
+    "(List.fold (\\<lambda>j q. PriorityQueue_Test.push j ((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0))+j) mod 9) q) [0..<(((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) mod 4)] PriorityQueue_Test.empty)",
+    "(((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)) mod 9)"
+  ],
+  "observation": "(let result = ((PriorityQueue_Test.priority :: (((nat,nat) PriorityQueue_Test.pri_queue) \\<Rightarrow> (nat \\<Rightarrow> (nat option)))) ((List.fold (\\<lambda>j q. PriorityQueue_Test.push j ((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0))+j) mod 9) q) [0..<(((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) mod 4)] PriorityQueue_Test.empty)) ((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)) mod 9))) in (case (result) of Option.None \\<Rightarrow> (List.Cons (0) List.Nil) | Option.Some v \\<Rightarrow> List.Cons 1 (List.Cons (v) List.Nil)))",
+  "partial_or_finite_scope_disclosed": true
+}

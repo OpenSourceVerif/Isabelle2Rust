@@ -1,0 +1,14 @@
+{
+  "id": "fpp-avl-ball",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Original FPP observation: encode_tree (AVL_Set_Code_Test.balL (fixture (take (length input div 2) input)) (length input) (fixture (drop (length input div 2) input))); finite fpp_suites input domain. Signed integers use injective zigzag wire encoding. Higher-order functions/states are observed by explicit finite applications, not claimed equal from finite tests.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Behavior-only identity preparation/encoding; no timing."
+  }
+}

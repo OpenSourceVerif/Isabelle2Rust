@@ -1,0 +1,7 @@
+session I2R_Agent = HOL +
+  options [document = false]
+  theories Agent_Export Adapter_Export
+
+session I2R_Source in source = HOL +
+  options [document = false]
+  theories Source_Export

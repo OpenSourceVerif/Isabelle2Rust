@@ -1,0 +1,14 @@
+{
+  "id": "fpp-validation-even",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Original source observation: [if Recursion_Test.even (input!0) then 1 else 0]; explicit finite input domain in inputs.json. Signed wire zigzag. Finite observation is not universal equivalence.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Behavior-only identity preparation/encoding; no timing."
+  }
+}

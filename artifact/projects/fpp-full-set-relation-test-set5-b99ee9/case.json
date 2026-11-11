@@ -1,0 +1,23 @@
+{
+  "id": "fpp-full-set-relation-test-set5-b99ee9",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Bounded source-typed fixtures; exact full structural constructor tags/fields. Function and set values observed only on recorded finite domains; not exhaustive/extensional proof. No authored expected outputs.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "behavior-only"
+  },
+  "observation_contracts": [
+    {
+      "kind": "finite_set_membership",
+      "type": "(nat set)",
+      "domain_expression": "(List.map (\\<lambda>i. ((i) mod 9)) [0..<9])",
+      "exhaustive": false
+    }
+  ],
+  "source_input_domain": []
+}

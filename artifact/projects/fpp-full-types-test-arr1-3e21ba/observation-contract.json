@@ -1,0 +1,19 @@
+{
+  "source_model_provenance_name": "source-model.json",
+  "source_model_sha256": "bd14ccf1e8ae38778de5b3de8d87a612accb4544bf03ec41a14a8a7af8608bb1",
+  "contracts": [
+    {
+      "kind": "complete_structural_encoding",
+      "type": "(int Types_Test.array)",
+      "constructor_tags": [
+        0,
+        1
+      ],
+      "all_fields_including_record_extensions": true
+    }
+  ],
+  "source_input_domain": [],
+  "fixture_arguments": [],
+  "observation": "(let result = ((Types_Test.arr1 :: (int Types_Test.array)) ) in (encode_c257c3c5be (result)))",
+  "partial_or_finite_scope_disclosed": true
+}

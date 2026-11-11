@@ -1,0 +1,369 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "i2r-migration-plan-v3",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 3
+    },
+    "numeric_mode": {
+      "enum": [
+        "checked",
+        "arbitrary"
+      ]
+    },
+    "architecture": {
+      "type": "object",
+      "properties": {
+        "units": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_symbols": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "purpose": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "id",
+              "source_symbols",
+              "purpose"
+            ],
+            "additionalProperties": true
+          },
+          "minItems": 1
+        },
+        "exports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string",
+                "minLength": 1
+              },
+              "intent": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "source",
+              "intent"
+            ],
+            "additionalProperties": true
+          },
+          "minItems": 1
+        },
+        "shared": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "units",
+        "exports",
+        "shared"
+      ],
+      "additionalProperties": true
+    },
+    "adaptation": {
+      "type": "object",
+      "properties": {
+        "numeric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "scope": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 1
+              },
+              "representation": {
+                "type": "string",
+                "minLength": 1
+              },
+              "operations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "rust": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "semantics": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "rust",
+                    "semantics"
+                  ],
+                  "additionalProperties": true
+                },
+                "minItems": 0
+              },
+              "domain": {
+                "type": "string",
+                "minLength": 1
+              },
+              "overflow": {
+                "enum": [
+                  "checked_error",
+                  "arbitrary_precision",
+                  "source_modular",
+                  "not_applicable"
+                ]
+              },
+              "conversions": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "rationale": {
+                "type": "string",
+                "minLength": 1
+              },
+              "checks": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": [
+              "id",
+              "scope",
+              "representation",
+              "operations",
+              "domain",
+              "overflow",
+              "conversions",
+              "rationale",
+              "checks"
+            ],
+            "additionalProperties": true
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "numeric",
+        "sequence",
+        "decisions"
+      ],
+      "additionalProperties": true
+    },
+    "boundaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "route": {
+            "enum": [
+              "native_replace",
+              "translate_adapter",
+              "rust_library",
+              "retain_ffi",
+              "unresolved"
+            ]
+          },
+          "implementation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "id",
+          "route",
+          "implementation",
+          "rationale",
+          "checks"
+        ],
+        "additionalProperties": true
+      },
+      "minItems": 0
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^=\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.-]+)?$"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "string",
+                "pattern": "^=\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.-]+)?$"
+              },
+              "features": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "default-features": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "version"
+            ],
+            "additionalProperties": true
+          }
+        ]
+      }
+    },
+    "support_requirements": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "properties": {
+        "imports": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "declarations": {
+          "type": "string"
+        },
+        "rust_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "rust_root": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "imports",
+        "declarations",
+        "rust_files",
+        "rust_root"
+      ],
+      "additionalProperties": true
+    },
+    "build_dependencies": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^=\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.-]+)?$"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "string",
+                "pattern": "^=\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.-]+)?$"
+              },
+              "features": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "default-features": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "version"
+            ],
+            "additionalProperties": true
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "numeric_mode",
+    "architecture",
+    "adaptation",
+    "boundaries",
+    "dependencies",
+    "support_requirements",
+    "open_questions",
+    "adapter"
+  ],
+  "additionalProperties": true
+}

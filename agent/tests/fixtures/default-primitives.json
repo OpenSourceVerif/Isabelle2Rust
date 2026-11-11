@@ -1,0 +1,1763 @@
+{
+  "type:Nat.nat": {
+    "id": "type:Nat.nat",
+    "name": "Nat.nat",
+    "kind": "type",
+    "variables": [],
+    "abstract": false,
+    "constructors": [
+      {
+        "id": "constant:Nat.zero_nat_inst.zero_nat",
+        "variables": [],
+        "fields": []
+      },
+      {
+        "id": "constant:Nat.Suc",
+        "variables": [],
+        "fields": [
+          {
+            "kind": "type",
+            "name": "Nat.nat",
+            "args": []
+          }
+        ]
+      }
+    ],
+    "type_dependencies": [
+      "type:Nat.nat"
+    ],
+    "class_dependencies": []
+  },
+  "constant:Nat.zero_nat_inst.zero_nat": {
+    "id": "constant:Nat.zero_nat_inst.zero_nat",
+    "name": "Nat.zero_nat_inst.zero_nat",
+    "kind": "constant",
+    "source_type": {
+      "kind": "type",
+      "name": "Nat.nat",
+      "args": []
+    },
+    "execution_type": {
+      "kind": "type",
+      "name": "Nat.nat",
+      "args": []
+    },
+    "type_variables": [],
+    "execution_sorts": [],
+    "instance_identity": {
+      "parameter": "Groups.zero_class.zero",
+      "type_constructor": "Nat.nat"
+    },
+    "instance_resolutions": [],
+    "specifications": [],
+    "function_input_equations": [],
+    "execution_equations": null,
+    "dependencies": [],
+    "type_dependencies": [
+      "type:Nat.nat"
+    ],
+    "class_dependencies": []
+  },
+  "constant:Nat.Suc": {
+    "id": "constant:Nat.Suc",
+    "name": "Nat.Suc",
+    "kind": "constant",
+    "source_type": {
+      "kind": "type",
+      "name": "fun",
+      "args": [
+        {
+          "kind": "type",
+          "name": "Nat.nat",
+          "args": []
+        },
+        {
+          "kind": "type",
+          "name": "Nat.nat",
+          "args": []
+        }
+      ]
+    },
+    "execution_type": {
+      "kind": "type",
+      "name": "fun",
+      "args": [
+        {
+          "kind": "type",
+          "name": "Nat.nat",
+          "args": []
+        },
+        {
+          "kind": "type",
+          "name": "Nat.nat",
+          "args": []
+        }
+      ]
+    },
+    "type_variables": [],
+    "execution_sorts": [],
+    "instance_identity": null,
+    "instance_resolutions": [],
+    "specifications": [
+      {
+        "name": "Nat.Suc_def",
+        "file": "~~/src/HOL/Nat.thy",
+        "line": 54,
+        "equational": true,
+        "rules": [
+          {
+            "name": "??.unknown",
+            "proposition": {
+              "text": "Suc ?n = Abs_Nat (Suc_Rep (Rep_Nat ?n))",
+              "term": {
+                "kind": "apply",
+                "function": {
+                  "kind": "const",
+                  "name": "HOL.Trueprop",
+                  "type": {
+                    "kind": "type",
+                    "name": "fun",
+                    "args": [
+                      {
+                        "kind": "type",
+                        "name": "HOL.bool",
+                        "args": []
+                      },
+                      {
+                        "kind": "type",
+                        "name": "prop",
+                        "args": []
+                      }
+                    ]
+                  }
+                },
+                "argument": {
+                  "kind": "apply",
+                  "function": {
+                    "kind": "apply",
+                    "function": {
+                      "kind": "const",
+                      "name": "HOL.eq",
+                      "type": {
+                        "kind": "type",
+                        "name": "fun",
+                        "args": [
+                          {
+                            "kind": "type",
+                            "name": "Nat.nat",
+                            "args": []
+                          },
+                          {
+                            "kind": "type",
+                            "name": "fun",
+                            "args": [
+                              {
+                                "kind": "type",
+                                "name": "Nat.nat",
+                                "args": []
+                              },
+                              {
+                                "kind": "type",
+                                "name": "HOL.bool",
+                                "args": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "argument": {
+                      "kind": "apply",
+                      "function": {
+                        "kind": "const",
+                        "name": "Nat.Suc",
+                        "type": {
+                          "kind": "type",
+                          "name": "fun",
+                          "args": [
+                            {
+                              "kind": "type",
+                              "name": "Nat.nat",
+                              "args": []
+                            },
+                            {
+                              "kind": "type",
+                              "name": "Nat.nat",
+                              "args": []
+                            }
+                          ]
+                        }
+                      },
+                      "argument": {
+                        "kind": "schematic",
+                        "name": "n",
+                        "index": 0,
+                        "type": {
+                          "kind": "type",
+                          "name": "Nat.nat",
+                          "args": []
+                        }
+                      }
+                    }
+                  },
+                  "argument": {
+                    "kind": "apply",
+                    "function": {
+                      "kind": "const",
+                      "name": "Nat.nat.Abs_Nat",
+                      "type": {
+                        "kind": "type",
+                        "name": "fun",
+                        "args": [
+                          {
+                            "kind": "type",
+                            "name": "Nat.ind",
+                            "args": []
+                          },
+                          {
+                            "kind": "type",
+                            "name": "Nat.nat",
+                            "args": []
+                          }
+                        ]
+                      }
+                    },
+                    "argument": {
+                      "kind": "apply",
+                      "function": {
+                        "kind": "const",
+                        "name": "Nat.Suc_Rep",
+                        "type": {
+                          "kind": "type",
+                          "name": "fun",
+                          "args": [
+                            {
+                              "kind": "type",
+                              "name": "Nat.ind",
+                              "args": []
+                            },
+                            {
+                              "kind": "type",
+                              "name": "Nat.ind",
+                              "args": []
+                            }
+                          ]
+                        }
+                      },
+                      "argument": {
+                        "kind": "apply",
+                        "function": {
+                          "kind": "const",
+                          "name": "Nat.nat.Rep_Nat",
+                          "type": {
+                            "kind": "type",
+                            "name": "fun",
+                            "args": [
+                              {
+                                "kind": "type",
+                                "name": "Nat.nat",
+                                "args": []
+                              },
+                              {
+                                "kind": "type",
+                                "name": "Nat.ind",
+                                "args": []
+                              }
+                            ]
+                          }
+                        },
+                        "argument": {
+                          "kind": "schematic",
+                          "name": "n",
+                          "index": 0,
+                          "type": {
+                            "kind": "type",
+                            "name": "Nat.nat",
+                            "args": []
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "function_input_equations": [],
+    "execution_equations": null,
+    "dependencies": [],
+    "type_dependencies": [
+      "type:HOL.bool",
+      "type:Nat.ind",
+      "type:Nat.nat",
+      "type:fun",
+      "type:prop"
+    ],
+    "class_dependencies": []
+  },
+  "type:HOL.bool": {
+    "id": "type:HOL.bool",
+    "name": "HOL.bool",
+    "kind": "type",
+    "variables": [],
+    "abstract": false,
+    "constructors": [
+      {
+        "id": "constant:HOL.True",
+        "variables": [],
+        "fields": []
+      },
+      {
+        "id": "constant:HOL.False",
+        "variables": [],
+        "fields": []
+      }
+    ],
+    "type_dependencies": [],
+    "class_dependencies": []
+  },
+  "constant:HOL.True": {
+    "id": "constant:HOL.True",
+    "name": "HOL.True",
+    "kind": "constant",
+    "source_type": {
+      "kind": "type",
+      "name": "HOL.bool",
+      "args": []
+    },
+    "execution_type": {
+      "kind": "type",
+      "name": "HOL.bool",
+      "args": []
+    },
+    "type_variables": [],
+    "execution_sorts": [],
+    "instance_identity": null,
+    "instance_resolutions": [],
+    "specifications": [
+      {
+        "name": "HOL.True_def",
+        "file": "~~/src/HOL/HOL.thy",
+        "line": 100,
+        "equational": true,
+        "rules": [
+          {
+            "name": "??.unknown",
+            "proposition": {
+              "text": "True \\<equiv> (\\<lambda>x. x) = (\\<lambda>x. x)",
+              "term": {
+                "kind": "apply",
+                "function": {
+                  "kind": "apply",
+                  "function": {
+                    "kind": "const",
+                    "name": "Pure.eq",
+                    "type": {
+                      "kind": "type",
+                      "name": "fun",
+                      "args": [
+                        {
+                          "kind": "type",
+                          "name": "HOL.bool",
+                          "args": []
+                        },
+                        {
+                          "kind": "type",
+                          "name": "fun",
+                          "args": [
+                            {
+                              "kind": "type",
+                              "name": "HOL.bool",
+                              "args": []
+                            },
+                            {
+                              "kind": "type",
+                              "name": "prop",
+                              "args": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "argument": {
+                    "kind": "const",
+                    "name": "HOL.True",
+                    "type": {
+                      "kind": "type",
+                      "name": "HOL.bool",
+                      "args": []
+                    }
+                  }
+                },
+                "argument": {
+                  "kind": "apply",
+                  "function": {
+                    "kind": "apply",
+                    "function": {
+                      "kind": "const",
+                      "name": "HOL.eq",
+                      "type": {
+                        "kind": "type",
+                        "name": "fun",
+                        "args": [
+                          {
+                            "kind": "type",
+                            "name": "fun",
+                            "args": [
+                              {
+                                "kind": "type",
+                                "name": "HOL.bool",
+                                "args": []
+                              },
+                              {
+                                "kind": "type",
+                                "name": "HOL.bool",
+                                "args": []
+                              }
+                            ]
+                          },
+                          {
+                            "kind": "type",
+                            "name": "fun",
+                            "args": [
+                              {
+                                "kind": "type",
+                                "name": "fun",
+                                "args": [
+                                  {
+                                    "kind": "type",
+                                    "name": "HOL.bool",
+                                    "args": []
+                                  },
+                                  {
+                                    "kind": "type",
+                                    "name": "HOL.bool",
+                                    "args": []
+                                  }
+                                ]
+                              },
+                              {
+                                "kind": "type",
+                                "name": "HOL.bool",
+                                "args": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "argument": {
+                      "kind": "lambda",
+                      "binder": "x",
+                      "type": {
+                        "kind": "type",
+                        "name": "HOL.bool",
+                        "args": []
+                      },
+                      "body": {
+                        "kind": "bound",
+                        "index": 0
+                      }
+                    }
+                  },
+                  "argument": {
+                    "kind": "lambda",
+                    "binder": "x",
+                    "type": {
+                      "kind": "type",
+                      "name": "HOL.bool",
+                      "args": []
+                    },
+                    "body": {
+                      "kind": "bound",
+                      "index": 0
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "function_input_equations": [],
+    "execution_equations": null,
+    "dependencies": [],
+    "type_dependencies": [
+      "type:HOL.bool",
+      "type:fun",
+      "type:prop"
+    ],
+    "class_dependencies": []
+  },
+  "constant:HOL.False": {
+    "id": "constant:HOL.False",
+    "name": "HOL.False",
+    "kind": "constant",
+    "source_type": {
+      "kind": "type",
+      "name": "HOL.bool",
+      "args": []
+    },
+    "execution_type": {
+      "kind": "type",
+      "name": "HOL.bool",
+      "args": []
+    },
+    "type_variables": [],
+    "execution_sorts": [],
+    "instance_identity": null,
+    "instance_resolutions": [],
+    "specifications": [
+      {
+        "name": "HOL.False_def",
+        "file": "~~/src/HOL/HOL.thy",
+        "line": 109,
+        "equational": true,
+        "rules": [
+          {
+            "name": "??.unknown",
+            "proposition": {
+              "text": "False \\<equiv> \\<forall>P. P",
+              "term": {
+                "kind": "apply",
+                "function": {
+                  "kind": "apply",
+                  "function": {
+                    "kind": "const",
+                    "name": "Pure.eq",
+                    "type": {
+                      "kind": "type",
+                      "name": "fun",
+                      "args": [
+                        {
+                          "kind": "type",
+                          "name": "HOL.bool",
+                          "args": []
+                        },
+                        {
+                          "kind": "type",
+                          "name": "fun",
+                          "args": [
+                            {
+                              "kind": "type",
+                              "name": "HOL.bool",
+                              "args": []
+                            },
+                            {
+                              "kind": "type",
+                              "name": "prop",
+                              "args": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "argument": {
+                    "kind": "const",
+                    "name": "HOL.False",
+                    "type": {
+                      "kind": "type",
+                      "name": "HOL.bool",
+                      "args": []
+                    }
+                  }
+                },
+                "argument": {
+                  "kind": "apply",
+                  "function": {
+                    "kind": "const",
+                    "name": "HOL.All",
+                    "type": {
+                      "kind": "type",
+                      "name": "fun",
+                      "args": [
+                        {
+                          "kind": "type",
+                          "name": "fun",
+                          "args": [
+                            {
+                              "kind": "type",
+                              "name": "HOL.bool",
+                              "args": []
+                            },
+                            {
+                              "kind": "type",
+                              "name": "HOL.bool",
+                              "args": []
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "type",
+                          "name": "HOL.bool",
+                          "args": []
+                        }
+                      ]
+                    }
+                  },
+                  "argument": {
+                    "kind": "lambda",
+                    "binder": "P",
+                    "type": {
+                      "kind": "type",
+                      "name": "HOL.bool",
+                      "args": []
+                    },
+                    "body": {
+                      "kind": "bound",
+                      "index": 0
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "function_input_equations": [],
+    "execution_equations": null,
+    "dependencies": [],
+    "type_dependencies": [
+      "type:HOL.bool",
+      "type:fun",
+      "type:prop"
+    ],
+    "class_dependencies": []
+  },
+  "constant:HOL.If": {
+    "id": "constant:HOL.If",
+    "name": "HOL.If",
+    "kind": "constant",
+    "source_type": {
+      "kind": "type",
+      "name": "fun",
+      "args": [
+        {
+          "kind": "type",
+          "name": "HOL.bool",
+          "args": []
+        },
+        {
+          "kind": "type",
+          "name": "fun",
+          "args": [
+            {
+              "kind": "schematic",
+              "name": "'a",
+              "index": 0,
+              "sort": [
+                "HOL.type"
+              ]
+            },
+            {
+              "kind": "type",
+              "name": "fun",
+              "args": [
+                {
+                  "kind": "schematic",
+                  "name": "'a",
+                  "index": 0,
+                  "sort": [
+                    "HOL.type"
+                  ]
+                },
+                {
+                  "kind": "schematic",
+                  "name": "'a",
+                  "index": 0,
+                  "sort": [
+                    "HOL.type"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "execution_type": {
+      "kind": "type",
+      "name": "fun",
+      "args": [
+        {
+          "kind": "type",
+          "name": "HOL.bool",
+          "args": []
+        },
+        {
+          "kind": "type",
+          "name": "fun",
+          "args": [
+            {
+              "kind": "free",
+              "name": "'a",
+              "sort": []
+            },
+            {
+              "kind": "type",
+              "name": "fun",
+              "args": [
+                {
+                  "kind": "free",
+                  "name": "'a",
+                  "sort": []
+                },
+                {
+                  "kind": "free",
+                  "name": "'a",
+                  "sort": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "type_variables": [
+      {
+        "name": "'a",
+        "sort": [
+          "HOL.type"
+        ]
+      }
+    ],
+    "execution_sorts": [
+      [
+        "HOL.type"
+      ]
+    ],
+    "instance_identity": null,
+    "instance_resolutions": [
+      {
+        "constant": "HOL.False",
+        "type": {
+          "kind": "type",
+          "name": "HOL.bool",
+          "args": []
+        },
+        "implementation": "HOL.False"
+      },
+      {
+        "constant": "HOL.True",
+        "type": {
+          "kind": "type",
+          "name": "HOL.bool",
+          "args": []
+        },
+        "implementation": "HOL.True"
+      }
+    ],
+    "specifications": [
+      {
+        "name": "HOL.If_def",
+        "file": "~~/src/HOL/HOL.thy",
+        "line": 229,
+        "equational": true,
+        "rules": [
+          {
+            "name": "??.unknown",
+            "proposition": {
+              "text": "if ?P then ?x else ?y \\<equiv> THE z. (?P = True \\<longrightarrow> z = ?x) \\<and> (?P = False \\<longrightarrow> z = ?y)",
+              "term": {
+                "kind": "apply",
+                "function": {
+                  "kind": "apply",
+                  "function": {
+                    "kind": "const",
+                    "name": "Pure.eq",
+                    "type": {
+                      "kind": "type",
+                      "name": "fun",
+                      "args": [
+                        {
+                          "kind": "schematic",
+                          "name": "'a",
+                          "index": 0,
+                          "sort": [
+                            "HOL.type"
+                          ]
+                        },
+                        {
+                          "kind": "type",
+                          "name": "fun",
+                          "args": [
+                            {
+                              "kind": "schematic",
+                              "name": "'a",
+                              "index": 0,
+                              "sort": [
+                                "HOL.type"
+                              ]
+                            },
+                            {
+                              "kind": "type",
+                              "name": "prop",
+                              "args": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "argument": {
+                    "kind": "apply",
+                    "function": {
+                      "kind": "apply",
+                      "function": {
+                        "kind": "apply",
+                        "function": {
+                          "kind": "const",
+                          "name": "HOL.If",
+                          "type": {
+                            "kind": "type",
+                            "name": "fun",
+                            "args": [
+                              {
+                                "kind": "type",
+                                "name": "HOL.bool",
+                                "args": []
+                              },
+                              {
+                                "kind": "type",
+                                "name": "fun",
+                                "args": [
+                                  {
+                                    "kind": "schematic",
+                                    "name": "'a",
+                                    "index": 0,
+                                    "sort": [
+                                      "HOL.type"
+                                    ]
+                                  },
+                                  {
+                                    "kind": "type",
+                                    "name": "fun",
+                                    "args": [
+                                      {
+                                        "kind": "schematic",
+                                        "name": "'a",
+                                        "index": 0,
+                                        "sort": [
+                                          "HOL.type"
+                                        ]
+                                      },
+                                      {
+                                        "kind": "schematic",
+                                        "name": "'a",
+                                        "index": 0,
+                                        "sort": [
+                                          "HOL.type"
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "argument": {
+                          "kind": "schematic",
+                          "name": "P",
+                          "index": 0,
+                          "type": {
+                            "kind": "type",
+                            "name": "HOL.bool",
+                            "args": []
+                          }
+                        }
+                      },
+                      "argument": {
+                        "kind": "schematic",
+                        "name": "x",
+                        "index": 0,
+                        "type": {
+                          "kind": "schematic",
+                          "name": "'a",
+                          "index": 0,
+                          "sort": [
+                            "HOL.type"
+                          ]
+                        }
+                      }
+                    },
+                    "argument": {
+                      "kind": "schematic",
+                      "name": "y",
+                      "index": 0,
+                      "type": {
+                        "kind": "schematic",
+                        "name": "'a",
+                        "index": 0,
+                        "sort": [
+                          "HOL.type"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "argument": {
+                  "kind": "apply",
+                  "function": {
+                    "kind": "const",
+                    "name": "HOL.The",
+                    "type": {
+                      "kind": "type",
+                      "name": "fun",
+                      "args": [
+                        {
+                          "kind": "type",
+                          "name": "fun",
+                          "args": [
+                            {
+                              "kind": "schematic",
+                              "name": "'a",
+                              "index": 0,
+                              "sort": [
+                                "HOL.type"
+                              ]
+                            },
+                            {
+                              "kind": "type",
+                              "name": "HOL.bool",
+                              "args": []
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "schematic",
+                          "name": "'a",
+                          "index": 0,
+                          "sort": [
+                            "HOL.type"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "argument": {
+                    "kind": "lambda",
+                    "binder": "z",
+                    "type": {
+                      "kind": "schematic",
+                      "name": "'a",
+                      "index": 0,
+                      "sort": [
+                        "HOL.type"
+                      ]
+                    },
+                    "body": {
+                      "kind": "apply",
+                      "function": {
+                        "kind": "apply",
+                        "function": {
+                          "kind": "const",
+                          "name": "HOL.conj",
+                          "type": {
+                            "kind": "type",
+                            "name": "fun",
+                            "args": [
+                              {
+                                "kind": "type",
+                                "name": "HOL.bool",
+                                "args": []
+                              },
+                              {
+                                "kind": "type",
+                                "name": "fun",
+                                "args": [
+                                  {
+                                    "kind": "type",
+                                    "name": "HOL.bool",
+                                    "args": []
+                                  },
+                                  {
+                                    "kind": "type",
+                                    "name": "HOL.bool",
+                                    "args": []
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "argument": {
+                          "kind": "apply",
+                          "function": {
+                            "kind": "apply",
+                            "function": {
+                              "kind": "const",
+                              "name": "HOL.implies",
+                              "type": {
+                                "kind": "type",
+                                "name": "fun",
+                                "args": [
+                                  {
+                                    "kind": "type",
+                                    "name": "HOL.bool",
+                                    "args": []
+                                  },
+                                  {
+                                    "kind": "type",
+                                    "name": "fun",
+                                    "args": [
+                                      {
+                                        "kind": "type",
+                                        "name": "HOL.bool",
+                                        "args": []
+                                      },
+                                      {
+                                        "kind": "type",
+                                        "name": "HOL.bool",
+                                        "args": []
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            },
+                            "argument": {
+                              "kind": "apply",
+                              "function": {
+                                "kind": "apply",
+                                "function": {
+                                  "kind": "const",
+                                  "name": "HOL.eq",
+                                  "type": {
+                                    "kind": "type",
+                                    "name": "fun",
+                                    "args": [
+                                      {
+                                        "kind": "type",
+                                        "name": "HOL.bool",
+                                        "args": []
+                                      },
+                                      {
+                                        "kind": "type",
+                                        "name": "fun",
+                                        "args": [
+                                          {
+                                            "kind": "type",
+                                            "name": "HOL.bool",
+                                            "args": []
+                                          },
+                                          {
+                                            "kind": "type",
+                                            "name": "HOL.bool",
+                                            "args": []
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                },
+                                "argument": {
+                                  "kind": "schematic",
+                                  "name": "P",
+                                  "index": 0,
+                                  "type": {
+                                    "kind": "type",
+                                    "name": "HOL.bool",
+                                    "args": []
+                                  }
+                                }
+                              },
+                              "argument": {
+                                "kind": "const",
+                                "name": "HOL.True",
+                                "type": {
+                                  "kind": "type",
+                                  "name": "HOL.bool",
+                                  "args": []
+                                }
+                              }
+                            }
+                          },
+                          "argument": {
+                            "kind": "apply",
+                            "function": {
+                              "kind": "apply",
+                              "function": {
+                                "kind": "const",
+                                "name": "HOL.eq",
+                                "type": {
+                                  "kind": "type",
+                                  "name": "fun",
+                                  "args": [
+                                    {
+                                      "kind": "schematic",
+                                      "name": "'a",
+                                      "index": 0,
+                                      "sort": [
+                                        "HOL.type"
+                                      ]
+                                    },
+                                    {
+                                      "kind": "type",
+                                      "name": "fun",
+                                      "args": [
+                                        {
+                                          "kind": "schematic",
+                                          "name": "'a",
+                                          "index": 0,
+                                          "sort": [
+                                            "HOL.type"
+                                          ]
+                                        },
+                                        {
+                                          "kind": "type",
+                                          "name": "HOL.bool",
+                                          "args": []
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              },
+                              "argument": {
+                                "kind": "bound",
+                                "index": 0
+                              }
+                            },
+                            "argument": {
+                              "kind": "schematic",
+                              "name": "x",
+                              "index": 0,
+                              "type": {
+                                "kind": "schematic",
+                                "name": "'a",
+                                "index": 0,
+                                "sort": [
+                                  "HOL.type"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "argument": {
+                        "kind": "apply",
+                        "function": {
+                          "kind": "apply",
+                          "function": {
+                            "kind": "const",
+                            "name": "HOL.implies",
+                            "type": {
+                              "kind": "type",
+                              "name": "fun",
+                              "args": [
+                                {
+                                  "kind": "type",
+                                  "name": "HOL.bool",
+                                  "args": []
+                                },
+                                {
+                                  "kind": "type",
+                                  "name": "fun",
+                                  "args": [
+                                    {
+                                      "kind": "type",
+                                      "name": "HOL.bool",
+                                      "args": []
+                                    },
+                                    {
+                                      "kind": "type",
+                                      "name": "HOL.bool",
+                                      "args": []
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          },
+                          "argument": {
+                            "kind": "apply",
+                            "function": {
+                              "kind": "apply",
+                              "function": {
+                                "kind": "const",
+                                "name": "HOL.eq",
+                                "type": {
+                                  "kind": "type",
+                                  "name": "fun",
+                                  "args": [
+                                    {
+                                      "kind": "type",
+                                      "name": "HOL.bool",
+                                      "args": []
+                                    },
+                                    {
+                                      "kind": "type",
+                                      "name": "fun",
+                                      "args": [
+                                        {
+                                          "kind": "type",
+                                          "name": "HOL.bool",
+                                          "args": []
+                                        },
+                                        {
+                                          "kind": "type",
+                                          "name": "HOL.bool",
+                                          "args": []
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              },
+                              "argument": {
+                                "kind": "schematic",
+                                "name": "P",
+                                "index": 0,
+                                "type": {
+                                  "kind": "type",
+                                  "name": "HOL.bool",
+                                  "args": []
+                                }
+                              }
+                            },
+                            "argument": {
+                              "kind": "const",
+                              "name": "HOL.False",
+                              "type": {
+                                "kind": "type",
+                                "name": "HOL.bool",
+                                "args": []
+                              }
+                            }
+                          }
+                        },
+                        "argument": {
+                          "kind": "apply",
+                          "function": {
+                            "kind": "apply",
+                            "function": {
+                              "kind": "const",
+                              "name": "HOL.eq",
+                              "type": {
+                                "kind": "type",
+                                "name": "fun",
+                                "args": [
+                                  {
+                                    "kind": "schematic",
+                                    "name": "'a",
+                                    "index": 0,
+                                    "sort": [
+                                      "HOL.type"
+                                    ]
+                                  },
+                                  {
+                                    "kind": "type",
+                                    "name": "fun",
+                                    "args": [
+                                      {
+                                        "kind": "schematic",
+                                        "name": "'a",
+                                        "index": 0,
+                                        "sort": [
+                                          "HOL.type"
+                                        ]
+                                      },
+                                      {
+                                        "kind": "type",
+                                        "name": "HOL.bool",
+                                        "args": []
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            },
+                            "argument": {
+                              "kind": "bound",
+                              "index": 0
+                            }
+                          },
+                          "argument": {
+                            "kind": "schematic",
+                            "name": "y",
+                            "index": 0,
+                            "type": {
+                              "kind": "schematic",
+                              "name": "'a",
+                              "index": 0,
+                              "sort": [
+                                "HOL.type"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "function_input_equations": [],
+    "execution_equations": [
+      {
+        "arguments": [
+          {
+            "abstraction": null,
+            "term": {
+              "kind": "const",
+              "name": "HOL.False",
+              "type": {
+                "kind": "type",
+                "name": "HOL.bool",
+                "args": []
+              }
+            },
+            "text": "False"
+          },
+          {
+            "abstraction": null,
+            "term": {
+              "kind": "free",
+              "name": "x",
+              "type": {
+                "kind": "free",
+                "name": "'a",
+                "sort": [
+                  "HOL.type"
+                ]
+              }
+            },
+            "text": "x"
+          },
+          {
+            "abstraction": null,
+            "term": {
+              "kind": "free",
+              "name": "y",
+              "type": {
+                "kind": "free",
+                "name": "'a",
+                "sort": [
+                  "HOL.type"
+                ]
+              }
+            },
+            "text": "y"
+          }
+        ],
+        "rhs": {
+          "abstraction": null,
+          "term": {
+            "kind": "free",
+            "name": "y",
+            "type": {
+              "kind": "free",
+              "name": "'a",
+              "sort": [
+                "HOL.type"
+              ]
+            }
+          },
+          "text": "y"
+        },
+        "theorem": {
+          "name": "??.unknown",
+          "proposition": {
+            "text": "if False then ?x else ?y \\<equiv> ?y",
+            "term": {
+              "kind": "apply",
+              "function": {
+                "kind": "apply",
+                "function": {
+                  "kind": "const",
+                  "name": "Pure.eq",
+                  "type": {
+                    "kind": "type",
+                    "name": "fun",
+                    "args": [
+                      {
+                        "kind": "schematic",
+                        "name": "'a",
+                        "index": 0,
+                        "sort": [
+                          "HOL.type"
+                        ]
+                      },
+                      {
+                        "kind": "type",
+                        "name": "fun",
+                        "args": [
+                          {
+                            "kind": "schematic",
+                            "name": "'a",
+                            "index": 0,
+                            "sort": [
+                              "HOL.type"
+                            ]
+                          },
+                          {
+                            "kind": "type",
+                            "name": "prop",
+                            "args": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "argument": {
+                  "kind": "apply",
+                  "function": {
+                    "kind": "apply",
+                    "function": {
+                      "kind": "apply",
+                      "function": {
+                        "kind": "const",
+                        "name": "HOL.If",
+                        "type": {
+                          "kind": "type",
+                          "name": "fun",
+                          "args": [
+                            {
+                              "kind": "type",
+                              "name": "HOL.bool",
+                              "args": []
+                            },
+                            {
+                              "kind": "type",
+                              "name": "fun",
+                              "args": [
+                                {
+                                  "kind": "schematic",
+                                  "name": "'a",
+                                  "index": 0,
+                                  "sort": [
+                                    "HOL.type"
+                                  ]
+                                },
+                                {
+                                  "kind": "type",
+                                  "name": "fun",
+                                  "args": [
+                                    {
+                                      "kind": "schematic",
+                                      "name": "'a",
+                                      "index": 0,
+                                      "sort": [
+                                        "HOL.type"
+                                      ]
+                                    },
+                                    {
+                                      "kind": "schematic",
+                                      "name": "'a",
+                                      "index": 0,
+                                      "sort": [
+                                        "HOL.type"
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "argument": {
+                        "kind": "const",
+                        "name": "HOL.False",
+                        "type": {
+                          "kind": "type",
+                          "name": "HOL.bool",
+                          "args": []
+                        }
+                      }
+                    },
+                    "argument": {
+                      "kind": "schematic",
+                      "name": "x",
+                      "index": 0,
+                      "type": {
+                        "kind": "schematic",
+                        "name": "'a",
+                        "index": 0,
+                        "sort": [
+                          "HOL.type"
+                        ]
+                      }
+                    }
+                  },
+                  "argument": {
+                    "kind": "schematic",
+                    "name": "y",
+                    "index": 0,
+                    "type": {
+                      "kind": "schematic",
+                      "name": "'a",
+                      "index": 0,
+                      "sort": [
+                        "HOL.type"
+                      ]
+                    }
+                  }
+                }
+              },
+              "argument": {
+                "kind": "schematic",
+                "name": "y",
+                "index": 0,
+                "type": {
+                  "kind": "schematic",
+                  "name": "'a",
+                  "index": 0,
+                  "sort": [
+                    "HOL.type"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "proper": true
+      },
+      {
+        "arguments": [
+          {
+            "abstraction": null,
+            "term": {
+              "kind": "const",
+              "name": "HOL.True",
+              "type": {
+                "kind": "type",
+                "name": "HOL.bool",
+                "args": []
+              }
+            },
+            "text": "True"
+          },
+          {
+            "abstraction": null,
+            "term": {
+              "kind": "free",
+              "name": "x",
+              "type": {
+                "kind": "free",
+                "name": "'a",
+                "sort": [
+                  "HOL.type"
+                ]
+              }
+            },
+            "text": "x"
+          },
+          {
+            "abstraction": null,
+            "term": {
+              "kind": "free",
+              "name": "y",
+              "type": {
+                "kind": "free",
+                "name": "'a",
+                "sort": [
+                  "HOL.type"
+                ]
+              }
+            },
+            "text": "y"
+          }
+        ],
+        "rhs": {
+          "abstraction": null,
+          "term": {
+            "kind": "free",
+            "name": "x",
+            "type": {
+              "kind": "free",
+              "name": "'a",
+              "sort": [
+                "HOL.type"
+              ]
+            }
+          },
+          "text": "x"
+        },
+        "theorem": {
+          "name": "??.unknown",
+          "proposition": {
+            "text": "if True then ?x else ?y \\<equiv> ?x",
+            "term": {
+              "kind": "apply",
+              "function": {
+                "kind": "apply",
+                "function": {
+                  "kind": "const",
+                  "name": "Pure.eq",
+                  "type": {
+                    "kind": "type",
+                    "name": "fun",
+                    "args": [
+                      {
+                        "kind": "schematic",
+                        "name": "'a",
+                        "index": 0,
+                        "sort": [
+                          "HOL.type"
+                        ]
+                      },
+                      {
+                        "kind": "type",
+                        "name": "fun",
+                        "args": [
+                          {
+                            "kind": "schematic",
+                            "name": "'a",
+                            "index": 0,
+                            "sort": [
+                              "HOL.type"
+                            ]
+                          },
+                          {
+                            "kind": "type",
+                            "name": "prop",
+                            "args": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "argument": {
+                  "kind": "apply",
+                  "function": {
+                    "kind": "apply",
+                    "function": {
+                      "kind": "apply",
+                      "function": {
+                        "kind": "const",
+                        "name": "HOL.If",
+                        "type": {
+                          "kind": "type",
+                          "name": "fun",
+                          "args": [
+                            {
+                              "kind": "type",
+                              "name": "HOL.bool",
+                              "args": []
+                            },
+                            {
+                              "kind": "type",
+                              "name": "fun",
+                              "args": [
+                                {
+                                  "kind": "schematic",
+                                  "name": "'a",
+                                  "index": 0,
+                                  "sort": [
+                                    "HOL.type"
+                                  ]
+                                },
+                                {
+                                  "kind": "type",
+                                  "name": "fun",
+                                  "args": [
+                                    {
+                                      "kind": "schematic",
+                                      "name": "'a",
+                                      "index": 0,
+                                      "sort": [
+                                        "HOL.type"
+                                      ]
+                                    },
+                                    {
+                                      "kind": "schematic",
+                                      "name": "'a",
+                                      "index": 0,
+                                      "sort": [
+                                        "HOL.type"
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "argument": {
+                        "kind": "const",
+                        "name": "HOL.True",
+                        "type": {
+                          "kind": "type",
+                          "name": "HOL.bool",
+                          "args": []
+                        }
+                      }
+                    },
+                    "argument": {
+                      "kind": "schematic",
+                      "name": "x",
+                      "index": 0,
+                      "type": {
+                        "kind": "schematic",
+                        "name": "'a",
+                        "index": 0,
+                        "sort": [
+                          "HOL.type"
+                        ]
+                      }
+                    }
+                  },
+                  "argument": {
+                    "kind": "schematic",
+                    "name": "y",
+                    "index": 0,
+                    "type": {
+                      "kind": "schematic",
+                      "name": "'a",
+                      "index": 0,
+                      "sort": [
+                        "HOL.type"
+                      ]
+                    }
+                  }
+                }
+              },
+              "argument": {
+                "kind": "schematic",
+                "name": "x",
+                "index": 0,
+                "type": {
+                  "kind": "schematic",
+                  "name": "'a",
+                  "index": 0,
+                  "sort": [
+                    "HOL.type"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "proper": true
+      }
+    ],
+    "dependencies": [
+      "constant:HOL.False",
+      "constant:HOL.True"
+    ],
+    "type_dependencies": [
+      "type:HOL.bool",
+      "type:fun",
+      "type:prop"
+    ],
+    "class_dependencies": [
+      "class:HOL.type"
+    ]
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "files": {
+    "src/lib.rs": "pub enum Tree<A> {\n    Leaf,\n    Node(Box<Tree<A>>, A, Box<Tree<A>>),\n}\n\npub fn mirror<A>(t: Tree<A>) -> Tree<A> {\n    match t {\n        Tree::Leaf => Tree::Leaf,\n        Tree::Node(l, x, r) => {\n            let mirrored_right = mirror(*r);\n            let mirrored_left = mirror(*l);\n            Tree::Node(Box::new(mirrored_right), x, Box::new(mirrored_left))\n        }\n    }\n}\n"
+  },
+  "mapping": [
+    {
+      "source": "type:Tree_Test.tree",
+      "rust": "pub enum Tree<A> { Leaf, Node(Box<Tree<A>>, A, Box<Tree<A>>) }",
+      "rust_item": "crate::Tree",
+      "kind": "direct",
+      "basis": "Tree_Test.tree has exactly the constructors Leaf (nullary) and Node (left subtree, value, right subtree); the Rust enum preserves this structure with boxed recursive children.",
+      "conditions": [
+        "The type parameter A is arbitrary and unconstrained.",
+        "Node field order is left subtree, value, right subtree.",
+        "Box is used only to make the recursive Rust type finite."
+      ],
+      "type_parameters": {
+        "'a": "A"
+      }
+    },
+    {
+      "source": "constant:Tree_Test.tree.Leaf",
+      "rust": "Tree::Leaf",
+      "rust_item": "crate::Tree::Leaf",
+      "kind": "direct",
+      "basis": "Tree_Test.tree.Leaf is the nullary constructor of Tree_Test.tree, represented by the nullary Rust enum variant.",
+      "conditions": [
+        "The variant has no payload.",
+        "It inhabits Tree<A> for any A."
+      ],
+      "type_parameters": {
+        "'a": "A"
+      }
+    },
+    {
+      "source": "constant:Tree_Test.tree.Node",
+      "rust": "Tree::Node(Box<Tree<A>>, A, Box<Tree<A>>)",
+      "rust_item": "crate::Tree::Node",
+      "kind": "direct",
+      "basis": "Tree_Test.tree.Node is the ternary datatype constructor with fields tree, 'a, tree; the Rust tuple variant has the same field order.",
+      "conditions": [
+        "Arguments are left subtree, value, right subtree.",
+        "Recursive child trees are owned boxed values."
+      ],
+      "type_parameters": {
+        "'a": "A"
+      }
+    },
+    {
+      "source": "constant:Tree_Test.mirror",
+      "rust": "pub fn mirror<A>(t: Tree<A>) -> Tree<A> { match t { Tree::Leaf => Tree::Leaf, Tree::Node(l, x, r) => { let mirrored_right = mirror(*r); let mirrored_left = mirror(*l); Tree::Node(Box::new(mirrored_right), x, Box::new(mirrored_left)) } } }",
+      "rust_item": "crate::mirror",
+      "kind": "direct",
+      "basis": "The source equations are mirror Leaf = Leaf and mirror (Node l x r) = Node (mirror r) x (mirror l); the Rust match implements exactly these two cases and preserves the recursive source route.",
+      "conditions": [
+        "Consumes the input tree by value.",
+        "Recursively mirrors the right subtree, then the left, and stores them in swapped positions.",
+        "No Clone, Copy, numeric, or ordering bounds are introduced."
+      ],
+      "type_parameters": {
+        "'a": "A"
+      }
+    }
+  ],
+  "rust_config": {
+    "edition": "2024",
+    "toolchain": "1.94.0",
+    "dependencies": {},
+    "build_dependencies": {},
+    "features": {},
+    "enabled_features": [],
+    "default_features": true,
+    "cfg": [],
+    "target": null,
+    "build_script": null
+  }
+}

@@ -1,0 +1,3 @@
+[isabelle]
+theories=["Export"]
+sessions=["Rust", "HOL-Library"]

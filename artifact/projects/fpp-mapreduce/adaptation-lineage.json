@@ -1,0 +1,12 @@
+{
+  "role": "agent_owned_observation_code_equivalence_only",
+  "created_at": "2026-11-09T03:22:37.295464+00:00",
+  "parent_project_provenance_name": "fpp-mapreduce",
+  "project_provenance_name": "mapreduce-proof-r1",
+  "original_model_sha256": "9d6baa236a3b600d9dd70fe4fe64bec427e8686c1bfe78ca2ca2937c777ede44",
+  "new_model_sha256": "566ee2f83dcc19a5194152ba41077633c42c5eb48bd85385fdbde3e9cf6efe8a",
+  "original_observe_definition_retained_verbatim": true,
+  "original_program_export_sha256": "1bf39e4f4c0837c654d08fe40849f8d5af909e2b5279415c67920b9d2a0f7660",
+  "proof": "wire_sum_eq_sum_list by induction; observe_wire_code by simp; original observe_def retained but disabled as generated code equation",
+  "new_model_calls": 0
+}

@@ -1,0 +1,32 @@
+{
+  "id": "fpp-full-classes-test-addnum-9fe9da",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Bounded source-typed fixtures; exact full structural constructor tags/fields. Function and set values observed only on recorded finite domains; not exhaustive/extensional proof. No authored expected outputs.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "behavior-only"
+  },
+  "observation_contracts": [
+    {
+      "kind": "exact_rational_real",
+      "fixture": "rational numerator -4..4 denominator1..3",
+      "observation": "exact normalized Rat.quotient_of via proved rational-real inverse; no float or rounded approximation"
+    },
+    {
+      "kind": "complete_structural_encoding",
+      "type": "Classes_Test.Number",
+      "constructor_tags": [
+        0,
+        1,
+        2
+      ],
+      "all_fields_including_record_extensions": true
+    }
+  ],
+  "source_input_domain": []
+}

@@ -1,0 +1,4 @@
+theory Model imports "source/4_ds_algo/search_Test" begin
+definition observe :: "nat list \<Rightarrow> nat list" where
+"observe input = (let result = ((search_Test.liner_search_iter :: (nat \<Rightarrow> ((nat list) \<Rightarrow> (nat \<Rightarrow> (nat option))))) ((((input@(List.Cons 0 (List.Cons 1 (List.Cons 2 (List.Cons 3 (List.Cons 4 (List.Cons 5 (List.Cons 6 (List.Cons 7 List.Nil)))))))))!0) mod 9)) ((map (\<lambda>j0. ((((input@(List.Cons 0 (List.Cons 1 (List.Cons 2 (List.Cons 3 (List.Cons 4 (List.Cons 5 (List.Cons 6 (List.Cons 7 List.Nil)))))))))!1)+j0) mod 9)) [0..<(((input@(List.Cons 0 (List.Cons 1 (List.Cons 2 (List.Cons 3 (List.Cons 4 (List.Cons 5 (List.Cons 6 (List.Cons 7 List.Nil)))))))))!1) mod 4)])) ((((input@(List.Cons 0 (List.Cons 1 (List.Cons 2 (List.Cons 3 (List.Cons 4 (List.Cons 5 (List.Cons 6 (List.Cons 7 List.Nil)))))))))!2) mod 9))) in (case result of None \<Rightarrow> [0] | Some v0 \<Rightarrow> 1 # [v0]))"
+end

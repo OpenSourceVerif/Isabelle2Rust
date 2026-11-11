@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "isabelle2rust-agent"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["tree-sitter==0.25.2", "tree-sitter-rust==0.24.0"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[project.scripts]
+isabelle2rust-agent = "i2r_agent.cli:main"
+i2r-study = "i2r_agent.cli:study_main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

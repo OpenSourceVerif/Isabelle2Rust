@@ -1,0 +1,23 @@
+{
+  "source_model_provenance_name": "source-model.json",
+  "source_model_sha256": "43125e70ef46810f974ae9f3f1e86f9aca92f586bafa8649fc0a058eb0f1f407",
+  "contracts": [
+    {
+      "kind": "complete_structural_encoding",
+      "type": "AExp_Test.aexp",
+      "constructor_tags": [
+        0,
+        1,
+        2
+      ],
+      "all_fields_including_record_extensions": true
+    }
+  ],
+  "source_input_domain": [],
+  "fixture_arguments": [
+    "(fixture_cdfc980b60_2 ((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)))",
+    "(fixture_cdfc980b60_2 ((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)))"
+  ],
+  "observation": "(let result = ((AExp_Test.plus :: (AExp_Test.aexp \\<Rightarrow> (AExp_Test.aexp \\<Rightarrow> AExp_Test.aexp))) ((fixture_cdfc980b60_2 ((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)))) ((fixture_cdfc980b60_2 ((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1))))) in (encode_cdfc980b60 (result)))",
+  "partial_or_finite_scope_disclosed": true
+}

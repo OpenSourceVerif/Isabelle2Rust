@@ -1,0 +1,14 @@
+{
+  "id": "fpp-next-recursion-fib2",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Observe the original target through exact testing/Model.thy. Native-u128 wire tokens are already nonnegative naturals: no global zigzag decoding. Explicit source enc/dec fixtures apply only to source int fields where Model.thy calls them. Frozen finite inputs in inputs.json; source equations and generic responsibilities remain authoritative.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Behavior-only identity prepare/encode; no performance experiment."
+  }
+}

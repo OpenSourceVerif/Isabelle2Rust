@@ -1,0 +1,243 @@
+{
+  "schema": 1,
+  "version": "2026-11-09-seed1",
+  "policy": "Advisory only. Actual source equations, type-class scope and numeric policy override these entries. Compilation replay is not semantic proof. Unreviewed mined candidates are never loaded.",
+  "entries": [
+    {
+      "id": "dashu-062-magnitude",
+      "kind": "compiler",
+      "codes": [
+        "E0599"
+      ],
+      "diagnostic_terms": [
+        "magnitude",
+        "IBig"
+      ],
+      "dependency": {
+        "name": "dashu-int",
+        "version": "=0.6.2"
+      },
+      "provenance": "historical_compilation_replay",
+      "title": "IBig has no magnitude method in dashu-int 0.6.2",
+      "preconditions": "Receiver is IBig; this source operation needs an owned natural magnitude only after a nonnegative guard. The historical full run was interrupted; only compilation replay passed.",
+      "guidance": "into_parts(self) yields (Sign, UBig). Move when ownership permits; clone only if the original borrowed IBig must survive. For magnitude bit length alone use the verified BitTest::bit_len API instead.",
+      "forbidden_shortcuts": "Do not replace signed-to-natural truncation by absolute value; negative values still map to zero under the recorded source guard.",
+      "example": "if i < &IBig::ZERO { UBig::ZERO } else { let (_, magnitude)=i.clone().into_parts(); magnitude }",
+      "evidence": [
+        {
+          "path": "data/runs/v8-preflight-sqrt-20261104-r8-continued/trials/karatsuba-sqrt--arbitrary--01/diagnostics/commands/0210.stdout",
+          "sha256": "221e9f523f366f36b7fc332f5cccea2559df4e8938c7100bd21d89d1caf408fa"
+        },
+        {
+          "path": "data/runs/v8-preflight-sqrt-20261104-r8-continued/trials/karatsuba-sqrt--arbitrary--01/diagnostics/segment-step-0252/changes.diff",
+          "sha256": "6d2e8b92ef6a8fead77015f2c3b7eb8124b026878c62933858b22a0986e7b1a5"
+        },
+        {
+          "path": "data/runs/v8-preflight-sqrt-20261104-r8-continued/trials/karatsuba-sqrt--arbitrary--01/diagnostics/segment-step-0253/original-replay.json",
+          "sha256": "cc3af58a7c242f48c0fc277939a724cd4b6b2b67c3f24ef176766662876240e2"
+        },
+        {
+          "path": "data/runs/v8-preflight-sqrt-20261104-r8-continued/trials/karatsuba-sqrt--arbitrary--01/diagnostics/result.json",
+          "sha256": "8a669d1f83e910edeb9d630a8859f48e61fb65e6830adc8a8b7961c631d11d58"
+        }
+      ]
+    },
+    {
+      "id": "e0382-diagnosis",
+      "kind": "compiler",
+      "codes": [
+        "E0382"
+      ],
+      "provenance": "official_reference",
+      "title": "Use after move",
+      "preconditions": "A value is used after an owning operation; inspect all live callers and branches.",
+      "guidance": "For read-only reuse borrow; consume/destructure only when the old value is dead. Clone only if an independently owned duplicate is required and the source type permits it.",
+      "forbidden_shortcuts": "Do not add Clone/Copy bounds to a polymorphic export merely to satisfy a concrete test.",
+      "example": "let n = xs.len(); consume(xs); use_len(n); // only if source needs length, not xs",
+      "source": "https://doc.rust-lang.org/error_codes/E0382.html",
+      "evidence": [
+        {
+          "path": "state/correctness-fpp-20261109/repair-knowledge/rustc-explain/E0382.txt",
+          "sha256": "55df49b5227962f478784df567f119058dfc997130750aef51eee2615a54a7f7"
+        }
+      ]
+    },
+    {
+      "id": "e0277-diagnosis",
+      "kind": "compiler",
+      "codes": [
+        "E0277"
+      ],
+      "provenance": "official_reference",
+      "title": "Unsatisfied trait obligation",
+      "preconditions": "The diagnostic identifies a concrete missing trait on the actual generic type.",
+      "guidance": "Trace the required operation to source type-class constraints. Implement the justified operation or revise representation/call shape; propagate only source-authorized bounds.",
+      "forbidden_shortcuts": "Do not narrow all source type variables to Clone, Copy, Ord or a test-only numeric type.",
+      "example": "fn compare<T: PartialEq>(a: &T,b: &T)->bool { a == b } // requires source equality capability",
+      "source": "https://doc.rust-lang.org/error_codes/E0277.html",
+      "evidence": [
+        {
+          "path": "state/correctness-fpp-20261109/repair-knowledge/rustc-explain/E0277.txt",
+          "sha256": "5df7748b0dde37262217e6779533e2b381d4ac53d6ed9353ff7a1d8e68510bf4"
+        }
+      ]
+    },
+    {
+      "id": "e0308-diagnosis",
+      "kind": "compiler",
+      "codes": [
+        "E0308"
+      ],
+      "provenance": "official_reference",
+      "title": "Type mismatch",
+      "preconditions": "Inspect expected and found types including references, aliases, Result and source numeric meaning.",
+      "guidance": "Repair the producer/consumer boundary; use explicit fallible conversion only when range/overflow policy requires it.",
+      "forbidden_shortcuts": "Do not use as, unwrap or clone as a universal coercion; changing the return ownership may break callers.",
+      "example": "let n = usize::try_from(count)?; // only after source range/boundary analysis",
+      "source": "https://doc.rust-lang.org/error_codes/E0308.html",
+      "evidence": [
+        {
+          "path": "state/correctness-fpp-20261109/repair-knowledge/rustc-explain/E0308.txt",
+          "sha256": "970324e44a59b8b211eea97934833d6b585afa1d519ac3cc1efe8a3a837a91a8"
+        }
+      ]
+    },
+    {
+      "id": "e0499-diagnosis",
+      "kind": "compiler",
+      "codes": [
+        "E0499"
+      ],
+      "provenance": "official_reference",
+      "title": "Overlapping mutable borrows",
+      "preconditions": "Two exclusive borrows overlap in lifetime.",
+      "guidance": "Separate read/update scopes or use a proven disjoint split when source access/order permits; inspect captured borrows.",
+      "forbidden_shortcuts": "Do not use unsafe aliases or clone whole structures to hide ownership mistakes.",
+      "example": "let (left,right)=xs.split_at_mut(k); // k checked; operations require disjoint regions",
+      "source": "https://doc.rust-lang.org/error_codes/E0499.html",
+      "evidence": [
+        {
+          "path": "state/correctness-fpp-20261109/repair-knowledge/rustc-explain/E0499.txt",
+          "sha256": "a2a6146b7b4f3192b36062730c7a6ea145033287babdecb248a6d61dddcf0adb"
+        }
+      ]
+    },
+    {
+      "id": "e0502-diagnosis",
+      "kind": "compiler",
+      "codes": [
+        "E0502"
+      ],
+      "provenance": "official_reference",
+      "title": "Conflicting shared and exclusive borrows",
+      "preconditions": "A live shared borrow overlaps an exclusive borrow.",
+      "guidance": "Compute needed scalar facts before the update or end the shared borrow before mutation when source order permits.",
+      "forbidden_shortcuts": "Do not reorder observable callbacks or discard persistent old versions.",
+      "example": "let n=xs.len(); xs.push(n);",
+      "source": "https://doc.rust-lang.org/error_codes/E0502.html",
+      "evidence": [
+        {
+          "path": "state/correctness-fpp-20261109/repair-knowledge/rustc-explain/E0502.txt",
+          "sha256": "2bf89338721f264f131d77a97d61094217c63ee31f0bfaf126ee45a412c227af"
+        }
+      ]
+    },
+    {
+      "id": "e0597-diagnosis",
+      "kind": "compiler",
+      "codes": [
+        "E0597"
+      ],
+      "provenance": "official_reference",
+      "title": "Borrow outlives value",
+      "preconditions": "The referenced local is dropped while a borrow can still be used.",
+      "guidance": "Move ownership to an appropriate lifetime scope or return an owned value when the source interface requires ownership.",
+      "forbidden_shortcuts": "Do not leak allocations or fabricate static lifetimes.",
+      "example": "let owned = String::from(\"x\"); consume_ref(&owned);",
+      "source": "https://doc.rust-lang.org/error_codes/E0597.html",
+      "evidence": [
+        {
+          "path": "state/correctness-fpp-20261109/repair-knowledge/rustc-explain/E0597.txt",
+          "sha256": "1dd8079ccccab43ef59116074556f77cda41be5516e5dbd25a5c666cd1a9c115"
+        }
+      ]
+    },
+    {
+      "id": "e0599-diagnosis",
+      "kind": "compiler",
+      "codes": [
+        "E0599"
+      ],
+      "provenance": "official_reference",
+      "title": "Unavailable method",
+      "preconditions": "Check the concrete receiver, dependency version and imported traits.",
+      "guidance": "Inspect the locked API. Distinguish a missing trait import, wrong receiver, and nonexistent method; do not invent APIs.",
+      "forbidden_shortcuts": "Do not add unrelated traits or change source operations solely to obtain a similarly named method.",
+      "example": "Import the actual defining trait only after verifying its implementation for this receiver.",
+      "source": "https://doc.rust-lang.org/error_codes/E0599.html",
+      "evidence": [
+        {
+          "path": "state/correctness-fpp-20261109/repair-knowledge/rustc-explain/E0599.txt",
+          "sha256": "4c891d7613d7d6a9e6be4f5d539c5624ceca48728dce3a712c9db2d3f036e7b8"
+        }
+      ]
+    },
+    {
+      "id": "source-large-bit-counts",
+      "kind": "semantic",
+      "provenance": "existing_reference_seed",
+      "operations": [
+        "constant:Bit_Operations.semiring_bit_operations_class.drop_bit",
+        "constant:Bit_Operations.semiring_bit_operations_class.take_bit",
+        "constant:Bit_Operations.semiring_bit_operations_class.push_bit"
+      ],
+      "types": [
+        "Nat.nat",
+        "Int.int"
+      ],
+      "modes": [
+        "checked",
+        "arbitrary"
+      ],
+      "required_fact_prefix": "Bit_Operations.",
+      "preconditions": "Read the actual typed source equations, not just the bit-operation class name; each concrete instance needs its own boundary cases.",
+      "guidance": "Resolve feasible small results before narrowing a mathematical count to usize: natural take with count >= magnitude length returns the operand; signed floor drop at such a count returns 0 or -1; zero push remains zero. Negative take/nonzero push may need a huge result. Checked shifts must validate lost high bits, not merely count.",
+      "forbidden_shortcuts": "Never reduce the count modulo native width or treat a failed count conversion as proof that the result overflows. Library magnitude bit length is not HOL negative bitlen.",
+      "example": "drop_bit huge_count (-1) = -1 under signed floor semantics; push_bit huge_count 0 = 0.",
+      "source": "semantic-adaptation/references/numeric-semantics.md",
+      "evidence": [
+        {
+          "path": "skills/semantic-adaptation/references/numeric-semantics.md",
+          "sha256": "6225aa9748865a96bbe8579b7d36879df2cdb763c49b625e89c231ff31c44ea7"
+        }
+      ]
+    },
+    {
+      "id": "source-list-representation",
+      "kind": "semantic",
+      "provenance": "existing_reference_seed",
+      "operations": [
+        "constant:List.list.Cons",
+        "constant:List.list.Nil"
+      ],
+      "types": [
+        "List.list"
+      ],
+      "modes": [
+        "checked",
+        "arbitrary"
+      ],
+      "preconditions": "The extracted source contains a typed List.list constructor; inspect each affected source equation and its observations.",
+      "guidance": "Vec preserves sequence order and multiplicity. Borrow a slice for read-only access when callers retain ownership; move elements only when old values are unobserved. A set or deduplicating worklist needs source justification for every affected operation.",
+      "forbidden_shortcuts": "Do not infer that order/duplicates are irrelevant from one membership-only caller or from task names.",
+      "example": "[a,a] and [a] remain distinct list values unless the source proves the observation identifies them.",
+      "source": "semantic-adaptation/references/representation-conditions.md",
+      "evidence": [
+        {
+          "path": "skills/semantic-adaptation/references/representation-conditions.md",
+          "sha256": "63de2a0705218fd693f1a72ee6e81bdd6fe5634cd2288cb9e3ad8f2be279782b"
+        }
+      ]
+    }
+  ]
+}

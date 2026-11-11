@@ -1,0 +1,24 @@
+{
+  "source_model_provenance_name": "source-model.json",
+  "source_model_sha256": "a6372c25540dc9c39247df7754ded7b2cd1a84f71cad65b36735d91810070d7a",
+  "contracts": [
+    {
+      "kind": "function_fixture",
+      "type": "(nat \\<Rightarrow> (nat \\<Rightarrow> nat))",
+      "recipe": "codomain fixture seeded by original seed plus sum of argument observation; deterministic total finite observation"
+    },
+    {
+      "kind": "function_fixture",
+      "type": "(nat \\<Rightarrow> nat)",
+      "recipe": "codomain fixture seeded by original seed plus sum of argument observation; deterministic total finite observation"
+    }
+  ],
+  "source_input_domain": [],
+  "fixture_arguments": [
+    "(\\<lambda>arg8909a43c58. (\\<lambda>arg7a9bcd751d. (((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) + sum_list ((List.Cons (arg8909a43c58) List.Nil))) + sum_list ((List.Cons (arg7a9bcd751d) List.Nil))) mod 9)))",
+    "(List.map (\\<lambda>j. ((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1))+j) mod 9)) [0..<(((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)) mod 4)])",
+    "(((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 2)) mod 9)"
+  ],
+  "observation": "(let result = ((Highorder_Func_Test.fold :: ((nat \\<Rightarrow> (nat \\<Rightarrow> nat)) \\<Rightarrow> ((nat list) \\<Rightarrow> (nat \\<Rightarrow> nat)))) ((\\<lambda>arg8909a43c58. (\\<lambda>arg7a9bcd751d. (((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 0)) + sum_list ((List.Cons (arg8909a43c58) List.Nil))) + sum_list ((List.Cons (arg7a9bcd751d) List.Nil))) mod 9)))) ((List.map (\\<lambda>j. ((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1))+j) mod 9)) [0..<(((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 1)) mod 4)])) ((((List.nth (List.append input (List.Cons (0) (List.Cons (1) (List.Cons (2) (List.Cons (3) (List.Cons (4) (List.Cons (5) (List.Cons (6) (List.Cons (7) List.Nil))))))))) 2)) mod 9))) in (List.Cons (result) List.Nil))",
+  "partial_or_finite_scope_disclosed": true
+}
