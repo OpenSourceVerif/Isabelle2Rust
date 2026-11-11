@@ -1253,7 +1253,8 @@ fun print_type_param_bound (vname, sort) =
         on binary relations, this makes both the call result and any subsequent
         applications follow `[A][B]`, matching the recursively reconstructed
         pointwise function impl. **)
-    fun trait_result_shape (const as {sym, dom, range, ...}: Code_Thingol.const) =
+    fun trait_result_shape_for receiver_shape
+        (const as {sym, dom, range, ...}: Code_Thingol.const) =
       (case trait_classparam sym of
         SOME cp =>
           (case classparam_decl cp of
@@ -1264,10 +1265,12 @@ fun print_type_param_bound (vname, sort) =
                 val subst =
                   add_default_shape_subst method_ty instantiated_ty []
                   |> bind_expected_shape (ITyVar self_var)
-                       (trait_receiver_shape const);
+                       receiver_shape;
               in SOME (instantiate_rust_shape subst declared_result range) end
           | NONE => NONE)
       | NONE => NONE);
+    fun trait_result_shape const =
+      trait_result_shape_for (trait_receiver_shape const) const;
     fun rust_shape_argument_expecteds (Rust_Fn (args, result)) =
           map (fn shape => SOME {hol_type = shape_type shape,
             rust_shape = shape}) args
@@ -2199,11 +2202,42 @@ fun print_type_param_bound (vname, sort) =
                   in rust_shape_groups
                     (instantiate_rust_shape subst decl_tail inst_tail) end
               | NONE => [])
-            val prefix_target_shape = trait_receiver_shape const
+            (* A nullary concrete method constructs its result at the selected
+               instance type. Its unconstrained instance parameters must retain
+               the surrounding result layout, just like result-only parameters
+               of an ordinary function. Match the implementation's declaration
+               so fixed receiver constructors/Fn boundaries remain fixed, then
+               restore explicit dictionary evidence. No existing receiver value
+               or container argument is converted. *)
+            val prefix_target_shape =
+              let
+                val fallback = trait_receiver_shape const;
+              in
+                if is_trait_method_call andalso wanted_app = 0 then
+                  (case (inst_method_info sym, lookup_constant_fun sym) of
+                    (SOME (_, cp), SOME (((_, decl_ty), _), _)) =>
+                      (case classparam_decl cp of
+                        SOME (_, self_var, method_ty) =>
+                          (case match_class_self self_var method_ty decl_ty of
+                            SOME decl_self =>
+                              let
+                                val inst_ty = mk_fun_ty (dom, range);
+                                val subst = dictionary_shape_subst const decl_ty inst_ty
+                                  |> refine_expected_result expected decl_ty inst_ty
+                                  |> map (fn (v, shape) =>
+                                    (v, the_default shape (typearg_dictionary_shape const
+                                      (shape_type shape))));
+                              in instantiate_rust_shape subst decl_self
+                                (trait_receiver_type const) end
+                          | NONE => fallback)
+                      | NONE => fallback)
+                  | _ => fallback)
+                else fallback
+              end
             val returned_groups =
               if is_trait_method_call
               then
-                (case trait_result_shape const of
+                (case trait_result_shape_for prefix_target_shape const of
                   SOME shape => rust_shape_groups shape
                 | NONE => [])
               else ordinary_returned_groups
