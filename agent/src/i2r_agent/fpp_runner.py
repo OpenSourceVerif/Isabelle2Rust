@@ -17,15 +17,81 @@ def identity():
                     files[str(p.relative_to(art.REPO))]=digest(p)
     return {'sha256':fingerprint(files),'files':files}
 
-def release(run,rows,workers=None):
+def release_data(run,rows,workers=None):
     path=run/'release.json'
     if workers is None:workers=read(path)['workers'] if path.exists() else 5
     if type(workers) is not int or workers<1:raise Failure('invalid_workers','workers must be a positive integer')
     core=identity();new={'identity':core['sha256'],'files':core['files'],'evaluation_order':[r['id'] for r in rows],'per_task_calls':48,'per_task_active_seconds':4200,'workers':workers,'global_limit':48*len(rows),'tool_sources':art.check_tools(),'effective_configs':{r['id']:art.configuration(r,run) for r in rows}}
+    return new
+
+def release(run,rows,workers=None):
+    new=release_data(run,rows,workers);path=run/'release.json'
     if path.exists():
         if read(path)!=new:raise Failure('release_changed','Frozen implementation/config/inputs/tools differ; do not mutate or silently restart this run')
     else:save(path,new)
     return new
+
+def migrate_pipeline(run,rows,workers,from_identity):
+    """Explicit zero-model scheduler migration; controller lease is held by main.
+    Retain byte-exact originals and a recoverable journal before changing either
+    release or ledger. Admission/cache data is validated but never rewritten.
+    """
+    def reject(message):raise Failure('scheduler_migration_rejected',message)
+    if not from_identity or not (run/'STOP_DISPATCH').exists():reject('Require --from-identity and a drained paused run')
+    with (run/'global-provider-budget.lock').open('a+') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        release_path=run/'release.json';ledger_path=run/'global-provider-budget.json';journal=run/'scheduler-migration.json'
+        live_release=read(release_path);live_ledger=read(ledger_path)
+        record=read(journal) if journal.exists() else None
+        if record:
+            archive=run/record['archive']
+            for name,sha in record['snapshot_sha256'].items():
+                if digest(archive/name)!=sha:reject('Migration snapshot changed: '+name)
+            old=read(archive/'release-before.json');old_ledger=read(archive/'budget-before.json')
+        else:old=live_release;old_ledger=live_ledger
+        if old['identity']!=from_identity or fingerprint(old['files'])!=from_identity:reject('Old release identity does not match its complete file inventory')
+        new=release_data(run,rows,old['workers'] if workers is None else workers)
+        allowed={'agent/src/i2r_agent/fpp_runner.py','artifact/README.md'}
+        if set(old['files'])!=set(new['files']):reject('Release file inventory changed')
+        changed={name for name,sha in old['files'].items() if new['files'][name]!=sha}
+        if not changed or not changed<=allowed:reject('Only the runner and its README may change')
+        if {k:v for k,v in old.items() if k not in {'identity','files'}}!={k:v for k,v in new.items() if k not in {'identity','files'}}:
+            reject('Selection, configurations, tools, inputs, concurrency or budgets changed')
+        expected={'release_identity':old['identity'],'prior_attempts':0,'limit':old['global_limit'],
+                  'new_study_limit':old['global_limit'],'per_case_limit':old['per_task_calls'],
+                  'allowed_cases':old['evaluation_order'],'reservations':[]}
+        if old_ledger!=expected:reject('Migration requires the original empty provider ledger')
+        new_ledger={**old_ledger,'release_identity':new['identity']}
+        if live_release not in [old,new] or live_ledger not in [old_ledger,new_ledger]:reject('Live release or ledger is not a recorded migration endpoint')
+        if list((run/'tasks').glob('*/diagnostics/model/*/request.json')):reject('Model requests already exist')
+        for task in (run/'tasks').glob('*'):
+            if not task.is_dir():continue
+            if (task/'process.json').exists() or any((task/'diagnostics').rglob('*')):reject('Generation already started: '+task.name)
+            if (task/'outcome.json').exists() and not read(task/'outcome.json').get('mechanical_failure'):reject('Nonmechanical outcome already exists')
+        marker=run/'preparation-process.json'
+        if marker.exists() and read(marker).get('state')=='running':reject('Unreconciled preparation process')
+        admissions={}
+        for row in rows:
+            path=run/'preparation'/row['id']/'admission.json'
+            if path.exists():
+                ad=art.admission(row,run);admissions[row['id']]={'sha256':digest(path),'seconds':ad['seconds']}
+        if record:
+            if record['to_identity']!=new['identity'] or record['admissions']!=admissions:reject('Migration target or admissions changed')
+            if read(archive/'release-after.json')!=new or read(archive/'budget-after.json')!=new_ledger:reject('Migration target snapshots changed')
+        else:
+            archive=run/'scheduler-migrations'/(old['identity']+'-to-'+new['identity']);archive.mkdir(parents=True,exist_ok=True)
+            (archive/'release-before.json').write_bytes(release_path.read_bytes())
+            (archive/'budget-before.json').write_bytes(ledger_path.read_bytes())
+            save(archive/'release-after.json',new);save(archive/'budget-after.json',new_ledger)
+            record={'status':'prepared','from_identity':old['identity'],'to_identity':new['identity'],
+                    'archive':str(archive.relative_to(run)),'changed_files':sorted(changed),'admissions':admissions,
+                    'snapshot_sha256':{name:digest(archive/name) for name in ['release-before.json','budget-before.json','release-after.json','budget-after.json']},
+                    'model_calls':0,'policy':'zero-model scheduler-only migration; caches and charged preparation seconds retained'}
+            save(journal,record)
+        fpp_budget.atomic_save(ledger_path,new_ledger);save(release_path,new)
+        save(journal,{**record,'status':'complete'})
+        print(json.dumps({'status':'scheduler_migrated','admissions_preserved':len(admissions),'identity':new['identity'],'model_calls':0}),flush=True)
+
 
 def usage(diag):
     calls=[];known={k:0 for k in ['prompt_tokens','completion_tokens','total_tokens']};unknown=[];phases={}
@@ -103,7 +169,32 @@ def report(run,rows):
     result={'selected_roots':len(rows),'completed':len(outcomes),'accepted':accepted,'failed':len(outcomes)-accepted,'pending':len(rows)-len(outcomes),'accepted_over_all_roots':accepted/len(rows),'completed_acceptance_rate':accepted/len(outcomes) if outcomes else None,'first_complete_automatic_rate':accepted/len(rows) if len(outcomes)==len(rows) else None,'target':.95,'target_met':len(outcomes)==len(rows) and accepted/len(rows)>=.95,'includes_builtin_repairs':True,'requests':sum(r['calls'] for r in account),'known_usage':{k:sum(r['known_usage'][k] for r in account) for k in ['prompt_tokens','completion_tokens','total_tokens']},'unknown_usage_requests':sum(len(r['unknown_usage_requests']) for r in account),'failures':[{'case':r['case'],'status':r['result']['status']} for r in outcomes if not r.get('policy_accepted')]}
     save(run/'report.json',result);return result
 
-def dispatch(run,rows,rel,resume=False):
+
+def prepare_rows(run,rows):
+    stop=run/'STOP_DISPATCH'
+    art.install_execution(run)
+    def forbidden(*args,**kwargs):raise RuntimeError('Mechanical preparation forbids model calls')
+    provider.Provider.call=forbidden
+    for row in rows:
+        if stop.exists():break  # Drain the current preparation; start no next task.
+        ad=run/'preparation'/row['id']/'admission.json'
+        if ad.exists():
+            art.admission(row,run);continue
+        if (ad.parent/'failure.json').exists():continue
+        try:
+            result=art.prepare(row,run)
+            print(json.dumps({'case':row['id'],'status':result['status']}),flush=True)
+        except Exception as error:
+            result={'case':row['id'],'status':getattr(error,'code','preparation_exception'),'error':str(error),'evidence':getattr(error,'evidence',None),'model_calls':0}
+            save(ad.parent/'failure.json',result)
+            save(run/'tasks'/row['id']/'outcome.json',{'case':row['id'],'seconds':0,'policy_accepted':False,'result':result,'mechanical_failure':True})
+            print(json.dumps(result),flush=True)
+            if result['status'] in {'preparation_exception','missing_tool_repository','unreaped_isabelle_writer','isabelle_lock_timeout','isabelle_export_infrastructure_error'}:
+                save(run/'STOP_DISPATCH',{'reason':'mechanical_systemic_failure','case':row['id']});raise
+
+    save(run/'preparation-status.json',{'paused':stop.exists(),'pending':[r['id'] for r in rows if not (run/'preparation'/r['id']/'admission.json').exists() and not (run/'preparation'/r['id']/'failure.json').exists()]})
+
+def dispatch(run,rows,rel,resume=False,pipeline=False):
     with (run/'controller.lock').open('a+') as lease:
         fcntl.flock(lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
         stop=run/'STOP_DISPATCH'
@@ -113,11 +204,30 @@ def dispatch(run,rows,rel,resume=False):
         for key in pending:
             marker=run/'tasks'/key/'process.json'
             if marker.exists() and read(marker).get('state')=='running':raise Failure('unreconciled_worker',key)
+        prep_marker=run/'preparation-process.json';preparer=None
+        if prep_marker.exists() and read(prep_marker).get('state')=='running':raise Failure('unreconciled_preparer','Previous preparation child has not been reconciled')
+        if pipeline:
+            for row in rows:
+                if (run/'preparation'/row['id']/'admission.json').exists():art.admission(row,run)
         if resume and stop.exists():stop.unlink()  # All admission/worker checks passed under lease.
-        while pending or active:
+        if pipeline and any(not (run/'preparation'/key/'admission.json').exists() for key in pending):
+            log=(run/'prepare.log').open('a')
+            env={**os.environ,'I2R_FPP_RELEASE':rel['identity'],'I2R_FPP_LEASE_FD':str(lease.fileno())}
+            proc=subprocess.Popen([sys.executable,'-m','i2r_agent.fpp_runner','--run',str(run),'_prepare'],stdout=log,stderr=subprocess.STDOUT,start_new_session=True,pass_fds=(lease.fileno(),),env=env)
+            preparer=(proc,log);save(prep_marker,{'state':'running','pid':proc.pid,'started_at':time.time()})
+        while pending or active or preparer:
+            # Admission/outcome JSON is atomically published only after a complete
+            # preparation; never read or launch from a partial reference build.
+            pending=[key for key in pending if not (run/'tasks'/key/'outcome.json').exists()]
             while pending and len(active)<rel['workers'] and not stop.exists():
-                key=pending.pop(0);task=run/'tasks'/key;task.mkdir(parents=True,exist_ok=True)
-                ad=art.admission(next(r for r in rows if r['id']==key),run);prior=ad['seconds']+sum(read(p)['seconds'] for p in task.glob('transport-outcome-*.json'))
+                ready=[key for key in pending if not pipeline or (run/'preparation'/key/'admission.json').exists()]
+                if not ready:break
+                key=ready[0];task=run/'tasks'/key
+                try:ad=art.admission(next(r for r in rows if r['id']==key),run)
+                except Failure as error:
+                    save(stop,{'reason':'admission_invalid','case':key,'error':error.code});break
+                pending.remove(key);task.mkdir(parents=True,exist_ok=True)
+                prior=ad['seconds']+sum(read(p)['seconds'] for p in task.glob('transport-outcome-*.json'))
                 if prior>=4200 or usage(task/'diagnostics')['calls']>=48:
                     save(task/'outcome.json',{'case':key,'seconds':0,'policy_accepted':False,'result':{'status':'budget_exhausted'}});continue
                 log=(task/'worker.log').open('a');child_env={**os.environ,'I2R_FPP_RELEASE':rel['identity'],'I2R_FPP_LEASE_FD':str(lease.fileno())};proc=subprocess.Popen([sys.executable,'-m','i2r_agent.fpp_runner','--run',str(run),'_child','--case',key],stdout=log,stderr=subprocess.STDOUT,start_new_session=True,pass_fds=(lease.fileno(),),env=child_env);active[key]=(proc,log,time.monotonic(),prior)
@@ -135,15 +245,21 @@ def dispatch(run,rows,rel,resume=False):
                         retry(task);pending.insert(0,key)
                         if errors>=2:save(stop,{'reason':'two_consecutive_transport_errors'})
                     elif data['result']['status'] in {'worker_failed','internal_error','stale_source_cache','observation_source_changed','global_budget_identity_mismatch'}:save(stop,{'reason':'systemic_failure','case':key})
-            save(run/'status.json',{'active':list(active),'pending':pending,'paused':stop.exists(),'reserved':len(read(run/'global-provider-budget.json')['reservations'])})
-            if not active and stop.exists():break
+            if preparer and preparer[0].poll() is not None:
+                proc,log=preparer;log.close();preparer=None
+                save(prep_marker,{'state':'finished','pid':proc.pid,'exit_code':proc.returncode})
+                if proc.returncode!=0:save(stop,{'reason':'preparation_worker_failed','exit_code':proc.returncode})
+            if pipeline and not preparer and not stop.exists() and any(not (run/'preparation'/key/'admission.json').exists() and not (run/'tasks'/key/'outcome.json').exists() for key in pending):
+                save(stop,{'reason':'preparation_incomplete'})
+            save(run/'status.json',{'active':list(active),'pending':pending,'preparing':preparer is not None,'paused':stop.exists(),'reserved':len(read(run/'global-provider-budget.json')['reservations'])})
+            if not active and not preparer and stop.exists():break
             time.sleep(1)
     return report(run,rows)
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True);p.add_argument('command',choices=['prepare','resume-prepare','run','pause','resume','report','boundary','_child']);p.add_argument('--case',action='append');p.add_argument('--workers',type=int,help='Concurrent task processes: default 5 for a new run; otherwise use the frozen release value');a=p.parse_args();run=a.run.resolve();run.mkdir(parents=True,exist_ok=True);allrows=art.manifest()['cases']
+    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True);p.add_argument('command',choices=['prepare','resume-prepare','run','pause','resume','report','boundary','_child','pipeline','resume-pipeline','_prepare','migrate-pipeline']);p.add_argument('--case',action='append');p.add_argument('--from-identity',help='Expected old frozen identity, required for zero-model scheduler migration');p.add_argument('--workers',type=int,help='Concurrent task processes: default 5 for a new run; otherwise use the frozen release value');a=p.parse_args();run=a.run.resolve();run.mkdir(parents=True,exist_ok=True);allrows=art.manifest()['cases']
     if a.command=='pause':save(run/'STOP_DISPATCH',{'reason':'user_pause','policy':'drain active tasks'});return
-    if a.command in {'prepare','resume-prepare'}:
+    if a.command in {'prepare','resume-prepare','migrate-pipeline'}:
         # Share dispatch's exclusive lease before selection/release initialization.
         with (run/'controller.lock').open('a+') as lease:
             fcntl.flock(lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -152,6 +268,7 @@ def main():
 
 def execute(a,run,allrows):
     selection=run/'selection.json'
+    if a.command=='migrate-pipeline' and not selection.exists():raise Failure('scheduler_migration_rejected','An existing frozen selection is required')
     if selection.exists():ids=read(selection)['ids']
     else:
         ids=a.case or [r['id'] for r in allrows]
@@ -159,34 +276,20 @@ def execute(a,run,allrows):
         save(selection,{'ids':ids})
     rows=[r for r in allrows if r['id'] in ids]
     if a.command=='report':print(json.dumps(report(run,rows),indent=2));return
+    if a.command=='migrate-pipeline':return migrate_pipeline(run,rows,a.workers,a.from_identity)
     rel=release(run,rows,a.workers);fpp_budget.initialize(run,rel)
     if a.command in {'prepare','resume-prepare'}:
         stop=run/'STOP_DISPATCH'
         if stop.exists():
             if a.command!='resume-prepare':raise Failure('paused','Use resume-prepare for explicit same-version mechanical continuation')
             stop.unlink()  # Release/configuration was validated above, under lease.
-        art.install_execution(run)
-        def forbidden(*args,**kwargs):raise RuntimeError('Mechanical preparation forbids model calls')
-        provider.Provider.call=forbidden
-        for row in rows:
-            if stop.exists():break  # Drain the current preparation; start no next task.
-            ad=run/'preparation'/row['id']/'admission.json'
-            if ad.exists():
-                art.admission(row,run);continue
-            if (ad.parent/'failure.json').exists():continue
-            try:
-                result=art.prepare(row,run)
-                print(json.dumps({'case':row['id'],'status':result['status']}),flush=True)
-            except Exception as error:
-                result={'case':row['id'],'status':getattr(error,'code','preparation_exception'),'error':str(error),'evidence':getattr(error,'evidence',None),'model_calls':0}
-                save(ad.parent/'failure.json',result)
-                save(run/'tasks'/row['id']/'outcome.json',{'case':row['id'],'seconds':0,'policy_accepted':False,'result':result,'mechanical_failure':True})
-                print(json.dumps(result),flush=True)
-                if result['status'] in {'preparation_exception','missing_tool_repository','unreaped_isabelle_writer','isabelle_lock_timeout','isabelle_export_infrastructure_error'}:
-                    save(run/'STOP_DISPATCH',{'reason':'mechanical_systemic_failure','case':row['id']});raise
-
-        save(run/'preparation-status.json',{'paused':stop.exists(),'pending':[r['id'] for r in rows if not (run/'preparation'/r['id']/'admission.json').exists() and not (run/'preparation'/r['id']/'failure.json').exists()]})
-        return
+        return prepare_rows(run,rows)
+    if a.command in {'_child','_prepare'}:
+        if os.environ.get('I2R_FPP_RELEASE')!=rel['identity']:raise Failure('unleased_worker','Internal worker requires the active controller lease')
+        os.fstat(int(os.environ['I2R_FPP_LEASE_FD']))
+    if a.command=='_prepare':return prepare_rows(run,rows)
+    if a.command in {'pipeline','resume-pipeline'}:
+        print(json.dumps(dispatch(run,rows,rel,resume=a.command=='resume-pipeline',pipeline=True),indent=2));return
     if a.command in {'boundary','_child'}:
         if not a.case or len(a.case)!=1:raise Failure('case_required','Select one task')
         if a.command=='_child':

@@ -31,19 +31,20 @@ FPP requires no AFP session. `AFP_ROOT` is optional. Tool paths can also be supp
 artifact/run-fpp --run artifact/runs/smoke prepare --case fpp-add
 artifact/run-fpp --run artifact/runs/smoke boundary --case fpp-add
 
-# Full 313-root run, with fresh model work for every task.
-artifact/run-fpp --run artifact/runs/fpp-full prepare --workers 10
-# If preparation was paused: explicit same-version continuation.
-artifact/run-fpp --run artifact/runs/fpp-full resume-prepare
-artifact/run-fpp --run artifact/runs/fpp-full run
+# Full 313-root pipeline: prepare sequentially while admitted tasks run.
+artifact/run-fpp --run artifact/runs/fpp-full pipeline --workers 10
 artifact/run-fpp --run artifact/runs/fpp-full pause
-artifact/run-fpp --run artifact/runs/fpp-full resume
+artifact/run-fpp --run artifact/runs/fpp-full resume-pipeline
 artifact/run-fpp --run artifact/runs/fpp-full report
 ```
 
+`pipeline` holds one exclusive controller lease, runs one model-free preparation child and dispatches up to the frozen number of generation workers. Only atomically published admissions that pass seal/configuration/source/reference checks can run. Preparation and generation retain their original per-task time and request charges. Pause drains the current preparation and all active generation tasks; `resume-pipeline` validates the same release and existing admissions before clearing the pause. Systemic preparation failures stop new dispatch. Unprepared roots remain pending in the full denominator. The sequential `prepare` / `resume-prepare` / `run` / `resume` commands remain available.
+
 `prepare` makes no model calls and admits exact input/reference suites. Preparation holds the same exclusive controller lock as model dispatch. `pause` drains the current preparation and prevents the next task; `resume-prepare` validates the unchanged release/configuration before clearing the pause and continuing. A failed task receives a retained mechanical failure outcome and stays in the 313 denominator. Systemic preparation failures pause dispatch; later preparation skips already recorded failures and continues remaining tasks. It does not silently overwrite an old failure or claim that task was admitted. Completed model failures are never restarted or replaced by a successful retry. A new experiment requires a new run directory.
 
-`run` uses DeepSeek Flash with the concurrency frozen by `prepare --workers N` (default **5**, explicitly **10** above). Later commands, including resume and child workers, inherit that value; an explicit different value is rejected. Mechanical preparation remains sequential. Each task has **48 attempted requests and 4200 active seconds**, including charged preparation and previous transport segments. The global reservation ceiling is the sum of the per-task limits. Requests reserve a slot atomically before network submission; a crash does not refund a reservation. A controller lock inherited by children prevents overlapping controllers. Pause stops new dispatch and drains active tasks. Resume retains the same release/configuration identity, request ledger, model state and prior costs. Transport continuation archives previous outcomes and restores only the transport control penalty; repeated transport errors pause for investigation. Unreconciled crashed worker markers stop automatic restart.
+`run` and `pipeline` use DeepSeek Flash with the concurrency frozen by the first `prepare` or `pipeline --workers N` (default **5**, explicitly **10** above). Later commands, including resume and child workers, inherit that value; an explicit different value is rejected. Mechanical preparation remains sequential. Each task has **48 attempted requests and 4200 active seconds**, including charged preparation and previous transport segments. The global reservation ceiling is the sum of the per-task limits. Requests reserve a slot atomically before network submission; a crash does not refund a reservation. A controller lock inherited by children prevents overlapping controllers. Pause stops new dispatch and drains active tasks. Resume retains the same release/configuration identity, request ledger, model state and prior costs. Transport continuation archives previous outcomes and restores only the transport control penalty; repeated transport errors pause for investigation. Unreconciled crashed worker markers stop automatic restart.
+
+A paused preparation-only run may adopt this scheduler revision through `migrate-pipeline --from-identity OLD_FROZEN_SHA256`, after its old controller has exited. This explicit migration requires zero model reservations, no generation artifacts, identical selection/configurations/tool sources/budgets, and changes limited to the runner and this README. It preserves byte-exact old release and budget snapshots, validates every existing admission, records the new release identity, and retains the original source/reference hashes and preparation seconds. It makes no model calls and leaves the pause in place; use `resume-pipeline` afterward. Once generation has started, release changes remain forbidden.
 
 The frozen workflow repairs source tests first, runs differential acceptance afterward, and calls an independent source checker only on actual semantic source-test failure. Generation output limit is 32768; the source-checker override remains 65536. Performance review, measurement, optimization and a separate final-test phase are disabled by correctness-only configuration. Inputs/expected outputs are never changed to fit a candidate.
 

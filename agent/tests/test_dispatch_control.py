@@ -25,8 +25,10 @@ def test_pause_prevents_next_dispatch(tmp_path,monkeypatch):
     assert not (tmp_path/'tasks/second').exists()
 
 @pytest.mark.parametrize('workers',[5,10])
-def test_dispatch_obeys_frozen_concurrency(tmp_path,monkeypatch,workers):
+@pytest.mark.parametrize('pipeline',[False,True])
+def test_dispatch_obeys_frozen_concurrency(tmp_path,monkeypatch,workers,pipeline):
     rows=[{'id':str(i)} for i in range(13)]
+    for row in rows:save(tmp_path/'preparation'/row['id']/'admission.json',{'seconds':0})
     save(tmp_path/'global-provider-budget.json',{'reservations':[]})
     monkeypatch.setattr(runner.art,'admission',lambda row,run:{'seconds':0})
     monkeypatch.setattr(runner.time,'sleep',lambda seconds:None)
@@ -40,7 +42,7 @@ def test_dispatch_obeys_frozen_concurrency(tmp_path,monkeypatch,workers):
         save(tmp_path/'tasks'/case/'outcome.json',{'case':case,'seconds':0,'policy_accepted':True,'result':{'status':'passed'}})
         return Process(case)
     monkeypatch.setattr(runner.subprocess,'Popen',launch)
-    result=runner.dispatch(tmp_path,rows,{'identity':'frozen','workers':workers})
+    result=runner.dispatch(tmp_path,rows,{'identity':'frozen','workers':workers},pipeline=pipeline)
     assert max(peaks)==workers and len(started)==len(set(started))==13
     assert result['completed']==result['accepted']==13 and not live
 
