@@ -25,6 +25,8 @@ SYSTEM+=''' For fixed literals or constructor-valued data embedded in a source o
 
 SYSTEM+=''' Select numeric edge expectations from numeric_policy.mode: checked retains necessary u128/i128 overflow cases and I2R_NUMERIC_OVERFLOW; arbitrary uses unbounded mathematical values and must not expect overflow merely at those machine limits. In arbitrary mode include feasible values above 128 bits where the source API permits, using independent library constructors and source-derived expected values. Follow the supplied numeric_library selection (Dashu UBig for nat and IBig for int/integer, =0.6.2 when selected), without changing source inputs, obligations or business algorithms.'''
 
+SYSTEM+=''' Before choosing numeric test values, inspect the source recursion, loops, enumeration and output construction. Distinguish data magnitude from control parameters that determine steps, depth, allocation or output size. Unbounded representation does not make 2^128 recursive steps or an enormous materialized result executable. Use large data with small controls when the source permits; retain independently derived expectations and the same source algorithm. This applies to recursive arithmetic, Fibonacci/Ackermann, list or tree construction, enumeration and shifts, without assuming a closed form, memoization or a different algorithm. If every large input/output for an operation is inherently infeasible under its source computation, document the expensive untested region with exact source/API reasons; do not force a huge test merely for bit width, claim tested coverage, or waive an applicable frozen obligation. Test feasible large primitive/data operations separately where available. Checked numeric overflow and arbitrary exact-value requirements remain distinct and must each use feasible source computations.'''
+
 AUTHOR_GUIDANCE_POLICY='source-operation-applicable-batched-compact-obligations-v2'
 COMPACT_AUTHOR_GUIDANCE="""Return the smallest complete test artifact covering every required row and this group's source-operation obligations. Reuse one concrete executing test for multiple obligation records only when it checks each claimed fact; retain distinct required edge cases. Numeric, generic, non-Clone/non-Ord and overflow requirements in the applicable instructions remain mandatory. Derive explicit expected values from source equations; never from candidate output. Use the supplied matching fixture framework instead of duplicating builders. Avoid redundant whole-program suites for other groups or optional variants before the complete required artifact. Concision never removes a required source page, case, assertion, obligation or actual execution. Return complete JSON, with brief source-basis notes."""
 # Preserve the original specialist guidance verbatim; select it from the exact
@@ -349,7 +351,7 @@ def execute(frozen,crate,rc,cfg,executor,*,compile_only=False):
     for p in directory.glob('source_contract_*.rs'):p.unlink()
     for i,code in enumerate(frozen['tests']):
         (directory/f'source_contract_{i}.rs').write_text('#![forbid(unsafe_code)]\nmod __i2r_source_contract_'+str(i)+' {\n'+code+'\n}\n')
-    originals={};binding_error=None
+    originals={};binding_error=None;resource_diagnostic=None
     try:
         for i,test in enumerate(frozen.get('unit_tests',[])):
             target=Path(crate)/test['file']
@@ -359,6 +361,9 @@ def execute(frozen,crate,rc,cfg,executor,*,compile_only=False):
             target.write_text(insert_tests(target.read_text(),test.get('module',[]),wrapper))
         compiled=executor.run(cargo_command(rc,cfg,'test',crate,'--release','--tests','--no-run'),timeout=cfg['budgets']['build_seconds'],check=False)
         record=executor.run(cargo_command(rc,cfg,'test',crate,'--release','--tests','--','--format=pretty'),timeout=cfg['testing']['process_timeout'],check=False) if compiled['status']=='passed' and not compile_only else compiled
+        if compiled['status']=='passed' and not compile_only and record['status']!='passed':
+            from .source_resources import diagnose
+            resource_diagnostic=diagnose(frozen,record,cfg,executor,lambda name:cargo_command(rc,cfg,'test',crate,'--release','--tests','--',name,'--exact','--test-threads=1','--format=pretty'))
     except Failure as error:
         if error.code not in {'invalid_support_test','support_interface_changed'}:raise
         binding_error=error
@@ -383,7 +388,7 @@ def execute(frozen,crate,rc,cfg,executor,*,compile_only=False):
     missing=sorted(name for name,names in bindings.items() if len(names)!=1 or names[0] not in executed)
     from .source_suite_review import inventory
     missing=sorted(set(missing)|({r['id'] for r in inventory(frozen)}-executed))
-    return {'missing_required_tests':missing,'executed_tests':sorted(executed),'status':'support_test_compile_failed' if compiled['status']!='passed' else 'support_coverage_missing' if record['status']=='passed' and missing else 'passed' if record['status']=='passed' and count>0 else 'support_contract_failed',
+    return {'resource_diagnostic':resource_diagnostic,'missing_required_tests':missing,'executed_tests':sorted(executed),'status':'support_test_compile_failed' if compiled['status']!='passed' else 'support_coverage_missing' if record['status']=='passed' and missing else 'passed' if record['status']=='passed' and count>0 else 'support_contract_failed',
         'compilation':compiled,'record':record,'tests_passed':count,'frozen_identity':frozen['identity'],'diagnostic':output,
         'obligations':frozen['obligations'],'immutable_test_sources':frozen['tests'],
         'immutable_unit_tests':frozen.get('unit_tests',[])}

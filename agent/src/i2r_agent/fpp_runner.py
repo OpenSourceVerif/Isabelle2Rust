@@ -114,7 +114,9 @@ def child(row,run,rel,boundary=False):
     art.inputs(row);record=read(ad['baseline_record'])
     if digest(ad['baseline_record'])!=ad['baseline_sha256'] or not baselines.valid_record(record):raise Failure('baseline_changed',row['id'])
     def acquire(case,testing,bundle,conf,*args,**kwargs):
-        if case!=row['id'] or baselines.identity(case,bundle,conf)!=record['identity']:raise Failure('baseline_identity_mismatch',case)
+        from .fpp_preparation_import import baseline_config
+        original_cfg=baseline_config(row,run,ad,conf)
+        if case!=row['id'] or baselines.identity(case,bundle,original_cfg)!=record['identity']:raise Failure('baseline_identity_mismatch',case)
         return {**record,'acquisition':'strict_locked_read_only_cache'}
     baselines.acquire=acquire
     if boundary:
@@ -257,9 +259,9 @@ def dispatch(run,rows,rel,resume=False,pipeline=False):
     return report(run,rows)
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True);p.add_argument('command',choices=['prepare','resume-prepare','run','pause','resume','report','boundary','_child','pipeline','resume-pipeline','_prepare','migrate-pipeline']);p.add_argument('--case',action='append');p.add_argument('--from-identity',help='Expected old frozen identity, required for zero-model scheduler migration');p.add_argument('--workers',type=int,help='Concurrent task processes: default 5 for a new run; otherwise use the frozen release value');a=p.parse_args();run=a.run.resolve();run.mkdir(parents=True,exist_ok=True);allrows=art.manifest()['cases']
+    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True);p.add_argument('command',choices=['prepare','resume-prepare','run','pause','resume','report','boundary','_child','pipeline','resume-pipeline','_prepare','migrate-pipeline','import-preparation']);p.add_argument('--case',action='append');p.add_argument('--from-run',type=Path,help='Read-only original mechanical preparation run');p.add_argument('--from-identity',help='Expected old frozen identity for scheduler migration or preparation import');p.add_argument('--workers',type=int,help='Concurrent task processes: default 5 for a new run; otherwise use the frozen release value');a=p.parse_args();run=a.run.resolve();run.mkdir(parents=True,exist_ok=True);allrows=art.manifest()['cases']
     if a.command=='pause':save(run/'STOP_DISPATCH',{'reason':'user_pause','policy':'drain active tasks'});return
-    if a.command in {'prepare','resume-prepare','migrate-pipeline'}:
+    if a.command in {'prepare','resume-prepare','migrate-pipeline','import-preparation'}:
         # Share dispatch's exclusive lease before selection/release initialization.
         with (run/'controller.lock').open('a+') as lease:
             fcntl.flock(lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -278,6 +280,11 @@ def execute(a,run,allrows):
     if a.command=='report':print(json.dumps(report(run,rows),indent=2));return
     if a.command=='migrate-pipeline':return migrate_pipeline(run,rows,a.workers,a.from_identity)
     rel=release(run,rows,a.workers);fpp_budget.initialize(run,rel)
+    if a.command=='import-preparation':
+        from .fpp_preparation_import import import_preparation
+        if not a.from_run or not a.from_identity:raise Failure('preparation_import_rejected','Require --from-run and --from-identity')
+        result=import_preparation(run,rows,rel,a.from_run,a.from_identity)
+        print(json.dumps({'status':result['status'],'imported':len(result['imported']),'unprepared':len(result['unprepared']),'model_calls':0}),flush=True);return
     if a.command in {'prepare','resume-prepare'}:
         stop=run/'STOP_DISPATCH'
         if stop.exists():

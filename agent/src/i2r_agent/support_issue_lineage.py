@@ -17,8 +17,10 @@ def migrate(state,frozen,updated,audit):
     """No closure here. Replay the already accepted binding edit, then move all matching occurrences."""
     from .segmented_test_audit import revise,exhaustiveness_revision,macro_separator_revision
     path=Path(audit);method=updated.get('binding_audit',{}).get('method')
-    if method=='source-pattern-check-v1':
+    if method in {'source-pattern-check-v1','source-resource-check-v1'}:
         from .source_pattern_revision import apply as pattern_revision,verify_repair_receipt
+        if method=='source-resource-check-v1':
+            from .source_resource_revision import apply as pattern_revision
         diagnosis=read(path/'diagnosis.json');patch_path=Path(diagnosis.get('patch_path',''))
         verify_repair_receipt(diagnosis.get('patch_provider_receipt'))
         record=read(patch_path/'record.json')

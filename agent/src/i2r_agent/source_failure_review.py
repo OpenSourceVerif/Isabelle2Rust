@@ -12,12 +12,18 @@ from .source_failure_check import lock
 POLICY='failure-responsibility-independent-source-check-v1'
 SYSTEM=full.SYSTEM.replace('the COMPLETE source-test suite before execution','the COMPLETE selected failure responsibility after an actual execution failure').replace('Inspect all actual injected','Inspect all selected actual injected')+' Acceptance means these tests are source-correct, NOT that the candidate passed. Determine premises, helper/observation adaptation and expectations from source. The trigger supplies exact failed test IDs only; observed candidate outputs are intentionally absent. A protected oracle revision must receive a new complete scope judgment before it is executed. Never judge unrelated unprovided test responsibilities.'
 SYSTEM+=' Review-only projection may retain exact failed functions and their conservatively resolved helpers/imports/types. Check every projected inventory/obligation; omitted execution tests remain in the original suite and are not part of this judgment. Projection provenance binds original bytes. Never infer whole-suite acceptance from a projected judgment.'
+SYSTEM+=' A resource crash is not evidence that a test is wrong. When resource_failure is supplied, independently derive the actual input cost from source recursion/iteration/enumeration/output equations. If and only if infeasible, use needs_revision, mark the affected test wrong, and provide resource_assessment following the supplied schema with existing source evidence IDs. Keep every obligation and feasible large-data coverage. If the original source test is feasible and correct, accept (candidate repair remains required); if evidence is insufficient, use inconclusive. A revised resource example requires fresh independent checking of every changed input/expected pair and retained responsibility; prior crash evidence never proves its expected output.'
 MAX_COMPLETED_PER_RESPONSIBILITY=2
 
 def fail(message,evidence=None):raise Failure('source_check_unresolved',message,evidence)
 def failed_ids(frozen,result):
  if result.get('status')!='support_contract_failed' or result.get('compilation',{}).get('status')!='passed':fail('Only executed semantic source-test failure admits this checker')
  found=re.findall(r'^test ([\w:]+)(?: - should panic)? \.\.\. FAILED$',result.get('diagnostic',''),re.M)
+ from .source_resources import bound
+ resource=bound(frozen,result)
+ if resource:
+  if not resource['scope_bound']:fail('Resource failure lacks an exact executed test scope; bounded isolation did not resolve it',resource)
+  found+=[name for name in resource['failed_test_ids'] if name not in found]
  known={r['id'] for r in full.inventory(frozen)}
  if not found or len(found)!=len(set(found)) or set(found)-known:fail('Missing/unknown exact libtest failed IDs; never guess failure scope',{'failed_ids':found,'unknown':sorted(set(found)-known)})
  return sorted(found)
@@ -57,6 +63,10 @@ def payload(frozen,state,cfg,failed):
  # Matching selected API declarations may add concrete type/instance source mappings.
  ids|=set(needed(model,{r['source'] for r in canonical if r.get('rust_item') in selected}));mapping=[r for r in canonical if r['source'] in ids]
  material={'task':'Check every listed test/obligation in this complete failure responsibility, including complete test helpers and expectations. accept means test_correct; test_wrong permits only strictly source-proven protected expectation repair. No candidate output is supplied.','policy':POLICY,'response_protocol':full.PROTOCOL,'failure_scope':scope,'inventory':inv,'tests':projected['tests'],'unit_tests':projected['unit_tests'],'obligations':obs,'source':pages(model,ids,cfg['segmented']['source_page_characters']),'interfaces':{n:api[n] for n in sorted(selected) if n in api},'mapping':mapping,'numeric_policy':state['bundle']['numeric_policy'],'rust_config':state['rust_config'],'framework_and_template_provenance':{k:frozen.get(k) for k in ['test_framework','source_contract_templates','author_group_plan']},'source_hashes':state['bundle'].get('source_hashes'),'source_scope':{'responsibility_roots':sorted(roots),'test_referenced_sources':sorted(referenced),'dependency_closure':sorted(ids),'all_required_source_fields_retained':True}}
+ resource=frozen.get('resource_revision_origin') or state.get('source_failure_resource_origins',{}).get(frozen['identity'])
+ if resource:
+  from .source_resource_revision import ASSESSMENT
+  material.update(resource_failure=resource,resource_assessment_schema=ASSESSMENT,resource_revision=bool(frozen.get('resource_revision_origin')))
  from .expectation_targets import attach
  return attach(frozen,state,material)
 def validation_scope(frozen,material,state=None):
@@ -79,7 +89,11 @@ def check(frozen,result,state,cfg,provider,directory,revision=None):
  if revision:
   if revision.get('suite_identity')!=frozen['identity'] or not (frozen.get('source_check') or revision.get('scope_refresh')):fail('Oracle revision scope lacks protected source-check lineage')
   failed=revision['failed_test_ids']
- else:failed=failed_ids(frozen,result)
+ else:
+  failed=failed_ids(frozen,result)
+  from .source_resources import bound
+  resource=bound(frozen,result)
+  if resource:state.setdefault('source_failure_resource_origins',{})[frozen['identity']]=resource
  material=payload(frozen,state,cfg,failed);save(directory/'mapping-provenance'/(fingerprint(state['mapping'])+'.json'),state['mapping']);key=key_for(material,cfg);responsibility_scope=selection(frozen,failed)[0];responsibility=fingerprint({'artifacts':responsibility_scope['artifacts'],'tests':responsibility_scope['test_ids'],'obligations':responsibility_scope['obligation_ids']})
  save(directory/'failures'/(fingerprint([lock(state),result,frozen['identity']])+'.json'),{'failure':result,'candidate_lock':lock(state),'suite_identity':frozen['identity'],'revision':revision,'not_checker_input':True})
  lp=directory/'ledger.json';ledger=read(lp) if lp.exists() else {'policy':POLICY,'attempts':[]}
@@ -100,11 +114,16 @@ def check(frozen,result,state,cfg,provider,directory,revision=None):
  if verdict['action']=='accept':return {'action':'accept_revision' if revision else 'candidate_repair','source_check':evidence,'evidence':str(path)}
  if verdict['action']=='needs_revision':
   if revision or sum(r.get('responsibility')==responsibility for r in completed)>=MAX_COMPLETED_PER_RESPONSIBILITY:fail('No further pattern revision after the final permitted independent judgment',evidence)
-  from .source_pattern_revision import propose
-  updated=propose(frozen,verdict,state,material,cfg,provider,path/'pattern-repair',result)
+  if verdict.get('resource_assessment'):
+   from .source_resource_revision import propose
+   method='source-resource-check-v1'
+  else:
+   from .source_pattern_revision import propose
+   method='source-pattern-check-v1'
+  updated=propose(frozen,verdict,state,material,cfg,provider,path/'restricted-repair',result)
  elif verdict['action']=='test_wrong':updated=full.revise(frozen,verdict,state,material)
  else:fail('Failure source semantics remain unresolved; preserve tests and stop',evidence)
- save(path/'diagnosis.json',updated['source_check']);updated['binding_audit']={'method':'source-pattern-check-v1' if verdict['action']=='needs_revision' else 'source-expectation-check-v1','path':str(path),'second_model_review':True}
+ save(path/'diagnosis.json',updated['source_check']);updated['binding_audit']={'method':method if verdict['action']=='needs_revision' else 'source-expectation-check-v1','path':str(path),'second_model_review':True}
  return {'action':'binding_fix','frozen':updated,'source_check':evidence,'evidence':str(path),'revision_review':{'suite_identity':updated['identity'],'failed_test_ids':failed,'origin_evidence':str(path),'original_failure':result}}
 
 def require_revision(frozen,state,cfg,accepted):
