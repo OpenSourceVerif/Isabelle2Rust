@@ -23,7 +23,8 @@
     "seed": 2026110901,
     "process_timeout": 30,
     "clippy": "off",
-    "reference_policy": "available-per-input-v1"
+    "reference_policy": "available-per-input-v1",
+    "reference_numeric_profile": "dashu"
   },
   "source_optimization": {
     "enabled": false,
@@ -57,7 +58,7 @@
   },
   "preprocessing": {
     "mode": "auto",
-    "numeric_mode": "checked",
+    "numeric_mode": "arbitrary",
     "max_plan_attempts": 0,
     "max_context_chars": 180000,
     "include_adapter_reference": false,
@@ -66,7 +67,8 @@
       "temperature": 0.2,
       "thinking": "enabled",
       "reasoning_effort": "low"
-    }
+    },
+    "numeric_library": "dashu-int"
   },
   "context_management": {
     "enabled": true,

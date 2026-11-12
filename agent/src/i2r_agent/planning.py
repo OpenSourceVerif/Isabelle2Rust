@@ -72,7 +72,8 @@ def numeric_policy(cfg):
     return {'mode':mode,'bounded_indices_allowed':True,'source_words':'preserve source modular semantics',
             'experiment_input_domain':{'max_input_bits':bits or None,
                 'meaning':'Explicit bound on observation input values only; intermediate/output ranges still require analysis. It is not a Rust representation selection.'},
-            'overflow':'explicit checked error, never silent mathematical wrap',
+            'overflow':('explicit checked error, never silent mathematical wrap' if mode=='checked' else
+                'unbounded mathematical nat/int/integer: no u128/i128 overflow boundary; preserve exact values. Finite resource limits are not arithmetic results.'),
             'arbitrary_required_for_mathematical_values':mode=='arbitrary',
             'representation_selection':('Checked mode: default nat u128 and int/integer i128; report exceeded input/intermediate ranges. Use native operations when suitable to source behavior.'
                 if mode=='checked' else 'Arbitrary mode: preserve unbounded mathematical nat/int values with a model-selected representation/library. Container-derived indices may use bounded native types when their origin establishes that bound.')}

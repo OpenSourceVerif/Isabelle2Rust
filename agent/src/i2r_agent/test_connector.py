@@ -62,6 +62,7 @@ fn main() {
 
 
 def connect(project,crate,files,mapping,plan,cfg,provider,directory,previous=None,feedback=None,context_directory=None,original_issue=None,observation_material=None):
+    from .source_input import numeric_contract
     directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
     transport=cfg['testing']['transport']
     if transport not in TYPES:raise Failure('unsupported_transport',transport)
@@ -98,6 +99,7 @@ def connect(project,crate,files,mapping,plan,cfg,provider,directory,previous=Non
         'wire_type':TYPES[transport],'scenario_sources':{name:(Path(project)/name).read_text() for name in ['Model.thy','Kernel.thy']},
         'input_contract':read(Path(project)/'case.json').get('contract','') if (Path(project)/'case.json').exists() else '',
         'numeric_mode':cfg['preprocessing']['numeric_mode'],
+        'numeric_policy':numeric_contract(cfg),
         'algorithm_files':files,'mapping':mapping,'algorithm_dependencies':plan.get('dependencies',{}),
         'algorithm_rust_config':plan.get('rust_config'),
         'previous_connector':previous,'feedback':feedback}

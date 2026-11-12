@@ -1,6 +1,6 @@
 # Isabelle2Rust FPP artifact
 
-This artifact adds the Agent to Isabelle2Rust main `a792fd464574bc8fd3274c282974403d779de92e`. The original `translate/`, `optimize/`, and `test/` remain intact, including HCT. This Agent experiment selects only FPP.
+This artifact adds the Agent and a Dashu numeric profile to Isabelle2Rust main `a792fd464574bc8fd3274c282974403d779de92e`. Existing BigInt and Checked128 profiles, the optimizer and the original tests (including HCT) remain available. This Agent experiment selects only FPP.
 
 The Agent analyzes source dependencies, generates and compiles Rust, validates source tests, then runs fixed/generated differential checks. Source pages retain exact constructor evidence in a reversible typed tree with shared type definitions; original paths, ordered fields and hashes are checked against the source AST. Unsupported tree shapes retain their raw evidence. Paging requires exact page IDs and retained reading notes, with explicit feedback for malformed requests and repeated unread-page sets. Expectation corrections preserve AST, expected-slot, source-citation, unchanged-input, obligation and test-strength checks; string and character contents are treated as data. The direct runner uses portable repository discovery and main-layout compatibility without historical runner chains or model checkpoints.
 
@@ -46,6 +46,19 @@ artifact/run-fpp --run artifact/runs/fpp-full report
 `run` uses DeepSeek Flash with the concurrency frozen by `prepare --workers N` (default **5**, explicitly **10** above). Later commands, including resume and child workers, inherit that value; an explicit different value is rejected. Mechanical preparation remains sequential. Each task has **48 attempted requests and 4200 active seconds**, including charged preparation and previous transport segments. The global reservation ceiling is the sum of the per-task limits. Requests reserve a slot atomically before network submission; a crash does not refund a reservation. A controller lock inherited by children prevents overlapping controllers. Pause stops new dispatch and drains active tasks. Resume retains the same release/configuration identity, request ledger, model state and prior costs. Transport continuation archives previous outcomes and restores only the transport control penalty; repeated transport errors pause for investigation. Unreconciled crashed worker markers stop automatic restart.
 
 The frozen workflow repairs source tests first, runs differential acceptance afterward, and calls an independent source checker only on actual semantic source-test failure. Generation output limit is 32768; the source-checker override remains 65536. Performance review, measurement, optimization and a separate final-test phase are disabled by correctness-only configuration. Inputs/expected outputs are never changed to fit a candidate.
+
+Correctness uses `arbitrary` arithmetic: mathematical `nat` is Dashu `UBig`, and `int`/`integer` are `IBig`, with `dashu-int =0.6.2`. Both Rust reference stages use the same library. Source subtraction, division by zero, signed floor division and numeric conversions retain Isabelle semantics. The locked FPP observations remain unchanged; separate numeric checks include values above 128 bits. Unbounded representation does not mean these finite observations exhaust the mathematical input domain. A future performance experiment should select a separate Checked128 configuration and its bounded input contract; this run does not measure performance.
+
+For direct Stage1 use, import the new profile and keep the normal export command:
+
+```isabelle
+theory Example imports "Rust.Rust_Dashu_Setup" begin
+definition increment :: "nat => nat" where "increment n = n + 1"
+export_code increment in Rust module_name Example
+end
+```
+
+The exported Cargo crate declares the pinned Dashu dependency. Pass that crate to the existing Stage2 optimizer; Stage2 consumes the Dashu Stage1 code directly, without renaming BigInt types after export.
 
 `report.json` contains accepted/completed and accepted/all-root rates, failures, attempted calls, known tokens and unknown usage. The first-complete automatic rate is emitted only after all selected tasks finish; built-in model repairs count, later human framework repairs do not. The target is at least 95% of all 313 roots. A lower result is reported without an automatic framework iteration.
 

@@ -15,12 +15,13 @@ def cargo(cfg, *args):
     return [cfg["tools"]["cargo"], "+"+cfg["tools"]["rust_toolchain"], *map(str,args)]
 
 
-def rust_driver(module, reference=False, borrowed=False, transport='dashu-ubig',kernel=False,kernel_modules=None,timing=True):
+def rust_driver(module, reference=False, borrowed=False, transport='dashu-ubig',kernel=False,kernel_modules=None,timing=True,reference_numeric='bigint'):
     numeric={'dashu-ubig':'dashu_int::UBig','dashu-ibig':'dashu_int::IBig','bigint':'num_bigint::BigInt'}[transport]
     setup=f'use {numeric} as WireInt;\n'
     if reference:
-        setup+=f'use isabelle_exported::{module}::{{observe,List}};\nuse num_bigint::BigInt;\n'
-        convert='let input=values.iter().rev().fold(List::Nil, |tail,x|List::Cons(x.to_string().parse::<BigInt>().unwrap(),Box::new(tail)));'
+        ref_type={'bigint':'num_bigint::BigInt','dashu':'dashu_int::UBig'}[reference_numeric]
+        setup+=f'use isabelle_exported::{module}::{{observe,List}};\nuse {ref_type} as ReferenceNat;\n'
+        convert='let input=values.iter().rev().fold(List::Nil, |tail,x|List::Cons(x.to_string().parse::<ReferenceNat>().unwrap(),Box::new(tail)));'
         normal='observe('+('&' if borrowed else '')+'input)'
         encode='let mut words=Vec::new(); let mut rest=output; while let List::Cons(x,tail)=rest { words.push(x.to_string()); rest=*tail; }'
         calls={}

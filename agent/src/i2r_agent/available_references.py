@@ -11,11 +11,12 @@ POLICY='available-per-input-v1'
 def export_target(project,cfg,work,executor,target):
     tools=tool_sources.manifest();project=Path(project);work=Path(work);work.mkdir(parents=True,exist_ok=True)
     theories,sessions=project_info(project)
+    dashu=cfg.get('testing',{}).get('reference_numeric_profile')=='dashu'
     for p in project.rglob('*'):
         if p.is_file() and p.suffix in {'.thy','.ML'}:
             dest=work/p.relative_to(project);dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,dest)
     for theory in theories:
-        p=work/(theory+'.thy');text=p.read_text().replace('"I2R_Agent.Agent_Export"','"Rust.Rust_BigInt_Setup"')
+        p=work/(theory+'.thy');text=p.read_text().replace('"I2R_Agent.Agent_Export"','"Rust.Rust_Dashu_Setup"' if dashu else '"Rust.Rust_BigInt_Setup"')
         pattern=r'(export_code\s+[\s\S]*?\s+in\s+)Rust_Agent(\s+module_name\s+\w+)'
         def replace(m):
             roots=m[1] if target=='Rust' else re.sub(r'\s+in\s+$',' nat_of_integer integer_of_nat in ',m[1])
@@ -41,10 +42,11 @@ def setup_rust(crate_source,project,cfg,work,executor):
     original_manifest=manifest.read_text()
     pinned=re.sub(r'(num-bigint\s*=\s*)"[^"]+"',r'\1"=0.4.6"',original_manifest)
     pinned=re.sub(r'(num-traits\s*=\s*)"[^"]+"',r'\1"=0.2.19"',pinned)
-    pinned=pinned.replace('[dependencies]','[dependencies]\ndashu-int = { version = "=0.6.2", default-features = false, features = ["std"] }',1)
+    if not re.search(r'^dashu-int\s*=',pinned,re.M):pinned=pinned.replace('[dependencies]','[dependencies]\ndashu-int = { version = "=0.6.2", default-features = false, features = ["std"] }',1)
     manifest.write_text(pinned)
     save(work/'reference-dependency-pinning.json',{'original':original_manifest,'pinned':pinned,
         'reason':'Pin reference numeric libraries and UBig test transport; candidate internals are independent'})
+    if cfg.get('testing',{}).get('reference_numeric_profile')=='dashu':return stage1
     stage2=work/'stage2'
     # The product's nat -> BigInt printing can erase the concrete dictionary
     # while generic exported operations still require Equal/Ord. This explicit
@@ -92,7 +94,7 @@ def compile_rust_reference(label,crate,cfg,executor):
         args=re.search(r'pub fn '+name+r'(?:<[^\n]*?>)?\s*\(([^)]*)\)',matches[0].read_text())
         if not args:raise Failure('missing_kernel_signature',name)
         kernel_modules[name]=(matches[0].stem,':' in args[1] and args[1].split(':',1)[1].strip().startswith('&'))
-    (crate/'src/main.rs').write_text(rust_driver(candidates[0].stem,True,':' in signature and '&' in signature.split(':',1)[1],kernel=True,kernel_modules=kernel_modules,timing=timing))
+    (crate/'src/main.rs').write_text(rust_driver(candidates[0].stem,True,':' in signature and '&' in signature.split(':',1)[1],kernel=True,kernel_modules=kernel_modules,timing=timing,reference_numeric=cfg.get('testing',{}).get('reference_numeric_profile','bigint')))
     check=compile_rust(crate,cfg,executor)
     result={**check,'crate':str(crate),'source':str(candidates[0]),'sha256':digest(candidates[0]),'kernel_modules':kernel_modules,'timing_protocol':'kernel-v1','kernel_behavior_argument':'--i2r-kernel-check','timing_enabled':timing}
     return result

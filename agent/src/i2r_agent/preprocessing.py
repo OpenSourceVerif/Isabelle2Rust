@@ -146,8 +146,8 @@ def preprocess(project, cfg, work, executor):
             'restriction':'Test transport only. Internal representations are independent.'})
     if not any(entry.endswith('.observe') for program in programs for entry in program['entries']):
         bundle.pop('observation_binding',None)
-    from .planning import numeric_policy
-    bundle['numeric_policy']=numeric_policy(cfg)
+    from .source_input import numeric_contract
+    bundle['numeric_policy']=numeric_contract(cfg)
     bundle['source_collection']={'policy':'Full source facts archived; agent views use source specifications, typed execution equations, uses, types/classes and effective binding boundaries.',
         'full_import_source_closure':False,'dependency_graph':'Agent-owned constant-occurrence/type graph; Thingol retained only for the existing target bridge and legacy audits'}
     bundle['workload']={'contract':metadata.get('contract'),'observed_wire_domain':metadata.get('observation'),

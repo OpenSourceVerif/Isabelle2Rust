@@ -51,6 +51,7 @@ def identity(case,bundle,cfg):
     if enabled(cfg):
         result.update(reference_policy=POLICY,availability_recipe_sha256=digest(Path(__file__).with_name('available_references.py')),
                       reference_adapter_sha256=digest(Path(__file__).with_name('reference_repairs.py')))
+        result['reference_numeric_profile']=cfg.get('testing',{}).get('reference_numeric_profile','bigint')
     return result
 
 

@@ -18,9 +18,9 @@ Source words have modular semantics at their actual width. A primitive word is s
 
 ## Checked and arbitrary modes
 
-The controller supplies the current policy. In checked mode an unrepresentable mathematical intermediate must follow its explicit error contract; wrapping and hidden arbitrary fallback are not acceptable. An algebraic rewrite can avoid a large intermediate only with a source-grounded equivalence argument and preserved boundary behavior. In arbitrary mode choose a library or representation supporting the actual range and operations, including conversion and signed behavior.
+The controller supplies the current policy. In checked mode an unrepresentable mathematical intermediate must follow its explicit error contract; wrapping and hidden arbitrary fallback are not acceptable. An algebraic rewrite can avoid a large intermediate only with a source-grounded equivalence argument and preserved boundary behavior. In arbitrary mode preserve unbounded mathematical values: prefer dashu-int =0.6.2 UBig for nat and IBig for int/integer, and follow an explicit numeric_library selection when supplied. Do not expect mathematical overflow at u128/i128 limits. Preserve conversions and signed behavior; Rust library division operators alone need not match the source.
 
-Positive example: a nonnegative mathematical sum known to exceed u128::MAX is greater than any u128 comparison value, so an overflow-aware comparison can sometimes determine its result without materializing the sum. Negative example: using the same shortcut when signed cancellation is possible, or when the exact sum is subsequently returned.
+Checked-mode positive example: a nonnegative mathematical sum known to exceed u128::MAX is greater than any u128 comparison value, so an overflow-aware comparison can sometimes determine its result without materializing the sum. Negative example: using the same shortcut when signed cancellation is possible, or when the exact sum is subsequently returned.
 
 Audit input conversion, support internals, callbacks, intermediate conversions and output conversion. Testing a few numeric results does not validate every conversion in the chain.
 
