@@ -58,3 +58,28 @@ agent/.venv/bin/pytest -q agent/tests/test_expectation_literal_tokens.py agent/t
 The Set0 archived full-proposal replay is engineering evidence, not a formal pass. The portable test includes the actual `revise` path and rejected open-expression controls. Differential checks provide finite behavioral evidence, not a proof of Rust equivalence. Input/wrapper provenance is retained in the manifest; the old experiments remain separate and paused. Machine-specific tool paths and generated artifacts are intentionally ignored by Git.
 
 The migration checks pass (25 targeted tests, including cross-process budget limits, pause control, source workflow, repository discovery and Set0). The inherited offline suite is **not all green**: its first full run produced 380 passes, 26 failures and two historical-asset skips. All 25 non-environment failures also fail against an isolated byte-identical v45 core. One missing-OCaml-PATH failure passes with the configured OCaml bin on PATH. The historical repair-evidence existence check is now explicitly excluded, alongside the old non-FPP catalog and obsolete derived-worker CLI checks; this leaves 24 existing v45 workflow/fixture failures disclosed, not repaired or suppressed. Historical advisory evidence paths remain provenance metadata; the runtime does not open those archives. Local engineering comparison logs live under ignored `artifact/runs/engineering/`.
+
+## Reference repair and fixed 48-task follow-up
+
+`reference-repair-r1.json` fixes the follow-up selection to all 48 roots whose Rust references failed to compile in the original frozen run. This selection is independent of Agent success. The original 313-root first pass remains a separate result; the follow-up is not a best-of retry. Report both outcomes and their cumulative requests/tokens. Combining the follow-up with the untouched 265 results produces a batch with two reference revisions, not a uniformly rerun 313-root experiment.
+
+The reference-only adapter runs once after a supported Stage1 compiler failure. It supplies generated BigInt class dictionaries for zero, one, addition and multiplication, replaces exact generated numeric panic stubs, and parenthesizes an `if` expression used as an addition operand. Subtraction requires an unambiguous Isabelle wrapper/root numeric instantiation: natural subtraction saturates at zero; integer subtraction stays signed. Ambiguous types are rejected. Real generated methods are preserved. The original failed build and the repair receipt are retained before recompiling Stage1 and reoptimizing Stage2. The source theories, observation wrappers, input suites, Agent implementation/prompts, and original translator/optimizer are unchanged by this reference recipe.
+
+Mechanical validation compiled both stages for all 48 roots and executed 548 fixed plus 1920 generated observations under each of the ordinary and kernel protocols. Stage1, Stage2 and the existing OCaml reference agreed on all of these finite observations. The other 265 original roots compiled successfully and do not trigger the repair. The old 48 unavailability records are preserved; they concern this BigInt observation export, not the original direct-export benchmark configurations.
+
+To reproduce the fixed follow-up with fresh model work, use a new run directory and the same environment setup above:
+
+```sh
+agent/.venv/bin/python - <<'PYTHON'
+import json, subprocess
+from pathlib import Path
+ids=json.loads(Path('artifact/reference-repair-r1.json').read_text())['ids']
+command=['artifact/run-fpp','--run','artifact/runs/fpp-reference-repair-r1','prepare']
+for case in ids: command += ['--case',case]
+subprocess.run(command,check=True)
+PYTHON
+artifact/run-fpp --run artifact/runs/fpp-reference-repair-r1 run
+artifact/run-fpp --run artifact/runs/fpp-reference-repair-r1 report
+```
+
+Pause/resume commands are identical to the full-run commands. Use one frozen revision for every selected task; do not import previous model analysis, authored tests, candidates, or checkpoints. The original source/input manifests and DeepSeek Flash budget settings remain fixed. Local engineering compiler logs stay in ignored run directories. The focused adapter regression is `agent/tests/test_reference_repairs.py`.

@@ -90,7 +90,9 @@ def prepare(row,run):
     if sorted(bundle['source_model']['entities'])!=row['closure']:raise Failure('closure_changed',row['id'])
     wrapper=source(p/'testing',work/'wrapper')
     # Ownership is resolved by the unchanged core during execution.
-    record=baselines.acquire(row['id'],p/'testing',knowledge_run.reference_bundle(p/'testing',bundle),cfg,work,ex,run/'baselines')
+    from .reference_repairs import numeric_domains
+    proof=numeric_domains(bundle['source_model'],wrapper['source_model'])
+    record=baselines.acquire(row['id'],p/'testing',knowledge_run.reference_bundle(p/'testing',bundle),cfg,work,ex,run/'baselines',numeric_proof=proof)
     refs=copy.deepcopy(record['references'])
     for ref in refs.values():ref.pop('outputs_path',None)
     suites={}

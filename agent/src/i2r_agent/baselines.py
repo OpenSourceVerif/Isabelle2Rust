@@ -49,7 +49,8 @@ def identity(case,bundle,cfg):
             'timing_enabled':not cfg.get('v8',{}).get('correctness_only')}
     from .reference_policy import enabled,POLICY
     if enabled(cfg):
-        result.update(reference_policy=POLICY,availability_recipe_sha256=digest(Path(__file__).with_name('available_references.py')))
+        result.update(reference_policy=POLICY,availability_recipe_sha256=digest(Path(__file__).with_name('available_references.py')),
+                      reference_adapter_sha256=digest(Path(__file__).with_name('reference_repairs.py')))
     return result
 
 
@@ -85,7 +86,7 @@ def existing_trial(key,cfg):
     return None,None
 
 
-def acquire(case,project,bundle,cfg,work,executor,store=None):
+def acquire(case,project,bundle,cfg,work,executor,store=None,numeric_proof=None):
     from .references import prepare_references
     from .reference_policy import enabled,POLICY
     if enabled(cfg):
@@ -116,7 +117,7 @@ def acquire(case,project,bundle,cfg,work,executor,store=None):
         if result:
             references=result['references'];acquisition='adopted_existing'
         else:
-            references=prepare_references(project,cfg,directory/'build',executor);acquisition='built_once'
+            references=prepare_references(project,cfg,directory/'build',executor,**({'numeric_proof':numeric_proof} if enabled(cfg) else {}));acquisition='built_once'
         if "tool_sources" in key:tool_sources.verify(key["tool_sources"])
         copied={}
         for name,ref in references.items():

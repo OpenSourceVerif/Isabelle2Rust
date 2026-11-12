@@ -135,7 +135,7 @@ def failure(error,phase,dependencies):
     return {'status':'reference_failed','phase':phase,'failure':{'code':error.code,'message':str(error),'evidence':error.evidence},'depends_on':dependencies,'availability_policy':POLICY}
 
 
-def prepare(project,cfg,work,executor):
+def prepare(project,cfg,work,executor,numeric_proof=None):
     work=Path(work);work.mkdir(parents=True,exist_ok=True);result={};stage1=None
     try:
         exported=export_target(project,cfg,work/'rust-export',executor,'Rust');crates=list(exported.rglob('Cargo.toml'))
@@ -147,6 +147,23 @@ def prepare(project,cfg,work,executor):
     if stage1 is not None:
         try:result['stage1']={**compile_rust_reference('stage1',stage1,cfg,executor),'depends_on':['rust_export']}
         except Failure as error:result['stage1']=failure(error,'stage1_compile',['rust_export'])
+        before=result['stage1']
+        diagnostic=before.get('checks',{}).get('build',{}).get('stderr')
+        if before.get('status')=='compile_failed' and diagnostic:
+            from . import reference_repairs
+            text=Path(diagnostic).read_text()
+            if reference_repairs.supports(text):
+                save(work/'stage1-before-reference-repair.json',before)
+                try:
+                    receipt=reference_repairs.apply(stage1,text,numeric_proof or {})
+                except ValueError as error:
+                    # Fail closed, retain the original compiler evidence and source.
+                    before['reference_repair_rejected']=str(error)
+                else:
+                    save(work/'reference-repair.json',receipt)
+                    after=compile_rust_reference('stage1',stage1,cfg,executor)
+                    result['stage1']={**after,'depends_on':['rust_export'],
+                        'reference_repair':{'before':before,'receipt':receipt}}
         # A failed stage1 compilation does not imply that optimizer parsing/build
         # failed. Stage2 consumes its source, not the stage1 executable.
         try:
