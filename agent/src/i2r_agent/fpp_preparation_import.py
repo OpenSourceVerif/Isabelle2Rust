@@ -23,8 +23,8 @@ PREPARATION_NEUTRAL_CHANGES={
  # Reviewed primitive contract / source-test responsibility changes. Mechanical
  # source_cache excludes semantic_analysis, segmentation and candidate state;
  # extraction, references, numeric configuration and tools still match exactly.
- 'default_adaptations','native_numeric_contracts','segmented_v8',
- 'source_suite_review','support_scope','v8_support']}
+ 'default_adaptations','native_numeric_contracts','translation_workflow',
+ 'source_suite_review','support_scope','test_obligations']}
 PREPARATION_NEUTRAL_CHANGES.add('artifact/README.md')
 SUITES=('ordinary_fixed','ordinary_generated','kernel_fixed','kernel_generated')
 
@@ -130,7 +130,7 @@ def baseline_config(row,run,ad,conf):
     expected=deepcopy(ad['config'])
     expected['preprocessing']['source_cache']={'path':ad['source_cache'],'sha256':ad['source_sha256']}
     expected['testing']['observation_source']={'enabled':True,'artifact':ad['wrapper'],'sha256':ad['wrapper_sha256']}
-    if expected['generation']['workflow']=='segmented-v8' and expected.get('v8',{}).get('correctness_only'):
+    if expected['generation']['workflow']=='source-translation' and expected.get('translation',{}).get('correctness_only'):
         from .segmented_config import configure
         expected=configure(expected)
     if expected['testing'].get('transport')=='auto':

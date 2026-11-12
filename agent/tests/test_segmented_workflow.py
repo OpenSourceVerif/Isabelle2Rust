@@ -7,11 +7,11 @@ from i2r_agent.common import config, merge, read, ROOT, Failure, Executor
 from i2r_agent.segmentation import graph, partition, consumers
 from i2r_agent.segmented_config import configure, rust_config, materialize, origins
 from i2r_agent.segmented_contract import items, resolve, coverage
-from i2r_agent.segmented_run import search, apply_transaction
+from i2r_agent.segmented_run import apply_transaction
 
 
 def cfg():
-    return configure(merge(config(),read(Path(__file__).parent/'fixtures/segmented-source.json')['base']))
+    return configure(merge(config(),read(Path(__file__).parent/'fixtures/shared-workflow-config.json')['base']))
 
 
 def source():
@@ -21,7 +21,7 @@ def source():
             'dependencies':deps,'execution_equations':[],'callers':[]}
     model={'kind':'isabelle2rust-program','schema_version':1,'entries':['constant:A.f'],
         'entities':entities,'uses':[],'recursive_groups':[],'provenance':{}}
-    b={'workflow':'segmented-v7','source_model':model,'original_source_model':deepcopy(model),
+    b={'workflow':'source-translation','source_model':model,'original_source_model':deepcopy(model),
        'programs':[{'entries':model['entries'],'nodes':[],'sccs':[]}], 'sources':{},'source_catalog':[],
        'numeric_policy':{'mode':'checked'},'semantic_analysis':{'opportunities':[]},'rust_config':rust_config({},cfg())}
     b['segmentation']=partition(model)
@@ -124,31 +124,6 @@ class SegmentationTests(unittest.TestCase):
             updated=apply_transaction(s,{'edits':[{'file':'src/lib.rs','old':'{1}','new':'{2}'}]},cfg(),d)
         self.assertFalse(updated['completed']);self.assertEqual(s['completed'],p['order'])
 
-    def test_real_cumulative_compile_sequence_and_checkpoint_resume(self):
-        c=cfg();c['segmented']['development_performance']=False;c['segmented']['support_tests']=False;b=source();phases=[]
-        provider=Mock();provider.calls=0;provider.usage={}
-        def ask_model(provider,cfg,path,p,analysis=False):
-            provider.calls+=1;phase=p['controller_state']['phase'];phases.append(phase)
-            if phase=='generate':
-                n=p['unit']['members'][0].rsplit('.',1)[-1]
-                code=p['current_files']['src/lib.rs']+'\npub fn '+n+'()->u128 {'+('1' if n=='h' else 'h()+1')+'}\n'
-                return {'action':'generate','files':{'src/lib.rs':code},'mapping':[mapping(n)]}
-            ids=sorted({x['source'] for x in p['page_catalog']})
-            return {'action':'accept','quality_review':'All equations and interfaces inspected',
-                'reviewed_sources':ids,'reviewed_pages':[x['id'] for x in p['page_catalog']], 'reviewed_code_pages':[x['id'] for x in p['code_page_catalog']],
-                'algorithm_routes':route_reviews(p),'review_checks':{k:'checked against source and actual implementation' for k in c['segmented']['review_categories']}}
-        with tempfile.TemporaryDirectory() as d:
-            w=Path(d);ex=Executor(w/'commands')
-            with patch('i2r_agent.segmented_run.ask',side_effect=ask_model):
-                attempts,done=search(b,None,c,provider,w,ex,None,[],[],w/'regressions.json',lambda _:None)
-            self.assertEqual(phases,['generate','refine','generate','refine','whole_review'])
-            self.assertEqual(len(done),1)
-            checks=[x for x in attempts if 'compilation' in x]
-            self.assertEqual(len(checks),3);self.assertTrue(all(x['compilation']['status']=='passed' for x in checks))
-            count=provider.calls
-            _,again=search(b,None,c,provider,w,ex,None,[],[],w/'regressions.json',lambda _:None)
-            self.assertEqual(provider.calls,count);self.assertEqual(again[0]['status'],'passed')
-
 
     def test_paged_review_cannot_accept_unread_source(self):
         from i2r_agent.segmented_run import payload, validate_review
@@ -191,7 +166,8 @@ class SegmentationTests(unittest.TestCase):
             observed=set(p['read_pages'])|{x['id'] for x in current};missing=[x['id'] for x in p['page_catalog'] if x['id'] not in observed]
             calls.append(p)
             if missing:return {'request_pages':missing,'reading_notes':{x['id']:'Exact source conditions and dependencies retained' for x in current}}
-            return {'opportunities':[],'boundaries':[],'rust_config':{},'analysis_coverage':list(p['executable_graph']['edges'])}
+            return {'opportunities':[],'boundaries':[],'rust_config':{},'analysis_coverage':list(p['executable_graph']['edges']),
+                    'semantic_obligations':[{'source':n,'operation':'retain the supplied source call','rust_representation':'same callable interface','conditions':['source preconditions'],'boundary_cases':['source-defined base case'],'verification':['independent source cases']} for n in p['executable_graph']['edges']]}
         with tempfile.TemporaryDirectory() as d,patch('i2r_agent.segmented_context.ask',side_effect=answer):
             analyzed,_=analyze(b,c,Mock(),d)
             evidence=read(Path(d)/'reading-evidence.json')
@@ -307,32 +283,6 @@ class SegmentationTests(unittest.TestCase):
             self.assertEqual(result['status'],'passed');self.assertEqual(result['tests_passed'],2)
             self.assertEqual((crate/'src/lib.rs').read_text(),before)
 
-    def test_bad_test_import_is_audited_without_changing_algorithm(self):
-        from i2r_agent.segmented_test_audit import revise
-        c=cfg();c['segmented']['development_performance']=False;b=source();phases=[]
-        provider=Mock();provider.calls=0;provider.usage={}
-        frozen={'identity':'frozen-oracle','tests':['use missing::f; #[test] fn original(){assert_eq!(f(),2);}'],'unit_tests':[],
-            'obligations':[{'source':'constant:A.f','case':'original','expected_basis':'2'}]}
-        def ask_model(provider,cfg,path,p,analysis=False):
-            phase=p['controller_state']['phase'];phases.append(phase)
-            if phase=='generate':
-                n=p['unit']['members'][0].rsplit('.',1)[-1]
-                return {'files':{'src/lib.rs':p['current_files']['src/lib.rs']+'\npub fn '+n+'()->u128{'+('1' if n=='h' else 'h()+1')+'}'},'mapping':[mapping(n)]}
-            return {'action':'accept','quality_review':'source checked','reviewed_sources':p['required_review_sources'],
-                'reviewed_pages':[x['id'] for x in p['page_catalog']], 'reviewed_code_pages':[x['id'] for x in p['code_page_catalog']],'algorithm_routes':route_reviews(p),'review_checks':{k:'checked' for k in c['segmented']['review_categories']}}
-        def prepare(s,c,p,d):
-            from i2r_agent.common import save
-            save(Path(d)/(frozen['identity']+'.json'),frozen);return frozen
-        def audit(f,result,s,c,p,d):
-            self.assertEqual(result['status'],'support_test_compile_failed')
-            corrected=revise(f,{'reason':'test import only','edits':[{'kind':'integration','index':0,'old':'missing::f','new':'i2r_candidate::f'}]},s)
-            return {'action':'binding_fix','frozen':corrected,'evidence':str(d)}
-        with tempfile.TemporaryDirectory() as d, patch('i2r_agent.segmented_run.ask',side_effect=ask_model),patch('i2r_agent.segmented_support.prepare',side_effect=prepare),patch('i2r_agent.segmented_test_audit.adjudicate',side_effect=audit):
-            w=Path(d);attempts,done=search(b,None,c,provider,w,Executor(w/'commands'),None,[],[],w/'regressions.json',lambda _:None)
-            self.assertEqual(done[0]['status'],'passed');self.assertNotIn('repair',phases)
-            issue=next(f for f in done[0]['failures'] if f['kind']=='support')
-            self.assertEqual(issue['status'],'closed');self.assertEqual(issue['original_frozen_identity'],'frozen-oracle')
-            self.assertEqual(read(w/'support-tests/frozen-oracle.json'),frozen)
 
     def test_intrinsic_boundary_is_recorded_without_spurious_unit(self):
         b=source();p=partition(b['source_model'],[{'source':'class:HOL.type','kind':'native','basis':'logical sort','conditions':['no runtime dictionary']}])
@@ -345,29 +295,6 @@ class SegmentationTests(unittest.TestCase):
             with self.assertRaises(Failure) as e:
                 apply_transaction(s,{'files':{'src/lib.rs':'fn f(){}'},'mapping':[mapping('f')]},cfg(),d)
             self.assertEqual(e.exception.code,'future_unit_generation')
-
-    def test_compiler_repair_requires_another_quality_review(self):
-        c=cfg();c['segmented']['support_tests']=False;c['testing']['clippy']='off';b=source();phases=[]
-        provider=Mock();provider.calls=0;provider.usage={}
-        def ask_model(provider,cfg,path,p,analysis=False):
-            provider.calls+=1;phase=p['controller_state']['phase'];phases.append(phase)
-            if phase=='generate':
-                n=p['unit']['members'][0].rsplit('.',1)[-1]
-                code=p['current_files']['src/lib.rs']+'\npub fn '+n+'()->u128 {'+('false' if n=='h' else 'h()+1')+'}\n'
-                return {'action':'generate','files':{'src/lib.rs':code},'mapping':[mapping(n)]}
-            if phase=='repair':
-                self.assertTrue(p['feedback']['diagnostics'])
-                return {'action':'generate','edits':[{'file':'src/lib.rs','old':'false','new':'1'}]}
-            return {'action':'accept','quality_review':'reviewed',
-                'reviewed_sources':sorted({x['source'] for x in p['page_catalog']}),
-                'reviewed_pages':[x['id'] for x in p['page_catalog']], 'reviewed_code_pages':[x['id'] for x in p['code_page_catalog']],
-                'algorithm_routes':route_reviews(p),'review_checks':{k:'source checked' for k in c['segmented']['review_categories']}}
-        with tempfile.TemporaryDirectory() as d:
-            w=Path(d)
-            with patch('i2r_agent.segmented_run.ask',side_effect=ask_model):
-                attempts,done=search(b,None,c,provider,w,Executor(w/'commands'),None,[],[],w/'regressions.json',lambda _:None)
-            self.assertEqual(phases[:4],['generate','refine','repair','refine'])
-            self.assertTrue(done);self.assertTrue(all(f['status']=='closed' for f in done[0]['failures']))
 
 
     def test_rust_cfg_and_feature_are_used_by_actual_compiler(self):

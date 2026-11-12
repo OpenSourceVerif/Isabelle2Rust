@@ -9,7 +9,7 @@ from i2r_agent.segmented_config import configure, rust_config
 
 class SupportProtocolTest(unittest.TestCase):
     def test_invalid_composite_source_has_actionable_retry_without_oracle_changes(self):
-        cfg = configure(merge(config(), read(Path(__file__).parent/'fixtures/segmented-source.json')['base']))
+        cfg = configure(merge(config(), read(Path(__file__).parent/'fixtures/shared-workflow-config.json')['base']))
         source_id = 'constant:A.f'
         state = {'bundle':{'source_model':{'entities':{source_id:{'id':source_id,'name':'A.f','kind':'constant',
                  'execution_equations':[]}},'entries':[source_id]},'numeric_policy':{'mode':'checked'}},
@@ -23,7 +23,7 @@ class SupportProtocolTest(unittest.TestCase):
             prior = payload['prior_authoring_failure']
             if prior:
                 self.assertEqual(prior['evidence']['valid_source_ids'], [source_id])
-                self.assertIn('EXACTLY ONE', prior['message'])
+                self.assertIn('one exact source ID', prior['message'])
             return {'test_source':code,'obligations':[{'source':source_id if prior else invalid_source,
                     'case':'f()','expected_basis':basis,'test_name':'source_value'}]}
         for invalid_source in [source_id+' equations 0 and 1', 'crate::f']:

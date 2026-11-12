@@ -2,7 +2,7 @@ import tempfile,unittest
 from pathlib import Path
 from i2r_agent.common import Failure
 from i2r_agent.segmented_support import source_review,author_group_scope
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 class SourceLengthBudget(unittest.TestCase):
  def test_two_length_failures_persist_across_attempts_and_feedback(self):

@@ -7,7 +7,7 @@ from .task_context import fingerprint
 
 
 def binding(state,frozen):
-    from .segmented_v8 import version
+    from .translation_workflow import version
     return {'candidate':version(state),
             'source':fingerprint({k:state['bundle'].get(k) for k in ['source_model','original_source_model','numeric_policy','source_hashes']}),
             'suite':fingerprint({k:frozen.get(k) for k in ['identity','tests','unit_tests','obligations','author_group_plan']})}

@@ -272,7 +272,7 @@ For a wrong mathematical expectation or disputed source domain, return action:or
         'interfaces':interfaces(state['files']),
         'rust_config':state['rust_config']}
     from .support_binding_context import prepare as binding_context,restrict
-    if cfg.get('v8',{}).get('correctness_only'):
+    if cfg.get('translation',{}).get('correctness_only'):
         focused,source_pages=binding_context(frozen,result,state,cfg,directory)
         payload.update(focused)
         payload['task']+=' Compiler-localized artifact indices are original global indices, not positions in the selected list. Read required source pages; use exact optional dependency/test/obligation pages when needed. All interfaces include generic constraints. Do not edit another group. Full original assertions and obligations remain mechanically enforced and all groups execute after any repair.'
@@ -293,7 +293,7 @@ For a wrong mathematical expectation or disputed source domain, return action:or
             if count>=2:raise Failure('support_binding_stalled','Same protected binding rejection repeated twice without suite/API progress; original test remains unchanged',evidence) from error
             raise Failure(error.code,str(error),evidence) from error
         raise
-    if cfg.get('v8',{}).get('correctness_only'):
+    if cfg.get('translation',{}).get('correctness_only'):
         updated['status']='mechanically_validated_binding_revision_pending_execution'
         updated['binding_audit']={'path':str(directory),'method':'compiler-group-diagnosis-mechanical-invariants-v1','second_model_review':False,'validation':'Assertions, literals, bounds, test count and obligations preserved; original full suite must execute next.'}
         return {'action':'binding_fix','frozen':updated,'evidence':str(directory)}

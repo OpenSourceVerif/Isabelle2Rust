@@ -5,7 +5,7 @@ import re
 from .common import Failure,read,digest
 from .source_failure_check import lock,enforce_lock
 from .test_order_policy import source_first
-from .v8_repair import active
+from .repair_controller import active
 from .rust_index import build
 
 STATUS='candidate_semantic_rejected'

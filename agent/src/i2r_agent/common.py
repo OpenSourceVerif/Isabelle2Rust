@@ -97,7 +97,7 @@ def config(path=None):
     defaults = read(ROOT / "config/default.toml")
     overrides=read(path) if path else {}
     effective=merge(merge(defaults, local),overrides)
-    if effective.get('generation',{}).get('workflow')in {'segmented-v7','segmented-v8'}:
+    if effective.get('generation',{}).get('workflow')== 'source-translation':
         from .segmented_config import origins
         effective['_configuration_sources']=origins(effective,[('config/default.toml',defaults),('config/local.toml',local),(str(path) if path else 'no-explicit-override',overrides)])
     return effective

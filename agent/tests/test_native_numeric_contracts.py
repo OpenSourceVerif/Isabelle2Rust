@@ -5,24 +5,24 @@ from unittest.mock import Mock,patch
 import pytest
 from i2r_agent.common import read,Failure,Executor,save
 from i2r_agent import native_numeric_contracts as native,default_adaptations as defaults
-from i2r_agent import segmented_v8 as generation,segmented_support as support,source_suite_review as full,source_failure_review as failure,support_scope,v8_support
+from i2r_agent import translation_workflow as generation,segmented_support as support,source_suite_review as full,source_failure_review as failure,support_scope,test_obligations
 from i2r_agent.segmentation import partition
 from i2r_agent.source_input import numeric_contract
 from test_segmented_workflow import source
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 ROOT='constant:A.f'
 NAT_SOURCES=['type:Nat.nat','constant:Nat.zero_nat_inst.zero_nat','constant:Nat.Suc',native.SOURCE]
 NAMES=['Nat','nat_zero','nat_suc','nat_plus']
 
 def fixture(mode='arbitrary'):
-    c=cfg();c['v8']['correctness_only']=True;c['preprocessing']['numeric_mode']=mode
+    c=cfg();c['translation']['correctness_only']=True;c['preprocessing']['numeric_mode']=mode
     if mode=='arbitrary':c['preprocessing']['numeric_library']='dashu-int'
     b=source();es=read(Path(__file__).parent/'fixtures/default-primitives.json')
     b['source_model']['entities']={n:deepcopy(es[n]) for n in NAT_SOURCES}
     b['source_model']['entities'][ROOT]={'id':ROOT,'name':'A.f','kind':'constant','dependencies':list(NAT_SOURCES),'execution_equations':[],'source_type':{}}
     b['source_model']['entries']=[ROOT];b['numeric_policy']=numeric_contract(c)
-    b['original_source_model']=deepcopy(b['source_model']);b['workflow']='segmented-v8'
+    b['original_source_model']=deepcopy(b['source_model']);b['workflow']='source-translation'
     b['segmentation']=partition(b['source_model'],defaults.proposals(b['source_model'],b['numeric_policy']))
     s={'bundle':b,'partition':b['segmentation'],'mapping':[{'source':n,'rust_item':'crate::'+name,'kind':'replacement','basis':'untrusted prose','conditions':['preserve source semantics']} for n,name in zip(NAT_SOURCES+[ROOT],NAMES+['f'])],
        'files':{'src/lib.rs':'pub type Nat=u128; pub fn nat_zero()->Nat{0} pub fn nat_suc(n:Nat)->Nat{n+1} pub fn nat_plus(m:Nat,n:Nat)->Nat{m+n} pub fn f(m:Nat,n:Nat)->Nat{if m==0{0}else{nat_plus(n,f(m-1,n))}}'},'rust_config':b['rust_config']}
@@ -76,7 +76,7 @@ def test_only_exact_adopted_dependencies_leave_author_targets_and_rows():
     assert plan['required_obligations']==[{'source':ROOT,'category':'public_behavior'}]
     assert set(NAT_SOURCES)<=set(support_scope.needed(s['bundle']['source_model'],[ROOT]))
     old=deepcopy(s);old['partition']['boundaries']=[]
-    assert len(v8_support.requirements(old,NAT_SOURCES+[ROOT]))==2
+    assert len(test_obligations.requirements(old,NAT_SOURCES+[ROOT]))==2
     assert set(n for g in support_scope.plan(old,c)['groups'] for n in g)==set(NAT_SOURCES+[ROOT])
     assert plan['identity']!=support_scope.plan(old,c)['identity']
     # Keep checked arithmetic range/overflow and Suc author responsibility.
@@ -139,10 +139,10 @@ def test_explicit_unresolved_preserves_diagnostic_without_widening_permissions(t
 def test_missing_numeric_policy_or_unknown_backend_preserves_original_responsibilities():
     _,_,s=fixture();s['bundle'].pop('numeric_policy')
     assert native.context(s)['contracts']==[]
-    assert v8_support.responsibility_context(s)['context_dependencies']==[]
+    assert test_obligations.responsibility_context(s)['context_dependencies']==[]
     _,_,s=fixture();s['bundle']['numeric_policy']['numeric_library']['name']='other'
     assert native.context(s)['contracts']==[]
-    assert v8_support.responsibility_context(s)['context_dependencies']==[]
+    assert test_obligations.responsibility_context(s)['context_dependencies']==[]
 
 
 def test_real_compile_controller_routes_unary_primitive_to_candidate_repair(tmp_path):

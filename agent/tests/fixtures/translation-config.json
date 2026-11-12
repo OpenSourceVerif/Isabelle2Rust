@@ -1,0 +1,96 @@
+{
+  "base": {
+    "generation": {
+      "workflow": "source-translation",
+      "strategy": "structured",
+      "max_ownership_candidates": 0,
+      "max_output_tokens": 393216,
+      "temperature": 0.2,
+      "thinking": "enabled"
+    },
+    "preprocessing": {
+      "mode": "auto",
+      "max_plan_attempts": 0,
+      "max_context_chars": 1000000,
+      "model": {
+        "max_output_tokens": 393216,
+        "temperature": 0.2,
+        "thinking": "enabled"
+      }
+    },
+    "repair": {
+      "enabled": true,
+      "max_attempts": 0,
+      "identical_failure_limit": 0
+    },
+    "budgets": {
+      "max_model_calls": 0,
+      "model_seconds": 3600,
+      "build_seconds": 1800
+    },
+    "testing": {
+      "transport": "auto",
+      "max_input_bits": "auto",
+      "fixed": true,
+      "regression": true,
+      "differential": true,
+      "random_cases": 150,
+      "final_cases": 300,
+      "seed": 2026110308,
+      "process_timeout": 30,
+      "clippy": "advisory"
+    },
+    "performance": {
+      "enabled": true,
+      "protocol": "kernel-v2",
+      "input_bits": 128,
+      "mode": "kernel",
+      "samples": 7,
+      "warmups": 2,
+      "iterations": 200
+    },
+    "source_optimization": {
+      "enabled": false
+    },
+    "context_management": {
+      "enabled": true,
+      "max_history_turns": 6,
+      "history_characters": 100000,
+      "code_characters": 90000
+    },
+    "segmented": {
+      "schema_version": 1,
+      "algorithm_policy": "preserve-source-route",
+      "development_performance": true,
+      "no_progress_limit": 16,
+      "max_request_characters": 1000000,
+      "source_page_characters": 16000,
+      "initial_source_characters": 600000,
+      "initial_code_characters": 200000,
+      "review_categories": [
+        "completeness",
+        "semantics",
+        "interfaces",
+        "ownership",
+        "cost",
+        "support"
+      ]
+    },
+    "translation": {
+      "schema_version": 1,
+      "repair_escalate_after": 2,
+      "repair_stall_limit": 6,
+      "connector_stall_limit": 6,
+      "diagnostic_read_limit": 8,
+      "performance_refinement": true,
+      "optimization_no_gain_limit": 2,
+      "minimum_speedup": 1.03,
+      "maximum_regression": 1.03,
+      "profile_repetitions": 3,
+      "profile_timeout": 60,
+      "final_failure_policy": "stop_and_report",
+      "small_program_max_entities": 12,
+      "small_program_max_source_characters": 16000
+    }
+  }
+}

@@ -37,13 +37,13 @@ class BehaviorOnly(unittest.TestCase):
                     self.assertNotIn('--i2r-benchmark',source)
 
     def test_all_connection_materializers_propagate_correctness_mode(self):
-        from i2r_agent import segmented_run, segmented_v8
+        from i2r_agent import segmented_run, translation_workflow
         from i2r_agent.segmented_config import rust_config
         from test_segmented_workflow import cfg
-        c=cfg();c['v8']={'correctness_only':True};c['testing']['transport']='native-u128';rc=rust_config({},c)
+        c=cfg();c['translation']={'correctness_only':True};c['testing']['transport']='native-u128';rc=rust_config({},c)
         files={'src/lib.rs':'// connector placeholder'}
         with tempfile.TemporaryDirectory() as tmp:
-            for i,factory in enumerate([segmented_run.connection,segmented_v8.connection]):
+            for i,factory in enumerate([segmented_run.connection,translation_workflow.connection]):
                 crate=Path(tmp)/str(i);crate.mkdir()
                 harness=factory(crate,files,rc,c)
                 text=(harness/'src/main.rs').read_text()
@@ -85,13 +85,13 @@ end
         cfg=config()
         with patch('i2r_agent.baselines.tool_sources.manifest',return_value={}),patch('i2r_agent.baselines.implementation_identity',return_value={}):
             measured=baselines.identity('example',{'source_hashes':{}},cfg)
-            cfg.setdefault('v8',{})['correctness_only']=True
+            cfg.setdefault('translation',{})['correctness_only']=True
             behavioral=baselines.identity('example',{'source_hashes':{}},cfg)
         self.assertTrue(measured['timing_enabled']);self.assertFalse(behavioral['timing_enabled'])
         self.assertNotEqual(baselines.fingerprint(measured),baselines.fingerprint(behavioral))
 
     def test_correctness_connector_request_preserves_source_contract_without_timing_review(self):
-        cfg=config();cfg.setdefault('v8',{})['correctness_only']=True
+        cfg=config();cfg.setdefault('translation',{})['correctness_only']=True
         prompt=test_connector.system_prompt(cfg,knowledge=True)
         self.assertNotIn('Timing knowledge:',prompt)
         self.assertNotIn('before timing',prompt)

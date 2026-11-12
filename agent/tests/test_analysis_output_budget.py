@@ -6,7 +6,7 @@ from i2r_agent.common import Failure,config,read
 from i2r_agent.provider import Provider
 from i2r_agent import segmented_context as ctx,prepared_identity
 from test_segmented_workflow import source
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 class AnalysisOutputBudget(unittest.TestCase):
     def test_analysis_effort_is_explicit_and_does_not_leak_into_generation(self):
@@ -32,7 +32,7 @@ class AnalysisOutputBudget(unittest.TestCase):
             self.assertEqual(p.usage['completion_tokens'],32768)
 
     def test_two_same_material_length_failures_stop_without_committing_plan(self):
-        c=cfg();c['v8']['correctness_only']=True;b=source();b['workflow']='segmented-v8';calls=[]
+        c=cfg();c['translation']['correctness_only']=True;b=source();b['workflow']='source-translation';calls=[]
         def length(provider,conf,path,payload,analysis=False):
             calls.append(deepcopy(payload))
             raise Failure('incomplete_response','Completion ended with length',{'finish_reason':'length'})
@@ -43,7 +43,7 @@ class AnalysisOutputBudget(unittest.TestCase):
             self.assertTrue((Path(tmp)/'analysis-0002/failure.json').exists())
 
     def test_new_source_material_has_its_own_bounded_length_counter(self):
-        c=cfg();b=source();b['workflow']='segmented-v8';calls=[]
+        c=cfg();b=source();b['workflow']='source-translation';calls=[]
         def reply(provider,conf,path,payload,analysis=False):
             calls.append(deepcopy(payload))
             if len(calls)==2:

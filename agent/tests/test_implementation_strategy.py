@@ -3,8 +3,8 @@ import subprocess
 import unittest
 from copy import deepcopy
 from pathlib import Path
-from i2r_agent import implementation_strategy as st, segmented_v8 as runner
-from i2r_agent import v8_review_scope as scope
+from i2r_agent import implementation_strategy as st, translation_workflow as runner
+from i2r_agent import review_scope as scope
 from i2r_agent.common import Failure, save, read
 from i2r_agent.task_context import fingerprint
 import test_shared_invalidation as fixtures
@@ -14,7 +14,7 @@ class StrategyTests(unittest.TestCase):
     def state(self):
         s,c=fixtures.SharedInvalidationTest().make_state()
         analysis={'semantic_obligations':[{'source':'constant:A.f','rust_representation':'old owned value','conditions':['source range'],'boundary_cases':['zero']} ]}
-        s['bundle'].update(semantic_analysis=analysis,numeric_policy='checked',programs=[])
+        s['bundle'].update(semantic_analysis=analysis,numeric_policy={'mode':'checked'},programs=[])
         s['implementation_strategy']=st.initialize(analysis)
         s.update(phase='repair',unit=s['partition']['owner']['constant:A.f'],failures=[{'status':'open','input':[0]}],extra={},seen_pages=[],seen_code_pages=[])
         return s,c

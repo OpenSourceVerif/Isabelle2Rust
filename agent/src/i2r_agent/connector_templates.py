@@ -42,7 +42,7 @@ def identity(project,files,mapping,rc,cfg):
         'case_metadata':digest(project/'case.json') if (project/'case.json').exists() else None,
         'interfaces':interfaces(files),'overflow_markers':overflow_markers(files),'mapping':mapping,'rust_config':rc,
         'numeric':cfg['preprocessing']['numeric_mode'],'transport':cfg['testing']['transport'],
-        'correctness_only':cfg.get('v8',{}).get('correctness_only')})
+        'correctness_only':cfg.get('translation',{}).get('correctness_only')})
 
 
 def overflow_markers(files):

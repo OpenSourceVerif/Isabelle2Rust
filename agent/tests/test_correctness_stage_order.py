@@ -6,15 +6,15 @@ from unittest.mock import Mock, patch
 
 from i2r_agent.common import Executor, read, save
 from i2r_agent.segmented_config import configure, origins
-from i2r_agent.segmented_v8 import search
+from i2r_agent.translation_workflow import search
 from i2r_agent import segmented_context, task_context
 from test_segmented_workflow import source, mapping
-from test_v8_workflow import cfg, accept, CONNECTOR
+from test_translation_workflow import cfg, accept, CONNECTOR
 
 
 class CorrectnessStageOrder(unittest.TestCase):
     def legacy(self):
-        c=cfg();c['v8'].update(correctness_only=True,early_support_tests=True)
+        c=cfg();c['translation'].update(correctness_only=True,early_support_tests=True)
         c['segmented']['support_tests']=False
         return c
 
@@ -26,17 +26,17 @@ class CorrectnessStageOrder(unittest.TestCase):
                     original['_configuration_sources']=origins(original,[('legacy fixture',original)])
                 else:original.pop('_configuration_sources',None)
                 c=configure(original)
-                self.assertTrue(original['v8']['early_support_tests'])
-                self.assertNotIn('early_support_tests',c['v8'])
-                self.assertTrue(c['_configuration_sources']['removed_legacy_settings']['v8.early_support_tests']['value'])
-                self.assertNotIn('v8.early_support_tests',c['_configuration_sources']['origins'])
+                self.assertTrue(original['translation']['early_support_tests'])
+                self.assertNotIn('early_support_tests',c['translation'])
+                self.assertTrue(c['_configuration_sources']['removed_legacy_settings']['translation.early_support_tests']['value'])
+                self.assertNotIn('translation.early_support_tests',c['_configuration_sources']['origins'])
                 self.assertTrue(c['segmented']['support_tests'])
                 for key in ['segmented.support_tests']:
-                    self.assertEqual(c['_configuration_sources']['origins'][key],'derived from v8.correctness_only')
+                    self.assertEqual(c['_configuration_sources']['origins'][key],'derived from translation.correctness_only')
                 self.assertEqual(c['_configuration_sources']['effective_fingerprint'],task_context.fingerprint({k:v for k,v in c.items() if k!='_configuration_sources'}))
 
     def test_legacy_true_never_enters_early_support_but_full_tests_and_replay_execute(self):
-        c=configure(self.legacy());b=source();b.update(case='list-index',workflow='segmented-v8')
+        c=configure(self.legacy());b=source();b.update(case='list-index',workflow='source-translation')
         provider=Mock();provider.calls=0;provider.usage={}
         frozen={'identity':'paper-stage-order','tests':['#[test] fn source_equations(){assert_eq!(i2r_candidate::h(),1);assert_eq!(i2r_candidate::f(),2);}'],
                 'unit_tests':[],'obligations':[{'source':'constant:A.f','test_name':'source_equations'}]}
@@ -62,7 +62,7 @@ class CorrectnessStageOrder(unittest.TestCase):
                 path=w/name;path.write_text('#!/bin/sh\nwhile read x; do echo "2 2 2"; done\n');path.chmod(0o755)
                 refs[name]={'binary':str(path)}
             save(w/'regressions.json',[])
-            with patch('i2r_agent.segmented_v8.ask',side_effect=ask),patch('i2r_agent.segmented_support.prepare',side_effect=prepare) as author,patch('i2r_agent.test_connector.connect',return_value=({'src/lib.rs':CONNECTOR},'fixture')):
+            with patch('i2r_agent.translation_workflow.ask',side_effect=ask),patch('i2r_agent.segmented_support.prepare',side_effect=prepare) as author,patch('i2r_agent.test_connector.connect',return_value=({'src/lib.rs':CONNECTOR},'fixture')):
                 attempts,done=search(b,project,c,provider,w,Executor(w/'commands'),refs,[[9,1,2]],[],w/'regressions.json',lambda _:None)
             phases=[a['action_phase'] for a in attempts]
             self.assertEqual(done[0]['status'],'passed')
@@ -85,10 +85,10 @@ class CorrectnessStageOrder(unittest.TestCase):
 
     def test_removed_setting_migrates_in_performance_mode_too(self):
         for enabled in (True,False):
-            c=cfg();c['v8']['early_support_tests']=enabled
+            c=cfg();c['translation']['early_support_tests']=enabled
             c=configure(c)
-            self.assertNotIn('early_support_tests',c['v8'])
-            self.assertEqual(c['_configuration_sources']['removed_legacy_settings']['v8.early_support_tests']['value'],enabled)
+            self.assertNotIn('early_support_tests',c['translation'])
+            self.assertEqual(c['_configuration_sources']['removed_legacy_settings']['translation.early_support_tests']['value'],enabled)
             self.assertEqual(configure(c),c)
 
     def test_old_early_checkpoint_is_explicitly_rejected(self):

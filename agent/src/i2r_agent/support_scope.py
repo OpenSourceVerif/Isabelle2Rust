@@ -11,7 +11,7 @@ POLICY='component-owned-entry-focused-author-groups-v3'
 def plan(state,cfg):
     model=state['bundle']['source_model']
     ids=set(model['entries'])|{r['source'] for r in state['mapping']}
-    from .v8_support import responsibility_context
+    from .test_obligations import responsibility_context
     responsibility=responsibility_context(state)
     context_dependencies=set(responsibility['context_dependencies'])&ids
     all_ids=set(ids);ids-=context_dependencies
@@ -40,7 +40,7 @@ def plan(state,cfg):
     # Batching is an output/workload planning heuristic, not a context rejection.
     # Keep validated components atomic; measure executable responsibilities and
     # required edge rows rather than verbose source JSON character count.
-    from .v8_support import requirements
+    from .test_obligations import requirements
     def workload(group):
         operations=sum(bool(entities[n].get('execution_equations')) for n in group)
         return operations,len(requirements(state,group))
@@ -53,7 +53,7 @@ def plan(state,cfg):
     groups=[sorted(g) for g in merged]
     flat=[n for group in groups for n in group]
     if set(flat)!=ids or len(flat)!=len(ids):raise Failure('invalid_support_partition','Author responsibilities must partition all non-context source targets')
-    from .v8_support import requirements
+    from .test_obligations import requirements
     rows=[row for group in groups for row in requirements(state,group)]
     original=requirements(state,all_ids)
     if sorted(rows,key=lambda r:(r['source'],r['category']))!=sorted(original,key=lambda r:(r['source'],r['category'])):

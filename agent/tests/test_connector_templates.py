@@ -6,11 +6,11 @@ from pathlib import Path
 from unittest.mock import Mock
 from i2r_agent.common import Executor,Failure,save
 from i2r_agent.segmented_config import configure,materialize,rust_config
-from i2r_agent.segmented_v8 import connection,compile_crate,connector_identity
+from i2r_agent.translation_workflow import connection,compile_crate,connector_identity
 from i2r_agent.test_connector import connect
 from i2r_agent.connector_templates import KERNEL,generate,identity
 from i2r_agent.validation import execute
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 MODEL=r'''theory Model imports Recursion_Test begin
  definition observe :: "nat list \<Rightarrow> nat list" where
@@ -20,7 +20,7 @@ CODE='pub type Nat=u128; pub enum Overflow { I2R_NUMERIC_OVERFLOW } pub fn add(x
 
 class ConnectorTemplates(unittest.TestCase):
     def config(self):
-        c=cfg();c['v8']['correctness_only']=True
+        c=cfg();c['translation']['correctness_only']=True
         return configure(c)
 
     def test_strict_source_interface_and_error_rejection(self):

@@ -1,5 +1,5 @@
 [generation]
-workflow = "knowledge-v5"
+workflow = "source-translation"
 strategy = "structured"
 max_ownership_candidates = 3
 max_output_tokens = 24000

@@ -5,7 +5,7 @@ import pytest
 from i2r_agent import segmented_context as ctx
 from i2r_agent.common import Failure,read
 from test_segmented_workflow import source
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 A='constant:A.f#0123456789:1'
 B='constant:A.f#0123456789:2'

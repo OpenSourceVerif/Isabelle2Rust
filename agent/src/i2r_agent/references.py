@@ -127,7 +127,7 @@ def prepare_references(project,cfg,work,executor):
     executor.run(cargo(cfg,'build','--locked','--manifest-path',tool_sources.repository('Isabelle2Rust')/'optimize/Cargo.toml',
         '--target-dir',optimizer_target),timeout=cfg['budgets']['build_seconds'])
     executor.run([optimizer,stage1,'--out-dir',stage2])
-    timing=not cfg.get('v8',{}).get('correctness_only')
+    timing=not cfg.get('translation',{}).get('correctness_only')
     result={}
     for label,crate in [('stage1',stage1),('stage2',stage2)]:
         candidates=[p for p in (crate/'src').glob('*.rs') if re.search(r'pub fn observe\s*\(',p.read_text())]

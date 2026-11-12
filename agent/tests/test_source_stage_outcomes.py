@@ -6,12 +6,12 @@ from i2r_agent.common import Executor,Failure,save,read
 from i2r_agent.segmented_config import configure,rust_config
 from i2r_agent.source_stage_outcomes import collect,facts,after_source_failure
 from i2r_agent.reference_policy import POLICY
-from test_v8_workflow import cfg,CONNECTOR
+from test_translation_workflow import cfg,CONNECTOR
 from test_segmented_workflow import source,mapping
 
 class SourceStageOutcomeTests(unittest.TestCase):
  def setUp(self):
-  c=cfg();c['v8']['correctness_only']=True;c['testing']['reference_policy']=POLICY;self.cfg=configure(c);self.rc=rust_config({},c)
+  c=cfg();c['translation']['correctness_only']=True;c['testing']['reference_policy']=POLICY;self.cfg=configure(c);self.rc=rust_config({},c)
   b=source();b['case']='list-index';self.state={'files':{'src/lib.rs':'pub fn h()->u128{1} pub fn f()->u128{h()+1}'},'mapping':[mapping('h'),mapping('f')],'rust_config':self.rc,'bundle':b,'partition':{'units':{'u':{}}},'completed':['u'],'phase':'support','connector':{},'repair_issues':[],'support_evidence':{}}
  def refs(self,w):
   p=w/'reference';p.write_text('#!/bin/sh\nwhile read x; do echo "2 2 2"; done\n');p.chmod(0o755)

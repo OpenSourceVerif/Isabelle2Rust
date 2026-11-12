@@ -46,7 +46,7 @@ def identity(case,bundle,cfg):
             'reference_implementation':implementation_identity(),
             'platform':{'system':platform.system(),'machine':platform.machine(),'release':platform.release()},
             'protocol':'decimal-natural-list-v1','timing_protocol':'kernel-v1',
-            'timing_enabled':not cfg.get('v8',{}).get('correctness_only')}
+            'timing_enabled':not cfg.get('translation',{}).get('correctness_only')}
     from .reference_policy import enabled,POLICY
     if enabled(cfg):
         result.update(reference_policy=POLICY,availability_recipe_sha256=digest(Path(__file__).with_name('available_references.py')),
@@ -205,8 +205,8 @@ def benchmark_key(workload,cfg):
     import inspect
     return {'workload':workload,'options':cfg['performance'],'process_timeout':cfg['testing']['process_timeout'],
             'implementation':fingerprint(inspect.getsource(benchmark)),
-            'timing_v2_sources':({name:digest(ROOT/'src/i2r_agent'/name) for name in
-                ['timing_v2.py','timing_v2_build.py','timing_v2_adapter.py','timing_drivers.py']}
+            'kernel_timing_sources':({name:digest(ROOT/'src/i2r_agent'/name) for name in
+                ['kernel_timing.py','kernel_build.py','kernel_benchmark.py','timing_drivers.py']}
                 if cfg['performance'].get('protocol')=='kernel-v2' else {}),
             'host':{'node':platform.node(),'machine':platform.machine(),'release':platform.release()}}
 

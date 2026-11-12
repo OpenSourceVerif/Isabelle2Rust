@@ -8,7 +8,7 @@ from .segmented_contract import items, interfaces
 from .segmented_config import cargo_command
 from .task_context import fingerprint, Conversation
 from .segmented_context import pages, read_pages, reading_notes
-from .v8_support import responsibility_context,RESPONSIBILITY_GUIDANCE
+from .test_obligations import responsibility_context,RESPONSIBILITY_GUIDANCE
 
 SYSTEM='''Author independent source-contract tests for a translated Rust library. Candidate implementation bodies are intentionally withheld; use source equations plus actual Rust signatures and mapping. Return JSON {test_source:"Rust integration test code", obligations:[{source,case,expected_basis,test_name}], notes:"..."}. Integration tests use i2r_candidate and its actual dependencies. Exercise meaningful numeric sign/zero/conversion/overflow edges and generic/data-structure behavior where source APIs permit. For unconstrained source type variables, include non-Clone/non-Ord instances where operations do not require copying or ordering, so accidental stronger API bounds are exposed. Do not test outside the source precondition; checked necessary overflow must be explicitly recognized as I2R_NUMERIC_OVERFLOW, not accepted as a mathematical result. Never compute expected values by calling the candidate under test. Use independently evaluated small source cases or source laws. Mark source-internal operations unreachable from any public API as inaccessible with source reason; do not invent a callable API or silently claim coverage. At least one #[test] must actually execute a public export. Return no implementation edits. Tests will be frozen before candidate execution and cannot be modified by algorithm repair.'''
 SYSTEM+=''' Mechanical mapping gives exact source/item/type-parameter bindings only. Generator implementation prose and bodies are not provided; use actual bodyless Rust interfaces and source equations. Private support operations can also be tested without changing their visibility: optionally return unit_tests:[{file:"src/lib.rs",module:[],source:"use super::*; #[test] fn ..."}]. Each source is wrapped in its own cfg(test) child module with use super::* already supplied. For helpers in inline private modules, set module to the item's module_scope, e.g. ["numeric","internal"], relative to its actual file. The test wrapper is inserted inside that module. Struct/enum/type declarations and cfg attributes are provided as interface facts; algorithm bodies remain withheld. Use this mechanism for private numeric helpers, large arbitrary integers and checked overflows instead of declaring them inaccessible merely because they are not public. Supply the same source-grounded obligations for unit tests. Public-export tests are still required across the complete test set; groups containing only private support can supply only unit_tests. Any correction must return the complete test_source/unit_tests/obligations set.'''
@@ -129,7 +129,7 @@ def source_review(payload, source_pages, cfg, provider, directory, system=SYSTEM
             request['reading_protocol']='Read all required_for_group source pages before classification or binding repair. Exact other dependency/type, frozen-test and obligation pages are available via request_pages. Preserve specific reading_notes before changing pages. Compiler-selected artifact indices are global indices; optional reads do not grant edit permission.'
         request['reading_protocol']+=' '+READING_REPLY_SCHEMA
         text=audit_request(step/'audit.json',system,request)
-        if not cfg.get('v8',{}).get('correctness_only') and len(text)+len(system)>cfg['segmented']['max_request_characters']:
+        if not cfg.get('translation',{}).get('correctness_only') and len(text)+len(system)>cfg['segmented']['max_request_characters']:
             raise Failure('support_context_exceeded','Source-test interface/proposal exceeds context; explicit further partition is required',{'characters':len(text)+len(system),'limit':cfg['segmented']['max_request_characters'],'audit':str(step/'audit.json'),'scope':payload.get('focused_binding_scope',{}).get('policy')})
         ledger_path=Path(failure_ledger) if failure_ledger else directory/'length-failures.json'
         ledger=read(ledger_path) if ledger_path.exists() else {'limit':2,'states':{}}
@@ -182,21 +182,21 @@ def prepare(state,cfg,provider,directory):
     from .native_numeric_contracts import context as native_contracts
     api=bodyless_interfaces(state)
     from .support_framework import build as build_framework,inject
-    framework=build_framework(state) if cfg.get('v8',{}).get('correctness_only') else None
-    author_only=bool(cfg.get('v8',{}).get('correctness_only'))
-    v8=cfg['generation']['workflow']=='segmented-v8'
+    framework=build_framework(state) if cfg.get('translation',{}).get('correctness_only') else None
+    author_only=bool(cfg.get('translation',{}).get('correctness_only'))
+    translation=cfg['generation']['workflow']=='source-translation'
     implemented_exports=set(state['bundle']['source_model']['entries']) & {r['source'] for r in state['mapping'] if r.get('rust_item')}
     cache_api=api
-    if cfg['generation']['workflow']=='segmented-v8':
-        from .v8_identity import interfaces_for_cache
+    if cfg['generation']['workflow']=='source-translation':
+        from .verification_identity import interfaces_for_cache
         cache_api=interfaces_for_cache(state['files'])
     identity_data={'prompt_policy':fingerprint({'system':SYSTEM,'protocol':'whole-program-source-contract-v2','author_only':author_only}),'authoring_policy':'source-author-only-v1' if author_only else 'source-author-reviewed-v1','test_binding_policy':'author-group-qualified-v1','author_guidance_policy':fingerprint([AUTHOR_GUIDANCE_POLICY,COMPACT_AUTHOR_GUIDANCE]),'author_model_options':cfg['segmented'].get('support_author_model',{}),'verified_groups':cfg['segmented'].get('verified_support_groups',[]),'source':state['bundle']['source_model'],'interfaces':cache_api,'config':state['rust_config'],'numeric_policy':state['bundle']['numeric_policy'],'test_framework':framework}
-    if v8:identity_data['mapping']=canonical_mapping(state)
+    if translation:identity_data['mapping']=canonical_mapping(state)
     identity_data['native_numeric_contracts']=native_contracts(state)
     identity_data['responsibility_context']=responsibility_context(state)
     identity_data['source_test_context_policy']='canonical-mapping-bodyless-api-v1'
     from .implementation_strategy import project,test_identity
-    if v8:identity_data['strategy_conditions']=test_identity(state)
+    if translation:identity_data['strategy_conditions']=test_identity(state)
     from . import support_scope
     from . import support_batching
     author_plan=support_batching.apply(support_scope.plan(state,cfg),directory) if author_only else None
@@ -222,7 +222,7 @@ def prepare(state,cfg,provider,directory):
         if group:groups.append(group)
     tests=[];unit_tests=[];obligations=[];inherited_groups=[]
     if templates['covered_sources']:
-        from .v8_support import validate_records,validate_obligations,requirements
+        from .test_obligations import validate_records,validate_obligations,requirements
         proposal=templates['proposal'];validate_records(proposal,state['bundle']['source_model']['entities']);validate_obligations(proposal,requirements(state,templates['covered_sources']))
         tests=[inject(proposal['test_source'],framework)];obligations=group_obligations(tests,[],proposal['obligations'])
     signatures={n:[r['signature'] for r in rs] for n,rs in api.items()}
@@ -241,10 +241,10 @@ def prepare(state,cfg,provider,directory):
             'prior_authoring_failure':state.get('feedback') if (state.get('feedback') or {}).get('status') in {'missing_support_verification','invalid_support_test','invalid_model_response','incomplete_response'} else None,
             'item_locations':{n:[{'file':r['file'],'scope':r['scope']} for r in rs] for n,rs in items(state['files']).items()},
             'dependencies':state['rust_config']['dependencies']}
-        if cfg['generation']['workflow']=='segmented-v8':
+        if cfg['generation']['workflow']=='source-translation':
             payload['strategy_test_focus']=project(state,group,testing=True)
             payload['expectation_rule']='Strategy conditions are untrusted test focus only. Derive expectations exclusively from source equations and numeric task constraints; never weaken frozen counterexamples or coverage requirements.'
-            from .v8_support import requirements
+            from .test_obligations import requirements
             payload['coverage_requirements']=requirements(state,group)
             payload['obligation_protocol']={
                 'executed_case_fields':['source','category','test_name','case','expected_basis'],
@@ -255,7 +255,7 @@ def prepare(state,cfg,provider,directory):
                 'source_ids':group,'implemented_exports':sorted(implemented_exports),
                 'pending_exports':sorted(set(state['bundle']['source_model']['entries'])-implemented_exports),
                 'instruction':'Use provided source equations for expected values. Missing export implementations are incomplete coverage, never passing tests; retain exact source/API evidence.'}
-            test_system+='\nV8 SOURCE-TEST CONTRACT: Preserve obligation_protocol and every coverage_requirements row. Every executing coverage row needs exact source, category, actual enabled test_name, case and independent expected_basis. category must match the required row, including when correcting tests. Explicit not_applicable omissions require source_basis, api_basis and expected_basis with exact source/API justification. Correcting code OR obligation metadata requires a complete replacement test_source/unit_tests/obligations object, not action:accept. Accept means the original proposal satisfies this same protocol unchanged. Never remove categories while improving test expectations. Explicit omission records need source/category/disposition/source_basis/api_basis/expected_basis, not a fabricated executing case or test_name. inaccessible records do not satisfy required coverage rows.\n'
+            test_system+='\nTranslation SOURCE-TEST CONTRACT: Preserve obligation_protocol and every coverage_requirements row. Every executing coverage row needs exact source, category, actual enabled test_name, case and independent expected_basis. category must match the required row, including when correcting tests. Explicit not_applicable omissions require source_basis, api_basis and expected_basis with exact source/API justification. Correcting code OR obligation metadata requires a complete replacement test_source/unit_tests/obligations object, not action:accept. Accept means the original proposal satisfies this same protocol unchanged. Never remove categories while improving test expectations. Explicit omission records need source/category/disposition/source_basis/api_basis/expected_basis, not a fabricated executing case or test_name. inaccessible records do not satisfy required coverage rows.\n'
             payload['task']+='; for every coverage_requirements row provide an executing test and obligation with exact source, category, test_name, case and expected_basis. category must match the row. If a row cannot apply under actual source/API conditions, explicitly use disposition:not_applicable, source_basis and api_basis; provide exact source/API facts for this omission; the controller validates the omission record and coverage obligations. Private visibility alone is not a valid omission. Do not invent tests for source types with no operation. Public-export coverage is required across the complete whole-program suite.'
         if author_only and framework:
             payload['test_framework']={k:v for k,v in framework.items() if k not in {'integration_source','unit_source'}}
@@ -307,10 +307,10 @@ def prepare(state,cfg,provider,directory):
             reviewed=source_review(payload,source_pages,cfg,provider,stage/f'{i}-reviewer',system=test_system)
             save(stage/f'{i}-review.json',reviewed)
             chosen=reply if reviewed.get('action')=='accept' and reviewed.get('review') else reviewed
-        if cfg['generation']['workflow']=='segmented-v8':
+        if cfg['generation']['workflow']=='source-translation':
             payload['strategy_test_focus']=project(state,group,testing=True)
             payload['expectation_rule']='Strategy conditions are untrusted test focus only. Derive expectations exclusively from source equations and numeric task constraints; never weaken frozen counterexamples or coverage requirements.'
-            from .v8_support import validate_obligations,validate_records
+            from .test_obligations import validate_obligations,validate_records
             validate_records(chosen,state['bundle']['source_model']['entities'])
             if author_plan:support_scope.validate_owned(chosen,group)
             validate_obligations(chosen,payload['coverage_requirements'])
@@ -320,7 +320,7 @@ def prepare(state,cfg,provider,directory):
             raise Failure('invalid_support_test','Unit tests must target existing Rust source files')
         if ('#[test]' not in code and not units) or not chosen.get('obligations'):
             raise Failure('missing_support_verification','Independent tests require executable tests and source-based obligations',chosen)
-        if not v8 and any(not isinstance(o,dict) or o.get('source') not in state['bundle']['source_model']['entities'] or not o.get('case') or not o.get('expected_basis') for o in chosen['obligations']):
+        if not translation and any(not isinstance(o,dict) or o.get('source') not in state['bundle']['source_model']['entities'] or not o.get('case') or not o.get('expected_basis') for o in chosen['obligations']):
             raise Failure('missing_support_verification',
                 'Every obligation needs source equal to EXACTLY ONE available_source_ids entry, a concrete case and independent expected_basis. '
                 'Do not append equation indices, prose, semicolons or other IDs to source. Put related entities/equations in expected_basis, '

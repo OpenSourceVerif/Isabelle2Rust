@@ -45,25 +45,25 @@ def collect(state,testing_project,cfg,provider,executor,refs,inputs,regressions,
     No source-test creation/review, no algorithm edits, and no change to the
     original source failure. A connector may consume remaining normal budget.
     """
-    from . import segmented_v8 as v8,test_connector
+    from . import translation_workflow as translation,test_connector
     from .segmented_config import materialize
     from .validation import check_suite
     from .suites import in_numeric_domain
     from .suites import input_bits
     work=Path(work);work.mkdir(parents=True,exist_ok=False)
     snapshot=deepcopy(state);candidate=fingerprint([snapshot['files'],snapshot['rust_config']]);save(work/'candidate-snapshot.json',{'files':snapshot['files'],'mapping':snapshot['mapping'],'rust_config':snapshot['rust_config'],'candidate_identity':candidate})
-    crate=materialize(work/'candidate',{**snapshot['files'],'src/lib.rs':snapshot['files']['src/lib.rs']+v8.probes(snapshot['mapping'])},snapshot['rust_config'])
-    compilation=v8.compile_crate(crate,snapshot['rust_config'],cfg,executor,True);save(work/'candidate-compile.json',compilation)
+    crate=materialize(work/'candidate',{**snapshot['files'],'src/lib.rs':snapshot['files']['src/lib.rs']+translation.probes(snapshot['mapping'])},snapshot['rust_config'])
+    compilation=translation.compile_crate(crate,snapshot['rust_config'],cfg,executor,True);save(work/'candidate-compile.json',compilation)
     result={'status':'not_run','candidate_identity':candidate,'compile':compilation,'suites':[],'candidate_code_changed':False,'source_tests_changed':False,'purpose':'Supplemental evidence only; cannot clear any original source/test issue'}
     if compilation['status']!='passed':result['status']='not_run_candidate_compile_failed';save(work/'result.json',result);return result
     if not testing_project or not refs:result['status']='differential_unavailable';save(work/'result.json',result);return result
     connector=deepcopy(snapshot.get('connector',{}));feedback=None
     try:
-        for attempt in range(cfg['v8']['connector_stall_limit']):
+        for attempt in range(cfg['translation']['connector_stall_limit']):
             directory=work/f'connector-{attempt+1:02d}';directory.mkdir()
-            if not connector or snapshot.get('connector_identity')!=v8.connector_identity(snapshot) or feedback:
+            if not connector or snapshot.get('connector_identity')!=translation.connector_identity(snapshot) or feedback:
                 connector,notes=test_connector.connect(testing_project,crate,snapshot['files'],snapshot['mapping'],{'dependencies':snapshot['rust_config']['dependencies'],'rust_config':snapshot['rust_config']},cfg,provider,directory,connector,feedback,context_directory=work/'connector-context')
-            harness=v8.connection(crate,connector,snapshot['rust_config'],cfg);built=v8.compile_crate(harness,snapshot['rust_config'],cfg,executor,False);save(directory/'compile.json',built)
+            harness=translation.connection(crate,connector,snapshot['rust_config'],cfg);built=translation.compile_crate(harness,snapshot['rust_config'],cfg,executor,False);save(directory/'compile.json',built)
             if built['status']=='passed':break
             feedback=built
         else:raise Failure('connector_stalled','Supplemental connector exhausted normal compilation attempts',feedback)
@@ -83,7 +83,7 @@ def collect(state,testing_project,cfg,provider,executor,refs,inputs,regressions,
 
 
 def after_source_failure(work,cfg,provider,executor,refs,testing_project,error):
-    if not cfg.get('v8',{}).get('correctness_only'):return None
+    if not cfg.get('translation',{}).get('correctness_only'):return None
     state=source_failure_state(work)
     if state is None:return None
     work=Path(work);inputs_path=work/'development-inputs.json'

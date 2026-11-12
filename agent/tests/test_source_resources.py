@@ -109,7 +109,7 @@ def test_isolation_capped_and_no_test_start_is_unresolved(tmp_path):
 
 @pytest.mark.parametrize('action',['accept','inconclusive'])
 def test_independent_checker_can_keep_crash_as_candidate_or_unresolved(tmp_path,action):
-    from test_v8_workflow import cfg
+    from test_translation_workflow import cfg
     from i2r_agent.common import digest
     frozen,failure,material,verdict,_=fixture(tmp_path)
     c=cfg();c['model']['name']='deepseek-flash'

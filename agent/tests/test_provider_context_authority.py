@@ -9,12 +9,12 @@ from i2r_agent.segmented_context import ask
 from i2r_agent.segmented_support import source_review
 from i2r_agent.provider import Provider
 from i2r_agent.semantic_components import from_analysis
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 from test_segmented_workflow import source
 
 class ProviderContextAuthority(unittest.TestCase):
  def settings(self):
-  c=cfg();c['v8']['correctness_only']=True;c=configure(c);c['budgets']['max_model_calls']=40
+  c=cfg();c['translation']['correctness_only']=True;c=configure(c);c['budgets']['max_model_calls']=40
   c['segmented']['max_request_characters']=180000;c['preprocessing']['max_context_chars']=180000
   return c
  def test_large_analysis_and_repair_reach_provider_mock(self):

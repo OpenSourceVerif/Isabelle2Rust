@@ -28,7 +28,7 @@ pub fn make() -> Tree<u128> { Tree::Node { value: 1, left: Box::new(Tree::Leaf) 
         for name in ['Leaf','Node']:
             row = {'source':'constant:Tree.tree.'+name,'kind':'direct','rust_item':'crate::Tree::'+name}
             self.assertEqual(contract.validate_item(index,row)['kind'],'enum_variant')
-        cfg = configure(merge(config(),read(Path(__file__).parent/'fixtures/segmented-source.json')['base']))
+        cfg = configure(merge(config(),read(Path(__file__).parent/'fixtures/shared-workflow-config.json')['base']))
         rc = rust_config({},cfg)
         with tempfile.TemporaryDirectory() as d:
             crate = materialize(Path(d)/'crate',files,rc)

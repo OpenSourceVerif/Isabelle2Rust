@@ -4,17 +4,17 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import Mock,patch
-from i2r_agent import semantic_components as cp,segmented_context as ctx,prepared_identity,segmented_v8
+from i2r_agent import semantic_components as cp,segmented_context as ctx,prepared_identity,translation_workflow
 from i2r_agent.common import Failure,read
 from i2r_agent.segmented_config import configure
 from test_segmented_workflow import source
 from test_semantic_components import group
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 
 class JointAnalysisGrouping(unittest.TestCase):
     def conf(self):
-        c=cfg();c['v8']['unit_policy']='semantic-components';return c
+        c=cfg();c['translation']['unit_policy']='semantic-components';return c
 
     def reply(self,p,components=None,boundaries=None):
         r={'opportunities':[],'boundaries':boundaries or [],'rust_config':{},
@@ -43,12 +43,12 @@ class JointAnalysisGrouping(unittest.TestCase):
 
     def test_inclusive_both_limits_and_one_over_require_model_components(self):
         m=source()['source_model'];c=self.conf();measured=cp.grouping_context(m,[],c)['measured']
-        c['v8'].update(small_program_max_entities=measured['entities'],small_program_max_source_characters=measured['source_characters'])
+        c['translation'].update(small_program_max_entities=measured['entities'],small_program_max_source_characters=measured['source_characters'])
         p=cp.from_analysis(m,[],None,c)
         self.assertEqual(p['grouping_decision']['method'],'program_single_group')
         self.assertEqual(set(p['owner']),set(m['entities']))
         for key in ['small_program_max_entities','small_program_max_source_characters']:
-            x=deepcopy(c);x['v8'][key]-=1
+            x=deepcopy(c);x['translation'][key]-=1
             with self.assertRaises(Failure) as e:cp.from_analysis(m,[],None,x)
             self.assertEqual(e.exception.code,'invalid_component_plan')
             self.assertFalse(e.exception.evidence['grouping_context']['eligible_for_single_group'])
@@ -81,7 +81,7 @@ class JointAnalysisGrouping(unittest.TestCase):
         self.assertFalse(p['grouping_decision']['model_components_used'])
 
     def test_invalid_large_groups_reject_missing_duplicate_scc_split_and_group_cycle(self):
-        c=self.conf();c['v8']['small_program_max_entities']=1;m=source()['source_model']
+        c=self.conf();c['translation']['small_program_max_entities']=1;m=source()['source_model']
         for gs in [[group('missing','constant:A.h')],[group('a','constant:A.h'),group('b','constant:A.h','constant:A.f')]]:
             with self.assertRaises(Failure):cp.from_analysis(m,[],gs,c)
         cyc=deepcopy(m);cyc['entities']['constant:A.h']['dependencies']=['constant:A.f']
@@ -91,7 +91,7 @@ class JointAnalysisGrouping(unittest.TestCase):
 
     def test_one_analysis_call_without_plan_call_and_feedback_stays_in_analysis(self):
         for bad_first,small in [(False,True),(False,False),(True,False)]:
-            c=self.conf();c['v8']['small_program_max_entities']=12 if small else 1
+            c=self.conf();c['translation']['small_program_max_entities']=12 if small else 1
             b=source();seen=[]
             def ask(pv,conf,path,p,analysis=False):
                 self.assertTrue(analysis);self.assertNotEqual(p.get('task_kind'),'component_planning')
@@ -160,19 +160,19 @@ class JointAnalysisGrouping(unittest.TestCase):
 
     def test_threshold_and_decision_bind_config_plan_prepared_checkpoint_identity(self):
         c=self.conf();m=source()['source_model'];a=cp.from_analysis(m,[],None,c)
-        changed=deepcopy(c);changed['v8']['small_program_max_entities']+=1
+        changed=deepcopy(c);changed['translation']['small_program_max_entities']+=1
         b=cp.from_analysis(m,[],None,changed)
         self.assertNotEqual(a['version'],b['version']);self.assertEqual(a['owner'],b['owner'])
         bundle=source()
-        self.assertNotEqual(segmented_v8.checkpoint_identity(bundle,c,{}),segmented_v8.checkpoint_identity(bundle,changed,{}))
+        self.assertNotEqual(translation_workflow.checkpoint_identity(bundle,c,{}),translation_workflow.checkpoint_identity(bundle,changed,{}))
         with tempfile.TemporaryDirectory() as d:
             p=Path(d);(p/'A.thy').write_text('theory A imports Main begin end')
             self.assertNotEqual(prepared_identity.identity(p,c),prepared_identity.identity(p,changed))
         for value in [0,-1,True,'12']:
-            x=deepcopy(c);x['v8']['small_program_max_entities']=value
+            x=deepcopy(c);x['translation']['small_program_max_entities']=value
             with self.assertRaises(Failure):configure(x)
         old=deepcopy(c)
-        for key in cp.SMALL_PROGRAM_DEFAULTS:old['v8'].pop(key)
+        for key in cp.SMALL_PROGRAM_DEFAULTS:old['translation'].pop(key)
         default=configure(old)
         self.assertEqual(cp.grouping_policy(default),cp.SMALL_PROGRAM_DEFAULTS)
-        self.assertIn('conservative',default['_configuration_sources']['origins']['v8.small_program_max_entities'])
+        self.assertIn('conservative',default['_configuration_sources']['origins']['translation.small_program_max_entities'])

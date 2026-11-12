@@ -4,7 +4,7 @@ from .source_failure_check import lock,enforce_lock
 A='source_repair_then_diff_accept'
 B='diff_repair_then_source_accept'
 def configure(state,cfg):
-    policy=cfg.get('v8',{}).get('test_order_policy',A)
+    policy=cfg.get('translation',{}).get('test_order_policy',A)
     if policy not in {A,B}:raise Failure('invalid_workflow_policy',policy)
     if state.get('test_order_policy',policy)!=policy:raise Failure('stale_snapshot','Test-order policy changed')
     state['test_order_policy']=policy
@@ -21,10 +21,10 @@ def transition(state,testing_project):
             raise Failure('source_suite_review_unresolved','A cannot lock a candidate without full-suite independent checking and execution')
         if not testing_project:raise Failure('source_check_unresolved','A requires differential acceptance')
         state.setdefault('source_candidate_lock',lock(state));enforce_lock(state)
-        state['phase']='test' if state['connector'] and state.get('connector_identity')==__import__('i2r_agent.segmented_v8',fromlist=['connector_identity']).connector_identity(state) else 'connect'
+        state['phase']='test' if state['connector'] and state.get('connector_identity')==__import__('i2r_agent.translation_workflow',fromlist=['connector_identity']).connector_identity(state) else 'connect'
     elif state.get('source_candidate_lock'):state['phase']='finish'
     elif not testing_project:state['phase']='support'
-    else:state['phase']='test' if state['connector'] and state.get('connector_identity')==__import__('i2r_agent.segmented_v8',fromlist=['connector_identity']).connector_identity(state) else 'connect'
+    else:state['phase']='test' if state['connector'] and state.get('connector_identity')==__import__('i2r_agent.translation_workflow',fromlist=['connector_identity']).connector_identity(state) else 'connect'
 def guard_phase(state,phase):
     enforce_lock(state)
     allowed={'support','source_test_check','support_execute','support_audit','support_check','finish'}

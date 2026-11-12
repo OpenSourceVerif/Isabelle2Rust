@@ -7,8 +7,7 @@ from unittest.mock import Mock, patch
 
 from i2r_agent.common import config, Failure
 from i2r_agent import task_context as tc
-from i2r_agent.knowledge import apply_files, analyze, requested, material
-from i2r_agent.knowledge_run import search
+from i2r_agent.knowledge import apply_files, requested, material
 
 
 def bundle():
@@ -90,57 +89,6 @@ class ContextTests(unittest.TestCase):
             self.assertNotIn('thingol',out['program']);self.assertIn('ORIGINAL_MAIN',json.dumps(out['program']['original_evidence']))
             self.assertEqual(out['program']['retained_references']['topic'],'retained')
             self.assertTrue(out['code_version'].startswith('code-'))
-
-    def test_analysis_reading_survives_stage_handoff(self):
-        p=Mock();p.phase_calls={'preprocessing':0};p.calls=0
-        replies=[{'request_references':['semantic-adaptation/references/numeric-semantics.md']},{'request_nodes':['constant:A.helper']},{'opportunities':[]}]
-        def call(*args,**kwargs):
-            p.phase_calls['preprocessing']+=1;p.calls+=1
-            return replies[p.calls-1]
-        p.call.side_effect=call
-        with tempfile.TemporaryDirectory() as d:
-            result,_=analyze(bundle(),managed_config(),p,d)
-            self.assertIn('semantic-adaptation/references/numeric-semantics.md',result['knowledge_material']['references'])
-            self.assertEqual(result['knowledge_material']['nodes'][0]['id'],'constant:A.helper')
-            self.assertNotIn('thingol',json.loads(p.call.call_args.args[1])['program'])
-
-    def test_managed_local_repair_and_review_do_not_reupload_full_graph(self):
-        b=bundle();b['loaded_adapter']={'support':{'files':{}},'bindings':{}}
-        cfg=managed_config();p=Mock();p.phase_calls={'generation':0};p.calls=0;p.usage={};requests=[]
-        replies=[{'action':'generate','files':{'src/lib.rs':'pub fn main(){}'},'mapping':[{'source':n['id'],'rust':'main'} for n in b['programs'][0]['nodes']]},
-                 {'action':'generate','files':{'src/lib.rs':'pub fn main(){ let _x=1; }'}},{'action':'accept','quality_review':'checked original definitions'}]
-        def respond(*args):
-            requests.append(args[-1]);p.calls+=1;p.phase_calls['generation']+=1;return replies[p.calls-1]
-        with tempfile.TemporaryDirectory() as d,patch('i2r_agent.knowledge_run.call',side_effect=respond),patch('i2r_agent.knowledge_run.compile_library',side_effect=[{'status':'compile_failed','checks':{}},{'status':'passed'}]):
-            attempts,survivors=search(b,None,cfg,p,d,Mock(),None,[],[],Path(d)/'r.json',lambda x:None)
-            self.assertEqual(len(survivors),1)
-            self.assertTrue((Path(d)/'candidate-02/changes.diff').exists())
-        self.assertIn('thingol',requests[0]['program'])
-        self.assertNotIn('thingol',requests[1]['program']);self.assertNotIn('thingol',requests[2]['program'])
-
-
-    def test_behavior_repair_reuses_connector_then_reviews_validated_code(self):
-        b=bundle();b['case']='list-index';b['loaded_adapter']={'support':{'files':{}},'bindings':{}}
-        p=Mock();p.calls=0;p.phase_calls={'generation':0};p.usage={};requests=[]
-        replies=[{'action':'generate','files':{'src/lib.rs':'pub fn main(){}'},'mapping':[{'source':n['id'],'rust':'main'} for n in b['programs'][0]['nodes']]},
-                 {'action':'generate','files':{'src/lib.rs':'pub fn main(){let _fixed=1;}'}},{'action':'accept','quality_review':'source and connector checked'}]
-        def respond(*args):
-            requests.append(args[-1]);p.calls+=1;p.phase_calls['generation']+=1;return replies[p.calls-1]
-        checks=[]
-        def suite(*args,**kwargs):
-            checks.append(args)
-            return {'status':'mismatch' if len(checks)==1 else 'passed','kind':args[6],'count':1,'failures':1 if len(checks)==1 else 0,
-                    'counterexamples':[{'input':[1],'expected':[1],'actual':[0]}] if len(checks)==1 else []}
-        with tempfile.TemporaryDirectory() as d:
-            root=Path(d);project=root/'testing';project.mkdir()
-            for name in ['Model.thy','Kernel.thy']:(project/name).write_text('original scenario')
-            with patch('i2r_agent.knowledge_run.call',side_effect=respond),patch('i2r_agent.knowledge_run.compile_library',return_value={'status':'passed'}),patch('i2r_agent.knowledge_run.compile_rust',return_value={'status':'passed','binary':'binary','checks':{}}),patch('i2r_agent.knowledge_run.check_suite',side_effect=suite),patch('i2r_agent.knowledge_run.test_connector.connect',return_value=({'src/lib.rs':'connector'},'boundary notes')) as connector:
-                attempts,survivors=search(b,project,managed_config(),p,root,Mock(),{},[[1]],[],root/'regressions.json',lambda x:None)
-            self.assertEqual(len(survivors),1);self.assertEqual(connector.call_count,1)
-            self.assertEqual(p.calls,3);self.assertIn('behavior_failure',requests[1]['feedback'])
-            self.assertIn('connection_review',requests[2]);self.assertNotIn('thingol',requests[2]['program'])
-            self.assertGreaterEqual(len(checks),4)
-
 
 
     def test_extra_rust_callable_parameter_has_specific_mapping_diagnostic(self):

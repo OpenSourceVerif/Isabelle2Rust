@@ -1,6 +1,6 @@
 import tempfile,unittest,json
 from pathlib import Path
-from i2r_agent import segmented_support as support,v8_repair as repair
+from i2r_agent import segmented_support as support,repair_controller as repair
 from i2r_agent.common import Failure
 from i2r_agent.task_context import Archive,fingerprint
 

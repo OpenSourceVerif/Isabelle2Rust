@@ -10,7 +10,7 @@ from .validation import execute
 
 def benchmark(implementations, workload, expected, cfg,executor,directory):
     if cfg['performance'].get('protocol')=='kernel-v2':
-        from .timing_v2_adapter import benchmark as batch_benchmark
+        from .kernel_benchmark import benchmark as batch_benchmark
         return batch_benchmark(implementations,workload,expected,cfg,executor,directory)
     options=cfg['performance'];samples={k:[] for k in implementations};records=[]
     inputs=[workload]*options['iterations']

@@ -6,7 +6,6 @@ from unittest.mock import patch
 from i2r_agent import tool_sources
 from i2r_agent.baselines import identity
 from i2r_agent.common import Failure, save
-from i2r_agent import study
 
 
 class WorkspaceToolTests(unittest.TestCase):
@@ -40,17 +39,5 @@ class WorkspaceToolTests(unittest.TestCase):
             with self.assertRaises(Failure) as cm:tool_sources.manifest()
             self.assertEqual(cm.exception.code,'missing_tool_repository')
 
-    def test_study_resume_rejects_changed_tools_without_copying_sources(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);agent=self.fixture(root)
-            (agent/'catalog/cases/example').mkdir(parents=True)
-            spec=root/'spec.json';save(spec,{'id':'test','cases':['example'],'variants':{'default':{}}})
-            with patch.object(tool_sources,'ROOT',agent), patch.object(study,'ROOT',agent), patch.object(study,'build',return_value={'status':'passed'}):
-                study.run(spec,run_id='test')
-                self.assertTrue((agent/'data/runs/test/tool-sources.json').is_file())
-                self.assertFalse((agent/'cache/tools').exists())
-                (root/'RustLightAST/src/lib.rs').write_text('changed')
-                with self.assertRaises(Failure) as cm:study.run(spec,run_id='test',resume=True)
-                self.assertEqual(cm.exception.code,'stale_snapshot')
 
 if __name__=='__main__':unittest.main()

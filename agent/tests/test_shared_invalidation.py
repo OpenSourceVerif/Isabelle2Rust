@@ -10,7 +10,7 @@ from i2r_agent.segmented_config import configure, rust_config
 
 class SharedInvalidationTest(unittest.TestCase):
     def make_state(self):
-        cfg=configure(merge(config(),read(Path(__file__).parent/'fixtures/segmented-source.json')['base']))
+        cfg=configure(merge(config(),read(Path(__file__).parent/'fixtures/shared-workflow-config.json')['base']))
         entities={}
         for name in ['A.f','A.g']:
             ident='constant:'+name

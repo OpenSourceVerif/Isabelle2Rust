@@ -3,7 +3,7 @@ from pathlib import Path
 from i2r_agent.common import ROOT,Executor
 from i2r_agent.segmented_config import configure,rust_config,materialize
 from i2r_agent.segmented_support import execute,passed_test_names
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 class SupportShouldPanic(unittest.TestCase):
     def test_original_stdout_and_exact_success_status(self):
@@ -16,7 +16,7 @@ class SupportShouldPanic(unittest.TestCase):
         self.assertEqual(passed_test_names('test wrong_module::same - should panic ... ok'),{'wrong_module::same'})
 
     def test_real_cargo_expected_panic_failure_ignore_and_disabled_coverage(self):
-        c=cfg();c['v8']['correctness_only']=True;c=configure(c);rc=rust_config({},c)
+        c=cfg();c['translation']['correctness_only']=True;c=configure(c);rc=rust_config({},c)
         test='#[test] #[should_panic(expected="source undefined")] fn required(){let _=i2r_candidate::f();}\n#[test] fn incidental(){}'
         cases=[('expected','pub fn f()->u128{panic!("source undefined")}',test,'passed',True),
                ('no_panic','pub fn f()->u128{1}',test,'support_contract_failed',False),

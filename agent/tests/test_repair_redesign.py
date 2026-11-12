@@ -5,7 +5,6 @@ from i2r_agent.common import config,Failure,Executor
 from i2r_agent import task_context as tc,repair_state as repair
 from i2r_agent.validation import check_suite
 from i2r_agent.pipeline import feedback_for
-from i2r_agent.knowledge_run import verify_support_issue,search,write_library
 from test_task_context import bundle,managed_config
 
 class RepairRedesignTests(unittest.TestCase):
@@ -65,18 +64,6 @@ class RepairRedesignTests(unittest.TestCase):
         with self.assertRaises(Failure):repair.ensure_acceptible(b)
         repair.verified(b,'support','v2');repair.ensure_acceptible(b)
 
-    def test_identical_failed_adapter_build_is_cached_and_original_error_remains(self):
-        cfg=managed_config();cfg['repair']['max_attempts']=3
-        p=Mock();p.calls=0;p.phase_calls={'generation':0};p.usage={};requests=[]
-        def respond(*args):
-            requests.append(args[-1]);p.calls+=1;p.phase_calls['generation']+=1
-            return {'action':'adapt','adapter':{'declarations':'BROKEN'}}
-        with tempfile.TemporaryDirectory() as d,patch('i2r_agent.knowledge_run.call',side_effect=respond),patch('i2r_agent.knowledge_run.load_adapter',side_effect=Failure('adapter_isabelle_failed','Actual type mismatch')) as loader:
-            attempts,survivors=search(bundle(),None,cfg,p,d,Mock(),None,[],[],Path(d)/'r.json',lambda x:None)
-            self.assertEqual(loader.call_count,1);self.assertFalse(survivors)
-            self.assertEqual(attempts[-1]['development']['status'],'repeated_adapter')
-            self.assertIn('Actual type mismatch',json.dumps(requests[-1]['feedback']))
-            self.assertIn('BROKEN',(Path(d)/'candidate-01/adapter-changes.diff').read_text())
 
     def test_original_reproducer_survives_new_failure_and_real_closure_is_logged(self):
         b={'files':{},'mode':'generate','feedback':{'behavior_failure':{'suites':[{'range_event':{'reproductions':[{'input':[2**128-1]}]}}]}}}
@@ -91,17 +78,6 @@ class RepairRedesignTests(unittest.TestCase):
             tc.record_attempt(b,attempt,{},None,d,before_issue=identity)
             self.assertEqual(attempt['repair_event']['issue_closed'],identity)
 
-    def test_support_gate_executes_immutable_test_and_rejects_zero_tests(self):
-        with tempfile.TemporaryDirectory() as d:
-            root=Path(d);cfg=managed_config();executor=Executor(root/'commands')
-            b={'files':{'src/lib.rs':'pub fn answer()->i32 { 0 }'},'plan':{'dependencies':{}},'mode':'generate',
-               'feedback':{'status':'support_contract_failed','test_source':'#[test] fn source_case(){assert_eq!(i2r_candidate::answer(),42);}'}}
-            repair.capture(b);crate=root/'algorithm';write_library(crate,b['files'],b['plan'],{})
-            self.assertEqual(verify_support_issue(b,crate,cfg,executor,root/'bad')['status'],'support_contract_failed')
-            b['files']['src/lib.rs']='pub fn answer()->i32 { 42 }';write_library(crate,b['files'],b['plan'],{})
-            self.assertEqual(verify_support_issue(b,crate,cfg,executor,root/'fixed')['status'],'passed')
-            b['repair_issue']['evidence']['test_source']='// no tests'
-            self.assertEqual(verify_support_issue(b,crate,cfg,executor,root/'empty')['status'],'support_contract_failed')
 
     def test_review_requires_actual_change_and_source_resolution(self):
         b={'files':{'src/lib.rs':'bad'},'mode':'generate','feedback':{'diagnosis':'Needless copy'},'connector':{}}

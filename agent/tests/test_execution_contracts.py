@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from i2r_agent.common import Executor, Failure, config
-from i2r_agent.generation import generate
 from i2r_agent.performance import benchmark
 from i2r_agent.planning import manifest, candidate_contract
 from i2r_agent.provider import Provider
@@ -33,19 +32,6 @@ class ExecutionContracts(unittest.TestCase):
             self.assertEqual(resumed.calls,1);self.assertEqual(resumed.usage['total_tokens'],7)
             with self.assertRaises(Failure):resumed.call('s','p',phase='preprocessing')
 
-    def test_ffi_support_and_echoed_root_survive_generation_contract(self):
-        bundle,plan=fixture();support={'files':{'build.rs':'fn main() {}','native/a.c':'int f(void) {return 1;}','src/native.rs':'pub fn f() {}'},'root':'pub mod native;\n'}
-        bundle.update(translation_plan=plan,loaded_adapter={'support':support,'before_target':{},'after_target':{}})
-        reply={'files':{'src/lib.rs':'#![allow(dead_code)]\npub mod native;\npub fn observe() {}',**support['files']},
-               'mapping':[{'source':'constant:M.observe','rust':'observe'},{'source':'type:Nat.nat','rust':'u128'}],
-               'adaptation_usage':[{'decision':'nat','locations':['src/lib.rs'],'implementation':'native'}]}
-        provider=Mock();provider.call.return_value=reply
-        with tempfile.TemporaryDirectory() as tmp:
-            out=generate(bundle,config(),provider,tmp)
-            self.assertEqual(out['files']['src/lib.rs'].count('pub mod native;'),1)
-            self.assertEqual(candidate_contract(plan,out['files'],out['mapping'],out['adaptation_usage'],bundle)['status'],'recorded')
-            out['files'].pop('build.rs')
-            with self.assertRaises(Failure):candidate_contract(plan,out['files'],out['mapping'],out['adaptation_usage'],bundle)
 
     def test_class_operation_uses_actual_reachable_instance_binding(self):
         from i2r_agent.adapters import instance_bindings
@@ -77,19 +63,6 @@ class ExecutionContracts(unittest.TestCase):
             self.assertEqual(provider.calls,70)
             self.assertEqual(provider.phase_calls['preprocessing'],20)
 
-    def test_loaded_support_is_written_and_cannot_be_silently_changed(self):
-        bundle,plan=fixture();support={'files':{'src/numbers.rs':'pub type Nat = u128;'},'root':'pub mod numbers;'}
-        bundle.update(translation_plan=plan,loaded_adapter={'support':support,'before_target':{},'after_target':{}})
-        provider=Mock();provider.call.return_value={'files':{'src/lib.rs':'#![allow(dead_code)]\npub fn observe() {}'}}
-        with tempfile.TemporaryDirectory() as tmp:
-            out=generate(bundle,config(),provider,tmp)
-            self.assertTrue(out['files']['src/lib.rs'].startswith('#![allow(dead_code)]'))
-            self.assertEqual((Path(tmp)/'src/numbers.rs').read_text(),support['files']['src/numbers.rs'])
-            self.assertIn('dashu-int',(Path(tmp)/'Cargo.toml').read_text())
-        provider.call.return_value['files']['src/numbers.rs']='pub type Nat = u64;'
-        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(Failure) as error:
-            generate(bundle,config(),provider,tmp)
-        self.assertEqual(error.exception.code,'plan_contract_failed')
 
     def test_no_wall_clock_fallback_when_kernel_marker_missing(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -72,11 +72,11 @@ def revise(state,reply,files,mapping,config,partition):
             if target==key or target not in by_id:raise Failure('invalid_strategy','Unknown superseded decision',target)
             strategy['history'].append(deepcopy(by_id[target]))
             by_id[target]={**by_id[target],'status':'superseded','superseded_by':key,'revision':by_id[target]['revision']+1}
-    from .v8_identity import interfaces_for_cache
+    from .verification_identity import interfaces_for_cache
     # Apply the same conservative independent-addition exemption as review
     # invalidation. Adding an unreferenced free function does not revise an
     # already implemented dependency's interface or representation choice.
-    from .v8_review_scope import independent_additions_removed
+    from .review_scope import independent_additions_removed
     interface_context,_=independent_additions_removed(state['files'],files)
     api_changed=interfaces_for_cache(interface_context)!=interfaces_for_cache(state['files'])
     oldmap={r['source']:r for r in state['mapping']};newmap={r['source']:r for r in mapping}

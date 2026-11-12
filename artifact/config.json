@@ -1,6 +1,6 @@
 {
   "generation": {
-    "workflow": "segmented-v8",
+    "workflow": "source-translation",
     "strategy": "structured",
     "max_ownership_candidates": 0,
     "max_output_tokens": 32768,
@@ -108,7 +108,7 @@
     ],
     "support_tests": true
   },
-  "v8": {
+  "translation": {
     "schema_version": 1,
     "repair_escalate_after": 2,
     "repair_stall_limit": 6,

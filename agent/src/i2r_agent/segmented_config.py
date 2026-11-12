@@ -8,65 +8,65 @@ from .common import ROOT, Failure, read, save, merge
 from .planning import manifest
 from .task_context import fingerprint
 
-WORKFLOW = 'segmented-v7'
+WORKFLOW = 'source-translation'
 
 
 def configure(cfg):
     cfg = deepcopy(cfg)
     policy = cfg.get('segmented')
     if not isinstance(policy, dict) or policy.get('schema_version') != 1:
-        raise Failure('missing_segmented_config', 'Use the explicit segmented-v7 study configuration')
+        raise Failure('missing_segmented_config', 'Use the explicit source-translation configuration')
     required = ['development_performance', 'no_progress_limit', 'max_request_characters', 'review_categories']
     if any(k not in policy for k in required):
         raise Failure('missing_segmented_config', 'Missing required segmented policy', required)
-    if cfg['generation']['workflow'] not in {WORKFLOW, 'segmented-v8'}: raise Failure('unknown_workflow', cfg['generation']['workflow'])
+    if cfg['generation']['workflow'] != WORKFLOW: raise Failure('unknown_workflow', cfg['generation']['workflow'])
     if policy.get('algorithm_policy') != 'preserve-source-route':
         raise Failure('invalid_segmented_config','This experiment requires explicit algorithm_policy=preserve-source-route, as selected by the user')
     for section, key in [('budgets','max_model_calls'),('repair','max_attempts'),('preprocessing','max_plan_attempts')]:
         if type(cfg[section].get(key)) is not int or cfg[section][key]<0:
             raise Failure('invalid_segmented_config','Budget must be a nonnegative integer',[section,key])
-        if cfg[section].get(key) != 0 and not cfg.get('v8',{}).get('correctness_only'):
+        if cfg[section].get(key) != 0 and not cfg.get('translation',{}).get('correctness_only'):
             raise Failure('legacy_budget_inheritance', 'New unlimited call allocation must explicitly use 0', [section,key])
     for k in ['source_page_characters','initial_source_characters','initial_code_characters','max_request_characters','no_progress_limit']:
         if not isinstance(policy.get(k),int) or policy[k]<=0:raise Failure('invalid_segmented_config','Expected positive integer',k)
     mandatory={'completeness','semantics','interfaces','ownership','support'}
-    if not cfg.get('v8',{}).get('correctness_only'):mandatory.add('cost')
+    if not cfg.get('translation',{}).get('correctness_only'):mandatory.add('cost')
     if not isinstance(policy['review_categories'],list) or not mandatory<=set(policy['review_categories']):raise Failure('invalid_segmented_config','Missing mandatory quality review categories')
     if not cfg['repair'].get('enabled') or cfg['preprocessing'].get('mode')!='auto' or cfg['generation'].get('strategy')!='structured':raise Failure('invalid_segmented_config','Segmented workflow requires semantic analysis and correctness repair')
     for k in ['fixed','regression','differential']:
         if not cfg['testing'].get(k):raise Failure('invalid_segmented_config','Cannot disable a required validation stage',k)
-    if cfg['generation']['workflow']=='segmented-v8':
-        from .v8_repair import validate_config
-        if 'early_support_tests' in cfg.get('v8',{}):
+    if cfg['generation']['workflow']=='source-translation':
+        from .repair_controller import validate_config
+        if 'early_support_tests' in cfg.get('translation',{}):
             if '_configuration_sources' not in cfg:
                 cfg['_configuration_sources']=origins(cfg,[('caller-supplied effective configuration',cfg)])
-            removed=cfg['v8'].pop('early_support_tests')
-            if type(removed) is not bool:raise Failure('invalid_v8_config','Legacy early_support_tests must be boolean before removal')
-            cfg['_configuration_sources'].setdefault('removed_legacy_settings',{})['v8.early_support_tests']={
+            removed=cfg['translation'].pop('early_support_tests')
+            if type(removed) is not bool:raise Failure('invalid_translation_config','Legacy early_support_tests must be boolean before removal')
+            cfg['_configuration_sources'].setdefault('removed_legacy_settings',{})['translation.early_support_tests']={
                 'value':removed,'reason':'Early semantic testing was removed from the workflow; full-program support tests remain.'}
-            cfg['_configuration_sources']['origins'].pop('v8.early_support_tests',None)
+            cfg['_configuration_sources']['origins'].pop('translation.early_support_tests',None)
         from .semantic_components import SMALL_PROGRAM_DEFAULTS
-        missing_limits={k:v for k,v in SMALL_PROGRAM_DEFAULTS.items() if k not in cfg['v8']}
+        missing_limits={k:v for k,v in SMALL_PROGRAM_DEFAULTS.items() if k not in cfg['translation']}
         if missing_limits and '_configuration_sources' not in cfg:
             cfg['_configuration_sources']=origins(cfg,[('caller-supplied effective configuration',cfg)])
         for key,value in missing_limits.items():
-            cfg['v8'][key]=value
-            cfg['_configuration_sources']['origins']['v8.'+key]='conservative joint-analysis grouping default (2026-11-09); not an empirical optimum'
+            cfg['translation'][key]=value
+            cfg['_configuration_sources']['origins']['translation.'+key]='conservative joint-analysis grouping default (2026-11-09); not an empirical optimum'
         validate_config(cfg)
-        if cfg['v8'].get('correctness_only'):
+        if cfg['translation'].get('correctness_only'):
             if '_configuration_sources' not in cfg:
                 cfg['_configuration_sources']=origins(cfg,[('caller-supplied effective configuration',cfg)])
             policy['support_tests']=True
             policy['development_performance']=False
             policy['review_categories']=[x for x in policy['review_categories'] if x!='cost']
-            cfg['v8']['performance_refinement']=False
+            cfg['translation']['performance_refinement']=False
             cfg['performance']['enabled']=False
             cfg['testing']['final_cases']=0
             if '_configuration_sources' in cfg:
-                for key in ['segmented.support_tests','segmented.development_performance','segmented.review_categories','v8.performance_refinement','performance.enabled','testing.final_cases']:
-                    cfg['_configuration_sources']['origins'][key]='derived from v8.correctness_only'
+                for key in ['segmented.support_tests','segmented.development_performance','segmented.review_categories','translation.performance_refinement','performance.enabled','testing.final_cases']:
+                    cfg['_configuration_sources']['origins'][key]='derived from translation.correctness_only'
     cfg['preprocessing']['max_context_chars'] = policy['max_request_characters']
-    if cfg.get('v8',{}).get('correctness_only'):
+    if cfg.get('translation',{}).get('correctness_only'):
         cfg.setdefault('context_management',{})['limit_authority']='provider'
         cfg['context_management']['local_character_limits']='inactive as rejection limits; retained only as optional compaction/page-cost hints'
         if '_configuration_sources' in cfg:

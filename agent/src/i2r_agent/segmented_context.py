@@ -111,9 +111,9 @@ def code_pages(files,size):
 
 def ask(provider,cfg,path,payload,analysis=False):
     path=Path(path);path.mkdir(parents=True,exist_ok=True)
-    analysis_prompt='v8-correctness-analysis.txt' if cfg.get('v8',{}).get('correctness_only') else 'v8-semantic-analysis.txt' if cfg.get('v8',{}).get('unit_policy')=='semantic-components' else 'segmented-analysis.txt'
-    system=(ROOT/'prompts'/(analysis_prompt if analysis else 'segmented-generation.txt')).read_text()
-    if cfg['generation']['workflow']=='segmented-v8':
+    analysis_prompt='translation-correctness-analysis.txt' if cfg.get('translation',{}).get('correctness_only') else 'translation-semantic-analysis.txt' if cfg.get('translation',{}).get('unit_policy')=='semantic-components' else 'segmented-analysis.txt'
+    system=(ROOT/'prompts'/analysis_prompt).read_text() if analysis else ''
+    if cfg['generation']['workflow']=='source-translation':
         if analysis:
             system+='\nReturn semantic_obligations:[{source,operation,rust_representation,conditions,boundary_cases,verification}] for important numeric, generic and representation choices. Use exact source IDs. Conditions and checks must be concrete; analysis remains revisable. Source optimization is disabled.\n'
             from .semantic_components import enabled
@@ -122,21 +122,21 @@ def ask(provider,cfg,path,payload,analysis=False):
         else:
             phase=payload['controller_state']['phase']
             topic='repair' if phase=='repair' else 'performance' if phase=='performance_review' else 'generate' if phase=='generate' else 'review'
-            system=(ROOT/'prompts/v8-common.txt').read_text()+'\n'+(ROOT/'prompts'/('v8-'+topic+'.txt')).read_text()
-        if cfg.get('v8',{}).get('correctness_only'):
+            system=(ROOT/'prompts/translation-common.txt').read_text()+'\n'+(ROOT/'prompts'/('translation-'+topic+'.txt')).read_text()
+        if cfg.get('translation',{}).get('correctness_only'):
             system=system.replace('only when both limits hold. Within both limits', 'when the entity-count limit holds; source-character size is advisory only. Within that entity-count limit')
         if cfg.get('testing',{}).get('reference_policy')=='available-per-input-v1':
             system+='\nREFERENCE AVAILABILITY: Execute all declared source tests and all fixed/generated ordinary/kernel inputs. Compare each input with every available executed reference; reference build/runtime failures are reported separately and do not authorize changing inputs, expected source-test assertions or semantics. If no reference succeeds for an input, report differential unavailable, never equivalence or passed differential. Do not repair an algorithm merely because a reference is unavailable.\n'
-        if cfg.get('v8',{}).get('correctness_only'):
+        if cfg.get('translation',{}).get('correctness_only'):
             system+='\nCORRECTNESS-ONLY: Do not review, measure, profile or optimize performance. Choose ordinary faithful Rust representations. Revise strategy only for implementation or correctness. Per-component stages are generation, mapping/coverage checks and cumulative compilation only. No routine unit or whole-program LLM review is requested; do not author or execute early semantic/support tests. After whole-program assembly and compilation, retain source-only test authorship, fixed expectations, mechanical coverage, actual execution, ordinary/kernel reference checks and original-failure repair replay. No independent final-test stage exists.\n'
         payload={**payload,'reference_catalog':[r for r in __import__('i2r_agent.task_context',fromlist=['reference_catalog']).reference_catalog() if not r['path'].endswith('isabelle-syntax.md')]}
-        save(path/'guidance-manifest.json',{'workflow':'segmented-v8','phase':'analysis' if analysis else phase,'system_sha256':fingerprint(system),'skill_bodies':[], 'references_supplied':list(payload.get('targeted_references',{}))})
+        save(path/'guidance-manifest.json',{'workflow':'source-translation','phase':'analysis' if analysis else phase,'system_sha256':fingerprint(system),'skill_bodies':[], 'references_supplied':list(payload.get('targeted_references',{}))})
     if not analysis and payload['controller_state']['phase']=='whole_review':
         system+='\nYou are the independent whole-program reviewer in a separate conversation from generation. Treat global analysis and prior acceptance as untrusted suggestions. Compare actual source equations and Rust bodies, especially algorithm_routes; reject closed-form substitution, memoization absent from the source, alternate sorting/search/sqrt algorithms, or test-specialized tables. Mathematical equivalence alone does not authorize a business algorithm change. Patch back to the source route before accepting.\n'
     # Deliberately do not append legacy workflow instructions. References are
     # still requestable, but this workflow's phase and numeric policies prevail.
     text=audit_request(path/'context-audit.json',system,payload)
-    if not cfg.get('v8',{}).get('correctness_only') and len(text)+len(system)>cfg['segmented']['max_request_characters']:
+    if not cfg.get('translation',{}).get('correctness_only') and len(text)+len(system)>cfg['segmented']['max_request_characters']:
         raise Failure('context_budget_exceeded','Requested context is too large; use paged reads',{'characters':len(text)})
     save(path/'input.json',payload)
     from .task_context import Conversation
@@ -171,7 +171,7 @@ def analyze(bundle,cfg,provider,directory):
     from .repair_knowledge import semantic
     adaptation_knowledge=semantic(model,bundle['numeric_policy'])
     from .default_adaptations import proposals as primitive_defaults,apply as apply_defaults
-    default_adaptations=primitive_defaults(model,bundle['numeric_policy']) if cfg.get('v8',{}).get('correctness_only') else []
+    default_adaptations=primitive_defaults(model,bundle['numeric_policy']) if cfg.get('translation',{}).get('correctness_only') else []
     all_pages=pages(model,g['edges'],cfg['segmented']['source_page_characters'])
     page_map={p['id']:p for p in all_pages};seen=set();extra={};feedback=None;notes={}
     initial=[];used=0
@@ -180,7 +180,7 @@ def analyze(bundle,cfg,provider,directory):
         initial.append(p);used+=len(p['text'])
     tries=max([int(p.name.rsplit('-',1)[-1]) for p in directory.glob('analysis-[0-9]*') if p.is_dir()] or [0])
     stalled=0;length_failures={};draft=None;page_stall={}
-    analysis_prompt='v8-correctness-analysis.txt' if cfg.get('v8',{}).get('correctness_only') else 'v8-semantic-analysis.txt' if cfg.get('v8',{}).get('unit_policy')=='semantic-components' else 'segmented-analysis.txt'
+    analysis_prompt='translation-correctness-analysis.txt' if cfg.get('translation',{}).get('correctness_only') else 'translation-semantic-analysis.txt' if cfg.get('translation',{}).get('unit_policy')=='semantic-components' else 'segmented-analysis.txt'
     resume_scope=fingerprint({'source_model':model,'numeric_policy':bundle['numeric_policy'],'config':cfg,
                               'default_adaptations':default_adaptations,'protocol':'analysis-state-v1',
                               'prompt':(ROOT/'prompts'/analysis_prompt).read_text(),'context_protocol':Path(__file__).read_text(),
@@ -219,7 +219,7 @@ def analyze(bundle,cfg,provider,directory):
             payload['component_grouping']={'mode':'joint_analysis','limits':grouping_policy(cfg),
                 'metric':'Count the actual adapted dependency closure including owned adapted helpers and required types/classes; sum full readable source characters without truncation.',
                 'rule':'Both inclusive limits permit deterministic single-group ownership. Otherwise return components with boundaries in this same reply; exactly one owner per required entity, no split SCC and no group dependency cycle. All source pages still must be read.'}
-            if cfg.get('v8',{}).get('correctness_only'):
+            if cfg.get('translation',{}).get('correctness_only'):
                 payload['component_grouping']['rule']='Entity-count policy permits deterministic single-group ownership; source-character size is advisory only. Otherwise return components with exact ownership and dependency rules. Every required source page must still be read.'
         try:
             reply=ask(provider,cfg,path,payload,True)
@@ -240,7 +240,7 @@ def analyze(bundle,cfg,provider,directory):
             if set(page_map)-seen:raise page_reading_failure('incomplete_analysis','Read remaining source pages',page_map,seen,supplied,page_stall)
             if not isinstance(reply.get('opportunities'),list):raise Failure('invalid_analysis','opportunities must be a list')
             if set(g['edges'])-set(reply.get('analysis_coverage',[])):raise Failure('incomplete_analysis','Classify every executable entity',sorted(set(g['edges'])-set(reply.get('analysis_coverage',[]))))
-            if cfg['generation']['workflow']=='segmented-v8':
+            if cfg['generation']['workflow']=='source-translation':
                 validate_semantic_obligations(reply.get('semantic_obligations'),model)
             boundaries,default_decision=apply_defaults(reply,default_adaptations)
             reply={**reply,'boundaries':boundaries,'default_adaptation_decision':default_decision}

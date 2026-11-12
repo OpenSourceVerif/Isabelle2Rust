@@ -9,7 +9,7 @@ def wire_contract(cfg):
     transport=cfg['testing']['transport']
     from .test_connector import TYPES,driver
     if transport not in TYPES:raise Failure('unsupported_transport',transport)
-    raw=driver(transport,timing=not bool(cfg.get('v8',{}).get('correctness_only')))
+    raw=driver(transport,timing=not bool(cfg.get('translation',{}).get('correctness_only')))
     return {'transport':transport,'rust_type':TYPES[transport],
         'driver_source':raw,'driver_identity':fingerprint(raw),
         'instruction':'The actual shared driver below is authoritative for parsing and serialization. Wire values enter observe/benchmark_prepare directly in this type. Do not assume a global tagged or zigzag encoding. Apply only conversions required by the actual Model/Kernel source equations and this driver; model diagnostic hypotheses are unverified.'}

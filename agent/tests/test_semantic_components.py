@@ -2,10 +2,10 @@ import tempfile,unittest
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import Mock,patch
-from i2r_agent import semantic_components as cpt,segmented_v8 as runner
+from i2r_agent import semantic_components as cpt,translation_workflow as runner
 from i2r_agent.common import Failure,Executor,save
 from test_segmented_workflow import source,mapping
-from test_v8_workflow import cfg,accept
+from test_translation_workflow import cfg,accept
 
 
 def group(name,*members):return {'name':name,'purpose':'coherent '+name,'members':list(members)}
@@ -13,8 +13,8 @@ def group(name,*members):return {'name':name,'purpose':'coherent '+name,'members
 class SemanticComponentTests(unittest.TestCase):
     def test_component_grouping_is_validated_from_same_global_adaptation_reply(self):
         from i2r_agent.segmented_context import analyze
-        conf=cfg();conf['v8'].update(unit_policy='semantic-components',small_program_max_entities=1)
-        bundle=source();bundle['workflow']='segmented-v8';seen=[]
+        conf=cfg();conf['translation'].update(unit_policy='semantic-components',small_program_max_entities=1)
+        bundle=source();bundle['workflow']='source-translation';seen=[]
         def ask(pv,c,path,p,analysis=False):
             seen.append(p.get('task_kind','global_analysis'))
             self.assertEqual(p['component_grouping']['mode'],'joint_analysis')
@@ -78,8 +78,8 @@ class SemanticComponentTests(unittest.TestCase):
         self.assertEqual(again['dirty_sources'][p['owner']['constant:A.h']],['constant:A.g','constant:A.h'])
 
     def test_real_component_compile_repair_reviews_only_changed_member(self):
-        conf=cfg();conf['v8']['unit_policy']='semantic-components';conf['segmented']['support_tests']=False
-        b=source();b['workflow']='segmented-v8';b['segmentation']=cpt.compose(b['source_model'],[],[group('pair','constant:A.h','constant:A.f')])
+        conf=cfg();conf['translation']['unit_policy']='semantic-components';conf['segmented']['support_tests']=False
+        b=source();b['workflow']='source-translation';b['segmentation']=cpt.compose(b['source_model'],[],[group('pair','constant:A.h','constant:A.f')])
         provider=Mock();provider.calls=0;provider.usage={};reviews=[]
         def ask(pv,c,path,p,analysis=False):
             phase=p['controller_state']['phase']
@@ -89,7 +89,7 @@ class SemanticComponentTests(unittest.TestCase):
             return accept(p,conf)
         with tempfile.TemporaryDirectory() as d:
             w=Path(d);save(w/'regressions.json',[])
-            with patch('i2r_agent.segmented_v8.ask',side_effect=ask):
+            with patch('i2r_agent.translation_workflow.ask',side_effect=ask):
                 attempts,done=runner.search(b,None,conf,provider,w,Executor(w/'commands'),None,[],[],w/'regressions.json',lambda _:None)
             self.assertEqual(done[0]['status'],'passed')
             self.assertEqual(reviews,[['constant:A.f','constant:A.h'],['constant:A.f']])

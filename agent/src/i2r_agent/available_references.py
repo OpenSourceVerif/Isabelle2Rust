@@ -82,7 +82,7 @@ def setup_rust(crate_source,project,cfg,work,executor):
 
 
 def compile_rust_reference(label,crate,cfg,executor):
-    timing=not cfg.get('v8',{}).get('correctness_only')
+    timing=not cfg.get('translation',{}).get('correctness_only')
     candidates=[p for p in (crate/'src').glob('*.rs') if re.search(r'pub fn observe\s*\(',p.read_text())]
     if len(candidates)!=1:raise Failure('missing_observer','Expected one public observe function')
     code=candidates[0].read_text()
@@ -101,7 +101,7 @@ def compile_rust_reference(label,crate,cfg,executor):
 
 
 def compile_ocaml_reference(source_file,cfg,work,executor):
-    timing=not cfg.get('v8',{}).get('correctness_only');ocamls=[source_file]
+    timing=not cfg.get('translation',{}).get('correctness_only');ocamls=[source_file]
     directory=work/'ocaml';directory.mkdir()
     source=directory/'reference.ml';shutil.copy2(ocamls[0],source)
     text=source.read_text()

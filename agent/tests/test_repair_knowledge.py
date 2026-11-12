@@ -4,7 +4,7 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import Mock,patch
-from i2r_agent import repair_knowledge as k,prepared_identity,segmented_v8,implementation_strategy
+from i2r_agent import repair_knowledge as k,prepared_identity,translation_workflow,implementation_strategy
 from i2r_agent.common import ROOT,Failure,save
 from i2r_agent.knowledge_candidates import collect
 
@@ -60,7 +60,7 @@ class RepairKnowledgeTests(unittest.TestCase):
             project=Path(d);(project/'A.thy').write_text('theory A imports Main begin end')
             with patch('i2r_agent.repair_knowledge.manifest',return_value={'catalog':'old'}):
                 old=prepared_identity.identity(project,{})
-                bundle=source();checkpoint=segmented_v8.checkpoint_identity(bundle,{}, {})
+                bundle=source();checkpoint=translation_workflow.checkpoint_identity(bundle,{}, {})
             with patch('i2r_agent.repair_knowledge.manifest',return_value={'catalog':'new'}):
                 new=prepared_identity.identity(project,{})
                 self.assertNotEqual(old,new)
@@ -68,7 +68,7 @@ class RepairKnowledgeTests(unittest.TestCase):
                 self.assertEqual(e.exception.code,'stale_preprocessing_cache')
                 save(project/'segmented-checkpoint.json',{'identity':checkpoint,'implementation_strategy':implementation_strategy.initialize(bundle['semantic_analysis'])})
                 with self.assertRaises(Failure) as e:
-                    segmented_v8.search(bundle,None,{},Mock(),project,Mock(),None,[],[],project/'regressions.json',Mock())
+                    translation_workflow.search(bundle,None,{},Mock(),project,Mock(),None,[],[],project/'regressions.json',Mock())
                 self.assertEqual(e.exception.code,'stale_snapshot')
 
     def test_real_catalog_edit_changes_manifest(self):

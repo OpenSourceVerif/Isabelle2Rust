@@ -6,7 +6,6 @@ from unittest.mock import Mock, patch
 from i2r_agent.common import config, Failure
 from i2r_agent.rust_index import build, select
 from i2r_agent.source_context import coverage, payload
-from i2r_agent.source_run import search
 
 
 def bundle():
@@ -47,33 +46,6 @@ class SourceWorkflowTests(unittest.TestCase):
         with self.assertRaises(Failure) as e:coverage(b,{'src/lib.rs':'pub fn f(){}'},rows)
         self.assertEqual(e.exception.evidence['missing'],['constant:A.helper'])
 
-    def test_refine_precedes_compiler_and_compiler_failure_uses_repair(self):
-        cfg=config();cfg['generation']['workflow']='source-v6'
-        provider=Mock();provider.phase_calls={'generation':0};provider.calls=0;provider.usage={}
-        phases=[];compiled=[]
-        with tempfile.TemporaryDirectory() as d:
-            root=Path(d);out=root/'out';out.write_text('');err=root/'err';err.write_text('error[E0308]: wrong type')
-            record={'stdout':str(out),'stderr':str(err),'status':'failed'}
-            def ask(provider,cfg,path,stage,p):
-                phases.append(p['controller_state']['phase']);provider.phase_calls['generation']+=1;provider.calls+=1
-                phase=phases[-1]
-                if phase=='generate':return {'action':'generate','files':{'src/lib.rs':'pub fn f()->u128 { false }'},'mapping':mapping()}
-                if phase in {'quick_refine','review'}:return {'action':'accept','quality_review':'No structural change required','quality_resolutions':[]}
-                self.assertIn('structured_diagnostics',p['feedback'])
-                self.assertTrue(p['current_mapping'])
-                return {'action':'generate','base_code_version':p['code_version'],
-                    'edits':[{'file':'src/lib.rs','old':'false','new':'1'}],'diagnosis':'The source result is natural one'}
-            def compile_one(crate,*args):
-                compiled.append((list(phases),(crate/'src/lib.rs').read_text()))
-                if len(compiled)==1:return {'status':'compile_failed','checks':{'build':record},'diagnostics':[{'code':{'code':'E0308'},'message':'wrong type'}]}
-                return {'status':'passed','checks':{},'diagnostics':[]}
-            with patch('i2r_agent.source_run.call',side_effect=ask),patch('i2r_agent.source_run.compile_library',side_effect=compile_one):
-                attempts,survivors=search(bundle(),None,cfg,provider,root,Mock(),None,[],[],root/'regressions.json',lambda x:None)
-            self.assertEqual(phases,['generate','quick_refine','repair','review'])
-            self.assertEqual(compiled[0][0],['generate','quick_refine'])
-            self.assertIn('{ 1 }',compiled[1][1]);self.assertEqual(len(survivors),1)
-            self.assertTrue(survivors[0]['closed_issues'])
-            self.assertFalse(survivors[0].get('loaded_adapter'))
 
     def test_parse_error_file_is_never_hidden_by_retrieval(self):
         with tempfile.TemporaryDirectory() as d:

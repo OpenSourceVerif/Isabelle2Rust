@@ -8,7 +8,7 @@ from .task_context import fingerprint
 
 
 def enabled(cfg):
-    return cfg.get('v8',{}).get('unit_policy')=='semantic-components'
+    return cfg.get('translation',{}).get('unit_policy')=='semantic-components'
 
 
 def catalog(model,boundaries):
@@ -83,9 +83,9 @@ SMALL_PROGRAM_DEFAULTS={'small_program_max_entities':12,'small_program_max_sourc
 
 
 def grouping_policy(cfg):
-    values={key:cfg.get('v8',{}).get(key,default) for key,default in SMALL_PROGRAM_DEFAULTS.items()}
+    values={key:cfg.get('translation',{}).get(key,default) for key,default in SMALL_PROGRAM_DEFAULTS.items()}
     if any(type(v) is not int or v<=0 for v in values.values()):
-        raise Failure('invalid_v8_config','Small-program limits must be positive integers',values)
+        raise Failure('invalid_translation_config','Small-program limits must be positive integers',values)
     return values
 
 
@@ -96,7 +96,7 @@ def grouping_context(model,boundaries,cfg):
     measured={'entities':len(edges),'source_characters':sum(lengths.values()),
               'largest_entity_characters':max(lengths.values(),default=0)}
     small=(bool(edges) and measured['entities']<=limits['small_program_max_entities']
-           and (cfg.get('v8',{}).get('correctness_only') or measured['source_characters']<=limits['small_program_max_source_characters']))
+           and (cfg.get('translation',{}).get('correctness_only') or measured['source_characters']<=limits['small_program_max_source_characters']))
     return {'schema':1,'limits':limits,'measured':measured,'eligible_for_single_group':small,
             'metric':'actual adapted dependency closure; full readable JSON character sum without truncation',
             'adapted_catalog_identity':fingerprint({'source':model,'boundaries':atomic['boundaries'],'edges':edges}),
@@ -112,7 +112,7 @@ def from_analysis(model,boundaries,groups,cfg,default_decision=None):
     if context['eligible_for_single_group']:
         chosen=[{'name':'whole-program','purpose':'Complete adapted closure fits both explicit small-program limits',
                  'members':[r['source'] for r in context['required_entities']]}]
-        method='program_single_group';reason='Entity count permits a single complete group; source-character size is advisory, not an admission limit.' if cfg.get('v8',{}).get('correctness_only') else 'Both entity count and full readable source size are within inclusive limits.'
+        method='program_single_group';reason='Entity count permits a single complete group; source-character size is advisory, not an admission limit.' if cfg.get('translation',{}).get('correctness_only') else 'Both entity count and full readable source size are within inclusive limits.'
     else:
         chosen=groups;method='joint_analysis_components'
         reason='At least one small-program limit is exceeded; explicit components from the same analysis reply are required.'
@@ -149,7 +149,7 @@ def review_members(state):
 
 def affected_sources(state,files,mapping,cfg,global_change=False):
     """Keep source-level evidence inside a translation batch after local edits."""
-    from .v8_review_scope import view,review_tokens,ambient_identity
+    from .review_scope import view,review_tokens,ambient_identity
     from .segmented_contract import items,validate_item
     plan=state['partition'];checked=set(state['completed'])|set(state.get('reviews',{}))|set(state.get('dirty_sources',{}))
     checked|={plan['owner'][n] for n in state.get('source_reviews',{}) if n in plan['owner']}

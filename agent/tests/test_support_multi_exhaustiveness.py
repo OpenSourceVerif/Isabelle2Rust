@@ -9,7 +9,7 @@ from i2r_agent.segmented_test_audit import (exhaustiveness_plan,exhaustiveness_r
 from i2r_agent.segmented_support import execute
 from i2r_agent.segmented_config import configure,materialize,rust_config
 from i2r_agent.support_issue_lineage import migrate
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 SINGLE='#[test] fn singleton(){let x=i2r_candidate::value();match x{Some(7)=>(),None=>panic!(),}}'
 NESTED='#[test] fn nested(){match Some(Some(7)){Some(x)=>match x{Some(7)=>(),None=>panic!(),},None=>panic!(),} match Some(1){Some(1)=>(),None=>panic!(),}}'
@@ -88,7 +88,7 @@ def test_model_normalization_never_hides_non_rejecting_or_original_changes(fault
 
 
 def test_real_multifile_compile_execution_lineage_and_wrong_candidate_rejection(tmp_path):
-    frozen,_,_=fixture((SINGLE,NESTED));c=cfg();c['v8']['correctness_only']=True;c=configure(c);rc=rust_config({},c)
+    frozen,_,_=fixture((SINGLE,NESTED));c=cfg();c['translation']['correctness_only']=True;c=configure(c);rc=rust_config({},c)
     crate=materialize(tmp_path/'candidate',FILES,rc);executor=Executor(tmp_path/'commands');provider=Mock()
     failed=execute(frozen,crate,rc,c,executor)
     assert failed['status']=='support_test_compile_failed' and failed['diagnostic'].count('error[E0004]')==3
@@ -104,10 +104,10 @@ def test_real_multifile_compile_execution_lineage_and_wrong_candidate_rejection(
 
 
 def test_actual_controller_replays_fix_then_requires_D_without_extra_audit_call(tmp_path):
-    from i2r_agent.segmented_v8 import search
+    from i2r_agent.translation_workflow import search
     from test_segmented_workflow import source,mapping
     from i2r_agent import observation_source
-    c=cfg();c['v8']['correctness_only']=True;c=configure(c);b=source();b['workflow']='segmented-v8'
+    c=cfg();c['translation']['correctness_only']=True;c=configure(c);b=source();b['workflow']='source-translation'
     frozen={'identity':'controller-multi-e0004','tests':['#[test] fn first(){assert_eq!(i2r_candidate::h(),1);match i2r_candidate::f(){2=>(),}}',
             '#[test] fn second(){match i2r_candidate::h(){1=>(),}}'],'unit_tests':[],
             'obligations':[{'source':'constant:A.f','test_name':'__i2r_source_contract_0::first'}, {'source':'constant:A.h','test_name':'__i2r_source_contract_1::second'}]}
@@ -118,7 +118,7 @@ def test_actual_controller_replays_fix_then_requires_D_without_extra_audit_call(
         name=payload['unit']['members'][0].rsplit('.',1)[-1]
         return {'files':{'src/lib.rs':payload['current_files']['src/lib.rs']+'\npub fn '+name+'()->u128{'+('1' if name=='h' else 'h()+1')+'}'},'mapping':[mapping(name)]}
     testing=tmp_path/'testing';testing.mkdir();(testing/'Model.thy').write_text('fixture');(testing/'Kernel.thy').write_text('fixture')
-    with patch('i2r_agent.segmented_v8.ask',side_effect=generate),patch('i2r_agent.segmented_support.prepare',return_value=frozen),patch.object(observation_source,'acquire',side_effect=Failure('needs_user','ZERO_API_D_CONNECTION_BOUNDARY')):
+    with patch('i2r_agent.translation_workflow.ask',side_effect=generate),patch('i2r_agent.segmented_support.prepare',return_value=frozen),patch.object(observation_source,'acquire',side_effect=Failure('needs_user','ZERO_API_D_CONNECTION_BOUNDARY')):
         with pytest.raises(Failure,match='ZERO_API_D_CONNECTION_BOUNDARY'):
             search(b,testing,c,provider,tmp_path,Executor(tmp_path/'commands'),{},[],[],tmp_path/'regressions.json',lambda _:None)
     state=read(tmp_path/'segmented-checkpoint.json');provider.call.assert_not_called()
@@ -129,7 +129,7 @@ def test_actual_controller_replays_fix_then_requires_D_without_extra_audit_call(
 
 def test_real_mixed_import_error_can_be_fixed_before_pure_exhaustiveness(tmp_path):
     original='use missing::value;\n'+SINGLE.replace('i2r_candidate::value()','value()')
-    frozen,_,_=fixture((original,));c=cfg();c['v8']['correctness_only']=True;c=configure(c);rc=rust_config({},c)
+    frozen,_,_=fixture((original,));c=cfg();c['translation']['correctness_only']=True;c=configure(c);rc=rust_config({},c)
     crate=materialize(tmp_path/'candidate',FILES,rc);executor=Executor(tmp_path/'commands')
     failed=execute(frozen,crate,rc,c,executor)
     # rustc may withhold downstream E0004 while the import is unresolved; retain

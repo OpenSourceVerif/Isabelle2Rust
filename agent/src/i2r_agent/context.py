@@ -5,10 +5,6 @@ from pathlib import Path
 from .common import ROOT, save
 
 
-def skill(name):
-    return (ROOT/'skills'/name/'SKILL.md').read_text()
-
-
 def bindings_for(programs, loaded):
     bindings=loaded.get('bindings',{})
     # Binding export is already restricted to the reachable graph. Concrete

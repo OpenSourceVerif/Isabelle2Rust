@@ -5,9 +5,9 @@ import tempfile
 import unittest
 from unittest.mock import Mock,patch
 from i2r_agent.common import ROOT,Failure,config,Executor
-from i2r_agent.knowledge import material,requested,correspondence,apply_files,analyze,adapter_plan
+from i2r_agent.knowledge import material, requested, correspondence, apply_files, adapter_plan
 from i2r_agent.provider import decode_model_json
-from i2r_agent.knowledge_run import reference_bundle,search,synchronize_support
+from i2r_agent.knowledge_run import reference_bundle
 from i2r_agent.planning import manifest
 from i2r_agent import test_connector
 from i2r_agent.references import compile_rust
@@ -42,27 +42,6 @@ class KnowledgeFlowTests(unittest.TestCase):
         self.assertNotIn('dependencies',plan['adapter'])
         self.assertIn('moved adapter.dependencies to dependencies',plan['protocol_normalizations'])
 
-    def test_unchanged_failures_keep_budget_and_request_actual_edits(self):
-        b=bundle();b['loaded_adapter']={'support':{'files':{}},'bindings':{}}
-        cfg=config();cfg['repair']['max_attempts']=5;p=Mock();p.phase_calls={'generation':0};p.calls=0;p.usage={};requests=[]
-        def respond(*args):
-            requests.append(json.loads(json.dumps({k:v for k,v in args[-1].items() if k!='_conversation'})));p.calls+=1;p.phase_calls['generation']+=1
-            return {'action':'generate','files':{'src/lib.rs':'pub fn broken() {'},'mapping':[{'source':n['id'],'rust':'broken'} for n in b['programs'][0]['nodes']]}
-        with tempfile.TemporaryDirectory() as d,patch('i2r_agent.knowledge_run.call',side_effect=respond),patch('i2r_agent.knowledge_run.compile_library',return_value={'status':'compile_failed','checks':{}}) as compile_mock:
-            attempts,survivors=search(b,None,cfg,p,d,Mock(),None,[],[],Path(d)/'r.json',lambda x:None)
-        self.assertEqual(p.calls,5);self.assertEqual(survivors,[]);self.assertEqual(compile_mock.call_count,1)
-        self.assertIn('unchanged_repair',requests[2]['feedback'])
-
-    def test_mapping_only_repair_is_not_rejected_as_unchanged_code(self):
-        b=bundle();b['loaded_adapter']={'support':{'files':{}},'bindings':{}}
-        p=Mock();p.phase_calls={'generation':0};p.calls=0;p.usage={}
-        replies=[{'action':'generate','files':{'src/lib.rs':'pub fn main(){}'},'mapping':[{'source':'constant:A.main','rust':'main'}]},
-                 {'action':'generate','mapping':[{'source':'constant:A.helper','rust':'main'}]}, {'action':'accept'}]
-        def respond(*args):
-            reply=replies[p.calls];p.calls+=1;p.phase_calls['generation']+=1;return reply
-        with tempfile.TemporaryDirectory() as d,patch('i2r_agent.knowledge_run.call',side_effect=respond),patch('i2r_agent.knowledge_run.compile_library',return_value={'status':'passed'}):
-            attempts,survivors=search(b,None,config(),p,d,Mock(),None,[],[],Path(d)/'r.json',lambda x:None)
-        self.assertEqual(len(survivors),1);self.assertEqual(p.calls,3)
 
     def test_large_take_drop_counts_are_in_fixed_regressions(self):
         from i2r_agent.suites import scoped_fixed,domain
@@ -82,26 +61,12 @@ class KnowledgeFlowTests(unittest.TestCase):
             correspondence(bundle(),{'src/lib.rs':'pub fn main(){}'},[{'source':'constant:A.main','rust':'main'}])
         self.assertEqual(e.exception.evidence['missing'],['constant:A.helper'])
 
-    def test_analysis_does_not_load_adapters_or_supply_test_abi(self):
-        p=Mock();p.phase_calls={'preprocessing':0};p.call.return_value={'opportunities':[]}
-        with tempfile.TemporaryDirectory() as d:
-            result,record=analyze(bundle(),config(),p,d)
-        self.assertEqual(record['status'],'analyzed')
-        self.assertEqual(p.call.call_args.kwargs['phase'],'preprocessing')
-        self.assertNotIn('WIRE_SECRET',p.call.call_args.args[1])
-        self.assertNotIn('loaded_adapter',result)
 
     def test_representation_edits_are_not_ownership_only(self):
         out=apply_files({'src/lib.rs':'type N = u128;'}, {'edits':[{'file':'src/lib.rs','old':'u128','new':'CustomNat'}]})
         self.assertIn('CustomNat',out['src/lib.rs'])
         self.assertNotIn('dashu',manifest({},transport='none'))
 
-    def test_support_revisions_update_saved_binding_evidence(self):
-        b={'files':{'src/n.rs':'new'},'bundle':{'loaded_adapter':{'support':{'files':{'src/n.rs':'old'}}}},
-           'plan':{'adapter':{'rust_files':{'src/n.rs':'old'}}}}
-        synchronize_support(b)
-        self.assertEqual(b['bundle']['loaded_adapter']['support']['files']['src/n.rs'],'new')
-        self.assertEqual(b['plan']['adapter']['rust_files']['src/n.rs'],'new')
 
     def test_adaptation_cannot_remove_original_export_obligation(self):
         b=bundle();b['original_programs']=b['programs'];b['programs']=[{'entries':[],'nodes':[]}]
@@ -109,37 +74,6 @@ class KnowledgeFlowTests(unittest.TestCase):
         self.assertIn('constant:A.main',caught.exception.evidence['missing'])
         self.assertEqual(requested({'request_nodes':['constant:A.helper']},b)['nodes'][0]['statement']['equations'],['hidden body'])
 
-    def test_unchanged_review_does_not_generate_another_loop(self):
-        b=bundle();b['loaded_adapter']={'support':{'files':{}},'bindings':{}}
-        reply={'action':'generate','files':{'src/lib.rs':'pub fn main(){}'},
-               'mapping':[{'source':n['id'],'rust':'main'} for n in b['programs'][0]['nodes']]}
-        cfg=config();p=Mock();p.phase_calls={'generation':0};p.calls=0;p.usage={}
-        def respond(*args):p.calls+=1;p.phase_calls['generation']+=1;return reply
-        with tempfile.TemporaryDirectory() as d,patch('i2r_agent.knowledge_run.call',side_effect=respond),patch('i2r_agent.knowledge_run.compile_library',return_value={'status':'passed'}):
-            attempts,survivors=search(b,None,cfg,p,d,Mock(),None,[],[],Path(d)/'r.json',lambda x:None)
-        self.assertEqual(p.calls,2)
-        self.assertEqual(len(survivors),1)
-        self.assertEqual(attempts[1]['development']['status'],'quality_reviewed')
-
-    def test_rust_aliases_alone_do_not_install_an_adapter(self):
-        cfg=config();cfg['repair']['max_attempts']=1;p=Mock();p.phase_calls={'generation':0};p.calls=0;p.usage={}
-        def respond(*args):
-            p.calls+=1;p.phase_calls['generation']+=1
-            return {'action':'generate','files':{'src/lib.rs':'type N=u128;'}}
-        with tempfile.TemporaryDirectory() as d,patch('i2r_agent.knowledge_run.call',side_effect=respond):
-            attempts,survivors=search(bundle(),None,cfg,p,d,Mock(),None,[],[],Path(d)/'r.json',lambda x:None)
-        self.assertEqual(survivors,[])
-        self.assertEqual(attempts[0]['development']['status'],'adapter_not_installed')
-
-    def test_failed_declaration_is_present_in_next_repair_request(self):
-        cfg=config();cfg['repair']['max_attempts']=2;p=Mock();p.phase_calls={'generation':0};p.calls=0;p.usage={};requests=[]
-        def respond(*args):
-            requests.append(args[-1]);p.calls+=1;p.phase_calls['generation']+=1
-            return {'action':'adapt','adapter':{'declarations':'BROKEN_DECLARATION'}}
-        with tempfile.TemporaryDirectory() as d,patch('i2r_agent.knowledge_run.call',side_effect=respond),patch('i2r_agent.knowledge_run.load_adapter',side_effect=Failure('adapter_isabelle_failed','Not a constant')):
-            search(bundle(),None,cfg,p,d,Mock(),None,[],[],Path(d)/'r.json',lambda x:None)
-        self.assertEqual(requests[1]['adapter_files']['declarations.thy'],'BROKEN_DECLARATION')
-        self.assertIn('Not a constant',requests[1]['feedback']['message'])
 
     @unittest.skip("Historical non-FPP catalog remains in the original Agent repository; not an artifact regression")
     def test_algorithm_and_reference_projects_are_separate_and_preserved(self):

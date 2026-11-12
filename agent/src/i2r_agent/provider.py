@@ -132,8 +132,8 @@ class Provider:
                  'max_tokens':payload['max_tokens'],'thinking':payload['thinking'],'reasoning_effort':payload.get('reasoning_effort'),'usage':usage})
         try:
             decoded=decode_model_json(choice['message']['content'],directory)
-            if self.cfg.get('generation',{}).get('workflow')=='segmented-v8' and phase!='source_test_check':
-                from .v8_response import normalize
+            if self.cfg.get('generation',{}).get('workflow')=='source-translation' and phase!='source_test_check':
+                from .response_protocol import normalize
                 decoded,normalizations=normalize(decoded)
                 if normalizations['omitted_optional_null_fields']:
                     save(directory/'response-normalizations.json',normalizations)

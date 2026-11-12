@@ -5,7 +5,7 @@ from pathlib import Path
 from i2r_agent.common import Failure
 from i2r_agent.rust_index import build
 from i2r_agent.segmented_contract import items, resolve
-from i2r_agent import segmented_v8 as runner
+from i2r_agent import translation_workflow as runner
 import test_shared_invalidation as fixtures
 
 

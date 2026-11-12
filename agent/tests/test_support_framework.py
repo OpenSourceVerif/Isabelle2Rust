@@ -5,7 +5,7 @@ from i2r_agent.support_framework import build,inject,enum_layout_matches
 from i2r_agent.common import Executor
 from i2r_agent.segmented_config import materialize,rust_config
 from i2r_agent.segmented_support import execute
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 CODE='pub enum List<T>{Nil,Cons(T,Box<List<T>>)} pub fn map<T,F:Fn(T)->T>(f:F,xs:List<T>)->List<T>{match xs{List::Nil=>List::Nil,List::Cons(x,t)=>List::Cons(f(x),Box::new(map(f,*t)))}}'
 MAPPING=[{'source':'type:List.list','rust_item':'crate::List'},{'source':'constant:List.list.Nil','rust_item':'crate::List::Nil'},{'source':'constant:List.list.Cons','rust_item':'crate::List::Cons'}]

@@ -4,11 +4,11 @@ from pathlib import Path
 from copy import deepcopy
 from unittest.mock import Mock, patch
 
-from i2r_agent import segmented_v8 as runner, semantic_components as components
+from i2r_agent import translation_workflow as runner, semantic_components as components
 from i2r_agent import knowledge_run
 from i2r_agent.common import Failure, Executor, save, read
 from test_segmented_workflow import source, mapping
-from test_v8_workflow import cfg, accept
+from test_translation_workflow import cfg, accept
 from test_semantic_components import group
 
 import tempfile
@@ -30,7 +30,7 @@ def run_fixture(name, bundle, conf, reply):
     work.mkdir()
     save(work / 'regressions.json', [])
     failure = None
-    with patch('i2r_agent.segmented_v8.ask', side_effect=reply):
+    with patch('i2r_agent.translation_workflow.ask', side_effect=reply):
         try:
             runner.search(bundle, None, conf, provider(), work, Executor(work / 'commands'),
                           None, [], [], work / 'regressions.json', lambda _: None)
@@ -43,9 +43,9 @@ def run_fixture(name, bundle, conf, reply):
 def incomplete_first_review():
     conf = cfg()
     conf['segmented']['support_tests'] = False
-    conf['v8']['unit_policy'] = 'semantic-components'
+    conf['translation']['unit_policy'] = 'semantic-components'
     b = source()
-    b['workflow'] = 'segmented-v8'
+    b['workflow'] = 'source-translation'
     b['segmentation'] = components.compose(b['source_model'], [],
         [group('pair', 'constant:A.h', 'constant:A.f')])
     reviewed = []
@@ -79,7 +79,7 @@ def rollback_review_conflict():
     conf = cfg()
     conf['segmented']['support_tests'] = False
     b = source()
-    b['workflow'] = 'segmented-v8'
+    b['workflow'] = 'source-translation'
     target = None
     whole_count = 0
 
@@ -118,7 +118,7 @@ def stale_preprocessing():
     project.mkdir()
     (project / 'Export.thy').write_text('theory Export imports Main begin definition f where "f = (2::nat)" end')
     b = source()
-    b.update(workflow='segmented-v8', tool_sources={},
+    b.update(workflow='source-translation', tool_sources={},
              sources={'Export.thy': 'theory Export imports Main begin definition f where "f = (1::nat)" end'})
     save(work / 'prepared-program.json', b)
     captured = {}
@@ -130,7 +130,7 @@ def stale_preprocessing():
     with patch('i2r_agent.knowledge_run.Provider', return_value=provider()), \
          patch('i2r_agent.knowledge_run.preprocess') as preprocess, \
          patch('i2r_agent.knowledge_run.analyze') as analyze, \
-         patch('i2r_agent.segmented_v8.search', side_effect=search):
+         patch('i2r_agent.translation_workflow.search', side_effect=search):
         result = knowledge_run.build(project, work / 'output', cfg(), diagnostics=work)
     assert result['status'] == 'stale_preprocessing_cache', result
     assert not preprocess.called and not analyze.called
@@ -140,7 +140,7 @@ def stale_preprocessing():
 
 
 def disabled_required_test():
-    from i2r_agent.v8_support import validate_obligations
+    from i2r_agent.test_obligations import validate_obligations
     from i2r_agent.segmented_support import execute
     from i2r_agent.segmented_config import materialize, rust_config
     conf = cfg()
@@ -180,11 +180,11 @@ class CorrectnessRepairs(unittest.TestCase):
     def test_disabled_required_test_is_not_coverage(self):disabled_required_test()
     def test_correctness_mode_overrides_legacy_performance_settings(self):
         from i2r_agent.segmented_config import configure
-        c=cfg();c['v8']['correctness_only']=True;c['budgets']['max_model_calls']=60
+        c=cfg();c['translation']['correctness_only']=True;c['budgets']['max_model_calls']=60
         c=configure(c)
         self.assertFalse(c['performance']['enabled'])
         self.assertFalse(c['segmented']['development_performance'])
-        self.assertFalse(c['v8']['performance_refinement'])
+        self.assertFalse(c['translation']['performance_refinement'])
         self.assertNotIn('cost',c['segmented']['review_categories'])
         self.assertEqual(c['testing']['final_cases'],0)
     def test_duplicate_test_names_do_not_mask_disabled_test(self):
@@ -223,7 +223,7 @@ class CorrectnessRepairs(unittest.TestCase):
             source_file=project/'Export.thy';source_file.write_text('theory Export imports Main begin end')
             imported=work/'Imported.thy';imported.write_text('theory Imported imports Main begin end')
             c=cfg();b=source()
-            b.update(workflow='segmented-v8',tool_sources=tool_sources.manifest(),sources={'Export.thy':source_file.read_text()},
+            b.update(workflow='source-translation',tool_sources=tool_sources.manifest(),sources={'Export.thy':source_file.read_text()},
                      source_catalog=[{'path':str(imported),'available':True,'sha256':digest(imported)}])
             b['prepared_identity']=prepared_identity.identity(project,c)
             old_identity=b['prepared_identity']
@@ -238,9 +238,9 @@ class CorrectnessRepairs(unittest.TestCase):
             with patch('i2r_agent.knowledge_run.Provider',return_value=provider()), \
                  patch('i2r_agent.knowledge_run.preprocess') as preprocess, \
                  patch('i2r_agent.knowledge_run.analyze') as analyze, \
-                 patch('i2r_agent.segmented_v8.ask',side_effect=AssertionError('No model call allowed')):
+                 patch('i2r_agent.translation_workflow.ask',side_effect=AssertionError('No model call allowed')):
                 if change=='valid':
-                    with patch('i2r_agent.segmented_v8.search',side_effect=Failure('audit_capture','Valid current cache reached generation')) as search:
+                    with patch('i2r_agent.translation_workflow.search',side_effect=Failure('audit_capture','Valid current cache reached generation')) as search:
                         result=knowledge_run.build(project,work/'output',c,diagnostics=work)
                         self.assertEqual(search.call_count,1)
                 else:

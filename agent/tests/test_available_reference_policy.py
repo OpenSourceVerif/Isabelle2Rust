@@ -58,12 +58,12 @@ class AvailableReferenceTests(unittest.TestCase):
  def test_real_source_tests_and_generation_finish_with_no_reference(self):
   from unittest.mock import Mock
   from test_segmented_workflow import source,mapping
-  from test_v8_workflow import cfg,accept,CONNECTOR
+  from test_translation_workflow import cfg,accept,CONNECTOR
   from i2r_agent.segmented_config import configure
-  from i2r_agent.segmented_v8 import search
+  from i2r_agent.translation_workflow import search
   from i2r_agent.common import save
-  c=cfg();c['v8']['correctness_only']=True;c['testing']['reference_policy']=POLICY;c=configure(c)
-  bundle=source();bundle.update(case='list-index',workflow='segmented-v8');provider=Mock();provider.calls=0;provider.usage={}
+  c=cfg();c['translation']['correctness_only']=True;c['testing']['reference_policy']=POLICY;c=configure(c)
+  bundle=source();bundle.update(case='list-index',workflow='source-translation');provider=Mock();provider.calls=0;provider.usage={}
   frozen={'identity':'no-ref-real-source-tests','tests':['#[test] fn source_equations(){assert_eq!(i2r_candidate::h(),1);assert_eq!(i2r_candidate::f(),2);}'],'unit_tests':[],'obligations':[{'source':'constant:A.f','test_name':'source_equations'}]}
   def ask(pv,conf,path,p,analysis=False):
    if p['controller_state']['phase']=='generate':
@@ -72,13 +72,13 @@ class AvailableReferenceTests(unittest.TestCase):
    return accept(p,c)
   def prepare(state,conf,pv,directory):save(Path(directory)/(frozen['identity']+'.json'),frozen);return frozen
   w=self.root/'workflow';w.mkdir();project=w/'testing';project.mkdir();(project/'Model.thy').write_text('fixture');(project/'Kernel.thy').write_text('fixture');save(w/'regressions.json',[])
-  with patch('i2r_agent.segmented_v8.ask',side_effect=ask),patch('i2r_agent.segmented_support.prepare',side_effect=prepare),patch('i2r_agent.test_connector.connect',return_value=({'src/lib.rs':CONNECTOR},'fixture')):
+  with patch('i2r_agent.translation_workflow.ask',side_effect=ask),patch('i2r_agent.segmented_support.prepare',side_effect=prepare),patch('i2r_agent.test_connector.connect',return_value=({'src/lib.rs':CONNECTOR},'fixture')):
    attempts,done=search(bundle,project,c,provider,w,Executor(w/'commands'),{n:self.bad() for n in ['ocaml','stage1','stage2']},[[9,1,2]],[],w/'regressions.json',lambda _:None)
   self.assertEqual(done[0]['status'],'passed');self.assertEqual(done[0]['support_evidence']['status'],'passed')
   self.assertEqual([s['status'] for s in done[0]['differential_suites']],['differential_unavailable']*2)
   self.assertFalse(any(a['action_phase']=='repair' for a in attempts));provider.call.assert_not_called()
  def test_unavailable_is_generation_success_not_agent_failure(self):
-  rows=[{'frozen_identity':'v8','status':'generated_reference_unavailable','seconds':1,'generation_success':True,'verified_end_to_end':False}]
+  rows=[{'frozen_identity':'translation','status':'generated_reference_unavailable','seconds':1,'generation_success':True,'verified_end_to_end':False}]
   result=aggregate(rows);self.assertEqual((result['passed'],result['generation_success'],result['agent_generation_failed'],result['reference_unavailable']),(0,1,0,1))
 
 if __name__=='__main__':unittest.main()

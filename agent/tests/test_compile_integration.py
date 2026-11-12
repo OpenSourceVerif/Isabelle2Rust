@@ -8,28 +8,28 @@ from i2r_agent.common import Executor,Failure,read,save
 from i2r_agent.segmented_config import configure,materialize,rust_config
 from i2r_agent.segmented_support import prepare,execute
 from i2r_agent.segmented_test_audit import revise
-from i2r_agent.segmented_v8 import search,quality_reviews_enabled
+from i2r_agent.translation_workflow import search,quality_reviews_enabled
 from i2r_agent import task_context
 from test_segmented_workflow import source,mapping
-from test_v8_workflow import cfg,accept
+from test_translation_workflow import cfg,accept
 
 
 class CompileIntegration(unittest.TestCase):
     def test_quality_stage_requires_explicit_optimization_switch(self):
         self.assertFalse(quality_reviews_enabled({}))
         c=cfg();self.assertTrue(quality_reviews_enabled(c))
-        c['v8']['performance_refinement']=False
+        c['translation']['performance_refinement']=False
         c['segmented']['review_categories'].append('cost')
         self.assertFalse(quality_reviews_enabled(c))
-        c['v8'].update(performance_refinement=True,correctness_only=True)
+        c['translation'].update(performance_refinement=True,correctness_only=True)
         self.assertFalse(quality_reviews_enabled(c))
 
     def test_correctness_compiler_failure_replays_without_review_evidence(self):
-        c=cfg();c['v8']['correctness_only']=True;c=configure(c)
+        c=cfg();c['translation']['correctness_only']=True;c=configure(c)
         # This fixture isolates compilation; behavioral/source execution has its
         # own end-to-end stage-order test with full support enabled.
         c['segmented']['support_tests']=False
-        b=source();b['workflow']='segmented-v8';pv=Mock();pv.calls=0;pv.usage={}
+        b=source();b['workflow']='source-translation';pv=Mock();pv.calls=0;pv.usage={}
         calls=[]
         def reply(provider,conf,path,p,analysis=False):
             phase=p['controller_state']['phase'];calls.append(phase)
@@ -41,7 +41,7 @@ class CompileIntegration(unittest.TestCase):
             self.assertEqual(phase,'repair')
             return {'edits':[{'file':'src/lib.rs','old':'missing_name','new':'1'}],
                     'repair_hypothesis':{'cause':'unbound identifier','evidence':'compiler unresolved name','change':'source constant 1','prediction':'original compilation succeeds'}}
-        with tempfile.TemporaryDirectory() as tmp,patch('i2r_agent.segmented_v8.ask',side_effect=reply):
+        with tempfile.TemporaryDirectory() as tmp,patch('i2r_agent.translation_workflow.ask',side_effect=reply):
             w=Path(tmp);attempts,done=search(b,None,c,pv,w,Executor(w/'commands'),None,[],[],w/'regressions.json',lambda _:None)
             self.assertEqual(calls,['generate','repair','generate'])
             self.assertEqual(done[0]['status'],'passed');self.assertFalse(done[0]['quality_evidence']['enabled'])
@@ -65,7 +65,7 @@ class CompileIntegration(unittest.TestCase):
             self.assertEqual(caught.exception.code,'stale_snapshot')
 
     def test_single_source_author_fixed_oracle_and_distinct_cache_policy(self):
-        c=cfg();c['v8']['correctness_only']=True;c=configure(c);rc=rust_config({},c)
+        c=cfg();c['translation']['correctness_only']=True;c=configure(c);rc=rust_config({},c)
         s={'bundle':source(),'files':{'src/lib.rs':'pub fn h()->u128{1} pub fn f()->u128{999}'},
            'mapping':[mapping('h'),mapping('f')],'rust_config':rc}
         proposal={'test_source':'#[test] fn source_value(){assert_eq!(i2r_candidate::f(),2);}',

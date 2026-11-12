@@ -6,13 +6,13 @@ from i2r_agent.common import ROOT,read,Executor,Failure
 from i2r_agent.segmented_config import configure,rust_config,materialize
 from i2r_agent.segmented_support import execute
 from i2r_agent.segmented_test_audit import adjudicate,exhaustiveness_revision,revise,invariants
-from i2r_agent.v8_response import normalize
-from test_v8_workflow import cfg
+from i2r_agent.response_protocol import normalize
+from test_translation_workflow import cfg
 
 class SupportExhaustiveness(unittest.TestCase):
     def setUp(self):
         self.f=read(ROOT/'tests/fixtures/map_support_e0004.json')
-        c=cfg();c['v8']['correctness_only']=True;self.c=configure(c);self.rc=rust_config({},self.c)
+        c=cfg();c['translation']['correctness_only']=True;self.c=configure(c);self.rc=rust_config({},self.c)
 
     def test_real_original_e0004_then_same_oracle_passes_and_rejects_wrong_results(self):
         f=self.f;pv=Mock()
@@ -50,16 +50,16 @@ class SupportExhaustiveness(unittest.TestCase):
                 self.assertEqual(execute(fixed,crate,self.rc,self.c,ex)['status'],status)
 
     def test_controller_replays_mechanical_fix_without_audit_model_calls(self):
-        from i2r_agent.segmented_v8 import search
+        from i2r_agent.translation_workflow import search
         from test_segmented_workflow import source,mapping
-        b=source();b['workflow']='segmented-v8';pv=Mock();pv.calls=0;pv.usage={};phases=[]
+        b=source();b['workflow']='source-translation';pv=Mock();pv.calls=0;pv.usage={};phases=[]
         frozen={'identity':'controller-e0004','tests':['#[test] fn value(){assert_eq!(i2r_candidate::h(),1);match i2r_candidate::f(){2=>(),}}'],
                 'unit_tests':[],'obligations':[{'source':'constant:A.f','test_name':'value'}]}
         def generate(provider,conf,path,p,analysis=False):
             phase=p['controller_state']['phase'];phases.append(phase);self.assertEqual(phase,'generate')
             n=p['unit']['members'][0].rsplit('.',1)[-1];body='1' if n=='h' else 'h()+1'
             return {'files':{'src/lib.rs':p['current_files']['src/lib.rs']+'\npub fn '+n+'()->u128{'+body+'}'},'mapping':[mapping(n)]}
-        with tempfile.TemporaryDirectory() as tmp,patch('i2r_agent.segmented_v8.ask',side_effect=generate),patch('i2r_agent.segmented_support.prepare',return_value=frozen):
+        with tempfile.TemporaryDirectory() as tmp,patch('i2r_agent.translation_workflow.ask',side_effect=generate),patch('i2r_agent.segmented_support.prepare',return_value=frozen):
             w=Path(tmp)
             # prepare normally persists the frozen source before execution.
             from i2r_agent.common import save

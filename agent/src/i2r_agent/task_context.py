@@ -92,9 +92,9 @@ def register(bundle, directory, files=None):
 
 def reference_catalog():
     from .repair_knowledge import CATALOG
-    return [{'path': str(Path(CATALOG).relative_to('skills')), 'version': fingerprint((ROOT / CATALOG).read_text()), 'kind': 'bounded_advisory_catalog'}]+ [{'path': str(p.relative_to(ROOT / 'skills')), 'version': fingerprint(p.read_text())}
+    return [{'path': str(Path(CATALOG).relative_to('references')), 'version': fingerprint((ROOT / CATALOG).read_text()), 'kind': 'bounded_advisory_catalog'}]+ [{'path': str(p.relative_to(ROOT / 'references')), 'version': fingerprint(p.read_text())}
             for name in ['semantic-adaptation', 'rust-generation']
-            for p in sorted((ROOT / 'skills' / name / 'references').glob('*.md'))]
+            for p in sorted((ROOT / 'references' / name / 'references').glob('*.md'))]
 
 
 def graph_nodes(bundle, version='current'):
@@ -297,7 +297,7 @@ class Conversation:
             self.state['turns'] = []
             self.state['compactions'] += 1
             size = sum(len(m['content']) for m in messages)
-        if size > cap and not self.cfg.get('v8',{}).get('correctness_only'):
+        if size > cap and not self.cfg.get('translation',{}).get('correctness_only'):
             raise Failure('context_budget_exceeded', 'Current material exceeds the context limit; no silent truncation')
         save(Path(directory) / 'conversation-audit.json', {'scope': self.state['scope'], 'message_count': len(messages),
              'characters': size, 'current_characters': len(prompt), 'compactions': self.state['compactions'],

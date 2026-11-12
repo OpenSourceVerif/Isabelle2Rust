@@ -3,7 +3,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 from .common import ROOT, Failure, save, digest
-from .context import source_context, bindings_for, audit_request, skill
+from .context import source_context, bindings_for
 from .export_contract import polymorphic_exports
 
 
@@ -12,9 +12,6 @@ def catalog(bundle):
 
 
 def material(bundle, extra=None):
-    if bundle.get('workflow') == 'source-v6':
-        from .source_context import material as source_material
-        return source_material(bundle, extra)
     from .generation import intern_program
     nodes=catalog(bundle); entries=list(dict.fromkeys(e for p in bundle['programs'] for e in p['entries']))
     loaded=bundle.get('loaded_adapter') or bundle.get('base_adapter') or {}
@@ -43,12 +40,12 @@ def material(bundle, extra=None):
 
 
 def references(names):
-    allowed={str(p.relative_to(ROOT/'skills')):p for folder in ['semantic-adaptation','rust-generation']
-             for p in (ROOT/'skills'/folder/'references').glob('*.md')}
+    allowed={str(p.relative_to(ROOT/'references')):p for folder in ['semantic-adaptation','rust-generation']
+             for p in (ROOT/'references'/folder/'references').glob('*.md')}
     from .repair_knowledge import CATALOG
-    allowed[str(Path(CATALOG).relative_to('skills'))]=ROOT/CATALOG
+    allowed[str(Path(CATALOG).relative_to('references'))]=ROOT/CATALOG
     unknown=set(names)-set(allowed)
-    if unknown:raise Failure('unknown_reference','Choose a reference from the skill paths',sorted(unknown))
+    if unknown:raise Failure('unknown_reference','Choose a reference from the reference catalog',sorted(unknown))
     return {name:allowed[name].read_text() for name in names}
 
 
@@ -80,83 +77,6 @@ def requested(reply,bundle,files=None):
         result['sources']=rows
     if reply.get('request_references'):result['references']=references(reply['request_references'])
     return result
-
-
-def call(provider,cfg,directory,stage,payload):
-    directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
-    payload=dict(payload);conversation=payload.pop('_conversation',None)
-    repairing=stage!='analysis' and bool(payload.get('feedback')) and payload.get('controller_state',{}).get('phase')!='review'
-    prompt_name='semantic-analysis-system.txt' if stage=='analysis' else 'code-repair-system.txt' if repairing else 'rust-generation-system.txt'
-    source_workflow = cfg.get('generation',{}).get('workflow') == 'source-v6'
-    if source_workflow:
-        prompt_name = 'source-analysis.txt' if stage=='analysis' else 'source-repair.txt' if repairing else 'source-generation.txt'
-    system=(ROOT/'prompts'/prompt_name).read_text()
-    if repairing:system+='\n'+skill('code-repair')
-    else:
-        system+='\n'+skill('semantic-adaptation')
-        if stage!='analysis':system+='\n'+skill('rust-generation')
-    if conversation:
-        system+='\n'+(ROOT/'prompts'/('source-context.txt' if source_workflow else 'context-protocol.txt')).read_text()
-        if not source_workflow and payload.get('controller_state',{}).get('phase')=='review':
-            system+='\n'+(ROOT/'prompts/repair-protocol.txt').read_text()
-    prompt=audit_request(directory/'context-audit.json',system,payload)
-    if not cfg.get('v8',{}).get('correctness_only') and len(prompt)>cfg['preprocessing']['max_context_chars']:
-        raise Failure('context_budget_exceeded','Context exceeds published character cap; material not silently truncated')
-    save(directory/'input.json',payload)
-    options=cfg['preprocessing'].get('model') if stage=='analysis' else None
-    phase='preprocessing' if stage=='analysis' else 'generation'
-    reply=(conversation.call(provider,system,payload,directory,phase,options) if conversation else
-           provider.call(system,prompt,options=options,phase=phase))
-    if not isinstance(reply,dict):raise Failure('invalid_model_response','Expected JSON object')
-    save(directory/'reply.json',reply)
-    return reply
-
-
-def analyze(bundle,cfg,provider,directory):
-    if cfg['generation'].get('workflow')in {'segmented-v7','segmented-v8'}:
-        from .segmented_context import analyze as segmented_analyze
-        return segmented_analyze(bundle,cfg,provider,directory)
-    from . import task_context as tc
-    managed=tc.enabled(cfg);extra={};feedback=None
-    state_path=Path(directory)/'analysis-state.json'
-    if managed:
-        tc.register(bundle,Path(directory).parent/'context/materials')
-        extra={'references':references(['semantic-adaptation/references/numeric-semantics.md'])}
-        if state_path.exists():
-            state=json.loads(state_path.read_text());extra=state.get('extra',{});feedback=state.get('feedback')
-    while provider.phase_calls['preprocessing']<cfg['preprocessing']['max_plan_attempts']:
-        path=Path(directory)/f'analysis-{provider.phase_calls["preprocessing"]+1:02d}'
-        try:
-            payload={'task':'Analyze this source program and adaptation opportunities. No Rust implementation yet.',
-                'program':material(bundle,extra),'feedback':feedback}
-            if managed:
-                session=tc.Conversation(Path(directory)/'conversation.json',cfg);session.archive=tc.Archive(bundle['_context_archive']);session.enter('analysis')
-                if session.has_graph():
-                    payload['program'].pop('thingol',None);payload['program'].pop('sources',None)
-                payload['material_versions']={'graphs':bundle['graph_versions'],'sources':bundle['source_versions'], 'models':bundle.get('model_versions', {})}
-                payload['program'].pop('source_catalog',None)
-                payload['program']['reference_catalog']=tc.reference_catalog()
-                if bundle.get('workflow')=='source-v6':
-                    payload['program']['reference_catalog']=[r for r in payload['program']['reference_catalog'] if not r['path'].endswith('isabelle-syntax.md')]
-                payload['_conversation']=session
-            reply=call(provider,cfg,path,'analysis',payload)
-            additions=requested(reply,bundle)
-            if additions:
-                extra=tc.merge_material(extra,additions) if managed else additions
-                if managed:save(state_path,{'extra':extra,'feedback':feedback})
-                continue
-            if 'adapter' in reply or 'files' in reply:raise Failure('analysis_is_not_implementation','Return analysis, not executable adapter/code')
-            if not isinstance(reply.get('opportunities'),list):raise Failure('invalid_analysis','opportunities must be a list (possibly empty)')
-            bundle={**bundle,'semantic_analysis':reply}
-            if managed:bundle['knowledge_material']=extra
-            save(Path(directory)/'analysis.json',reply)
-            return bundle,{'status':'analyzed','analysis':reply,'path':str(Path(directory)/'analysis.json'),
-                           'boundary':'Recommendations are revisable; executable adaptations belong to generation.'}
-        except Failure as error:
-            if error.code in {'budget_exhausted','provider_error','context_budget_exceeded'}:raise
-            feedback={'status':error.code,'message':str(error),'evidence':error.evidence};save(path/'failure.json',feedback)
-            if managed:save(state_path,{'extra':extra,'feedback':feedback})
-    raise Failure('planning_failed','Preprocessing analysis exhausted its budget')
 
 
 def adapter_plan(reply,bundle):

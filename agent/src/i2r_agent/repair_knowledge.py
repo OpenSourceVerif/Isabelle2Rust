@@ -3,13 +3,13 @@ import json
 import re
 from .common import ROOT, digest
 
-CATALOG = 'skills/rust-generation/references/repair-knowledge.json'
+CATALOG = 'references/rust-generation/references/repair-knowledge.json'
 REFERENCE_PATHS = (CATALOG,
-    'skills/rust-generation/references/ownership-examples.md',
-    'skills/rust-generation/references/closures-and-generics.md',
-    'skills/semantic-adaptation/references/numeric-semantics.md',
-    'skills/semantic-adaptation/references/representation-conditions.md',
-    'skills/semantic-adaptation/references/dashu-int-0.6.2-api.md')
+    'references/rust-generation/references/ownership-examples.md',
+    'references/rust-generation/references/closures-and-generics.md',
+    'references/semantic-adaptation/references/numeric-semantics.md',
+    'references/semantic-adaptation/references/representation-conditions.md',
+    'references/semantic-adaptation/references/dashu-int-0.6.2-api.md')
 MAX_CHARACTERS = 5000
 MAX_ENTRIES = 3
 

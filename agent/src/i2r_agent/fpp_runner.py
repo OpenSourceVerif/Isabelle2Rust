@@ -8,7 +8,7 @@ from . import fpp_artifact as art, fpp_budget, provider, knowledge_run, baseline
 
 def identity():
     files={}
-    for root in [art.ROOT/'src',art.ROOT/'prompts',art.ROOT/'isabelle',art.ROOT/'skills',art.ROOT/'config',art.ARTIFACT]:
+    for root in [art.ROOT/'src',art.ROOT/'prompts',art.ROOT/'isabelle',art.ROOT/'references',art.ROOT/'config',art.ARTIFACT]:
         for directory,dirs,names in os.walk(root):
             dirs[:]=[d for d in dirs if d not in {'runs','__pycache__','.venv','.git'}]
             for name in names:
@@ -144,7 +144,7 @@ def transport(task,data):
     return e.get('type') in {'URLError','IncompleteRead','RemoteDisconnected','ConnectionResetError','ConnectionRefusedError','TimeoutError','BadStatusLine','HTTPException','JSONDecodeError','ProviderProtocolError'} or e.get('http_status') in {408,429,500,502,503,504}
 
 def retry(task):
-    from .segmented_v8 import version
+    from .translation_workflow import version
     diag=task/'diagnostics';path=diag/'segmented-checkpoint.json';stamp=str(time.time_ns())
     if path.exists():
         old=read(path);state=copy.deepcopy(old);attempts=state.get('attempts',[])

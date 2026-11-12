@@ -13,7 +13,7 @@ test = ["pytest>=8,<10"]
 
 [project.scripts]
 isabelle2rust-agent = "i2r_agent.cli:main"
-i2r-study = "i2r_agent.cli:study_main"
+i2r-fpp = "i2r_agent.fpp_runner:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -4,18 +4,18 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import Mock,patch
-from i2r_agent import segmented_v8 as runner
+from i2r_agent import translation_workflow as runner
 from i2r_agent.common import Executor,Failure,read,save
 from i2r_agent.segmented_config import configure
 from test_segmented_workflow import source,mapping
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 
 class FinalUnitCompilation(unittest.TestCase):
     def setup_run(self):
-        c=cfg();c['v8']['correctness_only']=True;c=configure(c)
+        c=cfg();c['translation']['correctness_only']=True;c=configure(c)
         c['segmented']['support_tests']=False # Isolate candidate compile count.
-        b=source();b['workflow']='segmented-v8'
+        b=source();b['workflow']='source-translation'
         pv=Mock();pv.calls=0;pv.usage={}
         return b,c,pv
 

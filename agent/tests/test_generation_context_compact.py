@@ -3,9 +3,9 @@ from pathlib import Path
 from copy import deepcopy
 from i2r_agent import generation_context as gc,task_context as tc
 from i2r_agent.common import Failure
-from i2r_agent.segmented_v8 import apply_transaction,version
+from i2r_agent.translation_workflow import apply_transaction,version
 from test_segmented_workflow import source
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 class GenerationContextCompact(unittest.TestCase):
     def test_source_preserved_interfaces_and_exact_body_catalog_remain_available(self):
@@ -37,12 +37,12 @@ class GenerationContextCompact(unittest.TestCase):
 
     def test_large_dependency_append_enters_normal_transaction_and_real_cumulative_build(self):
         from unittest.mock import Mock,patch
-        from i2r_agent import segmented_v8 as runner
+        from i2r_agent import translation_workflow as runner
         from i2r_agent.common import Executor
         from i2r_agent.segmented_config import configure
         from test_segmented_workflow import mapping
-        c=cfg();c['v8']['correctness_only']=True;c=configure(c);c['segmented']['support_tests']=False
-        b=source();b['workflow']='segmented-v8';pv=Mock();pv.calls=0;pv.usage={};seen=[]
+        c=cfg();c['translation']['correctness_only']=True;c=configure(c);c['segmented']['support_tests']=False
+        b=source();b['workflow']='source-translation';pv=Mock();pv.calls=0;pv.usage={};seen=[]
         def answer(pv,c,path,p,analysis=False):
             name=p['unit']['members'][0].rsplit('.',1)[-1]
             if name=='h':return {'files':{'src/lib.rs':'pub fn h()->u128{'+('let _=0; '*600)+'1}'},'mapping':[mapping('h')]}
@@ -80,11 +80,11 @@ class GenerationContextCompact(unittest.TestCase):
 
     def test_repeated_catalog_requests_are_bounded_by_existing_read_guard(self):
         from unittest.mock import Mock,patch
-        from i2r_agent import segmented_v8 as runner
+        from i2r_agent import translation_workflow as runner
         from i2r_agent.common import Executor
         from i2r_agent.segmented_config import configure
-        c=cfg();c['v8']['correctness_only']=True;c=configure(c);c['segmented']['support_tests']=False
-        b=source();b['workflow']='segmented-v8';b['sources']={'Original.thy':'complete original source'}
+        c=cfg();c['translation']['correctness_only']=True;c=configure(c);c['segmented']['support_tests']=False
+        b=source();b['workflow']='source-translation';b['sources']={'Original.thy':'complete original source'}
         pv=Mock();pv.calls=0;pv.usage={};seen=[]
         def answer(pv,c,path,p,analysis=False):
             seen.append(p)
@@ -94,5 +94,5 @@ class GenerationContextCompact(unittest.TestCase):
             p=Path(d)
             with self.assertRaises(Failure) as caught:runner.search(b,None,c,pv,p,Executor(p/'commands'),None,[],[],p/'regressions.json',lambda _:None)
             self.assertEqual(caught.exception.code,'repair_stalled')
-            self.assertEqual(len(seen),c['v8']['diagnostic_read_limit'])
+            self.assertEqual(len(seen),c['translation']['diagnostic_read_limit'])
             self.assertIn('materials',seen[1]['requested_material'])

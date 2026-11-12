@@ -11,7 +11,7 @@ from i2r_agent.segmented_context import read_pages
 def test_provider_rejects_source_request_shape_with_usable_example(tmp_path,requests):
     from i2r_agent.provider import Provider
     from i2r_agent.common import read
-    from test_v8_workflow import cfg
+    from test_translation_workflow import cfg
     reply={'request_sources':requests}
     raw={'choices':[{'finish_reason':'stop','message':{'content':json.dumps(reply)}}],'usage':{}}
     with patch('i2r_agent.provider.credential',return_value='test'),patch('urllib.request.urlopen',return_value=io.BytesIO(json.dumps(raw).encode())):
@@ -24,7 +24,7 @@ def test_provider_rejects_source_request_shape_with_usable_example(tmp_path,requ
 @pytest.mark.parametrize('requests',[[{'path':'A.thy','start_line':1,'end_line':5,'source_version':'exact-version'}],None])
 def test_provider_preserves_valid_source_requests_and_optional_null(tmp_path,requests):
     from i2r_agent.provider import Provider
-    from test_v8_workflow import cfg
+    from test_translation_workflow import cfg
     reply={'request_sources':requests}
     raw={'choices':[{'finish_reason':'stop','message':{'content':json.dumps(reply)}}],'usage':{}}
     with patch('i2r_agent.provider.credential',return_value='test'),patch('urllib.request.urlopen',return_value=io.BytesIO(json.dumps(raw).encode())):
@@ -133,7 +133,7 @@ def test_refresh_rejects_unbound_old_ledger(tmp_path):
 
 
 def test_scope_refresh_cannot_bypass_total_provider_budget(tmp_path):
-    from test_v8_workflow import cfg
+    from test_translation_workflow import cfg
     from i2r_agent.provider import Provider
     state,origin=refresh_fixture(tmp_path);c=cfg();c['budgets']['max_model_calls']=48
     provider=Provider(c,tmp_path/'model');provider.calls=48

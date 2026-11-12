@@ -66,7 +66,7 @@ def preprocess(project, cfg, work, executor):
 def numeric_contract(cfg):
     from .planning import numeric_policy
     bundle={'numeric_policy':numeric_policy(cfg)}
-    if cfg['generation']['workflow']in {'segmented-v7','segmented-v8'}:
+    if cfg['generation']['workflow']== 'source-translation':
         bundle['numeric_policy']['representation_selection'] = ('Checked mode: nat u128, int i128; explicit range failure, no silent wrap or big-integer fallback.' if cfg['preprocessing']['numeric_mode']=='checked' else 'Arbitrary mode: prefer dashu_int::UBig for nat and dashu_int::IBig for int (dashu-int =0.6.2); justify any alternative. Preserve totalized source operations; generic parameters remain generic.')
     if cfg.get('preprocessing',{}).get('numeric_library')=='dashu-int':
         if bundle['numeric_policy']['mode']!='arbitrary':raise Failure('invalid_config','Dashu numeric profile requires arbitrary mode')

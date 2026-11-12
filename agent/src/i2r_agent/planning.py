@@ -5,8 +5,6 @@ import re
 from pathlib import Path
 from .common import ROOT, Failure, digest, read, save
 
-from .context import skill, stage_context, audit_request
-SYSTEM = (ROOT/'prompts/preprocessing-system.txt').read_text() + '\n' + skill('semantic-adaptation')
 PLAN_SCHEMA = read(ROOT/'config/preprocessing-plan.schema.json')
 
 def normalize_files(files):
@@ -150,65 +148,6 @@ def validate_plan(plan,bundle):
 def require_generation_capabilities(plan):
     gaps=[b for b in plan['boundaries'] if b['route']=='unresolved']
     if gaps:raise Failure('generation_capability_gap','Plan still has unresolved implementation requirements',gaps)
-
-
-def prepare_plan(bundle,cfg,provider,directory,executor=None,previous_plan=None,initial_feedback=None):
-    from .generation import generation_context
-    from .adapters import load_adapter
-    directory=Path(directory);history=list(initial_feedback or []);attempts=[];previous=previous_plan
-    settings=cfg.get('preprocessing',{})
-    bundle={**bundle,'numeric_policy':numeric_policy(cfg)}
-    for number in range(1,settings.get('max_plan_attempts',20)+1):
-        current=directory/f'plan-{number:02d}';current.mkdir(parents=True,exist_ok=True)
-        prompt={'task':'Write this run\'s executable Isabelle code adapter and generation units.',
-                'plan_schema':PLAN_SCHEMA,'numeric_policy':bundle['numeric_policy'],
-                'latest_failure':history[-1] if history else None,
-                'program':stage_context(bundle,'G0_semantic_adaptation'),
-                'previous_plan':previous,'feedback':history[-1:],
-                'repair_focus':{'latest_failure':history[-1],
-                    'instruction':'Apply the specific diagnostic to the complete previous plan. If printing_syntax_hints are supplied, inspect each actual_template and suggested_template; do not return unchanged failing declarations.'} if history else None}
-        content=audit_request(current/'context-audit.json',SYSTEM,prompt)
-        if not cfg.get('v8',{}).get('correctness_only') and len(content)>settings.get('max_context_chars',1500000):
-            raise Failure('context_budget_exceeded','Planning context exceeds preprocessing.max_context_chars; no source was silently truncated')
-        save(current/'input.json',prompt)
-        plan=None
-        try:
-            plan=provider.call(SYSTEM,content,options=settings.get('model',{}),phase='preprocessing')
-            if isinstance(plan,dict) and 'request_sources' in plan:
-                allowed={x['path']:x for x in bundle.get('source_catalog',[]) if x.get('available')}
-                supplied={}
-                for request in plan['request_sources']:
-                    name=request['path']
-                    if name not in allowed:raise Failure('invalid_source_request','Request a path from source_catalog: '+name)
-                    lines=Path(name).read_text().splitlines()
-                    begin=max(1,int(request.get('start_line',1)));end=min(len(lines),int(request.get('end_line',len(lines))))
-                    supplied[name+f':{begin}-{end}']='\n'.join(lines[begin-1:end])
-                bundle={**bundle,'requested_source_text':{**bundle.get('requested_source_text',{}),**supplied}}
-                save(current/'source-response.json',supplied)
-                attempts.append({'attempt':number,'status':'source_requested'});continue
-            save(current/'plan.json',plan)
-            if isinstance(plan,dict):previous=plan
-            checks=validate_plan(plan,bundle)
-            loaded=load_adapter(plan,bundle,cfg,current/'adapter',executor)
-            checks['adapter_loaded']=loaded['status'];checks['adapter_audit']=loaded['audit']
-            save(current/'checks.json',checks)
-            save(directory/'selected-plan.json',plan)
-            record={'status':'passed','plan_attempts':number,'plan_path':str(directory/'selected-plan.json'),
-                    'plan_sha256':digest(directory/'selected-plan.json'),'schema_version':3,
-                    'adaptation':plan['adaptation'],'architecture':plan['architecture'],'boundaries':plan['boundaries'],
-                    'numeric_mode':plan['numeric_mode'],'checks':checks,'earlier_attempts':attempts,
-                    'adapter_record':str(current/'adapter/loaded-adapter.json')}
-            save(directory/'result.json',record)
-            return {**bundle,'g0_programs':bundle['programs'],'programs':[loaded['after_target']],
-                    'translation_plan':plan,'loaded_adapter':loaded},record
-        except Failure as error:
-            if error.code in {'provider_error','budget_exhausted'}:raise
-            feedback={'attempt':number,'status':error.code,'message':str(error),'evidence':error.evidence}
-            history.append(feedback)
-            attempts.append({'attempt':number,'status':error.code,'path':str(current/'plan.json') if plan is not None else None})
-            save(current/'failure.json',{**feedback,'previous_plan_retained':previous is not None})
-    save(directory/'result.json',{'status':'planning_failed','attempts':attempts,'previous_plan':previous})
-    raise Failure('planning_failed','Translation planning exhausted its attempts; last usable plan and all feedback retained',attempts)
 
 
 def candidate_contract(plan,files,mapping,usage,bundle):

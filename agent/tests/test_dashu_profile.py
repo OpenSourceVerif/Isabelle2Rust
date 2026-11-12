@@ -6,7 +6,7 @@ from i2r_agent.common import Failure
 from i2r_agent.source_input import numeric_contract
 from i2r_agent.references import rust_driver
 from i2r_agent.suites import input_bits
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 
 def test_all_fpp_effective_configs_select_unbounded_dashu(tmp_path):
@@ -17,7 +17,7 @@ def test_all_fpp_effective_configs_select_unbounded_dashu(tmp_path):
         assert c['preprocessing']['numeric_mode']=='arbitrary'
         assert c['testing']['reference_numeric_profile']=='dashu'
         assert c['testing']['transport']=='auto' and input_bits(c)==0
-        assert c['v8']['correctness_only'] and c['budgets']['max_model_calls']==48
+        assert c['translation']['correctness_only'] and c['budgets']['max_model_calls']==48
         policy=numeric_contract(c)
         assert policy['numeric_library']=={'name':'dashu-int','version':'=0.6.2','nat':'dashu_int::UBig','int':'dashu_int::IBig','integer':'dashu_int::IBig'}
         assert 'do not substitute num-bigint' in policy['representation_selection']
@@ -43,13 +43,13 @@ def test_reference_driver_uses_selected_nat_without_narrowing():
 @pytest.mark.parametrize("mode",["checked","arbitrary"])
 def test_real_analysis_and_generation_payloads_share_numeric_contract(tmp_path,mode):
     from unittest.mock import Mock,patch
-    from i2r_agent import segmented_context as context,segmented_v8 as generation
+    from i2r_agent import segmented_context as context,translation_workflow as generation
     from i2r_agent.common import Executor,save
     from test_segmented_workflow import source
     c=cfg();c['preprocessing']['numeric_mode']=mode
     if mode=='arbitrary':c['preprocessing']['numeric_library']='dashu-int'
     c['testing'].update(transport='dashu-ubig' if mode=='arbitrary' else 'native-u128',max_input_bits='auto')
-    b=source();b.update(workflow='segmented-v8',numeric_policy=numeric_contract(c))
+    b=source();b.update(workflow='source-translation',numeric_policy=numeric_contract(c))
     class Boundary(BaseException):pass
     seen=[]
     def stop(*args,**kwargs):

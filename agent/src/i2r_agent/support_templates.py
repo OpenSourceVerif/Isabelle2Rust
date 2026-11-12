@@ -2,7 +2,7 @@
 import re
 from .segmented_contract import interfaces
 from .task_context import fingerprint
-from .v8_support import requirements
+from .test_obligations import requirements
 POLICY='source-boolean-constructor-and-lazy-if-contracts-v1'
 
 def build(state):

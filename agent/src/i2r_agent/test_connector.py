@@ -24,7 +24,7 @@ This binding is a separate crate. Candidate mappings beginning crate:: refer to 
 
 
 def system_prompt(cfg,knowledge=False):
-    if cfg.get('v8',{}).get('correctness_only'):return CORRECTNESS_BINDING_SYSTEM
+    if cfg.get('translation',{}).get('correctness_only'):return CORRECTNESS_BINDING_SYSTEM
     system=SYSTEM
     if knowledge:
         notes=(ROOT/'prompts/connection-knowledge.txt').read_text()
@@ -66,7 +66,7 @@ def connect(project,crate,files,mapping,plan,cfg,provider,directory,previous=Non
     directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
     transport=cfg['testing']['transport']
     if transport not in TYPES:raise Failure('unsupported_transport',transport)
-    correctness=bool(cfg.get('v8',{}).get('correctness_only'))
+    correctness=bool(cfg.get('translation',{}).get('correctness_only'))
     if correctness and cfg['testing'].get('connector_templates',True):
         from . import connector_templates as templates
         from .task_context import fingerprint
@@ -125,7 +125,7 @@ def connect(project,crate,files,mapping,plan,cfg,provider,directory,previous=Non
         from .repair_actions import EditController
         archive=tc.Archive(Path(context_directory)/'materials')
         edits=EditController(Path(context_directory)/'actions','connector',archive)
-        if cfg['generation'].get('workflow')in {'segmented-v7','segmented-v8'}:edits.STOP_AFTER=None
+        if cfg['generation'].get('workflow')== 'source-translation':edits.STOP_AFTER=None
         snapshot=deepcopy(previous or {})
         session=tc.Conversation(Path(context_directory)/'conversation.json',cfg)
         session.enter('connector:'+tc.fingerprint(files))
@@ -144,7 +144,7 @@ def connect(project,crate,files,mapping,plan,cfg,provider,directory,previous=Non
         payload['mapping_version']=archive.put('catalog',mapping)
         payload['mapping']=payload['mapping'] if correctness else [m for m in mapping if m.get('rust_item') or m.get('type_parameters')]
         localization={'original_issue':original_issue,'latest_action_error':feedback}
-        code_limit=cfg['segmented']['initial_code_characters'] if cfg['generation'].get('workflow')in {'segmented-v7','segmented-v8'} else 45000
+        code_limit=cfg['segmented']['initial_code_characters'] if cfg['generation'].get('workflow')== 'source-translation' else 45000
         selected,_,excerpts=tc.selected_files(files,localization,code_limit)
         if payload['repair_execution']['recovery']:
             selected=deepcopy(files);excerpts=[]
@@ -155,9 +155,7 @@ def connect(project,crate,files,mapping,plan,cfg,provider,directory,previous=Non
         system=system_prompt(cfg,knowledge=True)
         if observation_material:system+='\nTyped observation_helpers supplies the actual wrapper dependency equations, including imported helpers. Implement these noncandidate helpers inside the connector; do not request candidate changes for their absence. Return {binding_issue:reason} for missing observation material or binding obstacles. Only an actual candidate defect may return {algorithm_issue:reason,candidate_source:exact_mapped_source_id,candidate_evidence:concrete_source_vs_candidate_obstacle}. A binding_issue cannot trigger candidate repair.'
         if feedback:
-            if cfg['generation'].get('workflow')in {'segmented-v7','segmented-v8'}:
-                system+='\nDiagnose the original source call and exact failed check. Preserve the original reproducer and independent expectations. Repair actual source conversion/call boundaries; return algorithm_issue for defects in algorithm behavior or interface. Do not hide algorithm work in preparation or use unchanged code to claim a repair. Read missing current source/interface material before editing. Legacy workflow budgets and performance-feedback restrictions do not apply.'
-            else:system+='\n'+(ROOT/'skills/code-repair/SKILL.md').read_text()
+            system+='\nDiagnose the original source call and exact failed check. Preserve the original reproducer and independent expectations. Repair actual source conversion/call boundaries; return algorithm_issue for defects in algorithm behavior or interface. Do not hide algorithm work in preparation or use unchanged code to claim a repair. Read missing current source/interface material before editing. Legacy workflow budgets and performance-feedback restrictions do not apply.'
         pending={};read_requests={}
         while True:
             payload['requested_material']=pending
@@ -176,9 +174,9 @@ def connect(project,crate,files,mapping,plan,cfg,provider,directory,previous=Non
                 edits.reject(previous or {},reply,error,directory,snapshot)
                 raise
             if additions:
-                if cfg['generation'].get('workflow')=='segmented-v8':
+                if cfg['generation'].get('workflow')=='source-translation':
                     key=tc.fingerprint(read_reply);read_requests[key]=read_requests.get(key,0)+1
-                    if read_requests[key]>=cfg['v8']['diagnostic_read_limit']:raise Failure('connector_stalled','Repeated unchanged connector material request',read_reply)
+                    if read_requests[key]>=cfg['translation']['diagnostic_read_limit']:raise Failure('connector_stalled','Repeated unchanged connector material request',read_reply)
                 pending=tc.merge_material(pending,additions);continue
             if observation_material:
                 from .observation_source import classify_issue
@@ -192,7 +190,7 @@ def connect(project,crate,files,mapping,plan,cfg,provider,directory,previous=Non
     system=system_prompt(cfg)
     if observation_material:system+='\nTyped observation_helpers supplies the actual wrapper dependency equations, including imported helpers. Implement these noncandidate helpers inside the connector; do not request candidate changes for their absence. Return {binding_issue:reason} for missing observation material or binding obstacles. Only an actual candidate defect may return {algorithm_issue:reason,candidate_source:exact_mapped_source_id,candidate_evidence:concrete_source_vs_candidate_obstacle}. A binding_issue cannot trigger candidate repair.'
     content=audit_request(directory/'context-audit.json',system,payload)
-    if not cfg.get('v8',{}).get('correctness_only') and len(content)>cfg['preprocessing']['max_context_chars']:raise Failure('context_budget_exceeded','Connector context exceeds published limit')
+    if not cfg.get('translation',{}).get('correctness_only') and len(content)>cfg['preprocessing']['max_context_chars']:raise Failure('context_budget_exceeded','Connector context exceeds published limit')
     save(directory/'input.json',payload)
     reply=provider.call(system,content,phase='generation');save(directory/'reply.json',reply)
     if not isinstance(reply,dict):raise Failure('invalid_connector','Return a JSON object containing files or algorithm_issue')
@@ -213,5 +211,5 @@ def materialize(crate,files,plan,cfg):
     text=manifest(plan.get('dependencies',{}),package='i2r_harness',transport=cfg['testing']['transport'])
     text+='i2r_candidate = { path = ".." }\n'
     (target/'Cargo.toml').write_text(text)
-    (target/'src/main.rs').write_text(driver(cfg['testing']['transport'],timing=not cfg.get('v8',{}).get('correctness_only')))
+    (target/'src/main.rs').write_text(driver(cfg['testing']['transport'],timing=not cfg.get('translation',{}).get('correctness_only')))
     return target

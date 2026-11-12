@@ -3,19 +3,19 @@ from pathlib import Path
 from copy import deepcopy
 from unittest.mock import Mock
 from i2r_agent.common import read,Executor
-from i2r_agent import observation_helpers as helpers,v8_repair
+from i2r_agent import observation_helpers as helpers,repair_controller
 from i2r_agent.segmented_config import configure,materialize
-from i2r_agent.segmented_v8 import connection,compile_crate
+from i2r_agent.translation_workflow import connection,compile_crate
 from i2r_agent.segmented_support import execute as source_execute
 from i2r_agent.validation import execute
 from i2r_agent.test_connector import connect
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 FIXTURE=Path(__file__).parent/'fixtures/mirror-observation'
 
 class MirrorObservation(unittest.TestCase):
     def setup_case(self):
-        c=cfg();c['v8']['correctness_only']=True;c=configure(c)
+        c=cfg();c['translation']['correctness_only']=True;c=configure(c)
         return c,read(FIXTURE/'candidate.json')
 
     def test_exact_helpers_and_interface_only_no_target_copy(self):
@@ -63,8 +63,8 @@ class MirrorObservation(unittest.TestCase):
     def test_redirect_requires_actual_complete_current_evidence(self):
         s={'repair_issues':[],'connector_scenarios':{'Model.thy':'m','Tree_Test.thy':'t'},'connector':{'src/lib.rs':'binding'}}
         c,_=self.setup_case()
-        issue=v8_repair.register(s,'compile',{'status':'connector_algorithm_defect'},{'roots':['mirror']},'compile')
-        v8_repair.redirect_connector(s,'candidate1')
+        issue=repair_controller.register(s,'compile',{'status':'connector_algorithm_defect'},{'roots':['mirror']},'compile')
+        repair_controller.redirect_connector(s,'candidate1')
         suites=[{'kind':n,'status':'passed'} for n in ['fixed','kernel_fixed','generated_differential','kernel_generated_differential']]
         names=[x['kind'] for x in suites]
         for version,compiled,actual,scenarios in [('other',{'status':'passed'},suites,s['connector_scenarios']),
@@ -73,22 +73,22 @@ class MirrorObservation(unittest.TestCase):
             ('candidate1',{'status':'passed'},[{**x,'status':'failed'} for x in suites],s['connector_scenarios']),
             ('candidate1',{'status':'passed'},suites,{'Model.thy':'changed'})]:
             trial=deepcopy(s);trial['connector_scenarios']=scenarios
-            v8_repair.close_redirected_connector(trial,version,compiled,actual,names,'evidence')
+            repair_controller.close_redirected_connector(trial,version,compiled,actual,names,'evidence')
             self.assertEqual(trial['repair_issues'][0]['status'],'open')
-        v8_repair.close_redirected_connector(s,'candidate1',{'status':'passed'},suites,names,'actual-test-attempt')
+        repair_controller.close_redirected_connector(s,'candidate1',{'status':'passed'},suites,names,'actual-test-attempt')
         self.assertEqual(issue['status'],'verified_passed')
         unrelated=deepcopy(s);unrelated['repair_issues'][0].update(status='open',original={'status':'plan_contract_failed'})
-        v8_repair.close_redirected_connector(unrelated,'candidate1',{'status':'passed'},suites,names,'evidence')
+        repair_controller.close_redirected_connector(unrelated,'candidate1',{'status':'passed'},suites,names,'evidence')
         self.assertEqual(unrelated['repair_issues'][0]['status'],'open')
 
     def test_controller_redirect_closes_only_after_actual_full_tests(self):
         from unittest.mock import patch
-        from i2r_agent import segmented_v8 as runner
+        from i2r_agent import translation_workflow as runner
         from i2r_agent.common import Failure,save
         from test_segmented_workflow import source,mapping
-        from test_v8_workflow import CONNECTOR
+        from test_translation_workflow import CONNECTOR
         c,_=self.setup_case();c['segmented']['support_tests']=False
-        b=source();b.update(workflow='segmented-v8',case='list-index')
+        b=source();b.update(workflow='source-translation',case='list-index')
         provider=Mock();provider.calls=0;provider.usage={}
         def answer(pv,config,path,p,analysis=False):
             if p['controller_state']['phase']=='generate':

@@ -9,7 +9,7 @@ from i2r_agent.segmented_config import configure,rust_config
 
 class BindingRetryFeedbackTest(unittest.TestCase):
     def test_failed_assertion_edit_is_explained_before_unchanged_assertion_adapter(self):
-        cfg=configure(merge(config(),read(Path(__file__).parent/'fixtures/segmented-source.json')['base']))
+        cfg=configure(merge(config(),read(Path(__file__).parent/'fixtures/shared-workflow-config.json')['base']))
         ident='constant:A.f';code='use i2r_candidate::f; #[test] fn empty(){assert_eq!(f(vec![]),vec![]);}'
         obligation={'source':ident,'case':'empty list','expected_basis':'source equation f [] = []','test_name':'empty'}
         frozen={'identity':'original','tests':[code],'unit_tests':[],'obligations':[obligation]}

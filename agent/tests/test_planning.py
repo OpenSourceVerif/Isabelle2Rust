@@ -6,9 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 from i2r_agent.common import ROOT, Failure, config
-from i2r_agent.planning import (validate_plan, candidate_contract, manifest, prepare_plan,
-                                require_generation_capabilities, numeric_policy)
-from i2r_agent.generation import generate
+from i2r_agent.planning import validate_plan, candidate_contract, manifest, require_generation_capabilities, numeric_policy
 
 
 def fixture(mode='checked'):
@@ -75,34 +73,6 @@ class PlanningTests(unittest.TestCase):
         self.plan['schema_version']=2
         with self.assertRaises(Failure):validate_plan(self.plan,self.bundle)
 
-    def test_format_failure_retains_previous_plan_and_diagnostics(self):
-        invalid=copy.deepcopy(self.plan);invalid['architecture']['exports'][0]['source']='wrong'
-        provider=Mock();provider.call.side_effect=[invalid,Failure('invalid_model_response','JSON invalid'),self.plan]
-        executor=Mock();cfg=config();cfg['preprocessing']['include_adapter_reference']=False
-        with tempfile.TemporaryDirectory() as tmp, patch('i2r_agent.adapters.load_adapter',return_value={'status':'loaded','audit':{},'after_target':self.bundle['programs'][0]}) as load:
-            bundle,result=prepare_plan(self.bundle,cfg,provider,tmp,executor)
-            last=json.loads(provider.call.call_args_list[2].args[1])
-            self.assertEqual(last['previous_plan'],invalid)
-            self.assertEqual([x['status'] for x in last['feedback']],['invalid_model_response'])
-            self.assertEqual(result['status'],'passed')
-            load.assert_called_once()
-            self.assertEqual(provider.call.call_args.kwargs['phase'],'preprocessing')
-
-    def test_generation_can_revise_representation_without_fixed_helpers(self):
-        new=copy.deepcopy(self.plan);new['adaptation']['numeric']='u64';new['adaptation']['decisions'][0]['representation']='u64'
-        provider=Mock();provider.call.return_value={'files':{'src/lib.rs':'pub fn observe() {}'},'mapping':[],
-            'adaptation_usage':[],'revised_plan':new,'plan_revision_reason':'checked narrower domain'}
-        with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(Failure) as e:
-                generate({**self.bundle,'translation_plan':self.plan},config(),provider,tmp)
-            self.assertEqual(e.exception.code,'adapter_revision_requested')
-            self.assertEqual(e.exception.evidence,new)
-            self.assertFalse((Path(tmp)/'src/lib.rs').exists())
-
-    def test_source_only_still_explicitly_receives_plan_and_numeric_mode(self):
-        from i2r_agent.generation import generation_context
-        context=generation_context({**self.bundle,'translation_plan':self.plan},'source_only')
-        self.assertIn('translation_plan',context);self.assertNotIn('programs',context)
 
     def test_numeric_default_and_invalid_setting(self):
         self.assertEqual(numeric_policy(config())['mode'],'checked')

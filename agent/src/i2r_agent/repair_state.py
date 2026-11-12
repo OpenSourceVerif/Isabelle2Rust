@@ -22,9 +22,8 @@ def capture(branch):
     feedback=branch.get('connector_feedback') if branch.get('mode')=='connect' else branch.get('feedback')
     if not feedback:return
     status=feedback.get('status','')
-    contract=status=='plan_contract_failed' and branch.get('bundle',{}).get('workflow')=='source-v6'
-    if status in PROTOCOL_ERRORS and not contract:return
-    kind=('contract' if contract else 'support' if status=='support_contract_failed' else 'declaration' if status.startswith('adapter') else
+    if status in PROTOCOL_ERRORS:return
+    kind=('support' if status=='support_contract_failed' else 'declaration' if status.startswith('adapter') else
           'behavior' if feedback.get('behavior_failure') else 'compile' if status=='compile_failed' else 'review')
     # Routing a previously diagnosed issue is not a new independent defect.
     if feedback.get('algorithm_issue') or feedback.get('diagnosis') and branch.get('repair_issue'):return

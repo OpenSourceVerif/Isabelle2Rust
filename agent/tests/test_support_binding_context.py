@@ -8,12 +8,12 @@ from i2r_agent.segmented_support import execute
 from i2r_agent.segmented_test_audit import adjudicate,invariants
 from i2r_agent.support_binding_context import prepare,restrict
 from i2r_agent.task_context import fingerprint
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 from test_segmented_workflow import source
 
 class FocusedBindingTests(unittest.TestCase):
  def setUp(self):
-  c=cfg();c['v8']['correctness_only']=True;self.cfg=configure(c);self.rc=rust_config({},self.cfg)
+  c=cfg();c['translation']['correctness_only']=True;self.cfg=configure(c);self.rc=rust_config({},self.cfg)
   self.code='pub enum Tree<A>{Leaf,Node(Box<Tree<A>>,A,Box<Tree<A>>)} pub fn tree_case<A,R,F:FnOnce(Tree<A>,A,Tree<A>)->R>(f:F,t:Tree<A>)->R{match t{Tree::Node(l,x,r)=>f(*l,x,*r),Tree::Leaf=>panic!()}}'
   self.bad='use i2r_candidate::{Tree,tree_case}; #[test] fn owned(){let t=Tree::Node(Box::new(Tree::Leaf),33u128,Box::new(Tree::Leaf));let out=tree_case(|l,x,r|{match *l{Tree::Leaf=>(),_=>panic!()};match *r{Tree::Leaf=>(),_=>panic!()};x},t);assert_eq!(out,33);}'
   self.other='#[test] fn sibling(){assert_eq!(1+1,2);}'
@@ -45,7 +45,7 @@ class FocusedBindingTests(unittest.TestCase):
    with self.assertRaises(Failure):restrict({'edits':[{'kind':'integration','index':1}]},scope)
    unknown={**failure,'diagnostic':'unlocated type inference failure'};fallback,_=prepare(self.frozen,unknown,self.state,self.cfg,tmp);self.assertEqual(fallback['focused_binding_scope']['integration_indices'],[0,1])
  def test_optimization_mode_retains_its_existing_second_review(self):
-  c=deepcopy(self.cfg);c['v8']['correctness_only']=False
+  c=deepcopy(self.cfg);c['translation']['correctness_only']=False
   with tempfile.TemporaryDirectory() as tmp,patch('i2r_agent.segmented_test_audit.source_review',side_effect=[self.proposal,{'action':'accept','review':'original assertions and bindings preserved'}]) as call:
    r=adjudicate(self.frozen,{'status':'support_test_compile_failed','diagnostic':'E0614'},self.state,c,Mock(),tmp)
   self.assertEqual(call.call_count,2);self.assertEqual(r['action'],'binding_fix')

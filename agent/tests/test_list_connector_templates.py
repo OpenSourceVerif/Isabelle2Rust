@@ -3,11 +3,11 @@ from pathlib import Path
 from unittest.mock import patch
 from i2r_agent.common import Executor
 from i2r_agent.segmented_config import configure,materialize,rust_config
-from i2r_agent.segmented_v8 import connection,compile_crate
+from i2r_agent.translation_workflow import connection,compile_crate
 from i2r_agent.validation import execute
 from i2r_agent.connector_templates import KERNEL,identity
 from i2r_agent.list_connector_templates import generate
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 LIST='pub enum List<T>{Nil,Cons(T,Box<List<T>>)}'
 MAPPING=[{'source':'type:List.list','rust_item':'crate::List'},{'source':'constant:List.list.Cons','rust_item':'crate::List::Cons'}]
@@ -15,7 +15,7 @@ def model(theory,term):return f'theory Model imports {theory} begin definition o
 
 class ListConnectorTemplates(unittest.TestCase):
     def config(self):
-        c=cfg();c['v8']['correctness_only']=True;return configure(c)
+        c=cfg();c['translation']['correctness_only']=True;return configure(c)
 
     def test_list_shape_spans_source_targets_and_observes_real_result(self):
         c=self.config();rc=rust_config({},c)

@@ -6,11 +6,11 @@ from i2r_agent.common import ROOT,read,Executor,Failure
 from i2r_agent.segmented_config import configure,rust_config,materialize
 from i2r_agent.segmented_support import execute
 from i2r_agent.segmented_test_audit import adjudicate,macro_separator_revision,revise,invariants
-from test_v8_workflow import cfg
+from test_translation_workflow import cfg
 
 class MacroSeparator(unittest.TestCase):
     def test_original_compiler_failure_then_test_only_revision_and_wrong_branch_rejection(self):
-        f=read(ROOT/'tests/fixtures/isort_support_macro_separator.json');c=cfg();c['v8']['correctness_only']=True;c=configure(c);rc=rust_config({},c)
+        f=read(ROOT/'tests/fixtures/isort_support_macro_separator.json');c=cfg();c['translation']['correctness_only']=True;c=configure(c);rc=rust_config({},c)
         with tempfile.TemporaryDirectory() as tmp:
             w=Path(tmp);ex=Executor(w/'commands');crate=materialize(w/'candidate',f['files'],rc)
             original_materialized=(crate/'src/lib.rs').read_text()
