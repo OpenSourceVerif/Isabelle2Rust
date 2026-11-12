@@ -42,7 +42,9 @@ from .source_test_context import bodyless_interfaces as checker_interfaces,canon
 
 def scope(frozen,state,cfg):
     from .source_suite_batches import POLICY as batch_policy,SYSTEM as batch_system
+    model=state['bundle']['source_model'];ids=needed(model,set(model['entries'])|{o['source'] for o in frozen['obligations']})
     fields={'length_fallback':{'policy':batch_policy,'system':batch_system},'policy':POLICY,'system':SYSTEM,'protocol':PROTOCOL,'source':{k:state['bundle'].get(k) for k in ['source_model','original_source_model','source_hashes','numeric_policy']},
+        'source_pages_identity':fingerprint(pages(model,ids,cfg['segmented']['source_page_characters'])),
         'suite':{k:frozen.get(k) for k in ['tests','unit_tests','obligations','source_contract_templates','test_framework','author_group_plan']},
         'interfaces':checker_interfaces(state),'mapping':checker_mapping(state),'rust_config':state['rust_config'],
         'model':{k:cfg['model'].get(k) for k in ['name','endpoint']},'generation':cfg['generation'],'checker_max_output_tokens':CHECKER_MAX_OUTPUT_TOKENS,'max_completed':MAX_COMPLETED}

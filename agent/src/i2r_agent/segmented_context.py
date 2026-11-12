@@ -70,10 +70,31 @@ def advance_source_reading(existing,reply,supplied,page_map,limit,feedback,path)
     material=read_pages(page_map,reply['request_pages'],limit)
     # Only a successful notes+page transition resolves these precise errors.
     # Unrelated source, grouping or protocol failures remain visible.
-    if feedback and feedback.get('status') in {'invalid_reading_notes','missing_reading_notes'}:
+    if feedback and (feedback.get('status') in {'invalid_reading_notes','missing_reading_notes','invalid_page_request'} or
+                     (feedback.get('status')=='incomplete_analysis' and isinstance(feedback.get('evidence'),dict) and
+                      feedback['evidence'].get('kind')=='source_page_reading')):
         save(path/'resolved-reading-feedback.json',{'status':'resolved_by_exact_page_notes_and_valid_page_request','previous_feedback':feedback})
         feedback=None
     return notes,material,feedback
+
+
+def page_reading_failure(code,message,page_map,seen,supplied,progress):
+    """Explain the output protocol without trusting model-supplied page content."""
+    missing=sorted(set(page_map)-seen)
+    repeats=progress.get('repetitions',0)+1 if progress.get('missing_page_ids')==missing else 1
+    progress.update(missing_page_ids=missing,repetitions=repeats)
+    return Failure(code,message,{'kind':'source_page_reading','missing_page_ids':missing,
+        'required_current_page_ids':sorted(supplied),'same_missing_pages_repetitions':repeats,
+        'instruction':'Return top-level request_pages:["EXACT_CATALOG_PAGE_ID",...] and reading_notes:{"EXACT_CURRENT_PAGE_ID":"nonempty source-specific observation"}. requested_material.pages is controller input, not a reply action. Do not return page text or page objects; only the controller supplies source text. Copy complete IDs including hash and part. No final analysis is accepted while pages remain unread.',
+        'next_action':'correct_page_request_only' if repeats>=2 else 'request_unread_pages'})
+
+
+def reject_page_reply_alias(reply,page_map,seen,supplied,progress):
+    material=reply.get('requested_material')
+    if isinstance(material,dict) and 'pages' in material:
+        raise page_reading_failure('invalid_page_request',
+            'requested_material.pages cannot request source pages; use top-level request_pages',
+            page_map,seen,supplied,progress)
 
 
 def code_pages(files,size):
@@ -156,11 +177,12 @@ def analyze(bundle,cfg,provider,directory):
         if used+len(p['text'])>cfg['segmented']['initial_source_characters']:break
         initial.append(p);used+=len(p['text'])
     tries=max([int(p.name.rsplit('-',1)[-1]) for p in directory.glob('analysis-[0-9]*') if p.is_dir()] or [0])
-    stalled=0;length_failures={};draft=None
+    stalled=0;length_failures={};draft=None;page_stall={}
     analysis_prompt='v8-correctness-analysis.txt' if cfg.get('v8',{}).get('correctness_only') else 'v8-semantic-analysis.txt' if cfg.get('v8',{}).get('unit_policy')=='semantic-components' else 'segmented-analysis.txt'
     resume_scope=fingerprint({'source_model':model,'numeric_policy':bundle['numeric_policy'],'config':cfg,
                               'default_adaptations':default_adaptations,'protocol':'analysis-state-v1',
-                              'prompt':(ROOT/'prompts'/analysis_prompt).read_text(),'context_protocol':Path(__file__).read_text()})
+                              'prompt':(ROOT/'prompts'/analysis_prompt).read_text(),'context_protocol':Path(__file__).read_text(),
+                              'source_pages_identity':fingerprint(all_pages)})
     checkpoint=directory/'analysis-state.json'
     if checkpoint.exists():
         state=read(checkpoint)
@@ -171,10 +193,11 @@ def analyze(bundle,cfg,provider,directory):
             raise Failure('analysis_resume_mismatch','Saved reading state names unavailable exact pages')
         seen=set(state['seen']);notes=state['notes'];extra=state['extra'];initial=state['initial'];feedback=state['feedback']
         tries=state['next_attempt']-1;stalled=state['stalled'];length_failures=state['length_failures'];draft=state['unvalidated_current_proposal']
+        page_stall=state.get('page_stall',{})
     while True:
         tries+=1;path=directory/f'analysis-{tries:04d}'
         state={'schema':1,'scope':resume_scope,'next_attempt':tries,'all_pages':all_pages,'seen':sorted(seen),
-               'notes':notes,'extra':extra,'initial':initial,'feedback':feedback,'stalled':stalled,'length_failures':length_failures,'unvalidated_current_proposal':draft}
+               'notes':notes,'extra':extra,'initial':initial,'feedback':feedback,'stalled':stalled,'length_failures':length_failures,'unvalidated_current_proposal':draft,'page_stall':page_stall}
         save(checkpoint,{**state,'integrity':fingerprint(state)})
         payload={'task':'Global semantic adaptation and boundary selection for '+cfg['generation']['workflow'],
             'algorithm_policy':cfg['segmented']['algorithm_policy'],
@@ -186,6 +209,9 @@ def analyze(bundle,cfg,provider,directory):
             'reading_protocol':'request_pages:[page_id,...] reads exact source segments. All pages must be read before analysis completion.',
             'read_pages':sorted(seen),'source_reading_notes':notes,'requested_material':extra,'feedback':feedback,
             'unvalidated_current_proposal':draft}
+        if page_stall.get('repetitions',0)>=2 and feedback and isinstance(feedback.get('evidence'),dict) and feedback['evidence'].get('kind')=='source_page_reading':
+            payload['task']='Correct only the source-page request protocol; the same unread-page set has repeated. Do not repeat a final analysis or requested_material.pages.'
+            payload['reading_protocol']='Reply with request_pages:[exact unread catalog IDs] and reading_notes:{exact current page ID: nonempty observation}. Use feedback.evidence.missing_page_ids and feedback.evidence.required_current_page_ids. Source text is supplied only by the controller.'
         from .semantic_components import enabled,grouping_policy,grouping_context,from_analysis
         if enabled(cfg):
             payload['component_grouping']={'mode':'joint_analysis','limits':grouping_policy(cfg),
@@ -197,17 +223,19 @@ def analyze(bundle,cfg,provider,directory):
             reply=ask(provider,cfg,path,payload,True)
             supplied={p['id'] for p in initial+extra.get('pages',[])}
             seen.update(supplied)
+            reject_page_reply_alias(reply,page_map,seen,supplied,page_stall)
             if reply.get('request_pages'):
                 notes,extra,feedback=advance_source_reading(notes,reply,supplied,page_map,
                     cfg['segmented']['initial_source_characters'],feedback,path)
                 supplied={p['id'] for p in extra['pages']}
+                if supplied-seen:page_stall={}
                 stalled=0 if supplied-seen else stalled+1
                 if stalled>=cfg['segmented']['no_progress_limit']:raise Failure('analysis_no_progress','Repeated source reads without new material')
                 initial=[];continue
             draft=reply
             additions=requested(reply,bundle)
             if additions:extra=additions;initial=[];continue
-            if set(page_map)-seen:raise Failure('incomplete_analysis','Read remaining source pages',sorted(set(page_map)-seen))
+            if set(page_map)-seen:raise page_reading_failure('incomplete_analysis','Read remaining source pages',page_map,seen,supplied,page_stall)
             if not isinstance(reply.get('opportunities'),list):raise Failure('invalid_analysis','opportunities must be a list')
             if set(g['edges'])-set(reply.get('analysis_coverage',[])):raise Failure('incomplete_analysis','Classify every executable entity',sorted(set(g['edges'])-set(reply.get('analysis_coverage',[]))))
             if cfg['generation']['workflow']=='segmented-v8':
