@@ -39,8 +39,8 @@ def invariants(code):
 
 
 
-def rejecting_match_extensions(code):
-    """Exact insertions only: preserve every original byte and add a failing last arm."""
+def rejecting_match_sites(code):
+    """Exact original byte locations; no panic-accepting test can use this route."""
     data=code.encode();root=Parser(Language(tree_sitter_rust.language())).parse(data).root_node
     if root.has_error or any(name in code for name in ['catch_unwind','should_panic']):return []
     stack=[root];result=[]
@@ -51,33 +51,113 @@ def rejecting_match_extensions(code):
         if body is None:continue
         arms=[c for c in body.named_children if c.type=='match_arm']
         if not arms:continue
-        # A wildcard must never be inserted before existing source expectations.
         if any(data[a.start_byte:a.end_byte].lstrip().startswith(b'_ =>') for a in arms):continue
         tail=data[arms[-1].end_byte:body.end_byte-1]
         comma=b'' if data[arms[-1].start_byte:arms[-1].end_byte].rstrip().endswith(b',') or b',' in tail else b','
-        insertion=comma+b'\n_ => ::core::panic!(),\n'
-        point=body.end_byte-1
-        changed=(data[:point]+insertion+data[point:]).decode()
         value=node.child_by_field_name('value')
-        if value is not None:result.append((value.start_point.row+1,value.start_point.column+1,changed))
+        if value is not None:result.append({'row':value.start_point.row+1,'column':value.start_point.column+1,
+            'point':body.end_byte-1,'tail_start':arms[-1].end_byte,'match_start':node.start_byte,
+            'insertion':comma+b'\n_ => ::core::panic!(),\n'})
     return result
 
 
-def exhaustiveness_revision(frozen,result,state):
-    """Repair only a compiler-located E0004 in the exact frozen integration source."""
+def rejecting_match_extensions(code):
+    data=code.encode()
+    return [(s['row'],s['column'],(data[:s['point']]+s['insertion']+data[s['point']:]).decode()) for s in rejecting_match_sites(code)]
+
+
+def exhaustiveness_plan(frozen,result):
+    """Bind the complete diagnostic to exact frozen integration-test AST nodes."""
     if result.get('status')!='support_test_compile_failed' or result.get('frozen_identity')!=frozen['identity']:return None
+    if result.get('immutable_test_sources')!=frozen['tests']:return None
     diagnostic=result.get('diagnostic','')
-    if set(re.findall(r'error\[(E\d+)\]',diagnostic))!={'E0004'}:return None
-    locations=re.findall(r'error\[E0004\]:[^\n]*\n\s*--> tests/source_contract_(\d+)\.rs:(\d+):(\d+)',diagnostic)
-    if len(locations)!=1:return None
-    index,line,column=map(int,locations[0])
-    if index>=len(frozen['tests']) or result.get('immutable_test_sources')!=frozen['tests']:return None
-    old=frozen['tests'][index]
-    matches=[new for row,col,new in rejecting_match_extensions(old) if row+2==line and col==column]
-    if len(matches)!=1:return None
-    proposal={'reason':'Compiler E0004 at the frozen match: preserve every original arm and append only an unconditional failing wildcard.',
-              'repair_kind':'rejecting_exhaustiveness','edits':[{'kind':'integration','index':index,'old':old,'new':matches[0]}]}
-    return revise(frozen,proposal,state)
+    errors=re.findall(r'^error(?:\[([^\]]+)\])?: (.*)$',diagnostic,re.M)
+    actual=[(code,text) for code,text in errors if not (not code and text.startswith(('could not compile ', 'aborting due to ')))]
+    if not actual or any(code!='E0004' for code,_ in actual):return None
+    locations=re.findall(r'^error\[E0004\]:[^\n]*\n\s*--> tests/source_contract_(\d+)\.rs:(\d+):(\d+)',diagnostic,re.M)
+    if len(locations)!=len(actual):return None # Reject unbound/non-test errors, not only the subset we understand.
+    plan={}
+    for index,line,column in sorted({tuple(map(int,location)) for location in locations}):
+        if index>=len(frozen['tests']):return None
+        sites=[s for s in rejecting_match_sites(frozen['tests'][index]) if s['row']+2==line and s['column']==column]
+        if len(sites)!=1:return None
+        plan.setdefault(index,[]).append(sites[0])
+    return plan
+
+
+def canonical_exhaustiveness(frozen,plan):
+    changed={}
+    for index,sites in plan.items():
+        data=frozen['tests'][index].encode()
+        for site in sorted(sites,key=lambda s:s['point'],reverse=True):
+            point=site['point'];data=data[:point]+site['insertion']+data[point:]
+        changed[index]=data.decode()
+    return changed
+
+
+def normalize_rejecting_proposal(frozen,proposal,plan):
+    """Recognize only compiler-bound last-arm insertions; diagnostic strings are
+    allowed solely in those new direct panic invocations, then discarded. All
+    original bytes remain, including every old literal and nested match arm.
+    """
+    if not isinstance(proposal,dict):return False
+    if set(proposal)-{'action','reason','edits','reading_notes','request_pages'}:return False
+    if proposal.get('action','binding_fix')!='binding_fix' or not isinstance(proposal.get('edits'),list):return False
+    texts={};seen=set()
+    for edit in proposal['edits']:
+        if not isinstance(edit,dict) or set(edit)!={'kind','index','old','new'} or edit['kind']!='integration' or type(edit['index']) is not int or edit['index'] not in plan:return False
+        index=edit['index'];text=texts.get(index,frozen['tests'][index]);old=edit['old'];new=edit['new']
+        if not isinstance(old,str) or not old or not isinstance(new,str) or text.count(old)!=1:return False
+        texts[index]=text.replace(old,new,1);seen.add(index)
+    if seen!=set(plan):return False
+    def matches(data):
+        root=Parser(Language(tree_sitter_rust.language())).parse(data).root_node
+        if root.has_error:return None
+        stack=[root];found=[]
+        while stack:
+            node=stack.pop();stack.extend(node.named_children)
+            if node.type=='match_expression':found.append(node)
+        return sorted(found,key=lambda n:n.start_byte)
+    for index,text in texts.items():
+        before=frozen['tests'][index].encode();after=text.encode()
+        oldmatches=matches(before);newmatches=matches(after)
+        if oldmatches is None or newmatches is None or len(oldmatches)!=len(newmatches):return False
+        targets={s['match_start'] for s in plan[index]};removals=[]
+        for old,node in zip(oldmatches,newmatches):
+            if old.start_byte not in targets:continue
+            oldbody=old.child_by_field_name('body');body=node.child_by_field_name('body')
+            oldarms=[n for n in oldbody.named_children if n.type=='match_arm'];arms=[n for n in body.named_children if n.type=='match_arm']
+            if len(arms)!=len(oldarms)+1:return False
+            arm=arms[-1];pattern=arm.child_by_field_name('pattern');value=arm.child_by_field_name('value')
+            if pattern is None or pattern.child_by_field_name('condition') is not None:return False
+            if value is None or value.type!='macro_invocation':return False
+            macro=value.child_by_field_name('macro');token_tree=next((n for n in value.named_children if n.type=='token_tree'),None)
+            if macro is None or macro.text not in {b'panic',b'::core::panic',b'::std::panic'} or token_tree is None:return False
+            args=[n for n in token_tree.named_children if n.type not in {'line_comment','block_comment'}]
+            if len(args)>1 or (args and args[0].type not in {'string_literal','raw_string_literal'}):return False
+            tokens=[n for n in token_tree.children if n.type not in {'(',')','[',']','{','}',',','line_comment','block_comment'}]
+            if tokens!=args:return False
+            # Strip only the added arm and its separator/spacing. A comma newly
+            # attached to a formerly comma-less block arm belongs to the insertion.
+            start=arms[-2].end_byte
+            if not oldarms[-1].text.endswith(b',') and arms[-2].text.endswith(b','):start-=1
+            removals.append((start,body.end_byte-1,before[oldarms[-1].end_byte:oldbody.end_byte-1]))
+        restored=after
+        for start,end,tail in sorted(removals,reverse=True):restored=restored[:start]+tail+restored[end:]
+        if restored!=before:return False
+    return True
+
+
+def exhaustiveness_revision(frozen,result,state,proposal=None):
+    plan=exhaustiveness_plan(frozen,result)
+    if not plan:return None
+    if proposal is not None and not normalize_rejecting_proposal(frozen,proposal,plan):
+        raise Failure('support_oracle_change','Compiler-bound completion may only append direct rejecting last arms; original tests must remain byte-identical')
+    changed=canonical_exhaustiveness(frozen,plan)
+    # The ordinary invariants still check the canonical result: no new literal,
+    # assertion, input, expectation, obligation, bound or test-count permission.
+    return revise(frozen,{'reason':'Compiler E0004 at the frozen match: preserve every original arm and append only an unconditional failing wildcard.',
+        'edits':[{'kind':'integration','index':i,'old':frozen['tests'][i],'new':text} for i,text in sorted(changed.items())]},state)
 
 
 def trailing_macro_separators(code):
@@ -109,7 +189,7 @@ def macro_separator_revision(frozen,result,state):
     return revise(frozen,{'reason':'Compiler rejected the final macro argument comma; remove only that token, preserving all argument expressions and assertions.',
         'repair_kind':'trailing_macro_separator','edits':[{'kind':'integration','index':index,'old':old,'new':matches[0]}]},state)
 
-def revise(frozen,proposal,state):
+def revise(frozen,proposal,state,*,compiler_failure=None):
     if proposal.get('obligations',frozen['obligations'])!=frozen['obligations']:
         raise Failure('support_oracle_change','Binding repairs must preserve every frozen source case and expectation')
     updated=deepcopy(frozen)
@@ -127,6 +207,23 @@ def revise(frozen,proposal,state):
             raise Failure('support_oracle_change','Macro binding repair may remove only the compiler-located final comma, preserving every argument and assertion')
         if kind=='integration':seq[index]=changed
         else:seq[index]['source']=changed
+    if compiler_failure and re.search(r'^error\[E0004\]:',compiler_failure.get('diagnostic',''),re.M):
+        def match_code(code):
+            root=Parser(Language(tree_sitter_rust.language())).parse(code.encode()).root_node
+            if root.has_error:return None
+            stack=[root];found=[]
+            while stack:
+                node=stack.pop();stack.extend(node.named_children)
+                if node.type=='match_expression':found.append((node.start_byte,node.text))
+            return [text for _,text in sorted(found)]
+        originals=frozen['tests']+[t['source'] for t in frozen.get('unit_tests',[])]
+        proposed=updated['tests']+[t['source'] for t in updated.get('unit_tests',[])]
+        if any(match_code(a)!=match_code(b) for a,b in zip(originals,proposed)):
+            revised=exhaustiveness_revision(frozen,compiler_failure,state,proposal)
+            if revised is None:raise Failure('support_oracle_change','Incomplete or mixed compiler evidence cannot authorize match completion')
+            return revised
+        # Unchanged matches keep ordinary import/type binding repairs available,
+        # even when an unrelated E0004 accompanies the compiler binding error.
     for old,new in zip(frozen['tests']+[t['source'] for t in frozen.get('unit_tests',[])],updated['tests']+[t['source'] for t in updated.get('unit_tests',[])]):
         before=invariants(old);after=invariants(new)
         if before!=after:
@@ -155,7 +252,7 @@ def revise(frozen,proposal,state):
 def adjudicate(frozen,result,state,cfg,provider,directory):
     directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
     deterministic=exhaustiveness_revision(frozen,result,state)
-    method='compiler-span-exhaustiveness-v1'
+    method='compiler-span-exhaustiveness-v2'
     if deterministic is None:
         deterministic=macro_separator_revision(frozen,result,state);method='compiler-span-final-macro-separator-v1'
     if deterministic is not None:
@@ -185,7 +282,7 @@ For a wrong mathematical expectation or disputed source domain, return action:or
     if action=='oracle_dispute':raise Failure('support_oracle_dispute','Independent source expectations require adjudication; do not repair the algorithm to fit them',proposal)
     if action!='binding_fix' or not proposal.get('reason'):raise Failure('invalid_support_audit','Return a justified classification',proposal)
     if payload.get('focused_binding_scope'):restrict(proposal,payload['focused_binding_scope'])
-    try:updated=revise(frozen,proposal,state)
+    try:updated=revise(frozen,proposal,state,compiler_failure=result)
     except Failure as error:
         if error.code=='support_oracle_change':
             # Persist across audit attempts, but never transfer rejection counts to another suite/API.

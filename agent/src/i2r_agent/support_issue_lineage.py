@@ -36,12 +36,12 @@ def migrate(state,frozen,updated,audit):
         else:
             from .source_failure_check import revise as revise_expectation
             verified=revise_expectation(frozen,read(path/'diagnosis.json'),state)
-    elif method=='compiler-span-exhaustiveness-v1':verified=exhaustiveness_revision(frozen,state.get('support_evidence',{}),state)
+    elif method in {'compiler-span-exhaustiveness-v1','compiler-span-exhaustiveness-v2'}:verified=exhaustiveness_revision(frozen,state.get('support_evidence',{}),state)
     elif method=='compiler-span-final-macro-separator-v1':verified=macro_separator_revision(frozen,state.get('support_evidence',{}),state)
     elif (path/'diagnosis.json').is_file():
         proposal=read(path/'diagnosis.json')
         if proposal.get('action')!='binding_fix':raise Failure('support_lineage_invalid','No accepted binding proposal')
-        verified=revise(frozen,proposal,state)
+        verified=revise(frozen,proposal,state,compiler_failure=state.get('support_evidence',{}))
     else:raise Failure('support_lineage_invalid','Missing accepted binding evidence')
     keys=['identity','parent_identity','oracle_identity','tests','unit_tests','obligations','author_group_plan']
     if verified is None or any(verified.get(k)!=updated.get(k) for k in keys) or updated.get('parent_identity')!=frozen['identity']:
