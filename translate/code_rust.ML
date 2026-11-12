@@ -475,7 +475,7 @@ fun rc_dyn_fn params ret =
         Inst printer fills its body with the constructor instead of a panic stub **)
 fun print_rust_stmt class_syntax tyco_syntax const_syntax reserved is_constr deresolve
   box_table phantom_table
-  lookup_constant_typeco lookup_constructor_fields is_single_constr lookup_constant_fun
+  lookup_constant_typeco lookup_constructor_fields lookup_datatype is_single_constr lookup_constant_fun
   lookup_method_class inst_method_info lookup_class_methods constr_method_of =
   let
     val deresolve_const = deresolve o Constant;
@@ -1379,9 +1379,10 @@ fun print_type_param_bound (vname, sort) =
       |> map (fn (v, shape) =>
           (v, the_default shape
             (typearg_dictionary_shape const (shape_type shape))));
-    (* A function wrapper can adapt arrow groups, but not change the layout of
-       a container hidden in its domain or result. Those positions constrain
-       higher-order generic arguments just like ordinary container arguments.
+    (* Prefer retaining an established container layout through ordinary calls.
+       These positions constrain higher-order generic arguments just like other
+       container arguments; a conflicting dictionary or fixed field is handled
+       by an explicit structural conversion at the consuming boundary.
        Preserve sharing while inspecting nested function positions. *)
     fun has_selected_container shape =
       let
@@ -1588,8 +1589,8 @@ fun print_type_param_bound (vname, sort) =
                 (shape_type shape, drop_fun_type (length args) inst_ty))
             then NONE
             else
-              (* Keep ordinary function grouping contextual unless a container
-                 position has a fixed layout that an eta wrapper cannot change. *)
+              (* Keep ordinary function grouping contextual while retaining
+                 container layouts fixed by the function declaration. *)
               (case shape of Rust_Tyco _ => SOME shape
               | _ => if has_selected_container shape then SOME shape else NONE)
           end
@@ -1628,8 +1629,8 @@ fun print_type_param_bound (vname, sort) =
                         val shapes = map equation_shape eqs;
                         (* Ordinary function grouping stays canonical unless a
                            container position fixes its layout. Preserve that
-                           layout even in a returned closure: eta adaptation
-                           cannot change the container value it returns. *)
+                           layout in returned closures, and convert only at a
+                           consumer that requires a different representation. *)
                         fun signature_shape (shape as Rust_Tyco _) = shape
                           | signature_shape shape =
                               if has_selected_container shape then shape
@@ -1729,8 +1730,8 @@ fun print_type_param_bound (vname, sort) =
           let
             (* Dictionary-selected functions may need an implicit adapter
                back to the ordinary flat grouping when no context is supplied.
-               Preserve fixed container positions in the source shape: an eta
-               wrapper cannot rebuild them, and the function item uses that
+               Preserve fixed container positions in the source shape to avoid
+               unnecessary structural conversions; the function item uses that
                same result layout. A real contextual expectation takes precedence. *)
             val effective_expected =
               (case (t, expected) of
@@ -1785,6 +1786,17 @@ fun print_type_param_bound (vname, sort) =
                   else print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars fxy t
                   end
               | NONE => print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars fxy t)
+          | (_, SOME {rust_shape = target_shape as Rust_Tyco _, ...}) =>
+              (case selected_term_rust_shape vars t of
+                SOME source_shape =>
+                  if equal_shape_types (shape_type source_shape, shape_type target_shape)
+                      andalso not (equal_rust_shapes (source_shape, target_shape))
+                  then
+                    let val adapted = print_container_adapter source_shape target_shape
+                      is_pseudo_fun some_thm vars t
+                    in if need_box then box_prcs adapted else adapted end
+                  else print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars fxy t
+              | NONE => print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars fxy t)
           | _ => print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars fxy t)
           end
     and print_term_raw expected is_pseudo_fun (need_box, box_prcs, clone_prcs)
@@ -1813,7 +1825,14 @@ fun print_type_param_bound (vname, sort) =
               | NONE => (*closure*)
                 let
                   val (t', ts') = Code_Thingol.unfold_app t
-                  val params = map (print_term_app is_pseudo_fun some_thm vars NOBR) ts'
+                  val closure_expecteds =
+                    (case selected_term_rust_shape vars t' of
+                      SOME shape => rust_shape_argument_expecteds shape
+                    | NONE => []);
+                  val params = map_index (fn (i, arg) =>
+                    print_term_expected
+                      (if i < length closure_expecteds then nth closure_expecteds i else NONE)
+                      is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR arg) ts'
                   val representation_groups =
                     (case t' of
                       IVar (SOME v) => Option.map rust_shape_groups
@@ -2185,7 +2204,7 @@ fun print_type_param_bound (vname, sort) =
                 `comp`, a result variable instantiated by `A => A` changes the
                 residual shape from `[Nat, A]` to `[Nat][A]`, so the two arguments
                 must be emitted as successive Rc<dyn Fn> calls. **)
-            val ordinary_returned_groups =
+            val ordinary_returned_shape =
               (case lookup_constant_fun sym of
                 SOME (((_, decl_ty), _), _) =>
                   let
@@ -2199,9 +2218,8 @@ fun print_type_param_bound (vname, sort) =
                     val inst_ty = mk_fun_ty (dom, range);
                     val subst = dictionary_shape_subst const decl_ty inst_ty
                       |> refine_container_argument_shapes [] vars const ts decl_ty inst_ty;
-                  in rust_shape_groups
-                    (instantiate_rust_shape subst decl_tail inst_tail) end
-              | NONE => [])
+                  in SOME (instantiate_rust_shape subst decl_tail inst_tail) end
+              | NONE => NONE)
             (* A nullary concrete method constructs its result at the selected
                instance type. Its unconstrained instance parameters must retain
                the surrounding result layout, just like result-only parameters
@@ -2240,7 +2258,8 @@ fun print_type_param_bound (vname, sort) =
                 (case trait_result_shape_for prefix_target_shape const of
                   SOME shape => rust_shape_groups shape
                 | NONE => [])
-              else ordinary_returned_groups
+              else (case ordinary_returned_shape of
+                SOME shape => rust_shape_groups shape | NONE => [])
             (* For a class-method (classparam) call, the type to dispatch on is the
                class's own type variable, carried by the dictionary — NOT
                necessarily the first argument's type. For `equal :: 'a => ..` they
@@ -2389,7 +2408,17 @@ fun print_type_param_bound (vname, sort) =
             then
               let
                 val (ts1, ts2) = chop wanted_fn ts
-                val (expected1, expected2) = chop wanted_fn expected_args
+                val (expected1, remaining_expecteds) = chop wanted_fn expected_args
+                (* Extra arguments consume the returned closure's actual
+                   signature. A declaration result variable can hide container
+                   layouts absent from the callee's top-level argument list. *)
+                val returned_expecteds =
+                  if is_trait_method_call then []
+                  else (case ordinary_returned_shape of
+                    SOME shape => rust_shape_argument_expecteds shape | NONE => []);
+                val expected2 = map_index (fn (i, fallback) =>
+                  if i < length returned_expecteds then nth returned_expecteds i
+                  else fallback) remaining_expecteds;
                 fun print_args expecteds args =
                   map2 (fn expected_arg => fn t =>
                     print_term_expected expected_arg is_pseudo_fun
@@ -3135,6 +3164,145 @@ fun print_type_param_bound (vname, sort) =
                   @ [rust_arm (str "_") (str "panic!(\"non-exhaustive match\")")])
           end)]
           in if need_box then box_prcs printed_case else printed_case end
+    (** Rebuild an existing algebraic value at a different function grouping.
+        Helpers are local to this conversion and memoized by source/target shape.
+        Register before descending so recursive containers generate recursive
+        Rust helpers, not infinite printer expansion. Unchanged fields move
+        directly; callback adapters preserve their HOL argument/result types.
+        Opaque code_printing containers cannot be inspected structurally. **)
+    and print_container_adapter source target is_pseudo_fun some_thm vars term =
+      let
+        val helpers = Unsynchronized.ref [];
+        val definitions = Unsynchronized.ref [];
+        val helper_names = Unsynchronized.ref (snd (rv_names vars));
+        fun same_pair ((a, b), (c, d)) =
+          equal_rust_shapes (a, c) andalso equal_rust_shapes (b, d);
+        val depth_memo = Unsynchronized.ref [];
+        fun shape_depth shape =
+          (case AList.lookup pointer_eq (!depth_memo) shape of
+            SOME depth => depth
+          | NONE =>
+              let
+                val children = (case shape of
+                  Rust_Var _ => []
+                | Rust_Tyco (_, args) => args
+                | Rust_Fn (args, result) => result :: args);
+                val depth = 1 + fold (Integer.max o shape_depth) children 0;
+                val _ = depth_memo := (shape, depth) :: !depth_memo;
+              in depth end);
+        fun shape_vars shape = itype_variables (shape_type shape);
+        fun convert active from into value =
+          if equal_rust_shapes (from, into) then value
+          else
+            let
+              val key = (from, into);
+              val name =
+                (case AList.lookup same_pair (!helpers) key of
+                  SOME name => name
+                | NONE =>
+                    let
+                      (* An expanding non-regular recursion needs a polymorphic
+                         map scheme. Reject it explicitly instead of recursively
+                         specializing an unbounded family of helper types. *)
+                      val _ = (case from of
+                        Rust_Tyco (tyco, _) =>
+                          if exists (fn (ancestor, depth) =>
+                              ancestor = tyco andalso shape_depth from > depth) active then
+                            error ("Rust container conversion: expanding recursive type " ^ tyco)
+                          else ()
+                      | _ => ());
+                      val (name, names') = Name.variant "rust_convert" (!helper_names);
+                      val _ = helper_names := names';
+                      val _ = helpers := (key, name) :: !helpers;
+                      val params = distinct (op =) (shape_vars from @ shape_vars into);
+                      val generics = if null params then str ""
+                        else enum "," "<" ">" (map (fn v =>
+                          print_type_param_bound (v, [])) params);
+                      val body = convert_body active from into;
+                      val definition = rust_block
+                        (rust_open [str ("fn " ^ name), generics,
+                          str "(value: ", print_rust_shape from, str ") -> ",
+                          print_rust_shape into]) [body];
+                      val _ = definitions := definition :: !definitions;
+                    in name end);
+            in rust_open [str name, rust_parens [value]] end
+        and convert_body active (from as Rust_Tyco (tyco, src))
+            (into as Rust_Tyco (tyco', dst)) =
+          if tyco <> tyco' orelse length src <> length dst then
+            error "Rust container conversion changed the HOL type"
+          else if tyco = "Product_Type.prod" then
+            let
+              val names = map_index (fn (i, _) => str ("field" ^ Int.toString i)) src;
+              val fields = map2 (fn (a, b) => fn v => convert active a b v)
+                (src ~~ dst) names;
+            in rust_bare_block
+              [rust_open [str "let ", rust_parens names, str " = value;"],
+               rust_parens fields] end
+          else
+            (case (tyco_syntax tyco, lookup_datatype tyco) of
+              (NONE, SOME (vs, constructors)) =>
+                let
+                  fun field_shapes args = map
+                    (substitute_rust_shape (vs ~~ args) o default_rust_shape);
+                  fun arm ((co, _), fields) =
+                    let
+                      val sym = Constant co;
+                      val names = map_index (fn (i, _) => str ("field" ^ Int.toString i)) fields;
+                      val boxes = constructor_field_boxes sym fields;
+                      val source_fields = field_shapes src fields;
+                      val target_fields = field_shapes dst fields;
+                      val converted = map2 (fn ((a, b), boxed) => fn value =>
+                        let
+                          val raw = if boxed then rust_open [str "(*", value, str ")"] else value;
+                          val result = convert ((tyco, shape_depth from) :: active) a b raw;
+                        in if boxed then box_new result else result end)
+                        ((source_fields ~~ target_fields) ~~ boxes) names;
+                    in rust_arm (constructor_pattern sym names)
+                      (constructor_pattern sym converted) end;
+                in rust_match (str "value") (map arm constructors) end
+            | _ => error ("Rust container conversion requires algebraic constructors: " ^ tyco))
+          | convert_body active (from as Rust_Fn _) (into as Rust_Fn _) =
+              let
+                fun flatten (Rust_Fn (args, result)) =
+                      let val (tail, last) = flatten result in (args @ tail, last) end
+                  | flatten shape = ([], shape);
+                val (source_args, source_result) = flatten from;
+                val (target_args, target_result) = flatten into;
+                val names = map_index (fn (i, _) => "arg" ^ Int.toString i) target_args;
+                val converted = map2 (fn (a, b) => fn name =>
+                    convert active b a (clone (str name)))
+                  (source_args ~~ target_args) names;
+                fun invoke (Rust_Fn (args, result)) value values =
+                      let val (front, rest) = chop (length args) values
+                      in invoke result
+                        (rust_open [str "(*", value, str ")", rust_parens front]) rest end
+                  | invoke _ value [] = value
+                  | invoke _ _ _ = error "Rust callback conversion arity mismatch";
+                val result = convert active source_result target_result
+                  (invoke from (str "value") converted);
+                fun closure (shape as Rust_Fn (args, ret)) names captured =
+                      let
+                        val (front, rest) = chop (length args) names;
+                        val body = closure ret rest (captured @ front);
+                        val captures = map (fn name =>
+                          str ("let " ^ name ^ " = " ^ name ^ ".clone();"))
+                          ("value" :: captured);
+                        val lambda = rust_open
+                          [str "::std::rc::Rc::new(move |",
+                           enum "," "" "" (map2 (fn name => fn shape =>
+                             rust_open [str (name ^ ": "), print_rust_shape shape]) front args),
+                           str "| -> ", print_rust_shape ret, str " ",
+                           rust_bare_block [body], str ") as ", print_rust_shape shape];
+                      in rust_bare_block (captures @ [lambda]) end
+                  | closure _ [] _ = result
+                  | closure _ _ _ = error "Rust callback conversion result mismatch";
+              in closure into names [] end
+          | convert_body _ _ _ = error "Rust container conversion has incompatible shapes";
+        val input = print_term_raw
+          (SOME {hol_type = shape_type source, rust_shape = source})
+          is_pseudo_fun (false, box_new, clone) some_thm vars NOBR term;
+        val result = convert [] source target input;
+      in rust_bare_block (rev (!definitions) @ [result]) end
     (** Adapt the backend's default flat function value to a contextual parameter
         grouping.  One invocation builds the outer group and an ordinary flat
         lambda for all remaining arguments.  That inner lambda is printed with
@@ -4857,21 +5025,43 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           stmt_list
       end;
 
+    (** Canonical key for a type constructor at the Rust level. A code_printing-
+        mapped type (e.g. nat/int -> BigInt) collapses onto its target name, so
+        two HOL types sharing one Rust type get the same key. Rust rejects two
+        `impl Trait for BigInt`, so this drives deduplication of reconstructed
+        instances; an UNmapped type keys on its own (distinct) name. **)
+    fun canon_tyco t =
+      (case tyco_syntax t of
+          SOME (n, pr) =>
+            (("\^E" ^ Pretty.unformatted_string_of
+                (pr (fn _ => fn _ => Pretty.str "_") NOBR (replicate n (ITyVar "_"))))
+              handle Subscript =>
+                error ("DEBUG canon_tyco Subscript: tyco=" ^ t ^ " n=" ^ string_of_int n))
+        | NONE => t);
     (* Native primitive code_printing removes the implementing Fun nodes,
        but the surviving dictionary still records their class parameters and
        implementing constants. Restore those same methods through the existing
        instance path. Equality, order, zero, one, addition and multiplication
        agree across the existing integer/int/nat representations. Incompatible
-       arithmetic aliases (notably truncated nat minus) require a separate
-       representation decision and are not reconstructed here. *)
+       arithmetic aliases (notably truncated nat minus) are reconstructed only
+       when all three numeric source types have distinct target receivers. This
+       enables the optional source-wrapper profile without changing the legacy
+       direct-BigInt profile's unresolved generic subtraction behavior. *)
+    fun distinct_numeric_receiver tyco =
+      let val numeric = [\<^type_name>\<open>nat\<close>, \<^type_name>\<open>int\<close>,
+            \<^type_name>\<open>integer\<close>]
+      in member (op =) numeric tyco andalso
+        forall (fn other => other = tyco orelse canon_tyco other <> canon_tyco tyco) numeric
+      end;
     val mapped_primitive_methods =
       maps (fn ((_, stmt), _) =>
         case stmt of
           Code_Thingol.Classinst {class, tyco, vs, inst_params, ...} =>
-            if member (op =)
+            if (member (op =)
                 [\<^class>\<open>equal\<close>, \<^class>\<open>ord\<close>,
                  \<^class>\<open>zero\<close>, \<^class>\<open>one\<close>,
                  \<^class>\<open>plus\<close>, \<^class>\<open>times\<close>] class
+                orelse (class = \<^class>\<open>minus\<close> andalso distinct_numeric_receiver tyco))
                 andalso is_some (tyco_syntax tyco)
             then map_filter
               (fn ((cp, ({sym = method_sym as Constant c, ...}, _)), (_, active)) =>
@@ -4886,19 +5076,6 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
 
     (** All instance-method constants (suppressed as standalone functions). **)
     val inst_method_syms = map (fn (_, (_, _, _, _, sym)) => sym) inst_methods;
-    (** Canonical key for a type constructor at the Rust level. A code_printing-
-        mapped type (e.g. nat/int -> BigInt) collapses onto its target name, so
-        two HOL types sharing one Rust type get the same key. Rust rejects two
-        `impl Trait for BigInt`, so this drives deduplication of reconstructed
-        instances; an UNmapped type keys on its own (distinct) name. **)
-    fun canon_tyco t =
-      (case tyco_syntax t of
-          SOME (n, pr) =>
-            (("\^E" ^ Pretty.unformatted_string_of
-                (pr (fn _ => fn _ => Pretty.str "_") NOBR (replicate n (ITyVar "_"))))
-              handle Subscript =>
-                error ("DEBUG canon_tyco Subscript: tyco=" ^ t ^ " n=" ^ string_of_int n))
-        | NONE => t);
     (** Return direct or transitive superclasses from the program class graph.
         Missing class nodes contribute no edges; the closure contains each class
         once and excludes the starting class unless reached through a cycle. **)
@@ -5435,6 +5612,10 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                   (map (fn ((co, _), fields) => (Constant co, fields)) cos) sym)
           | _ => NONE)
       | NONE => NONE);
+    fun lookup_datatype tyco =
+      (case get_node program (Type_Constructor tyco) of
+        Code_Thingol.Datatype data => SOME data
+      | _ => NONE);
     fun is_single_constr sym =
       ((case lookup_constant_typeco sym of
         SOME parent =>
@@ -5659,7 +5840,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
             class_syntax tyco_syntax const_syntax (make_vars reserved_syms)
             is_constr_safe (modify_deresolver current_module (deresolver prefix_fragments))
             box_table phantom_table
-            lookup_constant_typeco lookup_constructor_fields is_single_constr lookup_constant_fun
+            lookup_constant_typeco lookup_constructor_fields lookup_datatype is_single_constr lookup_constant_fun
             lookup_method_class inst_method_info lookup_class_methods constr_method_of)
             export stmt
           |> apfst (K NONE)) ()

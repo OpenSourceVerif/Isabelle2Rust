@@ -5,7 +5,8 @@ begin
 text \<open>
   Representation-independent Rust code-generation support.  Numeric
   representations are selected separately by exactly one of
-  \<^theory_text>\<open>Rust_BigInt_Setup\<close> or
+  \<^theory_text>\<open>Rust_BigInt_Setup\<close>,
+  \<^theory_text>\<open>Rust_Source_BigInt_Setup\<close>, or
   \<^theory_text>\<open>Rust_Checked128_Setup\<close>.  A corresponding
   \<^verbatim>\<open>WordU128\<close> setup adds the optional fixed-width word mapping.
 \<close>
