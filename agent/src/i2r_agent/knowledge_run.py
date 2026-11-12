@@ -555,7 +555,7 @@ def correctness_delivery(selected,cfg,work):
             rows=[r for r in ledger['attempts'] if r.get('status')=='completed' and r.get('action')=='accept' and r.get('scope')==evidence.get('scope') and r.get('resolved_verdict_sha256')==evidence.get('verdict_sha256') and r.get('directory')==evidence.get('evidence')]
             if len(rows)!=1:raise Failure('source_check_unresolved','Triggered failure check lacks its complete current-scope accepted ledger record')
             from .source_suite_review import verify_receipt
-            for correction in rows[0].get('citation_protocol_attempts',[]):
+            for correction in rows[0].get('citation_protocol_attempts',[])+rows[0].get('inventory_protocol_attempts',[]):
                 if correction.get('status')=='completed':verify_receipt(correction.get('provider_receipt'))
             checked=True;check_status='failure_scope_accepted'
         else:

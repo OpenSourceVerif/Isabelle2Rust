@@ -77,7 +77,7 @@ def check(frozen,result,state,cfg,provider,directory,revision=None):
  directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
  if cfg['model']['name']!='deepseek-flash':fail('Flash required')
  if revision:
-  if revision.get('suite_identity')!=frozen['identity'] or not frozen.get('source_check'):fail('Oracle revision scope lacks protected source-check lineage')
+  if revision.get('suite_identity')!=frozen['identity'] or not (frozen.get('source_check') or revision.get('scope_refresh')):fail('Oracle revision scope lacks protected source-check lineage')
   failed=revision['failed_test_ids']
  else:failed=failed_ids(frozen,result)
  material=payload(frozen,state,cfg,failed);save(directory/'mapping-provenance'/(fingerprint(state['mapping'])+'.json'),state['mapping']);key=key_for(material,cfg);responsibility_scope=selection(frozen,failed)[0];responsibility=fingerprint({'artifacts':responsibility_scope['artifacts'],'tests':responsibility_scope['test_ids'],'obligations':responsibility_scope['obligation_ids']})
@@ -90,8 +90,10 @@ def check(frozen,result,state,cfg,provider,directory,revision=None):
   if read(path/'input.json')!=material:fail('Cached failure scope input bytes changed')
   if digest(path/'verdict.json')!=row['verdict_sha256']:fail('Cached failure judgment bytes changed')
  else:
-  if sum(r.get('responsibility')==responsibility for r in completed)>=MAX_COMPLETED_PER_RESPONSIBILITY:fail('Two completed judgments exhausted for this failure responsibility')
-  path=directory/f'judgment-{len(ledger["attempts"])+1:03d}';path.mkdir();save(path/'input.json',material);save(path/'original-suite.json',frozen);row={'scope':key,'responsibility':responsibility,'directory':str(path),'status':'reserved'};ledger['attempts'].append(row);save(lp,ledger)
+  refresh=bool(revision and revision.get('scope_refresh'))
+  if refresh and any(r.get('scope_refresh') and r.get('responsibility')==responsibility for r in completed):fail('One scope-refresh judgment already exhausted for this failure responsibility')
+  if not refresh and sum(r.get('responsibility')==responsibility for r in completed)>=MAX_COMPLETED_PER_RESPONSIBILITY:fail('Two completed judgments exhausted for this failure responsibility')
+  path=directory/f'judgment-{len(ledger["attempts"])+1:03d}';path.mkdir();save(path/'input.json',material);save(path/'original-suite.json',frozen);row={'scope':key,'responsibility':responsibility,'directory':str(path),'status':'reserved','scope_refresh':refresh};ledger['attempts'].append(row);save(lp,ledger)
   proposal=full.call_record(provider,cfg,SYSTEM,material,path,row,ledger,lp)
  verdict,proof=full.resolve_citations(proposal,material,frozen,state,cfg,provider,path,row,ledger,lp)
  evidence={'scope':key,'status':'test_correct' if verdict['action']=='accept' else verdict['action'],'cache_hit':cached is not None,'evidence':str(path),'failed_test_ids':failed,'responsibility':responsibility,'verdict_sha256':digest(path/'validated-verdict.json'),'provider_receipt':row['provider_receipt']}
@@ -131,3 +133,43 @@ def require_state(state,cfg,work):
  if '--format=pretty' not in rec.get('command',[]) or any(not p or not Path(p).is_file() or digest(p)!=result.get('execution_artifacts',{}).get(str(Path(p))) for p in paths):fail('Source execution artifact changed')
  if not inv<=passed_test_names(''.join(Path(p).read_text() for p in paths)):fail('Not every declared source test actually passed')
  return {'status':'passed','policy':POLICY,'routine_semantic_review_required':False,'frozen_identity':fid}
+
+def refresh_changed_revision(state,cfg,provider,work):
+ """At delivery, recheck one genuinely changed oracle scope; never reuse approval."""
+ accepted=state.get('source_oracle_revision_accepted')
+ ordinary=state.get('support_review_evidence',{})
+ if not accepted and not ordinary.get('source_check'):return False
+ result=state.get('support_evidence',{});fid=result.get('frozen_identity')
+ if result.get('status')!='passed' or state.get('support_pass_candidate')!=lock(state):return False
+ frozen=read(Path(work)/'support-tests'/(str(fid)+'.json'))
+ record=(accepted or ordinary).get('source_check',{})
+ revision=accepted.get('revision',{}) if accepted else {'suite_identity':frozen['identity'],'failed_test_ids':record.get('failed_test_ids',[])}
+ material=payload(frozen,state,cfg,revision.get('failed_test_ids',[]));current=key_for(material,cfg)
+ if record.get('scope')==current:return False
+ if state.get('source_scope_refreshes'):fail('One changed-scope refresh already attempted; preserve failure')
+ path=Path(record.get('evidence',''))
+ full.verify_receipt(record.get('provider_receipt'))
+ ledger=read(Path(work)/'source-failure-check/ledger.json')
+ origins=[r for r in ledger.get('attempts',[]) if r.get('status')=='completed' and r.get('action')=='accept' and
+          r.get('scope')==record.get('scope') and r.get('resolved_verdict_sha256')==record.get('verdict_sha256') and
+          r.get('directory')==str(path) and r.get('provider_receipt')==record.get('provider_receipt')]
+ if ledger.get('policy')!=POLICY or len(origins)!=1 or digest(path/'verdict.json')!=origins[0].get('verdict_sha256'):
+  fail('Scope refresh origin is not bound to its completed checker ledger')
+ if (record.get('status')!='test_correct' or revision.get('suite_identity')!=frozen['identity'] or
+     digest(path/'validated-verdict.json')!=record.get('verdict_sha256') or
+     read(path/'validated-verdict.json').get('action')!='accept' or
+     key_for(read(path/'input.json'),cfg)!=record.get('scope') or
+     read(path/'original-suite.json')!=frozen):fail('Previous oracle evidence is not a valid scope-refresh origin')
+ failures=[read(p) for p in sorted((Path(work)/'source-failure-check/failures').glob('*.json'))]
+ originals=[r['failure'] for r in failures if r.get('failure',{}).get('status')=='support_contract_failed' and failed_ids(frozen,r['failure'])==sorted(revision['failed_test_ids'])]
+ if not originals:fail('Scope refresh lacks its archived executed source failure')
+ state['source_scope_refreshes']=[{'from':record['scope'],'to':current,'previous_acceptance':deepcopy(accepted or ordinary)}]
+ revision={**revision,'scope_refresh':{'from':record['scope'],'to':current}}
+ checked=check(frozen,originals[0],state,cfg,provider,Path(work)/'source-failure-check',revision=revision)
+ if checked['action']!='accept_revision' or checked.get('source_check',{}).get('scope')!=current or checked['source_check'].get('status')!='test_correct':fail('Changed oracle scope was not independently accepted',checked)
+ state['source_scope_refreshes'][-1]['status']='accepted'
+ state['support_review_evidence']=checked
+ if accepted:state['source_oracle_revision_accepted']={'revision':revision,'source_check':checked['source_check']}
+ state['support_pending_identity']=frozen['identity'];state['phase']='support_execute'
+ state['differential_suites']=[];state.pop('behavior_version',None)
+ return True

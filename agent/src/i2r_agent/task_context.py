@@ -105,7 +105,16 @@ def graph_nodes(bundle, version='current'):
     return version, {n['id']: n for graph in graphs for n in graph['nodes']}
 
 
+def validate_source_requests(reply):
+    requests=reply.get('request_sources',[])
+    if not isinstance(requests,list) or any(not isinstance(r,dict) or not isinstance(r.get('path'),str) or not r['path'] for r in requests):
+        raise Failure('invalid_source_request','request_sources must be an array of objects with path, not an array of path strings',
+                      {'reply_shape':{'request_sources':[{'path':'EXACT_SOURCE_CATALOG_PATH','start_line':1,'end_line':1}]},
+                       'instruction':'Copy path from the current source catalog. start_line/end_line are one-based inclusive; source_version, when supplied, must match the current source version. No source text is accepted in the request.'})
+
+
 def read_material(reply, bundle, files=None):
+    validate_source_requests(reply)
     archive = Archive(bundle['_context_archive'])
     reply = deepcopy(reply)
     if 'source_model' in bundle:

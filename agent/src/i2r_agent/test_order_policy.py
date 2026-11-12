@@ -29,6 +29,11 @@ def guard_phase(state,phase):
     enforce_lock(state)
     allowed={'support','source_test_check','support_execute','support_audit','support_check','finish'}
     if source_first(state):allowed={'connect','test','repair','repair_replay','repair_diagnose','finish'}
+    refresh=state.get('source_scope_refreshes',[])
+    if (phase=='support_execute' and len(refresh)==1 and refresh[0].get('status')=='accepted' and
+        state.get('support_review_evidence',{}).get('source_check',{}).get('scope')==refresh[0].get('to') and
+        state.get('support_pending_identity')==state.get('support_evidence',{}).get('frozen_identity')):
+        allowed.add('support_execute') # Reexecute the same suite on the still-locked candidate; no edits.
     if state.get('source_candidate_lock') and phase not in allowed:raise Failure('source_candidate_locked','Candidate repair/replay escape after acceptance lock',phase)
 def guard_edit(state):
     enforce_lock(state)

@@ -63,7 +63,8 @@ def expand_append(state,reply,current_version):
     from .planning import validate_files
     additions=reply['append_files']
     if state.get('phase')!='generate' or reply.get('state_version')!=current_version:
-        raise Failure('stale_patch','append_files is generation-only and requires the exact controller state_version')
+        raise Failure('stale_patch','append_files is generation-only; copy controller_state.state_version from the current request, not code_version or a previous response',
+                      {'required_field':'state_version','expected':current_version,'received':reply.get('state_version'),'phase':state.get('phase'),'instruction':'Re-read the current request before proposing a patch; no changes were applied.'})
     if not isinstance(additions,dict) or not additions:raise Failure('invalid_edit','append_files must contain existing Rust paths and nonempty appended items')
     validate_files(additions)
     touched=set(reply.get('files',{}))|{e.get('file') for e in reply.get('edits',[])}|set(reply.get('remove_files',[]))

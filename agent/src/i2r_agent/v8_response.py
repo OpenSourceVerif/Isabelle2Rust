@@ -1,6 +1,7 @@
 """Validate the v8 response envelope before phase-specific semantic checks."""
 from copy import deepcopy
 from .common import Failure
+from .task_context import validate_source_requests
 
 OBJECTS={'files','rust_config','reading_notes','review_checks','repair_hypothesis',
          'performance_analysis','optimization_hypothesis'}
@@ -29,6 +30,9 @@ def normalize(reply):
     if not isinstance(reply,dict):raise Failure('invalid_model_response','Return one JSON object')
     result=deepcopy(reply);omitted=sorted(k for k in NULLABLE if k in result and result[k] is None)
     for key in omitted:del result[key]
+    # Provider validates this envelope before material dispatch. Give malformed
+    # source requests the same actionable protocol feedback at this first boundary.
+    validate_source_requests(result)
     def reject(field,expected):
         raise Failure('invalid_model_response','Response field has the wrong shape',
                       {'field':field,'expected':expected,'instruction':'Return a corrected JSON response; no edit has been applied.'})

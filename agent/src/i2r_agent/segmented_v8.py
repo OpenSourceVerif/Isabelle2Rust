@@ -128,6 +128,10 @@ def payload(state,cfg,work):
         'required_review_sources':sorted(ids),
         'algorithm_policy':cfg['segmented']['algorithm_policy'],'required_algorithm_routes':required_routes(state,cfg),
         'reading_protocol':'request_pages:[id,...] retrieves exact pages; request_files uses the current code_version and exact paths. All required pages must be read before review acceptance.',
+        'repair_progress_feedback':({'consecutive_no_progress':state.get('no_progress',0),
+            'latest_verified_progress':next((a['verified_progress'] for a in reversed(state.get('attempts',[])) if 'verified_progress' in a),None),
+            'instruction':'Repeated reads have not established a repair. Compare the current compiler evidence with candidate declarations and injected test code separately: a missing candidate trait implementation is different from an incomplete or conflicting test fixture impl. Use exact diagnostic spans and current signatures; do not infer ownership from the shared src/lib.rs filename. Request only missing evidence, retain string-valued exact-page notes, then propose a permitted concrete change. Existing tests, expectations and permissions remain unchanged; the request budget does not reset.'}
+            if phase=='repair' and state.get('no_progress',0)>=2 else None),
         'seen_pages':state['seen_pages'],'current_files':current,'current_mapping':state['mapping'],
         'code_pages':code_supplied,'code_page_catalog':[{k:v for k,v in p.items() if k!='text'} for p in cps],
         'reading_notes':state['reading_notes'],'evidence_reading_notes':state.get('evidence_reading_notes',{}),
@@ -741,7 +745,8 @@ def search(bundle,testing_project,cfg,provider,work,executor,refs,fixed_inputs,r
                 attempt['diagnostic']=repair8.diagnostic(state,cfg,executor,path/'diagnostic')
                 state['phase']='repair';state['feedback']={'diagnostic':attempt['diagnostic'],'instruction':'Compare failed hypotheses; new evidence or a revised explanation is required.'}
             elif phase=='finish':
-                from .source_failure_review import require_state
+                from .source_failure_review import require_state,refresh_changed_revision
+                if refresh_changed_revision(state,cfg,provider,work):continue
                 require_state(state,cfg,work)
                 if order_policy.source_first(state) and (not state.get('differential_suites') or any(s['status']!='passed' for s in state['differential_suites'])):raise Failure('source_check_unresolved','A requires all available differential suites to pass')
                 if cfg['segmented'].get('support_tests',True) and state.get('support_evidence',{}).get('status')!='passed':raise Failure('source_check_unresolved','Full source suite must pass before finish')

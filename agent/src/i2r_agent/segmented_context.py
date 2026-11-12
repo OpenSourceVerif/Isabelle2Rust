@@ -26,6 +26,8 @@ def pages(model, ids, size):
 
 
 def read_pages(page_map, requested_ids, limit):
+    if not isinstance(requested_ids,list) or any(not isinstance(n,str) or not n for n in requested_ids):
+        raise Failure('invalid_page_request','request_pages must be a JSON array of exact nonempty page-ID strings, not page objects, a map or a single string',{'reply_shape':{'request_pages':['EXACT_CATALOG_PAGE_ID']},'available_page_ids':list(page_map)})
     unknown=set(requested_ids)-page_map.keys()
     if unknown:raise Failure('unknown_page','Unknown source pages',sorted(unknown))
     selected=[];size=0
@@ -50,7 +52,7 @@ def reading_notes(existing, reply, supplied, catalog, *, quarantine_path=None):
     merged={**existing,**exact};missing=set(supplied)-set(merged)
     evidence={'unknown_note_keys':sorted(unknown),'missing_exact_page_ids':sorted(missing),
               'invalid_note_values':sorted(invalid),'unbound_source_page_keys':sorted(unbound_pages),'required_current_page_ids':sorted(supplied),
-              'instruction':'Copy complete IDs exactly, including hash and part. Supply a nonempty source-specific observation for every missing exact page; never infer an alias or merge distinct pages.'}
+              'instruction':'Return reading_notes as an object keyed by complete page IDs including hash and part. Every value must be a nonempty source-specific STRING, not an object or list. Retain every required current page; never infer an alias or merge distinct pages.'}
     if invalid or unbound_pages or (unknown and (missing or quarantine_path is None)):
         raise Failure('invalid_reading_notes','Invalid note keys/values or missing exact-page evidence; no key is corrected or fuzzy-matched',evidence)
     if missing:

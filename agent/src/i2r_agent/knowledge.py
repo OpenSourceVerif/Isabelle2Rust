@@ -53,6 +53,8 @@ def references(names):
 
 
 def requested(reply,bundle,files=None):
+    from .task_context import validate_source_requests
+    validate_source_requests(reply)
     if bundle.get('_context_archive'):
         from .task_context import read_material
         return read_material(reply,bundle,files)

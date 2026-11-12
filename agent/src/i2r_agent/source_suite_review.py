@@ -136,7 +136,63 @@ def call_record(provider,cfg,system,material,path,row,ledger,ledger_path):
     save(path/'verdict.json',proposal);row.update(status='completed',action=proposal.get('action'),verdict_sha256=digest(path/'verdict.json'),provider_receipt=provider_receipt(provider));save(ledger_path,ledger)
     return proposal
 
+def inventory_protocol(proposal,material):
+    expected={'tests':{r['id'] for r in material['inventory']},'obligations':{r['id'] for r in material['obligations']}}
+    issues={}
+    for field,ids in expected.items():
+        rows=proposal.get(field);counts={}
+        if not isinstance(rows,list) or any(not isinstance(r,dict) or not isinstance(r.get('id'),str) for r in rows):
+            issues[field]={'malformed':True,'expected_ids':sorted(ids)};continue
+        for r in rows:counts[r['id']]=counts.get(r['id'],0)+1
+        if set(counts)!=ids or any(n!=1 for n in counts.values()):
+            issues[field]={'missing_ids':sorted(ids-set(counts)),'unknown_ids':sorted(set(counts)-ids),
+                           'duplicate_ids':sorted(k for k,n in counts.items() if n>1),'expected_ids':sorted(ids)}
+    return issues
+
+def preserve_inventory_judgments(original,corrected,material):
+    if set(corrected)-{'action','tests','obligations','reason'} or corrected.get('action')!='repair_inventory':
+        raise Failure('source_suite_review_unresolved','Inventory correction cannot change the semantic action, evidence or edits')
+    merged={**original,**{f:corrected.get(f) for f in ['tests','obligations']}}
+    if inventory_protocol(merged,material):raise Failure('source_suite_review_unresolved','One inventory correction remains incomplete or duplicated')
+    for field in ['tests','obligations']:
+        rows=original.get(field)
+        if not isinstance(rows,list):raise Failure('source_suite_review_unresolved','Original checklist is not a recoverable row list')
+        actual={r['id']:r for r in merged[field]}
+        for old in rows:
+            if not isinstance(old,dict) or old.get('id') not in actual or actual[old['id']]!=old:
+                raise Failure('source_suite_review_unresolved','Inventory correction changed, dropped or chose among conflicting existing judgments',old)
+    return merged
+
+def resolve_inventory(proposal,material,cfg,provider,path,row,ledger,ledger_path):
+    if proposal.get('action') not in {'accept','test_wrong','needs_revision','inconclusive'}:return proposal,None
+    issues=inventory_protocol(proposal,material)
+    if not issues:return proposal,None
+    for field in ['tests','obligations']:
+        seen={}
+        for entry in proposal.get(field,[]) if isinstance(proposal.get(field),list) else []:
+            if not isinstance(entry,dict) or not isinstance(entry.get('id'),str):continue
+            if entry['id'] in seen and seen[entry['id']]!=entry:
+                raise Failure('source_suite_review_unresolved','Conflicting duplicate checklist rows cannot be repaired as formatting; preserve every judgment',{'field':field,'id':entry['id']})
+            seen[entry['id']]=entry
+    attempts=row.setdefault('inventory_protocol_attempts',[])
+    complete=next((r for r in attempts if r.get('status')=='completed'),None)
+    if complete:
+        correction=complete;directory=Path(correction['directory']);fix=read(directory/'verdict.json')
+        verify_receipt(correction['provider_receipt'])
+        if digest(directory/'verdict.json')!=correction['verdict_sha256']:raise Failure('source_suite_review_unresolved','Inventory correction archive changed')
+    else:
+        if attempts:raise Failure('source_suite_review_unresolved','Inventory correction already attempted; no automatic repeat')
+        directory=path/'inventory-protocol-001';directory.mkdir()
+        correction={'directory':str(directory),'status':'reserved','kind':'inventory_protocol_only'};attempts.append(correction);save(ledger_path,ledger)
+        request={'task':'Return {action:"repair_inventory",tests:[...],obligations:[...]}, each exact required ID once. Explicitly remove identical duplicate rows; never silently select between conflicting judgments. Preserve EVERY existing row exactly. Supply source-grounded checklist rows for missing IDs using the existing citation labels; no omitted responsibility. Do not change the original semantic action, citations, edits or inputs. If preservation is impossible return action:unresolved. One correction only.',
+                 'diagnostic':issues,'original_judgment':proposal,'actual_material':material}
+        save(directory/'input.json',request)
+        fix=call_record(provider,cfg,'Correct checklist inventory only; preserve judgments and every required responsibility.',request,directory,correction,ledger,ledger_path)
+    amended=preserve_inventory_judgments(proposal,fix,material)
+    return amended,{'original_judgment_sha256':fingerprint(proposal),'corrected_judgment_sha256':fingerprint(amended),'diagnostic':issues,'provider_receipt':correction['provider_receipt']}
+
 def resolve_citations(proposal,material,frozen,state,cfg,provider,path,row,ledger,ledger_path):
+    proposal,inventory_proof=resolve_inventory(proposal,material,cfg,provider,path,row,ledger,ledger_path)
     try:
         normalized,proof=citations.normalize(proposal,material)
     except Failure as error:
@@ -160,6 +216,7 @@ def resolve_citations(proposal,material,frozen,state,cfg,provider,path,row,ledge
         proof.update(original_judgment_sha256=fingerprint(proposal),original_citations=proposal.get('source_evidence'),corrected_citations=fix['source_evidence'],protocol_receipt=complete['provider_receipt'] if complete else correction['provider_receipt'])
     validate(normalized,frozen,state,material)
     assert all(normalized.get(k)==proposal.get(k) for k in proposal if k!='source_evidence'),'Protocol normalization changed semantic manifest'
+    if inventory_proof:proof['inventory_protocol']=inventory_proof
     save(path/'citation-verification.json',proof);save(path/'validated-verdict.json',normalized);row['resolved_verdict_sha256']=digest(path/'validated-verdict.json');save(ledger_path,ledger)
     return normalized,proof
 
@@ -218,6 +275,12 @@ def require(frozen,state,cfg):
     rows=[r for r in ledger['attempts'] if r['status']=='completed' and r['scope']==record['scope'] and r.get('resolved_verdict_sha256')==record['verdict_sha256']]
     if len(rows)!=1 or digest(origin)!=rows[0]['verdict_sha256']:raise Failure('source_suite_review_unresolved','Original completed semantic verdict changed')
     original=read(origin);proposal=read(path)
+    repairs=rows[0].get('inventory_protocol_attempts',[])
+    if repairs:
+        if len(repairs)!=1 or repairs[0].get('status')!='completed':raise Failure('source_suite_review_unresolved','Inventory correction is incomplete or repeated')
+        repair=repairs[0];verify_receipt(repair['provider_receipt']);repair_path=Path(repair['directory'])/'verdict.json'
+        if digest(repair_path)!=repair['verdict_sha256']:raise Failure('source_suite_review_unresolved','Inventory correction archive changed')
+        original=preserve_inventory_judgments(original,read(repair_path),read(Path(record['evidence'])/'input.json'))
     if any(proposal.get(k)!=original.get(k) for k in original if k!='source_evidence'):raise Failure('source_suite_review_unresolved','Citation protocol changed semantic verdict/checklist')
     validate(proposal,frozen,state,read(Path(record['evidence'])/'input.json'))
     if proposal.get('action')!='accept':raise Failure('source_suite_review_unresolved','Checker did not accept')
