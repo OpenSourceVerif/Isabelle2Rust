@@ -51,7 +51,11 @@ class EntryStore(MutableMapping):
         if key != self.cache_key:
             record = dict(copy.deepcopy(self.scans[key]), **self._unpack(self.state.get("entry/" + key, {})))
             stage = record.get("full_export")
-            if stage and stage.get("runs"):
+            if stage and stage.get("mode") == "fixed-plan-v1":
+                stage["plan"] = self.state.get("plan/" + key)
+                if not stage["plan"] or stage["plan"]["id"] != stage.get("plan_id"):
+                    raise ValueError("Formal result has no current plan")
+            if stage and (stage.get("runs") or stage.get("mode") == "fixed-plan-v1"):
                 import full
                 for run in stage["runs"]:
                     run["attempts"] = full.collect_attempts(common.resolve_path(run["directory"]))
@@ -78,8 +82,8 @@ class EntryStore(MutableMapping):
         payload = {k: copy.deepcopy(v) for k, v in record.items()
                    if k in {"full_export", "full_compile"}}
         stage = payload.get("full_export", {})
-        for name in ("candidates", "languages"):
-            if stage.get("runs"):
+        for name in ("candidates", "languages", "plan", "declarations", "groups"):
+            if stage.get("runs") or stage.get("mode") == "fixed-plan-v1":
                 stage.pop(name, None)
         for run in stage.get("runs", []):
             run.pop("attempts", None)
@@ -94,6 +98,12 @@ class EntryStore(MutableMapping):
         for run in [*progress.get("runs", []), *progress.get("retries", []),
                     *([progress["active"]] if progress.get("active") else [])]:
             keep.add(common.resolve_path(run["directory"]))
+        for progress_key in self.state.keys("fixed-progress/" + key + "/"):
+            saved = self.state.get(progress_key)
+            if saved.get("run"):
+                keep.add(common.resolve_path(saved["run"]["directory"]))
+            if saved.get("active"):
+                keep.add((self.base / saved["active"]).resolve())
         for item in record.get("full_compile", {}).values():
             if item.get("directory"):
                 keep.add(common.resolve_path(item["directory"]))

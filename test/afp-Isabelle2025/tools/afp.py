@@ -78,12 +78,12 @@ def main(argv=None):
     parser.add_argument("--config", type=Path)
     parser.add_argument("--work", type=Path)
     sub = parser.add_subparsers(dest="phase", required=True)
-    for name in ("check", "init", "scan-checkpoint", "export-checkpoint", "compile-checkpoint", "status", "report"):
+    for name in ("check", "init", "scan-checkpoint", "plan-checkpoint", "export-checkpoint", "compile-checkpoint", "status", "report"):
         sub.add_parser(name)
     for name in ("scan", "run"):
         p = sub.add_parser(name)
         p.add_argument("--retry-failed", action="store_true")
-    for name in ("export", "compile"):
+    for name in ("plan", "export", "compile"):
         p = sub.add_parser(name)
         p.add_argument("--entries", nargs="+")
     p = sub.add_parser("audit")
@@ -104,7 +104,7 @@ def main(argv=None):
         # Each boundary is durable and checked before the next stage. Repeating
         # this command resumes the same work root and stops at the first failure.
         phases = ["check"] + ([] if (base / "state.sqlite3").is_file() else ["init"])
-        phases += ["scan", "scan-checkpoint", "export", "export-checkpoint", "compile",
+        phases += ["scan", "scan-checkpoint", "plan", "plan-checkpoint", "export", "export-checkpoint", "compile",
                    "compile-checkpoint", "audit", "report", "audit"]
         options = ["--work", str(base)] + (["--config", str(config_path)] if config_path else [])
         for index, phase in enumerate(phases):

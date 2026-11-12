@@ -4,6 +4,8 @@
    remains. The six serializers share each computed Thingol program. No target
    code is compiled or executed here. *)
 local
+  val _ = if getenv "AFP_DIAGNOSTIC" = "true" then ()
+    else error "Bisection exporter is diagnostic only; use a fixed plan";
   val output = Path.explode (getenv_strict "AFP_FULL_OUTPUT");
   val scope = split_lines (File.read (Path.explode (getenv_strict "AFP_FULL_SCOPE")))
     |> filter_out (fn s => s = "");

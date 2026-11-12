@@ -19,6 +19,7 @@ import afp_common as common
 import full
 import scan_evidence
 import declaration_scope
+from state import State
 
 CATEGORIES = (
     ("scan_coverage", "扫描回执覆盖验证", r"loaded theories do not cover|required session context",
@@ -332,7 +333,32 @@ def build_report(base, data, result, exports, verified=False):
             if len(examples[(event["phase"], key)]) < 3:
                 examples[(event["phase"], key)].append(event)
     timings = performance(result)
+    state = State(base)
+    fixed_mode = state.get("run", {}).get("experiment") == "fixed-plan-v1"
+    plan_stats = {}
+    if fixed_mode:
+        import dependency_plan
+        plans = [state.get("plan/" + entry) for entry in data["order"]]
+        plans = [p for p in plans if p]
+        merged = {k: 0 for k in ("declarations", "context_declarations", "retained", "excluded",
+                                  "ineligible", "entries", "groups")}
+        structural_coverage = {target: 0 for target in full.TARGETS}
+        printing_implementations = {target: 0 for target in full.TARGETS}
+        for value in plans:
+            stats = dependency_plan.statistics(value)
+            for key in merged:
+                merged[key] += stats.get(key, 0)
+            for target in full.TARGETS:
+                structural_coverage[target] += stats.get("structural_coverage", {}).get(target, 0)
+                printing_implementations[target] += stats.get("printing_implementations", {}).get(target, 0)
+        artifact_count = sum(len(result["entries"][entry].get("full_export", {}).get("artifacts", []))
+                             for entry in data["order"])
+        plan_stats = {"fixed_plan": True, "rules": dependency_plan.RULES, **merged,
+                      "structural_coverage": structural_coverage,
+                      "printing_implementations": printing_implementations,
+                      "export_artifacts": artifact_count, "artifact_count": artifact_count}
     summary = {"generated": common.timestamp(), "completion_verified": verified, "entry_count": len(entries),
+               **plan_stats,
                "candidate_references": sum(r["candidates"] for r in entries),
                "source_declarations": sum(declaration_counts[full.TARGETS[0]].values()),
                "declaration_statuses": {target: dict(counts) for target, counts in declaration_counts.items()},
@@ -348,6 +374,18 @@ def build_report(base, data, result, exports, verified=False):
     error_rows = [{"phase": p, "category": c, "target": t, "status": status, "events": count}
                   for (p, c, t, status), count in sorted(errors.items())]
     write_csv(report / "failure-categories.csv", ["phase", "category", "target", "status", "events"], error_rows)
+    method = (
+        "依赖分析读取原生代码方程、Thingol 依赖图和六目标有效打印配置；"
+        "计划只保留至少一个目标可执行的完整依赖闭包，按固定入口和条目内计算依赖生成不可变导出组。"
+        "正式请求不会因资源失败重新分组；组失败保留为组级证据，诊断路径不进入正式结果。\n\n"
+        if fixed_mode else
+        "每个常量组构造一次 Thingol 程序，供该组待处理的目标共用。整组失败继续拆分；"
+        "单常量失败或必需上下文加载失败才形成候选失败证据。成功组的完整源码全部保留。"
+        "进程存储耗尽时，保存当前拆分队列并在新进程中缩小常量组；"
+        "六语言仍共享同组前端。正式单常量进程自然异常时，只有显式登记并独立重核原始上下文、"
+        "带类型命题及递归源码不变式的源算法缺陷，才以 frontend_source_algorithm 判定六目标失败；"
+        "原进程仍为 failed，缺失的原生完成回执不被补造。"
+        "缺少这类结构证据的单常量资源失败保持未决并阻断阶段检查点。\n\n")
     overview = [
         "# AFP 全量导出总体报告\n\n", header,
         f"本轮范围为 {len(entries)} 个 AFP 条目、{summary['owned_theories']} 个所属理论。",
@@ -358,13 +396,7 @@ def build_report(base, data, result, exports, verified=False):
         "## 方法与口径\n\n",
         "候选来自原始 AFP 理论的全部自有常量声明，包括自动生成的辅助常量和仅有逻辑意义的定义；"
         "发现阶段没有以代码方程或可执行性筛选。扫描失败及未检查范围单独记录。",
-        "每个常量组构造一次 Thingol 程序，供该组待处理的目标共用。整组失败继续拆分；",
-        "单常量失败或必需上下文加载失败才形成候选失败证据。成功组的完整源码全部保留。"
-        "进程存储耗尽时，保存当前拆分队列并在新进程中缩小常量组；"
-        "六语言仍共享同组前端。正式单常量进程自然异常时，只有显式登记并独立重核原始上下文、"
-        "带类型命题及递归源码不变式的源算法缺陷，才以 frontend_source_algorithm 判定六目标失败；"
-        "原进程仍为 failed，缺失的原生完成回执不被补造。"
-        "缺少这类结构证据的单常量资源失败保持未决并阻断阶段检查点。\n\n",
+        method,
         "每个 Rust 成功导出 crate 分别进行 Stage-1 编译、既有优化器转换和 Stage-2 编译。",
         "即使 Stage-1 失败，仍尝试优化与 Stage-2；没有执行生成程序或测试运行时行为。\n\n",
         "SML 是官方 ML 目标。Go 使用 AFP 2025 的 Go_Setup，其 code_go.ML 与",

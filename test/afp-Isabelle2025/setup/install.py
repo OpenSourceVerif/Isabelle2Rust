@@ -101,7 +101,7 @@ def plan(args):
             'rustlightast': LOCK['rustlightast'], 'rust': LOCK['rust'],
             'steps': ['apt update/install', 'verify and unpack archives',
                       'install Rust 1.94.0, rustfmt, clippy', 'clone/check pinned sibling RustLightAST',
-                      'register fixed AFP in isolated Isabelle USER_HOME', 'Isabelle ghc_setup',
+                      'register fixed AFP in isolated Isabelle USER_HOME', 'install pinned read-only Code_Target interface', 'Isabelle ghc_setup',
                       'cargo fetch --locked (optimizer and generated-crate seed)',
                       'write server-local config and installed package versions',
                       'build fresh Rust/Go prerequisite heaps serially with proofs and timeout_build=false',
@@ -169,6 +169,8 @@ def install(args):
         common.configure(args.config)
         options = common.arguments('heap setup').parse_args(runtime_arguments(config))
         build_env, _ = common.environment(options)
+        import native_patch
+        native_patch.apply(build_env["ISABELLE_HOME"])
         run([config['isabelle'], 'build', '-b', *common.build_options(options),
              '-d', REPOSITORY, '-d', str(Path(config['afp']) / 'thys'), 'Rust', 'Go'], build_env)
         run([sys.executable, SETUP / 'check.py', '--config', args.config], env)

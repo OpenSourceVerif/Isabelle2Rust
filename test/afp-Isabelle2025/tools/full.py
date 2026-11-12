@@ -95,7 +95,7 @@ def scope_digest(scope):
 
 def inputs(base):
     """Bind checkpoints to current committed inputs/results, not audit metadata."""
-    return {"state": State(base).signature(("run", "receipt/", "entry/", "units/", "exports/", "compilation/"))}
+    return {"state": State(base).signature(("run", "receipt/", "entry/", "units/", "exports/", "compilation/", "analysis-", "plan/"))}
 
 
 def load(base):
@@ -350,7 +350,7 @@ def export_command(session, work, args, env):
     actual = dict(env, AFP_EXPORT_REQUEST=str(work.resolve()),
                   AFP_FULL_OUTPUT=str(work), AFP_FULL_SCOPE=str(work / "scope.txt"),
                   AFP_FULL_THEORIES=str(work / "theories.txt"),
-                  AFP_ORIGINAL_EXPORT_ML=str(common.HERE / "full_export.ML"))
+                  AFP_ORIGINAL_EXPORT_ML=str(common.HERE / "full_export.ML"), AFP_DIAGNOSTIC="true")
     # These raw processes only read existing heaps. The full experiment lock
     # serializes the main phases; the fixture may use a separate immutable HOL heap.
     check = common.command(argv, work / "process.log", args, actual)
@@ -441,7 +441,7 @@ def entry_scan_signature(record):
 def serializer_signature():
     paths = sorted(list((common.resolve_path("translate")).glob("*.ML"))
                    + list((common.resolve_path("translate")).glob("*.thy"))
-                   + [common.HERE / "full_export.ML"])
+                    + [common.HERE / name for name in ("full_export.ML", "fixed_export.ML", "plan_common.ML")])
     return digest(b"".join(str(p.relative_to(common.PROJECT)).encode() + b"\0" + p.read_bytes()
                             for p in paths))
 
@@ -600,6 +600,7 @@ def validate_export_progress(progress, identity, names):
 
 
 def export_entry(entry, info, record, scope, base, args, env):
+    """Legacy diagnostic isolation only; formal CLI exports use fixed_export."""
     state_db = State(base)
     names = common.candidates(scope)
     previous = record.get("full_export", {})
@@ -745,6 +746,10 @@ def finish_export(stage, names):
     a checked recursive invariant. The gate and independent audit recompute it;
     processing complete never changes that process's status or finished flag.
     """
+    if stage.get("mode") == "fixed-plan-v1":
+        import fixed_export
+        fixed_export.finish(stage)
+        return
     stage["candidates"] = resolve_candidates(names, stage["runs"])
     languages = {}
     for target in TARGETS:
@@ -775,9 +780,19 @@ def rust_manifests(record):
 
 def export_checkpoint(base, data, result, exports):
     problems = []
+    fixed = State(base).get("run", {}).get("experiment") == "fixed-plan-v1"
+    if fixed:
+        import fixed_plan
+        fixed_plan.require_gate(base, data, result, exports)
     for entry in data["order"]:
         record = result["entries"][entry]
         stage = record.get("full_export", {})
+        if fixed:
+            import fixed_export
+            try:
+                fixed_export.validate_stage(base, State(base).get("plan/" + entry), stage)
+            except (ValueError, OSError, KeyError, TypeError, ET.ParseError) as error:
+                problems.append({"entry": entry, "reason": str(error)})
         if stage.get("scan_sha256") != entry_scan_signature(record):
             problems.append({"entry": entry, "reason": "discovery context changed"})
         if stage.get("serializer_sha256") != serializer_signature():
@@ -936,7 +951,7 @@ def fixture(base, args, env):
 
 def main():
     parser = common.arguments(__doc__)
-    parser.add_argument("phase", choices=["scan-checkpoint", "export", "export-checkpoint", "compile", "compile-checkpoint", "fixture", "status"])
+    parser.add_argument("phase", choices=["scan-checkpoint", "plan", "plan-checkpoint", "export", "export-checkpoint", "compile", "compile-checkpoint", "fixture", "status"])
     parser.add_argument("--output-dir", type=Path, default=common.WORK)
     parser.add_argument("--cargo", default="cargo +1.94.0")
     parser.add_argument("--export-batch-size", type=int, default=0)
@@ -971,6 +986,27 @@ def main():
             print(json.dumps(gate, indent=2))
             return int(not gate["passed"])
         require_scan_gate(base, result, exports)
+        import fixed_plan
+        if State(base).get("run", {}).get("experiment") != "fixed-plan-v1":
+            raise ValueError("Fixed plans require a new work root; dynamic results cannot be migrated")
+        selected = args.entries if args.entries else data["order"]
+        if set(selected) - data["entries"].keys():
+            raise ValueError("Unknown entry")
+        if args.phase == "plan":
+            import native_patch
+            native_patch.verify(env["ISABELLE_HOME"])
+            unresolved = False
+            for entry in selected:
+                planned = fixed_plan.plan_entry(base, entry, data["entries"][entry],
+                    result["entries"][entry], exports[entry], args, env)
+                print("[plan] " + entry + ": " + json.dumps(planned), flush=True)
+                unresolved |= planned["status"] != "complete"
+            return int(unresolved)
+        if args.phase == "plan-checkpoint":
+            gate = fixed_plan.checkpoint(base, data, result, exports)
+            print(json.dumps(gate, indent=2))
+            return int(not gate["passed"])
+        fixed_plan.require_gate(base, data, result, exports)
         if args.phase == "compile-checkpoint":
             return int(not compile_checkpoint(base, result)["passed"])
         if args.phase == "export-checkpoint":
@@ -990,13 +1026,12 @@ def main():
             serializer = serializer_signature()
             def export_task(entry, record, checkpoint, slot, options):
                 old = record.get("full_export", {})
-                if (old.get("scope_sha256") == scope_digest(exports[entry])
-                        and old.get("serializer_sha256") == serializer
-                        and old.get("scan_sha256") == entry_scan_signature(record)) and old.get("status") in {
-                        "complete", "no_candidates"}:
-                    return False
                 print(f"[export {positions[entry]}/{len(selected)}] {entry}", flush=True)
-                export_entry(entry, data["entries"][entry], record, exports[entry], base, options, dict(env))
+                import fixed_export
+                if options.export_batch_size or options.source_fault_heap_mb:
+                    raise ValueError("Adaptive batch/source-fault options are diagnostic only")
+                fixed_export.execute(base, State(base).get("plan/" + entry), record,
+                                     exports[entry], options, dict(env), checkpoint)
                 print(f"  {entry}: " + json.dumps(record["full_export"]["languages"]), flush=True)
             parallel_entries(base, result, exports, selected, args.export_workers, args, export_task)
             return 0

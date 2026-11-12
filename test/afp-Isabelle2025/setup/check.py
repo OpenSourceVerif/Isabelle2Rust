@@ -85,6 +85,8 @@ def check(config, work=None):
         return revision
     run('sibling RustLightAST', ast_revision)
     if env:
+        import native_patch
+        run("pinned Code_Target observation source", lambda: native_patch.verify(env["ISABELLE_HOME"]))
         conditions = ('ISABELLE_CC', 'ISABELLE_OCAMLFIND', 'ISABELLE_SMLNJ',
                       'ISABELLE_GOEXE', 'ISABELLE_CAKEML_HOME', 'ISABELLE_GHC', 'ISABELLE_MLTON')
         for key in conditions:

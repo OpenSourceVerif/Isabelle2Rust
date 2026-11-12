@@ -147,7 +147,7 @@ def initialize(base, args, env, metadata):
                        if not value.get("exists") or not value.get("executable")]
         if unavailable:
             raise ValueError("conditional compiler prerequisites unavailable: " + repr(unavailable))
-        run = {"schema": 1, "created": common.timestamp(), "manifest": data,
+        run = {"schema": 1, "experiment": "fixed-plan-v1", "created": common.timestamp(), "manifest": data,
                "sources": sources, "tools": tools_identity(), "environment": metadata}
         state = State(base)
         state.put("run", run)

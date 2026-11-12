@@ -87,6 +87,13 @@ def audit_data(base, data, result, exports):
     need(environment.get("proofs") == "checked", "proof checking enabled")
     need(environment.get("command_timeout_seconds") == 0, "unlimited scan and export configuration")
     run = State(base).get("run", {})
+    fixed_mode = run.get("experiment") == "fixed-plan-v1"
+    if fixed_mode:
+        try:
+            import fixed_plan
+            fixed_plan.require_gate(base, data, result, exports)
+        except (ValueError, OSError, KeyError, TypeError, ET.ParseError) as error:
+            need(False, "current fixed plan checkpoint", error=str(error))
     from scan_frozen import tools_identity
     need(bool(run.get("tools")) and run["tools"] == tools_identity(), "pipeline sources unchanged")
     for name, checksum in run.get("sources", {}).get("afp", {}).items():
@@ -182,86 +189,113 @@ def audit_data(base, data, result, exports):
                 need((common.resolve_path(diagnostic.get("detail", "__missing__"))).is_file(),
                      "full diagnostic beyond excerpt retained", entry=entry, constant=diagnostic.get("name"))
         stage = record.get("full_export", {})
-        need(stage.get("scope_sha256") == full.scope_digest(exports[entry]), "current candidate scope", entry=entry)
-        need(stage.get("scan_sha256") == full.entry_scan_signature(record), "current discovery context", entry=entry)
-        need(stage.get("serializer_sha256") == serializer, "current serializer version", entry=entry)
-        if not names:
-            need(stage.get("status") == ("no_candidates" if scan["status"] == "passed" else "blocked"),
-                 "empty and unknown scopes distinguished", entry=entry)
-            need(set(stage.get("languages", {})) == set(full.TARGETS), "six target cells for empty scope", entry=entry)
-            continue
-        need(stage.get("status") == "complete", "export processing complete", entry=entry)
-        need(set(stage.get("candidates", {})) == set(names), "every candidate has results", entry=entry)
-        artifacts = {a["path"]: a for a in stage.get("artifacts", [])}
-        for path, item in artifacts.items():
-            file = common.resolve_path(path)
-            need(file.is_file() and full.file_digest(file) == item["sha256"],
-                 "generated artifact bytes retained", entry=entry, path=path)
-            artifact_count += 1
-        fault_witnesses = {}
-        for run in stage.get("runs", []):
-            reviewed = False
-            if run.get("source_fault"):
-                try:
-                    proof = frontend_fault.validate_record(run, serializer)
-                    fault_witnesses[run["source_fault"]["review"]] = proof
-                    reviewed = True
-                except (ValueError, OSError, KeyError, TypeError, ET.ParseError) as error:
-                    need(False, "source algorithm evidence rechecked", entry=entry, error=str(error))
-            need(reviewed or (run["command"]["status"] == "passed" and run.get("finished")),
-                 "export process has a verified terminal outcome", entry=entry, session=run["session"])
-            need((common.resolve_path(run["command"]["log"])).is_file(), "export process log retained", entry=entry)
-        for constant in names:
-            outcomes = stage.get("candidates", {}).get(constant, {})
-            need(set(outcomes) == set(full.TARGETS), "candidate has six target cells",
-                 entry=entry, constant=constant)
-            for target in full.TARGETS:
-                value = outcomes.get(target, {})
-                need(value.get("status") in full.TERMINAL, "candidate outcome terminal",
-                     entry=entry, constant=constant, target=target)
-                valid = False
-                if value.get("source_fault"):
-                    proof = fault_witnesses.get(value["source_fault"], {})
-                    valid = (proof.get("constant") == constant and value.get("status") == "failed"
-                             and value.get("stage") == "frontend_source_algorithm"
-                             and value["source_fault"] in value.get("evidence", []))
-                for evidence in value.get("evidence", []):
-                    path = common.resolve_path(evidence)
-                    # Derived reviews have their own independently recomputed
-                    # proof above. They are not native XML; a later successful
-                    # context must still supply its ordinary target witness.
-                    if not path.is_file() or path.suffix == ".json":
-                        continue
-                    if evidence not in witnesses:
-                        node = ET.parse(path).getroot()
-                        cs = frozenset(x.attrib["name"] for x in node.findall("constant"))
-                        files = node.findall("file")
-                        files_ok = bool(files) or node.findtext("library_only") == "true"
-                        directory = path.parents[3]
-                        for child in files:
-                            file = directory / child.text
-                            files_ok &= file.is_file() and common.relative(file) in artifacts
-                        witnesses[evidence] = {
-                            "constants": cs, "target": node.attrib.get("target"),
-                            "languages": frozenset(x.text for x in node.findall("language")),
-                            "status": node.attrib.get("status"), "files_ok": files_ok,
-                            "failure_ok": bool(node.findtext("error")) and (
-                                len(cs) == 1 or node.attrib.get("stage") == "context_loading")}
-                    witness = witnesses[evidence]
-                    applicable = witness["target"] == target or (
-                        witness["target"] in {"frontend", "context"} and target in witness["languages"])
-                    if constant in witness["constants"] and applicable and witness["status"] == value.get("status"):
-                        valid |= witness["files_ok"] if value["status"] == "passed" else witness["failure_ok"]
-                need(valid, "candidate has direct applicable witness",
-                     entry=entry, constant=constant, target=target)
-        # Existence of one same-name witness cannot cover independent source
-        # declarations. Check each repeated owner against actual context parents.
-        for (theory, constant), value in declaration_witnesses(
-                data["entries"][entry], record, exports[entry]).items():
-            for target, states in value["targets"].items():
-                need(bool(states["passed"] or states["failed"]),
-                     "declaration has direct source witness", entry=entry,
-                     theory=theory, constant=constant, target=target)
+        if fixed_mode:
+            try:
+                import fixed_export
+                plan = State(base).get("plan/" + entry)
+                fixed_export.validate_stage(base, plan, stage)
+                artifact_count += len(stage.get("artifacts", []))
+                need(stage.get("scope_sha256") == full.scope_digest(exports[entry]),
+                     "fixed candidate scope", entry=entry)
+                need(stage.get("scan_sha256") == full.entry_scan_signature(record),
+                     "fixed discovery context", entry=entry)
+                need(stage.get("serializer_sha256") == serializer,
+                     "fixed serializer version", entry=entry)
+                classifications = [d for ctx in plan["contexts"] for d in ctx["classifications"]]
+                retained = {d["id"] for d in classifications if d["status"] == "retained"}
+                for target in fixed_export.dp.TARGETS:
+                    covered = {did for group in fixed_export.groups(plan).values()
+                               for did in group[1]["coverage"][target]["covered"]}
+                    need(covered == retained, "fixed plan target coverage", entry=entry, target=target)
+                need(all(d.get("status") in {"retained", "excluded", "ineligible"}
+                         for d in classifications), "fixed declaration classifications", entry=entry)
+                need(stage.get("status") == "complete", "fixed export processing complete", entry=entry)
+                need(set(stage.get("languages", {})) == set(full.TARGETS),
+                     "fixed six target cells", entry=entry)
+            except (ValueError, OSError, KeyError, TypeError, ET.ParseError) as error:
+                need(False, "fixed export evidence", entry=entry, error=str(error))
+        else:
+            stage = record.get("full_export", {})
+            need(stage.get("scope_sha256") == full.scope_digest(exports[entry]), "current candidate scope", entry=entry)
+            need(stage.get("scan_sha256") == full.entry_scan_signature(record), "current discovery context", entry=entry)
+            need(stage.get("serializer_sha256") == serializer, "current serializer version", entry=entry)
+            if not names:
+                need(stage.get("status") == ("no_candidates" if scan["status"] == "passed" else "blocked"),
+                     "empty and unknown scopes distinguished", entry=entry)
+                need(set(stage.get("languages", {})) == set(full.TARGETS), "six target cells for empty scope", entry=entry)
+                continue
+            need(stage.get("status") == "complete", "export processing complete", entry=entry)
+            need(set(stage.get("candidates", {})) == set(names), "every candidate has results", entry=entry)
+            artifacts = {a["path"]: a for a in stage.get("artifacts", [])}
+            for path, item in artifacts.items():
+                file = common.resolve_path(path)
+                need(file.is_file() and full.file_digest(file) == item["sha256"],
+                     "generated artifact bytes retained", entry=entry, path=path)
+                artifact_count += 1
+            fault_witnesses = {}
+            for run in stage.get("runs", []):
+                reviewed = False
+                if run.get("source_fault"):
+                    try:
+                        proof = frontend_fault.validate_record(run, serializer)
+                        fault_witnesses[run["source_fault"]["review"]] = proof
+                        reviewed = True
+                    except (ValueError, OSError, KeyError, TypeError, ET.ParseError) as error:
+                        need(False, "source algorithm evidence rechecked", entry=entry, error=str(error))
+                need(reviewed or (run["command"]["status"] == "passed" and run.get("finished")),
+                     "export process has a verified terminal outcome", entry=entry, session=run["session"])
+                need((common.resolve_path(run["command"]["log"])).is_file(), "export process log retained", entry=entry)
+            for constant in names:
+                outcomes = stage.get("candidates", {}).get(constant, {})
+                need(set(outcomes) == set(full.TARGETS), "candidate has six target cells",
+                     entry=entry, constant=constant)
+                for target in full.TARGETS:
+                    value = outcomes.get(target, {})
+                    need(value.get("status") in full.TERMINAL, "candidate outcome terminal",
+                         entry=entry, constant=constant, target=target)
+                    valid = False
+                    if value.get("source_fault"):
+                        proof = fault_witnesses.get(value["source_fault"], {})
+                        valid = (proof.get("constant") == constant and value.get("status") == "failed"
+                                 and value.get("stage") == "frontend_source_algorithm"
+                                 and value["source_fault"] in value.get("evidence", []))
+                    for evidence in value.get("evidence", []):
+                        path = common.resolve_path(evidence)
+                        # Derived reviews have their own independently recomputed
+                        # proof above. They are not native XML; a later successful
+                        # context must still supply its ordinary target witness.
+                        if not path.is_file() or path.suffix == ".json":
+                            continue
+                        if evidence not in witnesses:
+                            node = ET.parse(path).getroot()
+                            cs = frozenset(x.attrib["name"] for x in node.findall("constant"))
+                            files = node.findall("file")
+                            files_ok = bool(files) or node.findtext("library_only") == "true"
+                            directory = path.parents[3]
+                            for child in files:
+                                file = directory / child.text
+                                files_ok &= file.is_file() and common.relative(file) in artifacts
+                            witnesses[evidence] = {
+                                "constants": cs, "target": node.attrib.get("target"),
+                                "languages": frozenset(x.text for x in node.findall("language")),
+                                "status": node.attrib.get("status"), "files_ok": files_ok,
+                                "failure_ok": bool(node.findtext("error")) and (
+                                    len(cs) == 1 or node.attrib.get("stage") == "context_loading")}
+                        witness = witnesses[evidence]
+                        applicable = witness["target"] == target or (
+                            witness["target"] in {"frontend", "context"} and target in witness["languages"])
+                        if constant in witness["constants"] and applicable and witness["status"] == value.get("status"):
+                            valid |= witness["files_ok"] if value["status"] == "passed" else witness["failure_ok"]
+                    need(valid, "candidate has direct applicable witness",
+                         entry=entry, constant=constant, target=target)
+            # Existence of one same-name witness cannot cover independent source
+            # declarations. Check each repeated owner against actual context parents.
+            for (theory, constant), value in declaration_witnesses(
+                    data["entries"][entry], record, exports[entry]).items():
+                for target, states in value["targets"].items():
+                    need(bool(states["passed"] or states["failed"]),
+                         "declaration has direct source witness", entry=entry,
+                         theory=theory, constant=constant, target=target)
         manifests = set(full.rust_manifests(record))
         for manifest in manifests:
             item = record.get("full_compile", {}).get(manifest, {})

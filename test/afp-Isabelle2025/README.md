@@ -68,7 +68,7 @@ python3 tools/afp.py run
 
 ## 运行与中断恢复
 
-`run` 自动依次执行环境检查、必要的初始化、扫描、扫描检查点、导出、导出检查点、编译、编译检查点、数据审计、报告及报告审计。任何一步失败即停止。
+`run` 自动依次执行环境检查、必要的初始化、扫描、扫描检查点、依赖分析与固定计划、计划检查点、固定分组导出、导出检查点、编译、编译检查点、数据审计、报告及报告审计。固定计划只在当前工作根生成；输入或规则变化会使计划检查点失效。任何一步失败即停止。
 
 ```bash
 # 首次运行或恢复中断；已完成的会话、请求和编译步骤会复用。
@@ -84,6 +84,8 @@ python3 tools/afp.py run --retry-failed
 python3 tools/afp.py init
 python3 tools/afp.py scan
 python3 tools/afp.py scan-checkpoint
+python3 tools/afp.py plan
+python3 tools/afp.py plan-checkpoint
 python3 tools/afp.py export
 python3 tools/afp.py export-checkpoint
 python3 tools/afp.py compile
@@ -93,7 +95,7 @@ python3 tools/afp.py report
 python3 tools/afp.py audit --with-report
 ```
 
-`init` 要求空工作根；重复初始化会拒绝。自定义配置或工作根放在子命令前，例如 `python3 tools/afp.py --config /path/server.json --work /path/empty-work run`。`export --entries List-Index`、`compile --entries List-Index` 可只处理指定条目，但检查点仍校验全体条目。
+`init` 要求空工作根；重复初始化会拒绝。自定义配置或工作根放在子命令前，例如 `python3 tools/afp.py --config /path/server.json --work /path/empty-work run`。`plan --entries List-Index`、`export --entries List-Index`、`compile --entries List-Index` 可只处理指定条目，但检查点仍校验全体条目。正式导出从计划读取固定上下文、入口、模块名和六种目标；旧的动态分组仅能通过显式诊断路径运行，不能迁移为固定计划结果。
 
 检查点通过表示该阶段有完整、可解释的结果，不表示每个候选都成功。超时、内存不足、丢失进程结果或缺少必需理论属于未决状态，不能据此进入下一阶段。每个扫描会话须覆盖自身全部所属理论，条目须覆盖其会话并集。恢复拒绝复用输入源码、编译器或流水线代码已改变的结果；这些变化需要新工作根。资源上限可调整后重试。
 
