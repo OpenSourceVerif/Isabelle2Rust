@@ -17,9 +17,11 @@ def identity():
                     files[str(p.relative_to(art.REPO))]=digest(p)
     return {'sha256':fingerprint(files),'files':files}
 
-def release(run,rows):
-    core=identity();new={'identity':core['sha256'],'files':core['files'],'evaluation_order':[r['id'] for r in rows],'per_task_calls':48,'per_task_active_seconds':4200,'workers':5,'global_limit':48*len(rows),'tool_sources':art.check_tools(),'effective_configs':{r['id']:art.configuration(r,run) for r in rows}}
+def release(run,rows,workers=None):
     path=run/'release.json'
+    if workers is None:workers=read(path)['workers'] if path.exists() else 5
+    if type(workers) is not int or workers<1:raise Failure('invalid_workers','workers must be a positive integer')
+    core=identity();new={'identity':core['sha256'],'files':core['files'],'evaluation_order':[r['id'] for r in rows],'per_task_calls':48,'per_task_active_seconds':4200,'workers':workers,'global_limit':48*len(rows),'tool_sources':art.check_tools(),'effective_configs':{r['id']:art.configuration(r,run) for r in rows}}
     if path.exists():
         if read(path)!=new:raise Failure('release_changed','Frozen implementation/config/inputs/tools differ; do not mutate or silently restart this run')
     else:save(path,new)
@@ -113,7 +115,7 @@ def dispatch(run,rows,rel,resume=False):
             if marker.exists() and read(marker).get('state')=='running':raise Failure('unreconciled_worker',key)
         if resume and stop.exists():stop.unlink()  # All admission/worker checks passed under lease.
         while pending or active:
-            while pending and len(active)<5 and not stop.exists():
+            while pending and len(active)<rel['workers'] and not stop.exists():
                 key=pending.pop(0);task=run/'tasks'/key;task.mkdir(parents=True,exist_ok=True)
                 ad=art.admission(next(r for r in rows if r['id']==key),run);prior=ad['seconds']+sum(read(p)['seconds'] for p in task.glob('transport-outcome-*.json'))
                 if prior>=4200 or usage(task/'diagnostics')['calls']>=48:
@@ -139,7 +141,7 @@ def dispatch(run,rows,rel,resume=False):
     return report(run,rows)
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True);p.add_argument('command',choices=['prepare','resume-prepare','run','pause','resume','report','boundary','_child']);p.add_argument('--case',action='append');a=p.parse_args();run=a.run.resolve();run.mkdir(parents=True,exist_ok=True);allrows=art.manifest()['cases']
+    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True);p.add_argument('command',choices=['prepare','resume-prepare','run','pause','resume','report','boundary','_child']);p.add_argument('--case',action='append');p.add_argument('--workers',type=int,help='Concurrent task processes: default 5 for a new run; otherwise use the frozen release value');a=p.parse_args();run=a.run.resolve();run.mkdir(parents=True,exist_ok=True);allrows=art.manifest()['cases']
     if a.command=='pause':save(run/'STOP_DISPATCH',{'reason':'user_pause','policy':'drain active tasks'});return
     if a.command in {'prepare','resume-prepare'}:
         # Share dispatch's exclusive lease before selection/release initialization.
@@ -157,7 +159,7 @@ def execute(a,run,allrows):
         save(selection,{'ids':ids})
     rows=[r for r in allrows if r['id'] in ids]
     if a.command=='report':print(json.dumps(report(run,rows),indent=2));return
-    rel=release(run,rows);fpp_budget.initialize(run,rel)
+    rel=release(run,rows,a.workers);fpp_budget.initialize(run,rel)
     if a.command in {'prepare','resume-prepare'}:
         stop=run/'STOP_DISPATCH'
         if stop.exists():
