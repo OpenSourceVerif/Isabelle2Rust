@@ -71,6 +71,9 @@ def eligibility(frozen,verdict,state,material,failure):
 
 def apply(frozen,verdict,proposal,state,material,failure):
     checks,resource,allowed=eligibility(frozen,verdict,state,material,failure)
+    if isinstance(proposal,dict) and proposal.get('action')=='unresolved':
+        raise Failure('source_check_unresolved','Resource resampling explicitly unresolved; original tests retained',
+            {'action':'unresolved','reason':proposal.get('reason'),'derivation':proposal.get('derivation'),'policy':POLICY})
     if not isinstance(proposal,dict) or set(proposal)-{'action','derivation','literal_edits','obligation_edits'} or proposal.get('action')!='resample_resource_literals' or not isinstance(proposal.get('derivation'),str) or not proposal['derivation'].strip():fail('Invalid bounded resource proposal')
     edits=proposal.get('literal_edits');prose=proposal.get('obligation_edits',[])
     if not isinstance(edits,list) or not edits or not isinstance(prose,list):fail('Explicit literal edits required')
@@ -115,7 +118,7 @@ def propose(frozen,verdict,state,material,cfg,provider,directory,failure):
        'literal_edits':[{'slot_id':'exact permitted ID','old':'exact numeric literal token','new':'same-kind numeric literal token'}],
        'obligation_edits':[{'id':'o:index','field':'case | expected_basis','old':'complete original prose','new':'same responsibility, source-derived new example'}]},
        'independent_judgment':verdict,'resource_failure':resource,'source':material['source'],'interfaces':material['interfaces'],
-       'numeric_policy':material['numeric_policy'],'tests':material['tests'],'unit_tests':material['unit_tests'],'obligations':material['obligations'],
+       'numeric_policy':material['numeric_policy'],'native_numeric_contracts':material.get('native_numeric_contracts'),'tests':material['tests'],'unit_tests':material['unit_tests'],'obligations':material['obligations'],
        'literal_slots':[{k:v for k,v in row.items() if k not in {'start','end'}} for row in allowed.values()]}
     key=fingerprint({'policy':POLICY,'request':request,'model':cfg['model'],'generation':cfg['generation']});path=Path(directory)/key;path.mkdir(parents=True,exist_ok=True);rp=path/'record.json'
     if rp.exists():

@@ -5,12 +5,16 @@ from .program_model import readable
 from .segmented_context import pages
 from .task_context import fingerprint
 
-POLICY='component-owned-batched-author-groups-scoped-context-v2'
+POLICY='component-owned-entry-focused-author-groups-v3'
 
 
 def plan(state,cfg):
     model=state['bundle']['source_model']
     ids=set(model['entries'])|{r['source'] for r in state['mapping']}
+    from .v8_support import responsibility_context
+    responsibility=responsibility_context(state)
+    context_dependencies=set(responsibility['context_dependencies'])&ids
+    all_ids=set(ids);ids-=context_dependencies
     entities=model['entities']
     if not ids<=entities.keys():raise Failure('unknown_support_source','Mapped source entity is unavailable',sorted(ids-entities.keys()))
     partition=state.get('partition',{});units=partition.get('units',{});order=partition.get('order',[])
@@ -48,14 +52,14 @@ def plan(state,cfg):
         else:merged.append(group)
     groups=[sorted(g) for g in merged]
     flat=[n for group in groups for n in group]
-    if set(flat)!=ids or len(flat)!=len(ids):raise Failure('invalid_support_partition','Author responsibilities must partition all original sources')
+    if set(flat)!=ids or len(flat)!=len(ids):raise Failure('invalid_support_partition','Author responsibilities must partition all non-context source targets')
     from .v8_support import requirements
     rows=[row for group in groups for row in requirements(state,group)]
-    original=requirements(state,ids)
+    original=requirements(state,all_ids)
     if sorted(rows,key=lambda r:(r['source'],r['category']))!=sorted(original,key=lambda r:(r['source'],r['category'])):
         raise Failure('invalid_support_partition','Required obligation union changed')
-    return {'policy':POLICY,'groups':groups,'source_owner':{n:i for i,g in enumerate(groups) for n in g},
-            'batching':{'max_executable_operations':32,'max_required_rows':64,'indivisible_components_may_exceed':True,'provider_context_admission':True},'required_obligations':original,'identity':fingerprint({'policy':POLICY,'groups':groups,'partition':partition,'source':model})}
+    return {'policy':POLICY,'responsibility_context':responsibility,'context_dependencies':sorted(context_dependencies),'groups':groups,'source_owner':{n:i for i,g in enumerate(groups) for n in g},
+            'batching':{'max_executable_operations':32,'max_required_rows':64,'indivisible_components_may_exceed':True,'provider_context_admission':True},'required_obligations':original,'identity':fingerprint({'policy':POLICY,'groups':groups,'partition':partition,'source':model,'responsibility_context':responsibility})}
 
 
 def material(model,group,size):

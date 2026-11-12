@@ -8,6 +8,7 @@ from .segmented_contract import items, interfaces
 from .segmented_config import cargo_command
 from .task_context import fingerprint, Conversation
 from .segmented_context import pages, read_pages, reading_notes
+from .v8_support import responsibility_context,RESPONSIBILITY_GUIDANCE
 
 SYSTEM='''Author independent source-contract tests for a translated Rust library. Candidate implementation bodies are intentionally withheld; use source equations plus actual Rust signatures and mapping. Return JSON {test_source:"Rust integration test code", obligations:[{source,case,expected_basis,test_name}], notes:"..."}. Integration tests use i2r_candidate and its actual dependencies. Exercise meaningful numeric sign/zero/conversion/overflow edges and generic/data-structure behavior where source APIs permit. For unconstrained source type variables, include non-Clone/non-Ord instances where operations do not require copying or ordering, so accidental stronger API bounds are exposed. Do not test outside the source precondition; checked necessary overflow must be explicitly recognized as I2R_NUMERIC_OVERFLOW, not accepted as a mathematical result. Never compute expected values by calling the candidate under test. Use independently evaluated small source cases or source laws. Mark source-internal operations unreachable from any public API as inaccessible with source reason; do not invent a callable API or silently claim coverage. At least one #[test] must actually execute a public export. Return no implementation edits. Tests will be frozen before candidate execution and cannot be modified by algorithm repair.'''
 SYSTEM+=''' Mechanical mapping gives exact source/item/type-parameter bindings only. Generator implementation prose and bodies are not provided; use actual bodyless Rust interfaces and source equations. Private support operations can also be tested without changing their visibility: optionally return unit_tests:[{file:"src/lib.rs",module:[],source:"use super::*; #[test] fn ..."}]. Each source is wrapped in its own cfg(test) child module with use super::* already supplied. For helpers in inline private modules, set module to the item's module_scope, e.g. ["numeric","internal"], relative to its actual file. The test wrapper is inserted inside that module. Struct/enum/type declarations and cfg attributes are provided as interface facts; algorithm bodies remain withheld. Use this mechanism for private numeric helpers, large arbitrary integers and checked overflows instead of declaring them inaccessible merely because they are not public. Supply the same source-grounded obligations for unit tests. Public-export tests are still required across the complete test set; groups containing only private support can supply only unit_tests. Any correction must return the complete test_source/unit_tests/obligations set.'''
@@ -28,6 +29,9 @@ SYSTEM+=''' Select numeric edge expectations from numeric_policy.mode: checked r
 SYSTEM+=''' Before choosing numeric test values, inspect the source recursion, loops, enumeration and output construction. Distinguish data magnitude from control parameters that determine steps, depth, allocation or output size. Unbounded representation does not make 2^128 recursive steps or an enormous materialized result executable. Use large data with small controls when the source permits; retain independently derived expectations and the same source algorithm. This applies to recursive arithmetic, Fibonacci/Ackermann, list or tree construction, enumeration and shifts, without assuming a closed form, memoization or a different algorithm. If every large input/output for an operation is inherently infeasible under its source computation, document the expensive untested region with exact source/API reasons; do not force a huge test merely for bit width, claim tested coverage, or waive an applicable frozen obligation. Test feasible large primitive/data operations separately where available. Checked numeric overflow and arbitrary exact-value requirements remain distinct and must each use feasible source computations.'''
 
 SYSTEM+=' Constructor patterns with fixed payload literals are refutable even when every constructor name is listed: prefer binding the payload and asserting its value, or include a final unconditional failure arm for every other payload. Never make an unexpected payload succeed.'
+
+from .native_numeric_contracts import GUIDANCE as NATIVE_GUIDANCE
+SYSTEM+=' '+NATIVE_GUIDANCE
 
 AUTHOR_GUIDANCE_POLICY='source-operation-applicable-batched-compact-obligations-v2'
 COMPACT_AUTHOR_GUIDANCE="""Return the smallest complete test artifact covering every required row and this group's source-operation obligations. Reuse one concrete executing test for multiple obligation records only when it checks each claimed fact; retain distinct required edge cases. Numeric, generic, non-Clone/non-Ord and overflow requirements in the applicable instructions remain mandatory. Derive explicit expected values from source equations; never from candidate output. Use the supplied matching fixture framework instead of duplicating builders. Avoid redundant whole-program suites for other groups or optional variants before the complete required artifact. Concision never removes a required source page, case, assertion, obligation or actual execution. Return complete JSON, with brief source-basis notes."""
@@ -65,7 +69,7 @@ def author_system(model,source_ids):
     system=_BASE_AUTHOR_SYSTEM
     if ack:system+='\n'+_ACK_GUIDANCE
     if bits:system+='\n'+_BIT_GUIDANCE
-    system+='\n'+COMPACT_AUTHOR_GUIDANCE+' Keep each obligation concise and traceable: one exact source ID, category, executing test name, compact concrete case and short equation/source-basis reference. Reuse one test across records only when it actually checks all claimed facts; never omit generic, non-Clone, private-helper or numeric cases to shorten output.'
+    system+='\n'+COMPACT_AUTHOR_GUIDANCE+' Keep each obligation concise and traceable: one exact source ID, category, executing test name, compact concrete case and short equation/source-basis reference. Reuse one test across records only when it actually checks all claimed facts; never omit required generic, non-Clone, private-helper or numeric cases to shorten output. Verified context dependencies follow responsibility_context instead of creating duplicate targets.'
     return system,{'policy':AUTHOR_GUIDANCE_POLICY,'specialist_guidance':(['ackermann'] if ack else [])+(['bit_operations'] if bits else []),
                    'fallback_all_guidance':unknown,'source_operation_closure_count':len(seen)}
 
@@ -175,6 +179,7 @@ def source_review(payload, source_pages, cfg, provider, directory, system=SYSTEM
 def prepare(state,cfg,provider,directory):
     directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
     from .source_test_context import bodyless_interfaces,canonical_mapping
+    from .native_numeric_contracts import context as native_contracts
     api=bodyless_interfaces(state)
     from .support_framework import build as build_framework,inject
     framework=build_framework(state) if cfg.get('v8',{}).get('correctness_only') else None
@@ -187,6 +192,8 @@ def prepare(state,cfg,provider,directory):
         cache_api=interfaces_for_cache(state['files'])
     identity_data={'prompt_policy':fingerprint({'system':SYSTEM,'protocol':'whole-program-source-contract-v2','author_only':author_only}),'authoring_policy':'source-author-only-v1' if author_only else 'source-author-reviewed-v1','test_binding_policy':'author-group-qualified-v1','author_guidance_policy':fingerprint([AUTHOR_GUIDANCE_POLICY,COMPACT_AUTHOR_GUIDANCE]),'author_model_options':cfg['segmented'].get('support_author_model',{}),'verified_groups':cfg['segmented'].get('verified_support_groups',[]),'source':state['bundle']['source_model'],'interfaces':cache_api,'config':state['rust_config'],'numeric_policy':state['bundle']['numeric_policy'],'test_framework':framework}
     if v8:identity_data['mapping']=canonical_mapping(state)
+    identity_data['native_numeric_contracts']=native_contracts(state)
+    identity_data['responsibility_context']=responsibility_context(state)
     identity_data['source_test_context_policy']='canonical-mapping-bodyless-api-v1'
     from .implementation_strategy import project,test_identity
     if v8:identity_data['strategy_conditions']=test_identity(state)
@@ -224,9 +231,10 @@ def prepare(state,cfg,provider,directory):
         group=[n for n in group if n not in templates['covered_sources']]
         if not group:continue
         test_system,guidance=author_system(state['bundle']['source_model'],group)
+        test_system+='\n'+RESPONSIBILITY_GUIDANCE
         if not author_only:
             test_system+=' For review, return {action:"accept",review:"source-grounded checks of each expectation",obligations:[...]} or a corrected complete test_source with reasons.'
-        payload={'task':'Generate independent tests','author_guidance':guidance,'all_exports':state['bundle']['source_model']['entries'],
+        payload={'task':'Generate independent tests','responsibility_context':responsibility_context(state),'native_numeric_contracts':native_contracts(state),'author_guidance':guidance,'all_exports':state['bundle']['source_model']['entries'],
             'rust_signatures':signatures,'mapping':canonical_mapping(state),'numeric_policy':state['bundle']['numeric_policy'],
             'available_source_ids':sorted(state['bundle']['source_model']['entities']),
             'rust_interfaces':api,'rust_config':state['rust_config'],'algorithm_policy':cfg['segmented']['algorithm_policy'],

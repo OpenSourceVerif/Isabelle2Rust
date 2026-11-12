@@ -1759,5 +1759,639 @@
     "class_dependencies": [
       "class:HOL.type"
     ]
+  },
+  "constant:Nat.plus_nat_inst.plus_nat": {
+    "id": "constant:Nat.plus_nat_inst.plus_nat",
+    "name": "Nat.plus_nat_inst.plus_nat",
+    "kind": "constant",
+    "source_type": {
+      "kind": "type",
+      "name": "fun",
+      "args": [
+        {
+          "kind": "type",
+          "name": "Nat.nat",
+          "args": []
+        },
+        {
+          "kind": "type",
+          "name": "fun",
+          "args": [
+            {
+              "kind": "type",
+              "name": "Nat.nat",
+              "args": []
+            },
+            {
+              "kind": "type",
+              "name": "Nat.nat",
+              "args": []
+            }
+          ]
+        }
+      ]
+    },
+    "execution_type": {
+      "kind": "type",
+      "name": "fun",
+      "args": [
+        {
+          "kind": "type",
+          "name": "Nat.nat",
+          "args": []
+        },
+        {
+          "kind": "type",
+          "name": "fun",
+          "args": [
+            {
+              "kind": "type",
+              "name": "Nat.nat",
+              "args": []
+            },
+            {
+              "kind": "type",
+              "name": "Nat.nat",
+              "args": []
+            }
+          ]
+        }
+      ]
+    },
+    "type_variables": [],
+    "execution_sorts": [],
+    "instance_identity": {
+      "parameter": "Groups.plus_class.plus",
+      "type_constructor": "Nat.nat"
+    },
+    "instance_resolutions": [
+      {
+        "constant": "Nat.Suc",
+        "type": {
+          "kind": "type",
+          "name": "fun",
+          "args": [
+            {
+              "kind": "type",
+              "name": "Nat.nat",
+              "args": []
+            },
+            {
+              "kind": "type",
+              "name": "Nat.nat",
+              "args": []
+            }
+          ]
+        },
+        "implementation": "Nat.Suc"
+      },
+      {
+        "constant": "Nat.plus_nat_inst.plus_nat",
+        "type": {
+          "kind": "type",
+          "name": "fun",
+          "args": [
+            {
+              "kind": "type",
+              "name": "Nat.nat",
+              "args": []
+            },
+            {
+              "kind": "type",
+              "name": "fun",
+              "args": [
+                {
+                  "kind": "type",
+                  "name": "Nat.nat",
+                  "args": []
+                },
+                {
+                  "kind": "type",
+                  "name": "Nat.nat",
+                  "args": []
+                }
+              ]
+            }
+          ]
+        },
+        "implementation": "Nat.plus_nat_inst.plus_nat"
+      },
+      {
+        "constant": "Nat.zero_nat_inst.zero_nat",
+        "type": {
+          "kind": "type",
+          "name": "Nat.nat",
+          "args": []
+        },
+        "implementation": "Nat.zero_nat_inst.zero_nat"
+      }
+    ],
+    "specifications": [],
+    "function_input_equations": [],
+    "execution_equations": [
+      {
+        "arguments": [
+          {
+            "abstraction": null,
+            "term": {
+              "kind": "apply",
+              "function": {
+                "kind": "const",
+                "name": "Nat.Suc",
+                "type": {
+                  "kind": "type",
+                  "name": "fun",
+                  "args": [
+                    {
+                      "kind": "type",
+                      "name": "Nat.nat",
+                      "args": []
+                    },
+                    {
+                      "kind": "type",
+                      "name": "Nat.nat",
+                      "args": []
+                    }
+                  ]
+                }
+              },
+              "argument": {
+                "kind": "free",
+                "name": "m",
+                "type": {
+                  "kind": "type",
+                  "name": "Nat.nat",
+                  "args": []
+                }
+              }
+            },
+            "text": "Suc m"
+          },
+          {
+            "abstraction": null,
+            "term": {
+              "kind": "free",
+              "name": "n",
+              "type": {
+                "kind": "type",
+                "name": "Nat.nat",
+                "args": []
+              }
+            },
+            "text": "n"
+          }
+        ],
+        "rhs": {
+          "abstraction": null,
+          "term": {
+            "kind": "apply",
+            "function": {
+              "kind": "apply",
+              "function": {
+                "kind": "const",
+                "name": "Nat.plus_nat_inst.plus_nat",
+                "type": {
+                  "kind": "type",
+                  "name": "fun",
+                  "args": [
+                    {
+                      "kind": "type",
+                      "name": "Nat.nat",
+                      "args": []
+                    },
+                    {
+                      "kind": "type",
+                      "name": "fun",
+                      "args": [
+                        {
+                          "kind": "type",
+                          "name": "Nat.nat",
+                          "args": []
+                        },
+                        {
+                          "kind": "type",
+                          "name": "Nat.nat",
+                          "args": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "argument": {
+                "kind": "free",
+                "name": "m",
+                "type": {
+                  "kind": "type",
+                  "name": "Nat.nat",
+                  "args": []
+                }
+              }
+            },
+            "argument": {
+              "kind": "apply",
+              "function": {
+                "kind": "const",
+                "name": "Nat.Suc",
+                "type": {
+                  "kind": "type",
+                  "name": "fun",
+                  "args": [
+                    {
+                      "kind": "type",
+                      "name": "Nat.nat",
+                      "args": []
+                    },
+                    {
+                      "kind": "type",
+                      "name": "Nat.nat",
+                      "args": []
+                    }
+                  ]
+                }
+              },
+              "argument": {
+                "kind": "free",
+                "name": "n",
+                "type": {
+                  "kind": "type",
+                  "name": "Nat.nat",
+                  "args": []
+                }
+              }
+            }
+          },
+          "text": "plus_nat_inst.plus_nat m (Suc n)"
+        },
+        "theorem": {
+          "name": "??.unknown",
+          "proposition": {
+            "text": "plus_nat_inst.plus_nat (Suc ?m) ?n \\<equiv> plus_nat_inst.plus_nat ?m (Suc ?n)",
+            "term": {
+              "kind": "apply",
+              "function": {
+                "kind": "apply",
+                "function": {
+                  "kind": "const",
+                  "name": "Pure.eq",
+                  "type": {
+                    "kind": "type",
+                    "name": "fun",
+                    "args": [
+                      {
+                        "kind": "type",
+                        "name": "Nat.nat",
+                        "args": []
+                      },
+                      {
+                        "kind": "type",
+                        "name": "fun",
+                        "args": [
+                          {
+                            "kind": "type",
+                            "name": "Nat.nat",
+                            "args": []
+                          },
+                          {
+                            "kind": "type",
+                            "name": "prop",
+                            "args": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "argument": {
+                  "kind": "apply",
+                  "function": {
+                    "kind": "apply",
+                    "function": {
+                      "kind": "const",
+                      "name": "Nat.plus_nat_inst.plus_nat",
+                      "type": {
+                        "kind": "type",
+                        "name": "fun",
+                        "args": [
+                          {
+                            "kind": "type",
+                            "name": "Nat.nat",
+                            "args": []
+                          },
+                          {
+                            "kind": "type",
+                            "name": "fun",
+                            "args": [
+                              {
+                                "kind": "type",
+                                "name": "Nat.nat",
+                                "args": []
+                              },
+                              {
+                                "kind": "type",
+                                "name": "Nat.nat",
+                                "args": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "argument": {
+                      "kind": "apply",
+                      "function": {
+                        "kind": "const",
+                        "name": "Nat.Suc",
+                        "type": {
+                          "kind": "type",
+                          "name": "fun",
+                          "args": [
+                            {
+                              "kind": "type",
+                              "name": "Nat.nat",
+                              "args": []
+                            },
+                            {
+                              "kind": "type",
+                              "name": "Nat.nat",
+                              "args": []
+                            }
+                          ]
+                        }
+                      },
+                      "argument": {
+                        "kind": "schematic",
+                        "name": "m",
+                        "index": 0,
+                        "type": {
+                          "kind": "type",
+                          "name": "Nat.nat",
+                          "args": []
+                        }
+                      }
+                    }
+                  },
+                  "argument": {
+                    "kind": "schematic",
+                    "name": "n",
+                    "index": 0,
+                    "type": {
+                      "kind": "type",
+                      "name": "Nat.nat",
+                      "args": []
+                    }
+                  }
+                }
+              },
+              "argument": {
+                "kind": "apply",
+                "function": {
+                  "kind": "apply",
+                  "function": {
+                    "kind": "const",
+                    "name": "Nat.plus_nat_inst.plus_nat",
+                    "type": {
+                      "kind": "type",
+                      "name": "fun",
+                      "args": [
+                        {
+                          "kind": "type",
+                          "name": "Nat.nat",
+                          "args": []
+                        },
+                        {
+                          "kind": "type",
+                          "name": "fun",
+                          "args": [
+                            {
+                              "kind": "type",
+                              "name": "Nat.nat",
+                              "args": []
+                            },
+                            {
+                              "kind": "type",
+                              "name": "Nat.nat",
+                              "args": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "argument": {
+                    "kind": "schematic",
+                    "name": "m",
+                    "index": 0,
+                    "type": {
+                      "kind": "type",
+                      "name": "Nat.nat",
+                      "args": []
+                    }
+                  }
+                },
+                "argument": {
+                  "kind": "apply",
+                  "function": {
+                    "kind": "const",
+                    "name": "Nat.Suc",
+                    "type": {
+                      "kind": "type",
+                      "name": "fun",
+                      "args": [
+                        {
+                          "kind": "type",
+                          "name": "Nat.nat",
+                          "args": []
+                        },
+                        {
+                          "kind": "type",
+                          "name": "Nat.nat",
+                          "args": []
+                        }
+                      ]
+                    }
+                  },
+                  "argument": {
+                    "kind": "schematic",
+                    "name": "n",
+                    "index": 0,
+                    "type": {
+                      "kind": "type",
+                      "name": "Nat.nat",
+                      "args": []
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "proper": true
+      },
+      {
+        "arguments": [
+          {
+            "abstraction": null,
+            "term": {
+              "kind": "const",
+              "name": "Nat.zero_nat_inst.zero_nat",
+              "type": {
+                "kind": "type",
+                "name": "Nat.nat",
+                "args": []
+              }
+            },
+            "text": "zero_nat_inst.zero_nat"
+          },
+          {
+            "abstraction": null,
+            "term": {
+              "kind": "free",
+              "name": "n",
+              "type": {
+                "kind": "type",
+                "name": "Nat.nat",
+                "args": []
+              }
+            },
+            "text": "n"
+          }
+        ],
+        "rhs": {
+          "abstraction": null,
+          "term": {
+            "kind": "free",
+            "name": "n",
+            "type": {
+              "kind": "type",
+              "name": "Nat.nat",
+              "args": []
+            }
+          },
+          "text": "n"
+        },
+        "theorem": {
+          "name": "??.unknown",
+          "proposition": {
+            "text": "plus_nat_inst.plus_nat zero_nat_inst.zero_nat ?n \\<equiv> ?n",
+            "term": {
+              "kind": "apply",
+              "function": {
+                "kind": "apply",
+                "function": {
+                  "kind": "const",
+                  "name": "Pure.eq",
+                  "type": {
+                    "kind": "type",
+                    "name": "fun",
+                    "args": [
+                      {
+                        "kind": "type",
+                        "name": "Nat.nat",
+                        "args": []
+                      },
+                      {
+                        "kind": "type",
+                        "name": "fun",
+                        "args": [
+                          {
+                            "kind": "type",
+                            "name": "Nat.nat",
+                            "args": []
+                          },
+                          {
+                            "kind": "type",
+                            "name": "prop",
+                            "args": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "argument": {
+                  "kind": "apply",
+                  "function": {
+                    "kind": "apply",
+                    "function": {
+                      "kind": "const",
+                      "name": "Nat.plus_nat_inst.plus_nat",
+                      "type": {
+                        "kind": "type",
+                        "name": "fun",
+                        "args": [
+                          {
+                            "kind": "type",
+                            "name": "Nat.nat",
+                            "args": []
+                          },
+                          {
+                            "kind": "type",
+                            "name": "fun",
+                            "args": [
+                              {
+                                "kind": "type",
+                                "name": "Nat.nat",
+                                "args": []
+                              },
+                              {
+                                "kind": "type",
+                                "name": "Nat.nat",
+                                "args": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "argument": {
+                      "kind": "const",
+                      "name": "Nat.zero_nat_inst.zero_nat",
+                      "type": {
+                        "kind": "type",
+                        "name": "Nat.nat",
+                        "args": []
+                      }
+                    }
+                  },
+                  "argument": {
+                    "kind": "schematic",
+                    "name": "n",
+                    "index": 0,
+                    "type": {
+                      "kind": "type",
+                      "name": "Nat.nat",
+                      "args": []
+                    }
+                  }
+                }
+              },
+              "argument": {
+                "kind": "schematic",
+                "name": "n",
+                "index": 0,
+                "type": {
+                  "kind": "type",
+                  "name": "Nat.nat",
+                  "args": []
+                }
+              }
+            }
+          }
+        },
+        "proper": true
+      }
+    ],
+    "dependencies": [
+      "constant:Nat.Suc",
+      "constant:Nat.plus_nat_inst.plus_nat",
+      "constant:Nat.zero_nat_inst.zero_nat"
+    ],
+    "type_dependencies": [
+      "type:Nat.nat",
+      "type:fun",
+      "type:prop"
+    ],
+    "class_dependencies": []
   }
 }

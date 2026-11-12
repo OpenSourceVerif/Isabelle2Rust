@@ -19,7 +19,12 @@ REBOUND_TOOLS=('isabelle_heaps','optimizer_target')
 PREPARATION_NEUTRAL_CHANGES={
  'agent/src/i2r_agent/'+name+'.py' for name in [
  'fpp_runner','fpp_artifact','fpp_preparation_import','segmented_support',
- 'source_failure_review','segmented_test_audit','support_issue_lineage','source_resources','source_resource_revision']}
+ 'source_failure_review','segmented_test_audit','support_issue_lineage','source_resources','source_resource_revision',
+ # Reviewed primitive contract / source-test responsibility changes. Mechanical
+ # source_cache excludes semantic_analysis, segmentation and candidate state;
+ # extraction, references, numeric configuration and tools still match exactly.
+ 'default_adaptations','native_numeric_contracts','segmented_v8',
+ 'source_suite_review','support_scope','v8_support']}
 PREPARATION_NEUTRAL_CHANGES.add('artifact/README.md')
 SUITES=('ordinary_fixed','ordinary_generated','kernel_fixed','kernel_generated')
 

@@ -3,13 +3,42 @@ import re
 from .common import Failure
 
 
+RESPONSIBILITY_POLICY='entry-focused-exact-nat-adaptations-v1'
+RESPONSIBILITY_GUIDANCE='Author entry behavior, meaningful business branches and nontrivial semantic boundaries. Sources listed as context_dependencies are verified adopted primitives, not separate test targets: exercise them through the assigned entry cases where feasible instead of authoring alias/zero/Suc/addition mini-suites. In arbitrary mode choose meaningful executable representative values above 128 bits when the source computation permits; do not demand one huge case per helper or huge outputs from expensive recurrences. Record expensive untested regions. Preserve source literal-content, generic/non-Clone requirements and checked overflow obligations. This grouping changes neither source semantics nor any frozen suite.'
+
+
+def responsibility_context(state):
+    from .default_adaptations import proposals
+    from .native_numeric_contracts import context as native_contracts,SOURCE
+    from .task_context import fingerprint
+    bundle=state['bundle'];numeric=bundle.get('numeric_policy',{});model=bundle['source_model']
+    plan=state.get('partition',bundle.get('segmentation',{}))
+    exact={r['source']:r for r in proposals(model,numeric)}
+    declared={}
+    for row in plan.get('boundaries',[]):declared.setdefault(row.get('source'),[]).append(row)
+    candidates={'type:Nat.nat','constant:Nat.zero_nat_inst.zero_nat'}
+    if numeric.get('mode')=='arbitrary':candidates.add('constant:Nat.Suc')
+    # Checked addition retains its overflow/range obligation. Only the exact
+    # verified native arbitrary addition may share the entry's test coverage.
+    if numeric.get('mode')=='arbitrary' and native_contracts(state)['contracts']:candidates.add(SOURCE)
+    library=numeric.get('numeric_library',{})
+    if numeric.get('mode')!='checked' and not (numeric.get('mode')=='arbitrary' and library.get('name')=='dashu-int' and library.get('version')=='=0.6.2'):candidates=set()
+    dependencies=sorted(n for n in candidates if n in exact and len(declared.get(n,[]))==1
+        and declared[n][0].get('kind') in {'native','inlined'})
+    result={'policy':RESPONSIBILITY_POLICY,'context_dependencies':dependencies,
+        'verified_source_identities':{n:exact[n]['default_identity'] for n in dependencies},
+        'numeric_mode':numeric.get('mode'),'guidance':RESPONSIBILITY_GUIDANCE}
+    result['identity']=fingerprint(result);return result
+
+
 def requirements(state,source_ids):
     rows=[]
     mapped={r['source'] for r in state['mapping'] if r.get('rust_item')}
+    dependencies=set(responsibility_context(state)['context_dependencies'])
     for n in sorted(set(source_ids)&mapped):
         # Numeric runtime obligations apply to value-level source operations.
         # A class named divide/modulo is an interface, not an executable value.
-        if not n.startswith('constant:'):continue
+        if not n.startswith('constant:') or n in dependencies:continue
         low=n.lower();categories=[]
         if 'take_bit' in low:categories=['small_nonnegative_huge_count','bit_boundary']
         elif 'drop_bit' in low:categories=['small_nonnegative_huge_count','bit_boundary']+(['negative_huge_count'] if 'int' in low and 'nat' not in low else [])

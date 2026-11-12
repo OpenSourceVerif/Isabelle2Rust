@@ -23,6 +23,7 @@ from . import v8_review_scope as review_scope
 from . import semantic_components as component_scope
 from . import implementation_strategy as strategy
 from . import material_progress
+from . import native_numeric_contracts as native_contracts
 
 
 def version(state):
@@ -123,7 +124,7 @@ def payload(state,cfg,work):
         'unit':state['partition']['units'].get(state.get('unit')),
         'partition':{k:v for k,v in state['partition'].items() if k!='original_graph'},
         'program':{'entries':state['bundle']['source_model']['entries'],'numeric_policy':state['bundle']['numeric_policy'],
-            'current_strategy':strategy.project(state,ids),'source_pages':supplied},
+            'current_strategy':strategy.project(state,ids),'source_pages':supplied,'native_numeric_contracts':native_contracts.context(state)},
         'page_catalog':[{k:v for k,v in p.items() if k!='text'} for p in ps],
         'required_review_sources':sorted(ids),
         'algorithm_policy':cfg['segmented']['algorithm_policy'],'required_algorithm_routes':required_routes(state,cfg),
@@ -458,7 +459,7 @@ def revert_optimization(state,reason):
 
 def checkpoint_identity(bundle,cfg,connector_scenarios):
     from .repair_knowledge import manifest as knowledge_manifest
-    fields={'knowledge':knowledge_manifest(),'workflow_schema':'compile-integration-v5',
+    fields={'native_numeric_contracts':native_contracts.context({'bundle':bundle}),'knowledge':knowledge_manifest(),'workflow_schema':'compile-integration-v5',
             'source':bundle['source_model'],'config':cfg,'analysis':bundle['semantic_analysis'],
             'connector_scenarios':connector_scenarios}
     if bundle.get('prepared_identity'):fields['prepared_identity']=bundle['prepared_identity']
@@ -523,6 +524,7 @@ def search(bundle,testing_project,cfg,provider,work,executor,refs,fixed_inputs,r
                 last_cumulative=(phase=='compile' and (set(state['completed'])|{state['unit']})==set(state['partition']['units']))
                 complete_coverage=(phase=='final_compile' or (cfg.get('v8',{}).get('correctness_only') and last_cumulative))
                 attempt['coverage']=coverage(bundle,state['files'],state['mapping'],roots,state['partition'],complete_coverage)
+                attempt['native_primitive_structure']=native_contracts.check_realization(state)
                 attempt['compilation_scope']='complete_program' if complete_coverage else 'cumulative_units'
                 for f in state['failures']:
                     if f['kind']=='contract':f.update(status='closed',verified_version=before)

@@ -23,6 +23,8 @@ SYSTEM+=''' Decide the action in this order, once per complete checklist. First 
 SYSTEM+=' Use expectation_targets slots to identify a protected expected argument, especially repeated literals in one test. Copy target_id, test_id, kind, index and old exactly; propose only new. Slot IDs do not authorize any change to calls, inputs, helpers or obligations. Never invent offsets, choose the first textual match, or alter every equal literal. If no protected slot can express the proven repair, use needs_revision. '
 SYSTEM+=' Mapping contains canonical source/item identifiers and type-parameter bindings only, without implementation text or generator rationale. '+citations.GUIDANCE
 PROTOCOL['source_evidence']=[citations.PROTOCOL]
+from .native_numeric_contracts import context as native_contracts,GUIDANCE as NATIVE_GUIDANCE
+SYSTEM+=' '+NATIVE_GUIDANCE
 MAX_COMPLETED=2
 
 def inventory(frozen):
@@ -43,7 +45,7 @@ from .source_test_context import bodyless_interfaces as checker_interfaces,canon
 def scope(frozen,state,cfg):
     from .source_suite_batches import POLICY as batch_policy,SYSTEM as batch_system
     model=state['bundle']['source_model'];ids=needed(model,set(model['entries'])|{o['source'] for o in frozen['obligations']})
-    fields={'length_fallback':{'policy':batch_policy,'system':batch_system},'policy':POLICY,'system':SYSTEM,'protocol':PROTOCOL,'source':{k:state['bundle'].get(k) for k in ['source_model','original_source_model','source_hashes','numeric_policy']},
+    fields={'native_numeric_contracts':native_contracts(state),'length_fallback':{'policy':batch_policy,'system':batch_system},'policy':POLICY,'system':SYSTEM,'protocol':PROTOCOL,'source':{k:state['bundle'].get(k) for k in ['source_model','original_source_model','source_hashes','numeric_policy']},
         'source_pages_identity':fingerprint(pages(model,ids,cfg['segmented']['source_page_characters'])),
         'suite':{k:frozen.get(k) for k in ['tests','unit_tests','obligations','source_contract_templates','test_framework','author_group_plan']},
         'interfaces':checker_interfaces(state),'mapping':checker_mapping(state),'rust_config':state['rust_config'],
@@ -52,7 +54,7 @@ def scope(frozen,state,cfg):
 
 def payload(frozen,state,cfg):
     model=state['bundle']['source_model'];ids=needed(model,set(model['entries'])|{o['source'] for o in frozen['obligations']})
-    material={'task':'Check this entire suite, including actual framework/template code; every test and obligation needs one checklist record.',
+    material={'native_numeric_contracts':native_contracts(state),'task':'Check this entire suite, including actual framework/template code; every test and obligation needs one checklist record.',
         'policy':POLICY,'response_protocol':PROTOCOL,'inventory':inventory(frozen),
         'tests':frozen['tests'],'unit_tests':frozen.get('unit_tests',[]),
         'obligations':[{'id':f'o:{i}','claim':o} for i,o in enumerate(frozen['obligations'])],

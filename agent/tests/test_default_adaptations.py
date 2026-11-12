@@ -27,7 +27,7 @@ class DefaultAdaptations(unittest.TestCase):
         rows=proposals(self.model(),{'mode':'checked'})
         self.assertEqual(apply({},rows)[0],[])
         accepted,record=apply({'use_default_adaptations':True},rows)
-        self.assertEqual(len(accepted),7);self.assertTrue(record['explicitly_accepted'])
+        self.assertEqual(len(accepted),len(HASHES));self.assertTrue(record['explicitly_accepted'])
         override={'source':'type:Nat.nat','kind':'native','basis':'explicit source reason','conditions':['alternative checked representation']}
         result,record=apply({'use_default_adaptations':True,'boundaries':[override],'revoke_default_adaptations':['constant:Nat.Suc']},rows)
         self.assertNotIn('constant:Nat.Suc',{r['source'] for r in result})

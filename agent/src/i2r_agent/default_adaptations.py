@@ -10,6 +10,7 @@ FIELDS=['id', 'name', 'kind', 'source_type', 'execution_type', 'type_variables',
 # models (add, bool-and, isort). Caller lists and document locations are not
 # semantics; type/constructor/equation/dependency changes reject the default.
 HASHES={
+ 'constant:Nat.plus_nat_inst.plus_nat':'958ba272699f71150886667a1197fc23078a426e15e6859f61b171dac81964c7',
  'type:Nat.nat':'2550a2f250346e4c637bf787134f1e121b68df4e60961d9fa989620657fb1626',
  'constant:Nat.zero_nat_inst.zero_nat':'f2a4d517b49fba99c2418f27abe3717470a4a07ae03ccee3c867653e8c02494c',
  'constant:Nat.Suc':'54d2c6ff2d448b4b2e947a4f9b94c0c824bfbab432b767c16aca156523b9d089',
@@ -29,7 +30,12 @@ def proposals(model,numeric):
     for source,expected in HASHES.items():
         entity=model['entities'].get(source)
         if source not in reachable or source in mandatory or not entity or operational_identity(entity)!=expected:continue
-        if source.startswith('type:Nat') or source.startswith('constant:Nat'):
+        if source=='constant:Nat.plus_nat_inst.plus_nat':
+            conditions=['Exact Nat addition at this verified library-primitive boundary uses the numeric backend operation, not a loop or recursion proportional to a natural value.',
+                'Use u128.checked_add with explicit I2R_NUMERIC_OVERFLOW on overflow.' if mode=='checked' else 'Use dashu_int::UBig exact addition (dashu-int =0.6.2), with no machine-width narrowing.',
+                'Source equations determine the mathematical sum; their unary presentation is not a required execution algorithm at this native boundary. Business callers retain their source recurrence and call order. No other arithmetic operation or user-defined plus is authorized by this rule.']
+            basis='Exact admitted Nat.plus_nat_inst.plus_nat operational source identity and nat -> nat -> nat type; library addition adapter.'
+        elif source.startswith('type:Nat') or source.startswith('constant:Nat'):
             representation='u128' if mode=='checked' else 'dashu_int::UBig (dashu-int =0.6.2)'
             conditions=[f'Natural-number representation is {representation}; preserve every source recurrence and generic caller.',
                 'Zero is exactly 0; Suc is n+1. Checked Suc must reject u128::MAX with explicit I2R_NUMERIC_OVERFLOW, never wrap or saturate.' if mode=='checked' else 'Zero is exactly 0 and successor is unbounded n+1; no narrowing to machine integers.',
@@ -40,7 +46,7 @@ def proposals(model,numeric):
                 'HOL.If selects only the chosen branch. Preserve lazy evaluation and branch ownership; do not eagerly evaluate both branches or add Clone/Copy bounds to arbitrary result types.',
                 'No default equality/order adapter is inferred for other types or class instances.']
             basis='Exact admitted HOL boolean constructors and If equations; branch-selective source semantics.'
-        rows.append({'source':source,'kind':'native' if source.startswith('type:') else 'inlined','basis':basis,'conditions':conditions,
+        rows.append({'source':source,'kind':'native' if source.startswith('type:') or source=='constant:Nat.plus_nat_inst.plus_nat' else 'inlined','basis':basis,'conditions':conditions,
                      'default_identity':expected,'default_schema':SCHEMA})
     return rows
 
