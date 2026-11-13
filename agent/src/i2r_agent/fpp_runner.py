@@ -259,7 +259,7 @@ def dispatch(run,rows,rel,resume=False,pipeline=False):
     return report(run,rows)
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True);p.add_argument('command',choices=['prepare','resume-prepare','run','pause','resume','report','boundary','_child','pipeline','resume-pipeline','_prepare','migrate-pipeline','import-preparation']);p.add_argument('--case',action='append');p.add_argument('--from-run',type=Path,help='Read-only original mechanical preparation run');p.add_argument('--from-identity',help='Expected old frozen identity for scheduler migration or preparation import');p.add_argument('--workers',type=int,help='Concurrent task processes: default 5 for a new run; otherwise use the frozen release value');a=p.parse_args();run=a.run.resolve();run.mkdir(parents=True,exist_ok=True);allrows=art.manifest()['cases']
+    p=argparse.ArgumentParser();p.add_argument('--dataset',choices=['fpp','unit'],default=os.environ.get('I2R_DATASET','fpp'));p.add_argument('--run',type=Path,required=True);p.add_argument('command',choices=['prepare','resume-prepare','run','pause','resume','report','boundary','_child','pipeline','resume-pipeline','_prepare','migrate-pipeline','import-preparation']);p.add_argument('--case',action='append');p.add_argument('--from-run',type=Path,help='Read-only original mechanical preparation run');p.add_argument('--from-identity',help='Expected old frozen identity for scheduler migration or preparation import');p.add_argument('--workers',type=int,help='Concurrent task processes: default 5 for a new run; otherwise use the frozen release value');a=p.parse_args();os.environ['I2R_DATASET']=a.dataset;run=a.run.resolve();run.mkdir(parents=True,exist_ok=True);allrows=art.manifest()['cases']
     if a.command=='pause':save(run/'STOP_DISPATCH',{'reason':'user_pause','policy':'drain active tasks'});return
     if a.command in {'prepare','resume-prepare','migrate-pipeline','import-preparation'}:
         # Share dispatch's exclusive lease before selection/release initialization.
@@ -271,7 +271,9 @@ def main():
 def execute(a,run,allrows):
     selection=run/'selection.json'
     if a.command=='migrate-pipeline' and not selection.exists():raise Failure('scheduler_migration_rejected','An existing frozen selection is required')
-    if selection.exists():ids=read(selection)['ids']
+    if selection.exists():
+        ids=read(selection)['ids']
+        if not set(ids)<={r['id'] for r in allrows}:raise Failure('dataset_selection_mismatch','Selected run belongs to another dataset')
     else:
         ids=a.case or [r['id'] for r in allrows]
         if not set(ids)<={r['id'] for r in allrows}:raise Failure('unknown_case',str(ids))

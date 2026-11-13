@@ -16,3 +16,11 @@
   - `rq3/code-quality/`: Clippy summaries and the recorded environment.
   - `rq3/sbpf/`: SBPF runtime, heap-allocation, ablation, and environment records.
   - `rq3/x64/`: x64 runtime, heap-allocation, ablation, and environment records.
+
+## Agent correctness experiments
+
+- `results/agent/formal-20261113.json`: FPP and Unit final counts, costs, reference
+  coverage, original release identities and evidence hashes.
+- `scripts/agent/audit_formal.py`: read-only audit against the retained frozen
+  releases and runtime receipts; no model calls.
+- `../artifact/README.md`: shared launchers, datasets and raw run locations.

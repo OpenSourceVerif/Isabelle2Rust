@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-constructors-wrap-bit0-8ea03b",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"wrap_bit0\": \"Q (Constructors_Test.wrap_bit0 None) @ Q (Constructors_Test.wrap_bit0 (Some One)) @ Q (Constructors_Test.wrap_bit0 (Some (Bit1 One)))\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

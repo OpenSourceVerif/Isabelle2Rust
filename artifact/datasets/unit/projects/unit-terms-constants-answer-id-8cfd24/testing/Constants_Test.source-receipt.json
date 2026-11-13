@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/terms/Constants_Test.thy",
+  "sha256": "e97d353c38c124aabf79b3357502f510556ebcb40bb9226fffafaf1c4442459c",
+  "derived_sha256": "cc62f0e73371a4862fdf2179888407eb8d8d74d0d737abac4331fdeca8269afc",
+  "removed_exports": [
+    "export_code\n  answer answer_id zero red rgb empty_slot empty_option slot color_code slot_or\n  in Rust"
+  ]
+}

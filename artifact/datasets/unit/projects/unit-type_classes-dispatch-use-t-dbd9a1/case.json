@@ -1,0 +1,13 @@
+{
+  "id": "unit-type_classes-dispatch-use-t-dbd9a1",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"use_t\": \"Direct exported-root call; concrete input-dependent arguments; injective constructor-tag and field encoding of complete result.\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

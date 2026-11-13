@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/type_classes/SortBounds_Test.thy",
+  "sha256": "d58f03ab63fbe7fa7bf5268ffcb72c647b869f9f9517234cc8d1657768337258",
+  "derived_sha256": "f34559adc1a62318e0d56f4dec5e30e1553e60875fcc336e1bb9de48c09f0d7f",
+  "removed_exports": [
+    "export_code\n  step_or_seed seed_pair\n  in Rust"
+  ]
+}

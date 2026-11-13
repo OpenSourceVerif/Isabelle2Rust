@@ -124,6 +124,7 @@
     "unit_policy": "semantic-components",
     "correctness_only": true,
     "small_program_max_entities": 12,
-    "small_program_max_source_characters": 16000
+    "small_program_max_source_characters": 16000,
+    "test_order_policy": "source_repair_then_diff_accept"
   }
 }

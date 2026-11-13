@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-applications-call-returned-4cc8f2",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"call_returned\": \"BT (Applications_Test.call_returned flag flag2)\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

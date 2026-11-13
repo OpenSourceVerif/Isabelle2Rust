@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-name-hygiene-eta-case-observe-6f972a",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"eta_case_observe\": \"B (Name_Hygiene_Test.eta_case_observe flag flag2 (z mod 2=0))\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

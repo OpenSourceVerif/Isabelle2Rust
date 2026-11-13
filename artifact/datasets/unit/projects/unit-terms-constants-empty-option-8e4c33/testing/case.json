@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-constants-empty-option-8e4c33",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"empty_option\": \"(case Constants_Test.empty_option of None => [0] | Some n => [1,n])\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

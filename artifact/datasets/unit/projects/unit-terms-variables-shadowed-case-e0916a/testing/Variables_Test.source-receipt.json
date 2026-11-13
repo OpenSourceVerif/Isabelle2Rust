@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/terms/Variables_Test.thy",
+  "sha256": "d2ce8034ae6da2bac70262854c95df429126ddd1a75189da6c2537e9de440ff2",
+  "derived_sha256": "6c22266fc4be7a7cc34dd5acc3733cd84391681e2f16d0776935b5fb8424d824",
+  "removed_exports": [
+    "export_code\n  param_id rust_keyword case_var lambda_var pair_second ignore_arg shadowed_case\n  in Rust"
+  ]
+}

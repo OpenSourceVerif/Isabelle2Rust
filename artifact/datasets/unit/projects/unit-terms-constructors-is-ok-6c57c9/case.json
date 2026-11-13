@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-constructors-is-ok-6c57c9",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"is_ok\": \"B (Constructors_Test.is_ok (if flag then Ok x else Err y)) @ B (Constructors_Test.is_ok (if flag then Err y else Ok x))\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

@@ -36,6 +36,9 @@ test/x64/theory/performance/
 evaluation/.work/
 evaluation/harness/rq3/sbpf/native/target/
 evaluation/results/*
+!evaluation/results/agent/
+evaluation/results/agent/*
+!evaluation/results/agent/formal-20261113.json
 !evaluation/results/rq1/
 !evaluation/results/rq1/**
 !evaluation/results/rq2/

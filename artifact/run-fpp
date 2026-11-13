@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
-base=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-exec "$base/agent/.venv/bin/python" -m i2r_agent.fpp_runner "$@"
+base=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec "$base/run-agent" --dataset fpp "$@"

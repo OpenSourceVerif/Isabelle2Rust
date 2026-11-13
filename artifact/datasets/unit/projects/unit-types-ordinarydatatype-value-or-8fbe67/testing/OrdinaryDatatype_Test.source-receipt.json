@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/types/OrdinaryDatatype_Test.thy",
+  "sha256": "84c339db1281e674aafdc79afa7578c1080944ed2e5969553e2a34ca7393681b",
+  "derived_sha256": "8594c93942cd7029437148743f842bef15fe1148c2087fa47f519127d4e52a4b",
+  "removed_exports": [
+    "export_code\n  color_code value_or map_slot swap_choice make_both\n  in Rust"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "original": "test/unit/optimization/CopyGlobalData.thy",
+  "sha256": "914f5a98d0be37ac7c50ad7cb6b378d7c4117014c90bde439faddf233816c26d",
+  "derived_sha256": "914f5a98d0be37ac7c50ad7cb6b378d7c4117014c90bde439faddf233816c26d",
+  "removed_exports": []
+}

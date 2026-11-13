@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/terms/PatternMatching_Test.thy",
+  "sha256": "f6de0f0b2f72794936cc7e70078eabf9b4a2cdb61c2d28ea9a80db3188e90c73",
+  "derived_sha256": "9b2074027dc5f18243e89ad47bac8563b8a844d30886c57468172cb5b1bcc4d6",
+  "removed_exports": [
+    "export_code\n  neg is_primary case_list1 case_list2 get_or_zero head_nat first_or_chain\n  unwrap_wrapper second_or_zero first_and_tail nested_or_whole\n  in Rust"
+  ]
+}

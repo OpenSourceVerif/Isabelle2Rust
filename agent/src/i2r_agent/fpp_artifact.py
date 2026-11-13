@@ -1,4 +1,4 @@
-"""Portable, source-only FPP inputs and zero-model mechanical admission."""
+"""Portable, source-only dataset inputs and zero-model mechanical admission."""
 import copy, json, os, shutil, subprocess, time
 from pathlib import Path
 from .common import ROOT, Failure, Executor, read, save, digest, merge, now
@@ -10,8 +10,14 @@ ARTIFACT=REPO/'artifact'
 RUSTLIGHTAST_COMMIT='1d25bd1ac5b406cfc08c4554ab9980ce5986db8f'
 
 def manifest():
-    data=read(ARTIFACT/'fpp-manifest.json')
-    assert len(data['cases'])==313 and len({r['root'] for r in data['cases']})==313
+    dataset=os.environ.get('I2R_DATASET','fpp')
+    if dataset not in {'fpp','unit'}:raise Failure('unknown_dataset',dataset)
+    data=read(ARTIFACT/('fpp-manifest.json' if dataset=='fpp' else 'datasets/unit/manifest.json'))
+    if dataset=='fpp':
+        assert len(data['cases'])==313 and len({r['root'] for r in data['cases']})==313
+    else:
+        assert len(data['cases'])==data['expected_root_count']==488
+        assert len({(r['root'],r['original_source']) for r in data['cases']})==488
     for name,sha in data['corpus'].items():
         if digest(REPO/name)!=sha:raise Failure('corpus_changed',name)
     return data

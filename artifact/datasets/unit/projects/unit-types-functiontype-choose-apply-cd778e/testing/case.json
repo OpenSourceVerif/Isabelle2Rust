@@ -1,0 +1,13 @@
+{
+  "id": "unit-types-functiontype-choose-apply-cd778e",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"choose_apply\": \"[FunctionType_Test.choose_apply flag (\\\\<lambda>n::nat. n + x) (\\\\<lambda>n. n * x) y]\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

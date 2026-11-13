@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/type_classes/ClassMethods_Test.thy",
+  "sha256": "654fad00f2f7cb0498f04bbbae8ef8101fa5d2e0a24c01950ce420cd165e2f21",
+  "derived_sha256": "cc7718799bdda49267a2f0b2b3b0add93682fdb1989e2c71746b1e91a1b72c58",
+  "removed_exports": [
+    "export_code\n  inc1 combine3 choose2 twoop_chain\n  in Rust"
+  ]
+}

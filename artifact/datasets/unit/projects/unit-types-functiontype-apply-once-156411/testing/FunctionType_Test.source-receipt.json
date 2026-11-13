@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/types/FunctionType_Test.thy",
+  "sha256": "ff098049009887547b7add31d95377229d129eec0a67c19edbb32282e9e38b64",
+  "derived_sha256": "07995efd83145a561aad5d2f331cb3c6a51239485db88d54ba0f9c205e0c583d",
+  "removed_exports": [
+    "export_code\n  apply_twice_int apply_twice apply_once compose_fn apply_binary choose_apply\n  in Rust"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/type_classes/Instances_Test.thy",
+  "sha256": "b2f9c277d471e381160a9e88adcc9cf485f5060c12b558d3ee0246e1f4be24a4",
+  "derived_sha256": "04488b73a1144af0b10500d0db14ddd1b39490dd796e56152c258e272c883158",
+  "removed_exports": [
+    "export_code\n  add2 inc_option_apply inc_wrap_apply\n  in Rust"
+  ]
+}

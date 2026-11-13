@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/optimization/IntegratedList_Test.thy",
+  "sha256": "74c5affc8f39a573cceb6bbaa18292d5f2170815b34d50f51997747472116313",
+  "derived_sha256": "b1f82aade5e0a97035191602a508335e101aeb9c95da19d1e8a4e8ea4652a891",
+  "removed_exports": [
+    "export_code\n  bits_any bits_all bits_swap olist_is_empty olist_head olist_last olist_length\n  olist_any olist_all olist_count olist_swap_bits olist_append olist_reverse_acc\n  olist_reverse olist_zip olist_unzip olist_take_true olist_filter_true\n  olist_partition bucket_is_empty bucket_any bucket_flip bucket_merge\n  olist_query_pair olist_transform_chain\n  in Rust"
+  ]
+}

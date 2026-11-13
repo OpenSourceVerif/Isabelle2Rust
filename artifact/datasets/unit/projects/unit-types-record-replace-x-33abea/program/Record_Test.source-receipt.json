@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/types/Record_Test.thy",
+  "sha256": "88c718d3600c7bdac0aebc0bc609b52f16946d5d728ef18e67643bd184c77711",
+  "derived_sha256": "28e46f1dd8888fa9e1a668fcca64937e005ee483a8b382357ac3e7795a5c5ba0",
+  "removed_exports": [
+    "export_code\n  origin make_point get_x get_y point_pair replace_x tag_of retag\n  in Rust"
+  ]
+}

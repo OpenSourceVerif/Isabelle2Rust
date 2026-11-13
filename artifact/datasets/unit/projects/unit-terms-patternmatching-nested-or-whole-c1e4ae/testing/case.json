@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-patternmatching-nested-or-whole-c1e4ae",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"nested_or_whole\": \"L (PatternMatching_Test.nested_or_whole (ICons a INil) INil) @ L (PatternMatching_Test.nested_or_whole (ICons a (ICons b (ICons (int z) INil))) (ICons b INil)) @ L (PatternMatching_Test.nested_or_whole INil (ICons a INil))\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/terms/PatternBindings_Test.thy",
+  "sha256": "1154e04189e54df1a13d725d14af358d86ab108ca8cec6244ece0b3009dbcfd1",
+  "derived_sha256": "90248f60acf8421ddf75be6971c10c16e2e8808bc943602dff4bd09fca33aa66",
+  "removed_exports": [
+    "export_code\n  case_id unbox_single wrap_unbox_single link_unbox_single let_pair1 let_pair2\n  let_1 let_case let_chain let_shadow\n  in Rust"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/type_classes/Dispatch_Test.thy",
+  "sha256": "a4458e02d0fd71d00eed0edb0b690653d3782c9d35187b41fed162acde8ea602",
+  "derived_sha256": "4823f670436d0ac9a56953b18bf67694f0556effc45772a3cedc6307cc2d9d06",
+  "removed_exports": [
+    "export_code\n  use_nat base_bw gen_bw use_t\n  in Rust"
+  ]
+}

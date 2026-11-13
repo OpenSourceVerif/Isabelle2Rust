@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/mapping/ArithmeticChecked128_Test.thy",
+  "sha256": "2f46186ae81d64c04972980e06918e73921c6ce9c7abbcf48610dbdba532c3fa",
+  "derived_sha256": "8946a3c45b7885c97d86afc31a11a3e591a3d69c700a400b0f4b87e76c9c36e3",
+  "removed_exports": [
+    "export_code\n  checked_int_arithmetic checked_int_div_mod checked_nat_arithmetic\n  checked_conversions checked_bits checked_power\n  in Rust module_name ArithmeticChecked128_Test file_prefix arithmetic_checked128_test"
+  ]
+}

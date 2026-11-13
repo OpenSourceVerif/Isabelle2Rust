@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/optimization/BorrowDemand_Test.thy",
+  "sha256": "99bfb6350fdab9104d02b4a18e6aeab29e6210f8b211f978e02e17f94d6e80b1",
+  "derived_sha256": "1f683aee995d06900520c7082015781a736df62813982b49199afb96a5ec9358",
+  "removed_exports": [
+    "export_code\n  ce_leaf_val ce_holder_flag ce_leaf_negated ce_is_single_leaf mtree_identity\n  mtree_select mtree_make_node mtree_wrap mtree_is_leaf mtree_leaf_val\n  in Rust"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/types/Option_Test.thy",
+  "sha256": "e63c0db4d87e1302ad744d41610c95e28f86d550de68e98616af2ce5c97d28d4",
+  "derived_sha256": "d8cde97e4b47c2cc048dcbbdec60b6ed0e118e0fa2e72c954be6a8ff9daadfff",
+  "removed_exports": [
+    "export_code\n  get set\n  in Rust"
+  ]
+}

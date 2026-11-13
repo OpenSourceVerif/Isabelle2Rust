@@ -1,0 +1,13 @@
+{
+  "id": "unit-types-tuple-flatten-tuple4-b6c201",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"flatten_tuple4\": \"(let p=Tuple_Test.flatten_tuple4 ((x,y),(z,w)) in [fst p,fst (snd p),fst (snd (snd p)),snd (snd (snd p))])\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

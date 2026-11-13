@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/optimization/BorrowGlobal_Test.thy",
+  "sha256": "0863da61691861d828b0f0efc5131124562dee14767ebd7fadb92ee5f9be1237",
+  "derived_sha256": "567b4b572a48e832bb0f5f4d0537f70577dd17bd742969881e6f127381460336",
+  "removed_exports": [
+    "export_code\n  use_global_borrows\n  in Rust"
+  ]
+}

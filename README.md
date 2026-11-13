@@ -4,6 +4,14 @@ Isabelle2Rust generates safe Rust from executable Isabelle/HOL specifications.
 Stage-1 translates Thingol into baseline Rust, and Stage-2 applies
 ownership-aware source-to-source optimizations.
 
+## Agent experiments
+
+FPP and Unit share the Agent implementation under `agent/` and dataset-specific
+inputs under `artifact/`. See [the experiment entry and run locations](artifact/README.md#formal-results-and-datasets)
+and [the final result summary](evaluation/results/agent/formal-20261113.json).
+Raw results are local Git-ignored run directories; the summary and input adapters
+are maintained in this repository.
+
 ## 1. Environment
 
 The project was tested with:
@@ -32,6 +40,8 @@ Isabelle2Rust/
 │   ├── fpp/                # Program-level test suite
 │   ├── sbpf/               # Solana eBPF case study
 │   └── x64/                # x86-64 semantics case study
+├── agent/                  # Shared Agent generation, repair and validation
+├── artifact/               # FPP/Unit inputs, launchers and ignored run evidence
 ├── evaluation/
 │   ├── scripts/            # Generation, validation, and optimization scripts
 │   └── results/            # Evaluation results

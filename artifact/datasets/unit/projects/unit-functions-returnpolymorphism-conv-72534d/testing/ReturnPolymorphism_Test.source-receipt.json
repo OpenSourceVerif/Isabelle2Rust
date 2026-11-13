@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/functions/ReturnPolymorphism_Test.thy",
+  "sha256": "084ba8ea408e9761fb69b0d53ccf31bccf0070bb7ed45710b06a9c6dd073928f",
+  "derived_sha256": "1599b79d1c96a994caecce6d9250ad239c3dba5ae677d1eda382798d61d40357",
+  "removed_exports": [
+    "export_code\n  conv\n  in Rust"
+  ]
+}

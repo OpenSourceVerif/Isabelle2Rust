@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/optimization/IntegratedNestedData_Test.thy",
+  "sha256": "81c0a3fe19a00262b3ce4dd56e9402d619dc85778543a3e768853723be247bd6",
+  "derived_sha256": "7e7dc4c1adb6992e8e6e3760668d42316a2c5dc4bdd21628fca1f35104df396d",
+  "removed_exports": [
+    "export_code\n  tag_any tag_all tag_flip tag_rotate expr_is_value expr_eval expr_size\n  expr_depth expr_tag_count expr_all_tags expr_flip_tags expr_mirror\n  expr_collect_tags expr_same_shape expr_choose expr_query_pair\n  expr_transform_chain expr_list_eval expr_list_size expr_list_flip bundle_flag\n  bundle_size bundle_eval bundle_flip bundle_query_pair\n  in Rust"
+  ]
+}

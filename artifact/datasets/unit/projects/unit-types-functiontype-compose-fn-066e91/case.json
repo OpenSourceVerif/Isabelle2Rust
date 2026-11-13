@@ -1,0 +1,13 @@
+{
+  "id": "unit-types-functiontype-compose-fn-066e91",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"compose_fn\": \"[FunctionType_Test.compose_fn (\\\\<lambda>n::nat. n * 2) (\\\\<lambda>n. n + x) y]\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

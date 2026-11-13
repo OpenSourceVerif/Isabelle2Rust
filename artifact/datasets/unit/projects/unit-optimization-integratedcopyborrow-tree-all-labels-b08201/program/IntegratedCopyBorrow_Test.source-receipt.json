@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/optimization/IntegratedCopyBorrow_Test.thy",
+  "sha256": "2305fc7812e0e5177bcb403eef4945e4840bf1f0c6ac4247f7f74461d5ac5bb3",
+  "derived_sha256": "6d8cf2b6240f8252d8891b820e40b22a651293be81f5006d29f1d3857a3db047",
+  "removed_exports": [
+    "export_code\n  count list_is_empty list_head list_length list_any_true list_all_true list_append\n  list_dup tree_is_leaf tree_root_label tree_any_label tree_all_labels tree_depth\n  tree_label_count tree_mirror tree_replace_labels tree_dup\n  in Rust"
+  ]
+}

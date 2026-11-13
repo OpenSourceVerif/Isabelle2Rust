@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-constants-rgb-dc71ed",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"rgb\": \"(case Constants_Test.rgb a of Red => [0] | Green => [1] | Blue => [2] | RGB i j k => [3]@I i@I j@I k)\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

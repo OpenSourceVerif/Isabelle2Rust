@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/optimization/MutLastUse_Test.thy",
+  "sha256": "1bc8704d26d9e68154431f2242ee6053a4c99c9ba44b82689fd63c1b840e4205",
+  "derived_sha256": "e906669fb6e573f70db8b54587ff66061c3be1d23c4de45a620902263c6f2d85",
+  "removed_exports": [
+    "export_code\n  lu_pair lu_triple lu_second_arg_last_use lu_chain_then_pair\n  in Rust"
+  ]
+}

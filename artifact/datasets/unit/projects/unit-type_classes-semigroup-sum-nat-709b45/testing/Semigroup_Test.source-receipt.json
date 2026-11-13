@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/type_classes/Semigroup_Test.thy",
+  "sha256": "98a6ec50f8b4f3f8e85c5331ae0957e9fd0e558f197f7d9dbfe3fc86cf6887e4",
+  "derived_sha256": "c14abb282e88f54c9b8dab49c8206faeec9e0a69bda5456810f90c198a396448",
+  "removed_exports": [
+    "export_code\n  monoid_plus zero_list sum_Nat sum_list sum_box plus_none\n  in Rust"
+  ]
+}

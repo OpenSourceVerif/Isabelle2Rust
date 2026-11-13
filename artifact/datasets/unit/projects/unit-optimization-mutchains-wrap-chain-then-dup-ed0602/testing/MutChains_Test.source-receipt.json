@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/optimization/MutChains_Test.thy",
+  "sha256": "2bffada09b5c96df442ecf9af27a463fac7b12933c1d9920f87a28fd095cb1a0",
+  "derived_sha256": "9913d036a051379e4d3e0fd99f036e25589bcae82e1ca03a2061ba6c3a993a3b",
+  "removed_exports": [
+    "export_code\n  grow color_adjacent_chain color_interleaved_chain color_call_rhs_chain\n  color_saved_value_blocks_chain wrap_chain nested_wrap_chain pair_box_chain\n  wrap_chain_then_dup wrap_saved_value_blocks_chain let_mut_nat\n  in Rust"
+  ]
+}

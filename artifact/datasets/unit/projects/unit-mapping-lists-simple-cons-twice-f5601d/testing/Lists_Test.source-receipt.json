@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/mapping/Lists_Test.thy",
+  "sha256": "9646c478fcf24d7318c9f8efb2c5dd32986ba2fa86551f2f7ccdf61a7670f253",
+  "derived_sha256": "a3fb3a31f118cb02b0cb4dff1ad00b759947b00887ba38cbd00fabe09314c6b7",
+  "removed_exports": [
+    "export_code\n  literal_length simple_length simple_cons_twice\n  in Rust"
+  ]
+}

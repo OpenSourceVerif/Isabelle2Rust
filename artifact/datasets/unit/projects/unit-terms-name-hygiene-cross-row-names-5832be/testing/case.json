@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-name-hygiene-cross-row-names-5832be",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"cross_row_names\": \"(case Name_Hygiene_Test.cross_row_names (Mix flag (Item (if flag2 then On else Off))) of None => [0] | Some b => 1 # B b) @ (case Name_Hygiene_Test.cross_row_names (Item On) of None => [0] | Some b => 1 # B b)\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

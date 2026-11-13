@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/functions/InfixPrecedence_Test.thy",
+  "sha256": "a29a654457894ecebde696950e130c278764620dfd8c4819e6422145ffb9c073",
+  "derived_sha256": "7124ed1a1e86f8f619dedc05bea7cef593dfff299584184b2ea3b24ef70bc812",
+  "removed_exports": [
+    "export_code\n  eval mix build\n  in Rust"
+  ]
+}

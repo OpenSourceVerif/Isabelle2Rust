@@ -1,0 +1,13 @@
+{
+  "id": "unit-types-codatatype-is-leaf-9e0eae",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"is_leaf\": \"B (Codatatype_Test.is_leaf CoLeaf) @ B (Codatatype_Test.is_leaf (CoNode CoLeaf CoLeaf))\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-name-hygiene-char-equal-1dcb39",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"char_equal\": \"B (Name_Hygiene_Test.char_equal (Char flag False False False False False False False) (Char flag2 False False False False False False False))\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

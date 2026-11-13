@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/mapping/Booleans_Test.thy",
+  "sha256": "f915873419fd86f555a581e07579ef508c01097fcc915583b084fa7e4321cd25",
+  "derived_sha256": "c29824ba634c6f2a78a28681ac614ec093b866a5adeb9a33d439fbea1fa64283",
+  "removed_exports": [
+    "export_code\n  bool_not bool_and_or bool_if bool_nested\n  in Rust"
+  ]
+}

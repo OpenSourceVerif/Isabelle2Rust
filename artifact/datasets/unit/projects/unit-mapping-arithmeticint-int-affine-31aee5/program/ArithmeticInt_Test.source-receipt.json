@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/mapping/ArithmeticInt_Test.thy",
+  "sha256": "6f3cbf44df527c2e83b93d9b327077d7b4f2432b15195ac6ee7cae81585fdb8d",
+  "derived_sha256": "a7f255683a4369648d479ad32e38342064a705fe962e198244711e9d0663099a",
+  "removed_exports": [
+    "export_code\n  int_affine int_branch int_from_integer int_to_integer integer_zero\n  integer_affine integer_neg_abs integer_eq integer_le integer_lt\n  integer_dup integer_divmod_abs integer_bits integer_not\n  in Rust"
+  ]
+}

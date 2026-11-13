@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/optimization/IntegratedTree_Test.thy",
+  "sha256": "87a9a517be775d6c631afd5792c4d6af998dc7e26cb2054f0b3710ab6e4373a7",
+  "derived_sha256": "c3f7c976afa1dccf43f3d1d1071c540d1c087e8e23d98e98e78e792a41f8a36b",
+  "removed_exports": [
+    "export_code\n  flags_any flags_all flags_swap ftree_is_leaf ftree_root_any ftree_size\n  ftree_height ftree_any ftree_all ftree_true_pairs ftree_same_shape\n  ftree_mirror ftree_flip ftree_leftmost ftree_replace_leftmost ftree_preorder\n  ftree_inorder ftree_postorder ftree_select ftree_observe_then_select\n  ftree_query_pair ftree_transform_chain\n  in Rust"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/types/Codatatype_Test.thy",
+  "sha256": "092bc43545bea9700b7b5c4669c450d07eb0fc8588840c652033a3698b0fbe32",
+  "derived_sha256": "f48ef9e14bef0f1f17998b85bf6f6bccba9eefe57aed1c0fb4a44e6ab16f8a33",
+  "removed_exports": [
+    "export_code\n  finite_tree is_leaf finite_tree_is_leaf\n  in Rust"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/functions/PatternDispatch_Test.thy",
+  "sha256": "106353cc8c8eb18f1ccf9df7c7dea271e334935fa9f9dc1484d59ed0c75a4374",
+  "derived_sha256": "230b1e108946fe3b3875ae402dcadc9f409390ba2490f294012765233801c6d5",
+  "removed_exports": [
+    "export_code\n  token_size choose_nat token_score first_some boxed_wildcard_fallback\n  pair_list_sum nested_pair_list_sum nested_pair_list_case\n  in Rust"
+  ]
+}

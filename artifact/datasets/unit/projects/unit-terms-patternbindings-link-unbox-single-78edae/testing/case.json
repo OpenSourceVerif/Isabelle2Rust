@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-patternbindings-link-unbox-single-78edae",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"link_unbox_single\": \"H (PatternBindings_Test.link_unbox_single (Single End)) @ H (PatternBindings_Test.link_unbox_single (Single (Link End)))\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

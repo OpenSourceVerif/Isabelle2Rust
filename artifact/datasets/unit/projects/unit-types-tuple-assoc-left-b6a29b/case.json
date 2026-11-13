@@ -1,0 +1,13 @@
+{
+  "id": "unit-types-tuple-assoc-left-b6a29b",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"assoc_left\": \"(let p=Tuple_Test.assoc_left (x,(y,z)) in P (fst p) @ [snd p])\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

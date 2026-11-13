@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/terms/Applications_Test.thy",
+  "sha256": "ff6d0fe7abe212064e14a8ec9e130ab13edc336f5a4fbcfb2435e0caac5d89b6",
+  "derived_sha256": "48fe36f8954fb47d5ca2fbcd23b65aba8dcec8b0982ee4e6ecd5c29451c749ed",
+  "removed_exports": [
+    "export_code\n  direct_triple call_and_reuse carry3 call_returned lambda_call nested_lambda_call\n  test_offset_sum test_offset_sum2 partial_sum3 call_partial_triple test_carry3\n  in Rust"
+  ]
+}

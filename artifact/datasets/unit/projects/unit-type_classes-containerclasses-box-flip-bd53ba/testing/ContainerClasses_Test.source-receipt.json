@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/type_classes/ContainerClasses_Test.thy",
+  "sha256": "e281cb12d9a89c9e2c1ba8a31631b7da7856e6cbae17e4dbd236b07faa10fcb4",
+  "derived_sha256": "d48c4f4e5a7bbd2caaddf3418e7d0ff1249a56a99d41d6bf4ebcca7594a7344a",
+  "removed_exports": [
+    "export_code\n  generic_weight option_weight list_weight nested_list_weight pair_weight\n  tree_weight nested_tree_weight box_weight generic_flip flip_twice option_flip\n  list_flip nested_list_flip pair_flip tree_flip nested_tree_flip box_flip\n  flip_and_weight choose_flip tree_metrics\n  in Rust"
+  ]
+}

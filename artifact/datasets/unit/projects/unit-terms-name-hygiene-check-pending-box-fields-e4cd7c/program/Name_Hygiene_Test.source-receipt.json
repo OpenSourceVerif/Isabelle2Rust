@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/terms/Name_Hygiene_Test.thy",
+  "sha256": "7f0981c26b43a97b33c989607b25200500be8763db0cf45146ea1e8e48fa3b35",
+  "derived_sha256": "bdd0bf4ed9a35bd4e7d2a1525be4f3f9e366b3b304ccd3a4a944e8b1f25470df",
+  "removed_exports": [
+    "export_code\n  direct_same_type direct_observe frontier frontier_observe\n  eta_shadow eta_observe cap_safe cap_observe\n  local_safe frontier_partial partial_observe eta_control\n  eta_control_observe frontier_named named_observe frontier_deep\n  deep_observe cross_rows cross_observe cross_row_names\n  cross_names_observe cap_named cap_named_observe\n  eta_case_observe char_equal\n  check_direct_parameters check_character_parameters check_eta_parameters\n  check_pending_box_fields check_boxed_boolean_patterns check_existing_scope_controls\n  in Rust module_name Name_Hygiene"
+  ]
+}

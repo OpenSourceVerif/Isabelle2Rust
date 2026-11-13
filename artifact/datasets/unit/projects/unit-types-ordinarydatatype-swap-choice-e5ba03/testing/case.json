@@ -1,0 +1,13 @@
+{
+  "id": "unit-types-ordinarydatatype-swap-choice-e5ba03",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"swap_choice\": \"C (OrdinaryDatatype_Test.swap_choice (PickLeft x :: (nat,nat) typed_choice)) @ C (OrdinaryDatatype_Test.swap_choice (PickRight y :: (nat,nat) typed_choice)) @ C (OrdinaryDatatype_Test.swap_choice (PickBoth x y))\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

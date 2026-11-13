@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/mapping/Sets_Test.thy",
+  "sha256": "c906927267091ffb2c933efb6deea100d049db18424f164a3f7fbb14e1a30a62",
+  "derived_sha256": "69462dc1250bbdf658749f9b49f35e9b73747887912fdf68280de78d73b551f4",
+  "removed_exports": [
+    "export_code\n  nat_set pair_set\n  in Rust"
+  ]
+}

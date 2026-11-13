@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/terms/Constructors_Test.thy",
+  "sha256": "f8a49b3f98a9dae86f36d52fd6601171d3c7434898517fc9ff9cc6312760266b",
+  "derived_sha256": "3e792cf94d403e020c3fb0ef387c4494f86208ec1fcbe8653bf97d7826ed1a76",
+  "removed_exports": [
+    "export_code\n  wrap_bit0 wrap_bit1 is_ok is_err get_or err_or swap_result choose_first_ok\n  flatten_result\n  in Rust"
+  ]
+}

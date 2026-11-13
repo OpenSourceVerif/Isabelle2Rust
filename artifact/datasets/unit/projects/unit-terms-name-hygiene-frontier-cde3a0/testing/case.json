@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-name-hygiene-frontier-cde3a0",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"frontier\": \"B (case Name_Hygiene_Test.frontier (Node (Node (Leaf flag) (Leaf flag2)) (Node (Leaf True) (Leaf False))) of Some (Leaf a,Leaf b,Leaf c,Leaf d) => a=flag & b=flag2 & c & ~d | _ => False)\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

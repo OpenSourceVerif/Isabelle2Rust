@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-patternmatching-is-primary-09111e",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"is_primary\": \"B (PatternMatching_Test.is_primary Red) @ B (PatternMatching_Test.is_primary Green) @ B (PatternMatching_Test.is_primary Blue) @ B (PatternMatching_Test.is_primary (Other x))\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

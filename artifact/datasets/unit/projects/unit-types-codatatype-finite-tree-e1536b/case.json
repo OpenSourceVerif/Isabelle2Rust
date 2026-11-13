@@ -1,0 +1,13 @@
+{
+  "id": "unit-types-codatatype-finite-tree-e1536b",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"finite_tree\": \"(case Codatatype_Test.finite_tree of CoLeaf => [0] | CoNode l r => [1] @ (case l of CoLeaf => [0] | CoNode _ _ => [1]) @ (case r of CoLeaf => [0] | CoNode a b => [1] @ (case a of CoLeaf => [0] | CoNode _ _ => [1]) @ (case b of CoLeaf => [0] | CoNode _ _ => [1])))\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/optimization/MutTrees_Test.thy",
+  "sha256": "596339e3d448b1fd605397ff0b32eae3636b21624e4ac259b477e1db979c4317",
+  "derived_sha256": "76ed69f2c96acf281163490712f7465d530fd56ad90d0b716cbf6dce47113979",
+  "removed_exports": [
+    "export_code\n  mtree_any_label mtree_rebuild_chain mtree_interleaved_chain\n  mtree_branch_rhs_chain mtree_two_chains mtree_saved_value_blocks_chain\n  in Rust"
+  ]
+}

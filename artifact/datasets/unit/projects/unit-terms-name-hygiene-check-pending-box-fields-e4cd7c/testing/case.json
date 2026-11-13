@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-name-hygiene-check-pending-box-fields-e4cd7c",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"check_pending_box_fields\": \"B Name_Hygiene_Test.check_pending_box_fields\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

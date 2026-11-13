@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/types/RecursiveType_Test.thy",
+  "sha256": "cece26e8e4efc25ca3b72e1cf87295da9088b60d92af76989359125357851c2b",
+  "derived_sha256": "4f9419f1b734d5217ffc036bc67de71bef68e92d2fc6c0e37308ed34349f843f",
+  "removed_exports": [
+    "export_code\n  singleton is_empty head_or wrap_tree tree_is_leaf\n  in Rust"
+  ]
+}

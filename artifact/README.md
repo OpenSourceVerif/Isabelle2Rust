@@ -1,12 +1,53 @@
-# Isabelle2Rust FPP artifact
+# Isabelle2Rust Agent experiments
 
-This artifact adds the Agent and a Dashu numeric profile to Isabelle2Rust main `a792fd464574bc8fd3274c282974403d779de92e`. Existing BigInt and Checked128 profiles, the optimizer and the original tests (including HCT) remain available. This Agent experiment selects only FPP.
+This artifact adds the Agent and a Dashu numeric profile to Isabelle2Rust main `a792fd464574bc8fd3274c282974403d779de92e`. Existing BigInt and Checked128 profiles, the optimizer and the original tests (including HCT) remain available. The shared runner supports FPP and Unit as separate datasets.
 
 The supported workflow is `source-translation`, configured by the `translation` section. `artifact/run-fpp`, `i2r-fpp`, and `isabelle2rust-agent` select the same FPP runner. Runtime advisory material lives under `agent/references/`; historical workflow launchers are not part of this artifact. Shared review and kernel-performance components remain available, while the correctness experiment keeps performance disabled.
 
 The Agent analyzes source dependencies, generates and compiles Rust, validates source tests, then runs fixed/generated differential checks. Source pages retain exact constructor evidence in a reversible typed tree with shared type definitions; original paths, ordered fields and hashes are checked against the source AST. Unsupported tree shapes retain their raw evidence. Paging requires exact page IDs and retained reading notes, with explicit feedback for malformed requests and repeated unread-page sets. Expectation corrections preserve AST, expected-slot, source-citation, unchanged-input, obligation and test-strength checks; string and character contents are treated as data. The direct runner uses portable repository discovery and main-layout compatibility without historical runner chains or model checkpoints.
 
 `fpp-manifest.json` defines **324 unique exported roots: 313 runnable tasks and 11 explicit exclusions**. Each task retains its full source closure and original fixed/generated inputs. Counts are roots, not theories or closure members. The 43 complete FPP theories are the existing `test/fpp/` files. Runtime projects reconstruct historically admitted administrative export relocation from hash-checked recipes; source definitions and proofs are preserved. No old candidate, generated test, model analysis or model checkpoint is imported. Preparation builds mechanical source/wrapper and reference artifacts against this checkout; an explicit, strictly validated preparation-only import can reuse compatible mechanical artifacts as described below.
+
+## Formal results and datasets
+
+The repository owns both datasets and both completed runs:
+
+| Dataset | Maintained inputs | Completed run | Accepted |
+| --- | --- | --- | --- |
+| FPP | `fpp-manifest.json`, `projects/` | `runs/fpp-formal-clean-20261113/` | 307/313 |
+| Unit | `datasets/unit/manifest.json`, `datasets/unit/projects/` | `runs/unit-formal-20261113-r2/` | 479/488 |
+
+The versioned result summary is
+[`evaluation/results/agent/formal-20261113.json`](../evaluation/results/agent/formal-20261113.json).
+Raw runs remain Git-ignored; they are local evidence, not automatically included
+in a clone. The Unit run now physically lives here. Its previous `output/` path
+is only a compatibility symlink for immutable absolute paths in old receipts.
+
+The current shared entry is `run-agent --dataset fpp|unit`; `run-fpp` and
+`run-unit` are thin aliases. Use a **new** run directory. The completed experiments
+retain their original release hashes and do not claim to have used this later
+integration revision. Frozen sources live at
+`runs/fpp-formal-clean-20261113/frozen-source/` and
+`runs/unit-formal-20261113-r2/final-snapshot/`. Do not resume completed formal
+runs using the current checkout.
+
+For a read-only audit of both original experiments, from the repository root:
+
+```sh
+agent/.venv/bin/python evaluation/scripts/agent/audit_formal.py
+```
+
+This writes `runs/unit-formal-20261113-r2/integration-audit.json` and leaves the
+original reports unchanged. Keep compatibility symlinks when archiving locally;
+this migration does not make historical absolute-path receipts relocatable to
+another machine. Unit anomaly evidence is in the run's `anomalies/index.json`.
+Unit accepted coverage is 468 three-backend and 11 OCaml-only tasks; FPP is 306
+three-backend and one OCaml-only. Stage2 derives from Stage1. Both runs use the
+same available-per-input policy. Ten Unit transport requests lack token usage;
+the summary labels known totals explicitly.
+
+The remaining FPP-specific counts and examples below describe the FPP dataset.
+For Unit, use `run-unit`, 488 tasks and the dataset documentation above.
 
 ## Installation
 

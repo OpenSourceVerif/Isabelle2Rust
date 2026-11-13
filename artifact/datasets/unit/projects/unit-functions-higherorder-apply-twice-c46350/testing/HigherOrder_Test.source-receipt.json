@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/functions/HigherOrder_Test.thy",
+  "sha256": "c1ff23411fbea71616e6432ed9425176e798daa7db8a99a35d7e86cae3b81dbe",
+  "derived_sha256": "7c67502615338f9e83174823932e38d74e1ebd1acd22a74a82abdfc934568f43",
+  "removed_exports": [
+    "export_code\n  call_apply_first apply_twice compose apply_generated choose_fun\n  in Rust"
+  ]
+}

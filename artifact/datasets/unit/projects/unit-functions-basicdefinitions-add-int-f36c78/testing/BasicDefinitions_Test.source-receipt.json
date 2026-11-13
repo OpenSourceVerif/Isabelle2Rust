@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/functions/BasicDefinitions_Test.thy",
+  "sha256": "74af92ac040f3ba1c00acd3fa3e3b97a4af29ad35f4d3a1af54b5ace9813887c",
+  "derived_sha256": "6320e95b60ca5380087b72c64eaba814fd27130fd1d5e1fc4a5224915b455fd7",
+  "removed_exports": [
+    "export_code\n  zero_nat add3 add_int add_nat rust_keyword_arg max_case max_if\n  in Rust"
+  ]
+}

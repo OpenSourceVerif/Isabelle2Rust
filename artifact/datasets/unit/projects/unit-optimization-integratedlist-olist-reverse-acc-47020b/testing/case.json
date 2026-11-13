@@ -1,0 +1,13 @@
+{
+  "id": "unit-optimization-integratedlist-olist-reverse-acc-47020b",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"olist_reverse_acc\": \"Direct exported-root call; concrete input-dependent arguments; injective constructor-tag and field encoding of complete result.\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

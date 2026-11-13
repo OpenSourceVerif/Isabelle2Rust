@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/functions/Recursive_Test.thy",
+  "sha256": "e314a0019f328ce4e23140cd325dee3cfc5107ea611f02753b78e03841e1ffa6",
+  "derived_sha256": "fdb23a182bf2bc7fc714921db9420cc7c4a63b38b7e801a137dd7e77435bff3f",
+  "removed_exports": [
+    "export_code\n  rlength rmap list_sum map_add\n  in Rust"
+  ]
+}

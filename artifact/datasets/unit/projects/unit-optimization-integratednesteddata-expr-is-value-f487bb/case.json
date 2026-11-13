@@ -1,0 +1,13 @@
+{
+  "id": "unit-optimization-integratednesteddata-expr-is-value-f487bb",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"expr_is_value\": \"Direct exported-root call; concrete input-dependent arguments; injective constructor-tag and field encoding of complete result.\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

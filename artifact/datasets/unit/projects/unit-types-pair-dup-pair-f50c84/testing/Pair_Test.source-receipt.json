@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/types/Pair_Test.thy",
+  "sha256": "0027d5232f73458b4cfd871485b67c0296e0345ca0e7fb00feb132f596fad503",
+  "derived_sha256": "c3a5e8234d9d20dcaeb704bb6e43bfbf6e54c317c388831e9ab7f88609a31d63",
+  "removed_exports": [
+    "export_code\n  int_pair make_pair pair_left pair_right swap_pair dup_pair map_pair\n  in Rust"
+  ]
+}

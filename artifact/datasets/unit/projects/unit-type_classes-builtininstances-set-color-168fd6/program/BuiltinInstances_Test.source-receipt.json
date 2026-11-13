@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/type_classes/BuiltinInstances_Test.thy",
+  "sha256": "b8d7c41067c3838ceedf8d8dba97160641b2257b8b064651c08dd9e9a9630e04",
+  "derived_sha256": "85acb9babf5a796c170d34c759700c146ebe12f594845c55ef2a28be3660d1e6",
+  "removed_exports": [
+    "export_code\n  set_color eq_color eq_pair eq_nested pick_int\n  in Rust"
+  ]
+}

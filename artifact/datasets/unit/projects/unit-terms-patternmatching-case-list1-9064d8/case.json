@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-patternmatching-case-list1-9064d8",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"case_list1\": \"B (PatternMatching_Test.case_list1 (if flag then [] else [x])) @ B (PatternMatching_Test.case_list1 (if flag then [x] else [])) @ B (PatternMatching_Test.case_list1 [x,y])\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

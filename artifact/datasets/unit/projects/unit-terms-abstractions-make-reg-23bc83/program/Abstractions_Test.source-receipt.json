@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/terms/Abstractions_Test.thy",
+  "sha256": "fd2b157a484dbade02bea063ed77e1dfc3df9aa8f16887e9d31c8f0d3431eeda",
+  "derived_sha256": "73ebfe95af9f7c66599b815d1c42eaa882926caf0a2db2f3299e9757fea92606",
+  "removed_exports": [
+    "export_code\n  id_abs inc_abs apply_abs add_n add_n2 const_fun local_abs capture_1 capture_2\n  make_pair capture_pair make_reg apply_reg choose_fun make_chooser run_chooser\n  in Rust"
+  ]
+}

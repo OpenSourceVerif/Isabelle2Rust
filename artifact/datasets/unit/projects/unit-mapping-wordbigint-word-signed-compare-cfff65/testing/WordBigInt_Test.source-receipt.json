@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/mapping/WordBigInt_Test.thy",
+  "sha256": "8f4159ed71f81555f6ca5763c3f6d8de06213f597f1ef5ac42314748819650d9",
+  "derived_sha256": "04654b729976c45caa41406e0c7968e10358f190e1341942e52fc55632844485",
+  "removed_exports": [
+    "export_code\n  word_arithmetic word_div_mod word_bits word_casts word_signed_compare word_mask\n  in Rust"
+  ]
+}

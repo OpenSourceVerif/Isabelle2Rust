@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/functions/ModuleResolution_Test.thy",
+  "sha256": "578e2797466d89fe1f7011ba1117cc6f30ebdcb7bb6d1fdedf984b7510bd3efb",
+  "derived_sha256": "247b6a697a637c5c1603b8b13e1e4f2d51835323df46ee7fead4072e4b567ebb",
+  "removed_exports": [
+    "export_code\n  use_both use_nested\n  in Rust"
+  ]
+}

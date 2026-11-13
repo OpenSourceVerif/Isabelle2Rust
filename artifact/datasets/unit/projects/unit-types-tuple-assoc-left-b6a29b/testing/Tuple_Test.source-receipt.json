@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/types/Tuple_Test.thy",
+  "sha256": "78e98f5f1222717f46702c83e1dda9c688a84d33c952771e55235292787f6c5e",
+  "derived_sha256": "7685abb391e33a210908ec089f8a8e7793c28b49532b21e5d52f2ab70733d696",
+  "removed_exports": [
+    "export_code\n  make_tuple3 rotate_tuple3 middle_tuple3 assoc_left flatten_tuple4 map_tuple3\n  in Rust"
+  ]
+}

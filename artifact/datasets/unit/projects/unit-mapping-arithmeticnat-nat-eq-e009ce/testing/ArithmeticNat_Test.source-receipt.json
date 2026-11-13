@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/mapping/ArithmeticNat_Test.thy",
+  "sha256": "40ada6a903a4d92a149c399326b4fcbe73a1ee6fd4d9c83c3a6113f9b5bbabd3",
+  "derived_sha256": "68652476c7eb8e53c7e99f3a73afcd8f13cb99321423d6038bab766d847327ae",
+  "removed_exports": [
+    "export_code\n  nat_zero count_down nat_branch nat_delta nat_eq nat_le nat_lt\n  nat_clamp nat_to_integer\n  in Rust"
+  ]
+}

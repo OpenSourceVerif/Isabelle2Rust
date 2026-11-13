@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/mapping/WordChecked128_Test.thy",
+  "sha256": "53f6c22f8cae095998227b2388835c506e005d9f827747b9584be5ce7e08e218",
+  "derived_sha256": "9fbd20e53b171357175df2126e0a228de6543f6687c75381b33d48d886c181f4",
+  "removed_exports": [
+    "export_code\n  word_arithmetic word_div_mod word_bits word_casts word_signed_compare word_mask\n  in Rust"
+  ]
+}

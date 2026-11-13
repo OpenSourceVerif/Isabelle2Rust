@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/optimization/CopyCalls_Test.thy",
+  "sha256": "be11b0c0baeb919882d7d75a922841bfd72867cd94d81c1331111b02d8683f3a",
+  "derived_sha256": "8fa7751f01eb66c94f5e7c72123d320aa538037601bf66bd46978b365d2e5286",
+  "removed_exports": [
+    "export_code\n  flag_left flag_right flag_swap flag_dup triple_first triple_second triple_rotate\n  color_is_red color_dup pixel_first pixel_second pixel_rotate pixel_replace_first\n  nested_get_flag nested_get_color nested_dup palette_first palette_swap wrap_unwrap\n  wrap_dup wrap_map_flag pair_wrap_first pair_wrap_swap pair_wrap_dup nested_wrap_dup\n  nested_wrap_unwrap_flag wrap_tree_dup mixed_pair_first mixed_pair_dup value_dup\n  tree_is_leaf tree_dup use_wrap_dup_flag use_wrap_dup_generic use_value_dup_flag\n  global_first_two global_swap_first_two use_global_duplicates\n  in Rust"
+  ]
+}

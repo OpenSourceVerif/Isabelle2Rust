@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "finalized_unix": 1794549466.335583,
+  "status": "complete",
+  "acceptance_target": 0.95,
+  "target_met": true,
+  "counting_unit": "One exported root in its original theory context; 488 contexts, 482 distinct canonical names. Six Word roots occur under two source profiles.",
+  "unit": {
+    "selected_roots": 488,
+    "completed": 488,
+    "accepted": 479,
+    "failed": 9,
+    "acceptance_rate": 0.9815573770491803,
+    "requests": 2559,
+    "mean_requests_per_root": 5.243852459016393,
+    "median_requests_per_root": 4.0,
+    "known_tokens": 86300359,
+    "known_mean_tokens_per_root": 176844.99795081967,
+    "known_median_tokens_per_root": 134237.0,
+    "unknown_usage_requests": 10,
+    "accounted_active_seconds": 146704.6328460091,
+    "mean_accounted_active_seconds_per_root": 300.62424763526457,
+    "transport_segment_seconds": 729.6139940439898,
+    "accepted_root_reference_coverage": {
+      "all_three_backends": 468,
+      "one_backend_only": 11
+    }
+  },
+  "fpp": {
+    "selected_roots": 313,
+    "completed": 313,
+    "accepted": 307,
+    "failed": 6,
+    "acceptance_rate": 0.9808306709265175,
+    "requests": 2315,
+    "mean_requests_per_root": 7.396166134185304,
+    "median_requests_per_root": 5,
+    "known_tokens": 94097197,
+    "known_mean_tokens_per_root": 300630.02236421726,
+    "known_median_tokens_per_root": 187246,
+    "unknown_usage_requests": 0,
+    "accounted_active_seconds": 136721.92874463229,
+    "mean_accounted_active_seconds_per_root": 436.8112739445121,
+    "transport_segment_seconds": 0,
+    "accepted_root_reference_coverage": {
+      "all_three_backends": 306,
+      "one_backend_only": 1
+    }
+  },
+  "unit_run": "artifact/runs/unit-formal-20261113-r2",
+  "fpp_run": "artifact/runs/fpp-formal-clean-20261113",
+  "unit_identity": "c00e47c75d8b7d509f4b9e9620c8df83ec778fc86536f4f21d89e44e8fb732d4",
+  "fpp_identity": "08344e16002b9d148b385a2d13d3b6d2bf681a5365a643ae014b890a78e9bb9c",
+  "same_framework_verified": true,
+  "framework_difference": "Only dataset cardinality/identity admission assertion; generation, prompts, repair, validation and per-root budgets unchanged. Corpus and observation adapters differ.",
+  "frozen_budgets": {
+    "per_task_calls": {
+      "unit": 48,
+      "fpp": 48
+    },
+    "per_task_active_seconds": {
+      "unit": 4200,
+      "fpp": 4200
+    },
+    "workers": {
+      "unit": 10,
+      "fpp": 10
+    }
+  },
+  "unit_failures": [
+    {
+      "case": "unit-mapping-arithmeticint-integer-divmod-abs-2f61b0",
+      "status": "oracle_conflict"
+    },
+    {
+      "case": "unit-mapping-arithmeticint-integer-bits-035c54",
+      "status": "source_check_unresolved"
+    },
+    {
+      "case": "unit-mapping-wordbigint-word-arithmetic-127590",
+      "status": "analysis_no_progress"
+    },
+    {
+      "case": "unit-mapping-wordbigint-word-casts-28b87f",
+      "status": "analysis_no_progress"
+    },
+    {
+      "case": "unit-mapping-wordchecked128-word-bits-a21e97",
+      "status": "budget_exhausted"
+    },
+    {
+      "case": "unit-type_classes-classmethods-twoop-chain-fbca73",
+      "status": "needs_user"
+    },
+    {
+      "case": "unit-type_classes-containerclasses-list-weight-dfe2bd",
+      "status": "source_check_unresolved"
+    },
+    {
+      "case": "unit-terms-name-hygiene-direct-same-type-8ee9a1",
+      "status": "support_oracle_dispute"
+    },
+    {
+      "case": "unit-terms-name-hygiene-frontier-cde3a0",
+      "status": "source_check_unresolved"
+    }
+  ],
+  "failure_evidence_index": "artifact/runs/unit-formal-20261113-r2/anomalies/index.json",
+  "notes": [
+    "Rates include original failures and built-in repairs; no semantic failure was rerun or replaced. Development and pilot outcomes are excluded.",
+    "Three backend labels are OCaml, Stage1 and Stage2. Stage2 derives from Stage1; they are not three independent implementations. Single-backend acceptances use the same available-per-input-v1 policy as FPP.",
+    "Unit had three native transport resumes. All 2559 request attempts remain charged; ten responses have unknown token usage. Known token totals are lower bounds, not exact billed totals.",
+    "Active seconds sum task preparation and disjoint model-execution segments; this is not wall-clock duration.",
+    "Different corpora and difficulty mean cost comparisons are descriptive, not a controlled causal estimate."
+  ],
+  "evidence_sha256": {
+    "artifact/runs/unit-formal-20261113-r2/final-audit.json": "9eb56a8c1149bcc8927c3863ef0bb0a147b06aaea672ac76a08bc66628886a4d",
+    "artifact/runs/unit-formal-20261113-r2/anomalies/index.json": "c13eb420521f2034d94de88335803ed94fe1f404e94e43bcfb5ca06f4cc006e5",
+    "artifact/runs/unit-formal-20261113-r2/implementation-comparison.json": "70db751166efaf4c1832a7406108b0afcade22481585e21afc6551fc373be333",
+    "artifact/runs/unit-formal-20261113-r2/report.json": "0f065045e8fc7044958c64983855081a1f5b768cb63d946b1fbdd6d9df22c9e6",
+    "artifact/runs/unit-formal-20261113-r2/release.json": "9ac0aa37cd6bea54bdd75a963ac296d4cb49dc607c3aeee487dc6371be88642c",
+    "artifact/runs/fpp-formal-clean-20261113/report.json": "2b05628c96d8bdfbb3edf1ca707810b2310fc7c3d3a836a6930761f6d9ef6d45",
+    "artifact/runs/fpp-formal-clean-20261113/release.json": "f53d7d103b81ea07686fdbfa191166ce091338ca7f195fd68eb5b39dd326a96e"
+  },
+  "integration_note": "Original measurements and release identities retained. Paths here are repository-relative navigation paths. Current shared runner is a later integration revision, not the historical frozen release."
+}

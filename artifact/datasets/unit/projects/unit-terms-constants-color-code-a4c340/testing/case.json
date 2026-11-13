@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-constants-color-code-a4c340",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"color_code\": \"I (Constants_Test.color_code Red) @ I (Constants_Test.color_code Green) @ I (Constants_Test.color_code Blue) @ I (Constants_Test.color_code (RGB a b a))\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

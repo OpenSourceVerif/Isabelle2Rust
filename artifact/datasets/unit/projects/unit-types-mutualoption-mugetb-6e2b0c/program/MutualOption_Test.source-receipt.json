@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/types/MutualOption_Test.thy",
+  "sha256": "361167d2b2c39549799592a7c87c7cdc4e37c27a88ea436e0c8003f0fc266a62",
+  "derived_sha256": "0f53bdad5ad0ec2c03f0f6bf2f9fdff0e7fdb55ad1fb0e036e4bd6a996ff28b3",
+  "removed_exports": [
+    "export_code\n  mugeta mugetb\n  in Rust"
+  ]
+}

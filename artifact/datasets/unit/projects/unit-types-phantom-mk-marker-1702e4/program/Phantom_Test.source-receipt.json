@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/types/Phantom_Test.thy",
+  "sha256": "df263e7bc3f43a7e4d3296b0fd80aae5afc8291c25bf0fb1ccc56bb99bab4b5f",
+  "derived_sha256": "7b28da37280a6c07be0d3a4077d77fefef9d1107eca352da1c166922c4a1d530",
+  "removed_exports": [
+    "export_code\n  mk2 get2 mk_marker marker_seen mk_tag untag mk_partial get_partial\n  in Rust"
+  ]
+}

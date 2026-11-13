@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/optimization/BorrowCalls_Test.thy",
+  "sha256": "fdb311ec834508681c72d84cf68588d74238a9a890404b6a147f0d83cf51d1c8",
+  "derived_sha256": "658844714a1ed3f43e4d51ef8ebbeafe41f0b86dcb4f8631220db06ea2cea0c5",
+  "removed_exports": [
+    "export_code\n  any_label any_label_twice rebuild mp_pair_return mp_check_or_return mp_compare\n  mp_build_and_check mp_flag_and_observe btree_is_leaf btree_leaf_val btree_dup\n  bbox_get bbox_dup bbox_swap\n  in Rust"
+  ]
+}

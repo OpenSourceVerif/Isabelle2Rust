@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/mapping/Tuples_Test.thy",
+  "sha256": "e0f57f7a6c6d4451c4546dfa93f02b47c0406f911d04c027a6ff0adc16d8f788",
+  "derived_sha256": "7bda01bb2f92f4595a3359376a3f72f19ae9e46d213a376a9e26e9916d8e59a5",
+  "removed_exports": [
+    "export_code\n  pair_build pair_swap pair_assoc pair_first_default\n  in Rust"
+  ]
+}

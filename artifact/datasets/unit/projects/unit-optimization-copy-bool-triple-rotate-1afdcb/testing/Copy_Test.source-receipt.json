@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/optimization/Copy_Test.thy",
+  "sha256": "123e3adedc63af657849fb1905e66966b508d41c4f36a20737691eaacf0555f3",
+  "derived_sha256": "119b390b8fec1a2fc8625c4e01d39a88955ec52ecb82883ff92d43f0eb3bf0c0",
+  "removed_exports": [
+    "export_code\n  get_left get_right swap_flag_pair duplicate duplicate_wrap count_box_val count_box_dup\n  count_pair_fst count_pair_dup mixed_flag mixed_dup bool_triple_first bool_triple_dup\n  bool_triple_rotate is_red get_first_color rotate_pixel replace_first_color\n  stree_is_leaf stree_dup holder_flag holder_dup flag_holder_dup opt_val_has opt_val_dup\n  flag_holder_opt_dup\n  in Rust"
+  ]
+}

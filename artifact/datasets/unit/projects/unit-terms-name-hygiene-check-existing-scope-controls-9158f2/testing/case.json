@@ -1,0 +1,13 @@
+{
+  "id": "unit-terms-name-hygiene-check-existing-scope-controls-9158f2",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "contract": "Original unit HOL definitions, concrete observations for every exported entry. Reference outputs computed by the existing dual-reference machinery. {\"check_existing_scope_controls\": \"B Name_Hygiene_Test.check_existing_scope_controls\"}",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Correctness-only observation; no performance claim."
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "original": "test/unit/mapping/ArithmeticPeano_Test.thy",
+  "sha256": "fdc4d5aebdb0413a12b07c6098b30b6c13e34036b1ac66713da011527008164a",
+  "derived_sha256": "7870ed39e9fc65df204e6a41a9dda8e2edbc623c566be831ea26dedc6773b0b7",
+  "removed_exports": [
+    "export_code\n  peano_count peano_branch peano_delta peano_compare\n  in Rust"
+  ]
+}
