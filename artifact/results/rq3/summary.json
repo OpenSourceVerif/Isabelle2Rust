@@ -621,70 +621,70 @@
       "case": "fpp-multip",
       "workload": "iterations-1024",
       "primary": true,
-      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-multip/iterations-1024/measurement-v2.json",
+      "record": "evidence/fe1262af2ce326b5d6c0",
       "record_sha256": "2abb6b212e4acddad28c7212e7f987df1204a3fd4eb8553c5bcd8625519091a3"
     },
     {
       "case": "fpp-tree-inorder",
       "workload": "balanced-1024",
       "primary": true,
-      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-tree-inorder/balanced-1024/measurement-v2.json",
+      "record": "evidence/23b90687cd761fe4f3ca",
       "record_sha256": "620f8efed26a6a7ec218e468c59c8ac97ab2fd8fee736e0ab03cbe23ba37112b"
     },
     {
       "case": "fpp-deq-list",
       "workload": "descending-1024",
       "primary": true,
-      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-deq-list/descending-1024/measurement-v2.json",
+      "record": "evidence/ec21f3a53d8c66e9ccd3",
       "record_sha256": "483d568666012c4d2d92aeeab6619b14d69bc487622034473bc7f508f2070c77"
     },
     {
       "case": "fpp-msort",
       "workload": "descending-1024",
       "primary": true,
-      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-msort/descending-1024/measurement-v2.json",
+      "record": "evidence/25c9f8b51867118980f6",
       "record_sha256": "ae7c9f29221b952b1b9d9e06704fb9c7728c9e79576f116460f06f11241f0822"
     },
     {
       "case": "fpp-avl-updates",
       "workload": "mixed-1024",
       "primary": true,
-      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-avl-updates/mixed-1024/measurement-v2.json",
+      "record": "evidence/40dc6cc4f6cbe9d71edc",
       "record_sha256": "e91d750c610c63077209c3c6825d12e17d24d64f17523a6497491faa673e6d73"
     },
     {
       "case": "fpp-acomp",
       "workload": "descending-1024",
       "primary": true,
-      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-acomp/descending-1024/measurement-v2.json",
+      "record": "evidence/34f7676a743225b0e53d",
       "record_sha256": "bbacaed3e444c7751b3fdfa5fdb1bef1dfc30b9ec275dcd672fe828795babc4f"
     },
     {
       "case": "hol-eratosthenes",
       "workload": "upper-bound-4096",
       "primary": true,
-      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/hol-eratosthenes/upper-bound-4096/measurement-v2.json",
+      "record": "evidence/2216fd1a84db6597aacb",
       "record_sha256": "fe67f660605fc6891eba3e5ba390ceae073e8a59ac28bb513b853b69b457d9a4"
     },
     {
       "case": "hol-polynomial",
       "workload": "degree-1023-point-1",
       "primary": true,
-      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/hol-polynomial/degree-1023-point-1/measurement-v2.json",
+      "record": "evidence/1e509d42ee3c7dc6318c",
       "record_sha256": "e8547c4eb73c90c4532daa8a5ebd984cdd61aec02b4fe2b3beb24e0d4b8febeb"
     },
     {
       "case": "hol-fibonacci",
       "workload": "n-180",
       "primary": true,
-      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/hol-fibonacci/n-180/measurement-v2.json",
+      "record": "evidence/348634b292265af319ba",
       "record_sha256": "96c79384be6224b18204fc3f8c8d45b2b6c6a4e340a58e786bc07b02fecb109c"
     },
     {
       "case": "fpp-leftist-heap-merge",
       "workload": "descending-1024",
       "primary": true,
-      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-leftist-heap-merge/descending-1024/measurement-v2.json",
+      "record": "evidence/42c9504844a24e57d12f",
       "record_sha256": "6db0f7925a8f017480d24046ce519d7a3baf88747c690ad50abda81588cbdcf4"
     }
   ],

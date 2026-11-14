@@ -1,42 +1,42 @@
 {
   "summary.json": {
-    "source": "workspace/output/performance-rq3-rust-only-ten-20261114/summary.json",
+    "source": "evidence/c6da8c0b20af0dcb116e",
     "source_sha256": "73e08cb91a46b2b15be6ab02c944e5b22a49995ef0a5f38822821e957f245b26"
   },
   "timings.csv": {
-    "source": "workspace/output/performance-rq3-rust-only-ten-20261114/timings.csv",
+    "source": "evidence/e5a1bf4cfadac34779ae",
     "source_sha256": "9783b471f7143dadd82bb23f81a1946a11e8b14b9797878d7c761d354931ea59"
   },
   "speedups.csv": {
-    "source": "workspace/output/performance-rq3-rust-only-ten-20261114/speedups.csv",
+    "source": "evidence/50a4896379dd76ef7f07",
     "source_sha256": "6adfd91cee8424fc168b820afb8e9f59a518c29e81d3264bd5e3d30a48c4b505"
   },
   "primary-speedups.csv": {
-    "source": "workspace/output/performance-rq3-rust-only-ten-20261114/primary-speedups.csv",
+    "source": "evidence/b6c075323a7117af1f85",
     "source_sha256": "6adfd91cee8424fc168b820afb8e9f59a518c29e81d3264bd5e3d30a48c4b505"
   },
   "geometric-means.csv": {
-    "source": "workspace/output/performance-rq3-rust-only-ten-20261114/geometric-means.csv",
+    "source": "evidence/31418659e191cf717224",
     "source_sha256": "4d35e9048ee3c282c077a373c19ca2d9de6306f7b04be21cf738e6c72b40b944"
   },
   "normalized-runtimes.csv": {
-    "source": "workspace/output/performance-rq3-rust-only-ten-20261114/normalized-runtimes.csv",
+    "source": "evidence/eedece927fe9e2c45f8e",
     "source_sha256": "ff35e814cb89f5933946782235f198103e5b6f280e4f4f0e7ad5e6d2df12d9ee"
   },
   "timing-quality.csv": {
-    "source": "workspace/output/performance-rq3-rust-only-ten-20261114/timing-quality.csv",
+    "source": "evidence/ac0bf3691cdd347e1fc4",
     "source_sha256": "caee6bd06468cc6d66929c22b0d56d71f95655e7091f15950594840a67550872"
   },
   "measurement-provenance.json": {
-    "source": "workspace/output/performance-rq3-rust-only-ten-20261114/measurement-provenance.json",
+    "source": "evidence/31f3f07c4b68d3c78f32",
     "source_sha256": "8ed3a63a4df9ef8a77cd9b71ea6a03ad4a4d8b08923766f0c25bd1c6e2ef9536"
   },
   "experiment-seal.json": {
-    "source": "workspace/output/performance-rq3-rust-only-ten-20261114/experiment-seal.json",
+    "source": "evidence/157717ad4a900d4f3ce3",
     "source_sha256": "b4ece0f748f998f44190520875160ab982143fa29e8a9b687acab1e1bad559c6"
   },
   "delivery-verification.json": {
-    "source": "workspace/output/performance-rq3-rust-only-ten-20261114/delivery-verification.json",
+    "source": "evidence/ebc421b6b514f36fbce9",
     "source_sha256": "162b2df9b8cde99fadabb5e817d7e12c10be6e50eb662b2ff6c5afde7851ffb8"
   }
 }

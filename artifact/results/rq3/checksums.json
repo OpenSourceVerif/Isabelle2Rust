@@ -1,14 +1,14 @@
 {
-  "README.md": "4c2f6489ad21984cb096bb95984fe6f220e2d424d9c9112b646cdb1df8e1f439",
-  "delivery-verification.json": "a7677bf6cf1ca127671349d6e4e8b05307897a84f3057992f490e0199fbe91e1",
-  "experiment-seal.json": "519a3fd79956a02dd172435199ff7f4d65de29dd1a0526a3192c66c1f79c63b5",
+  "README.md": "d83d49bfa004cb9f23d8c862829e7b07a8dd1a1649d14faed9c47f1f5129b3df",
+  "delivery-verification.json": "6128632652306b93327319e39d8f5990caeeca07a07c34ef7e188061c9bd73a9",
+  "experiment-seal.json": "a97ba459e8199ee45a3c69599edf058760f5a65a15830dda7125c345db6aed09",
   "geometric-means.csv": "75935f991a468df9a864015d7b4f4ef148788b5d46bf3e1264d5dd6b635c9500",
-  "measurement-provenance.json": "783bab5b793db09ca28bb74f8827a61476e95411faa6d9ea304308973ca33021",
+  "measurement-provenance.json": "ecd46706bcbb355b70c0f2469544e680a224f05d783c3cdda7cf4618b368f586",
   "normalized-runtimes.csv": "c9eb4ee19655dd521038fa42fdfd2990b3dea3e95d36207025a1e8fb294afa25",
-  "primary-speedups.csv": "28fa65e24459af06c8aa4f1ad78cb8c4021fd44da7fa419974bfc0c0d6873258",
-  "sources.json": "39a0f580c0d294fd4063cbd56e591fd0e415275c9e655e6e253629e9f9f98510",
-  "speedups.csv": "28fa65e24459af06c8aa4f1ad78cb8c4021fd44da7fa419974bfc0c0d6873258",
-  "summary.json": "8bb988873c8992c5ccb790e8ec757184b447d2cc4fdcbb4a290885610d4262d2",
-  "timing-quality.csv": "a9b3464cedff2b32a11da138e644c45f3c7ba1a900bcfbcaf73bfbb01cd23e13",
-  "timings.csv": "2715a396d6f37f134584baaa84027bf21aebece3fc48d6e54be43656eef63a6b"
+  "primary-speedups.csv": "84ba71fdb3fe50cc73914167b89d339441848fd2452345b708c726b7faa9095d",
+  "sources.json": "e738767c5e545ab0438ab4bac717dc4c74ad5136f0be43fb021595ab1bbee29c",
+  "speedups.csv": "84ba71fdb3fe50cc73914167b89d339441848fd2452345b708c726b7faa9095d",
+  "summary.json": "bba3aa9aa81b15829daeba3d2c54aa089a595dbc866945e8e38c7742eec53993",
+  "timing-quality.csv": "7d9c9d0d41332c111233767bbbd74e695600c85156e57fdf169b8492d3142d6d",
+  "timings.csv": "ec04c7553d99e4f4b99c996aa2bc994f86e7c3046c946f592762243ee73eae45"
 }

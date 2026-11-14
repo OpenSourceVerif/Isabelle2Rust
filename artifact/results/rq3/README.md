@@ -24,5 +24,8 @@ Haskell, and the Heap/OCaml difference is inconclusive. Consult timing warnings
 and confidence intervals before interpreting precise ratios.
 
 Original runs remain under `artifact/runs/` and are not included in a source
-clone. Personal path prefixes are removed in these publication copies.
+clone. Local development paths are represented by stable evidence identifiers.
 Source hashes identify original evidence; `checksums.json` identifies copies.
+
+References starting with `evidence/` identify local raw evidence via the
+publication evidence index; they are not paths inside this checkout.

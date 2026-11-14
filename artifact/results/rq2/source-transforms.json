@@ -22,7 +22,7 @@
           }
         ]
       },
-      "directory": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-multip/attempts/004/source",
+      "directory": "evidence/9db06296322e393ce149",
       "skip_proofs": false,
       "oracle_dependencies": [],
       "oracle_audit": "root equality proofs and reachable executable code equations",
@@ -40,7 +40,7 @@
         "FirstExample_Test.thy": "95e5240af0df08b39a3dd6ff7fb523ef9b92e3d7ed0a79c4c4f1e8137e90ad8a"
       }
     },
-    "selected_state": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-multip/selected-state.json",
+    "selected_state": "evidence/c09f97fc230790d3036e",
     "selected_state_sha256": "f10201634cdc1040f46aa4235e2bbf3d5c613cb55ac38022e68834db53cced7d"
   },
   {
@@ -66,7 +66,7 @@
           }
         ]
       },
-      "directory": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-tree-inorder/attempts/001/source",
+      "directory": "evidence/5a7e540e4db7b44d00ae",
       "skip_proofs": false,
       "oracle_dependencies": [],
       "oracle_audit": "root equality proofs and reachable executable code equations",
@@ -126,7 +126,7 @@
         "source/4_ds_algo/bintree/Priority_Queue_Specs_Test.thy": "f169404e12dfef791f043175bcea1fe6d5acf700003f6e719c57bc7305e1e545"
       }
     },
-    "selected_state": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-tree-inorder/selected-state.json",
+    "selected_state": "evidence/7efeaaac01ff93a59d49",
     "selected_state_sha256": "3932d3076127e7e8a68c7df70be73f6e17570c81fec165086b2a7854f304e73e"
   },
   {
@@ -152,7 +152,7 @@
           }
         ]
       },
-      "directory": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-deq-list/attempts/001/source",
+      "directory": "evidence/8840653a47c663ee28c5",
       "skip_proofs": false,
       "oracle_dependencies": [],
       "oracle_audit": "root equality proofs and reachable executable code equations",
@@ -170,7 +170,7 @@
         "Export.thy": "0e69ad9556c24966b679564a7e16dcecd7f7ccc37527948522f746b88e5b946d"
       }
     },
-    "selected_state": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-deq-list/selected-state.json",
+    "selected_state": "evidence/cfe3c41c8b470d80207e",
     "selected_state_sha256": "b9336ccb52f267cb875434e9337703194c48a18fec01ffeba163b245d32d5970"
   },
   {
@@ -196,7 +196,7 @@
           }
         ]
       },
-      "directory": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-acomp/attempts/001/source",
+      "directory": "evidence/4e290e56a2a33be6e50d",
       "skip_proofs": false,
       "oracle_dependencies": [],
       "oracle_audit": "root equality proofs and reachable executable code equations",
@@ -219,7 +219,7 @@
         "BExp_Test.thy": "c7a9bf3f431a5d6a00be4e24d341030834bcadc14de6456029b1c59524324fd1"
       }
     },
-    "selected_state": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-acomp/selected-state.json",
+    "selected_state": "evidence/c6740cb489225fb68647",
     "selected_state_sha256": "b11a804b1bb02cbf2d477b296bddfe4e975898b6533b7c4ed97914d6efac8517"
   },
   {
@@ -245,7 +245,7 @@
           }
         ]
       },
-      "directory": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full/optimization/hol-fibonacci/attempts/002/source",
+      "directory": "evidence/5426d3ab76e74b55ab42",
       "skip_proofs": false,
       "oracle_dependencies": [],
       "oracle_audit": "root equality proofs and reachable executable code equations",
@@ -293,7 +293,7 @@
         "proof_repair": false
       }
     },
-    "selected_state": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full/optimization/hol-fibonacci/selected-state.json",
+    "selected_state": "evidence/21536a57fcb5dce38594",
     "selected_state_sha256": "367582deac0accf136d02fccfc7d08ed3bc261083880f4635ff7bd3e89f86d1a"
   }
 ]

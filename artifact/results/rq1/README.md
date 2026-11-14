@@ -21,3 +21,6 @@ bounds. Differential validation is finite behavioral evidence, not a proof.
 Source evidence remains in the ignored `artifact/runs/` directories. Paths in
 publication copies are repository-relative; source hashes refer to original
 receipts. `checksums.json` identifies these publication copies.
+
+References starting with `evidence/` identify local raw evidence via the
+publication evidence index; they are not paths inside this checkout.

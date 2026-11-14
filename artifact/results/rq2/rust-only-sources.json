@@ -16,7 +16,7 @@
   ],
   "cases": {
     "fpp-multip": {
-      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "run": "evidence/ada538d5d1be160cf8e6",
       "mode": "rust-only",
       "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "run_files": {
@@ -33,7 +33,7 @@
       "selected_version": "d8b8ddb455eac4d345767620f5b2a2151df68673c46b2680867b276c6e79d9d7",
       "selected_source_optimized": false,
       "stage_schema": 2,
-      "output": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-multip/output",
+      "output": "evidence/927fed505f412bfecb85",
       "output_files": {
         "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
         "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
@@ -51,7 +51,7 @@
       }
     },
     "fpp-tree-inorder": {
-      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "run": "evidence/ada538d5d1be160cf8e6",
       "mode": "rust-only",
       "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "run_files": {
@@ -68,7 +68,7 @@
       "selected_version": "05ceb59f13610638c28f36aae13cf217f273413cefe84cf95c485986a9e66528",
       "selected_source_optimized": false,
       "stage_schema": 2,
-      "output": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-tree-inorder/output",
+      "output": "evidence/f0b7b8de1da232e6e824",
       "output_files": {
         "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
         "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
@@ -86,7 +86,7 @@
       }
     },
     "fpp-deq-list": {
-      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "run": "evidence/ada538d5d1be160cf8e6",
       "mode": "rust-only",
       "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "run_files": {
@@ -103,7 +103,7 @@
       "selected_version": "c8a58766b8cbb700267967c8b802576815798c857abcd4ad18c17df3d075f216",
       "selected_source_optimized": false,
       "stage_schema": 2,
-      "output": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-deq-list/output",
+      "output": "evidence/e303efe1c7c4376b18f7",
       "output_files": {
         "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
         "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
@@ -121,7 +121,7 @@
       }
     },
     "fpp-msort": {
-      "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
+      "run": "evidence/3f08a788d1700e83fce0",
       "mode": "rust-only",
       "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "run_files": {
@@ -138,7 +138,7 @@
       "selected_version": "cec5a77a302dfec1f938fa7508ba65bbe04c95b334b2ce584c6139fbcb02b875",
       "selected_source_optimized": false,
       "stage_schema": 2,
-      "output": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-msort/output",
+      "output": "evidence/4aa4ef184bd5d23e4193",
       "output_files": {
         "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
         "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
@@ -156,7 +156,7 @@
       }
     },
     "fpp-avl-updates": {
-      "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
+      "run": "evidence/3f08a788d1700e83fce0",
       "mode": "rust-only",
       "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "run_files": {
@@ -173,7 +173,7 @@
       "selected_version": "f17414738ec6b5597f1f77090f70d96e3a5eadf4be7000703a574ba43eeb6a58",
       "selected_source_optimized": false,
       "stage_schema": 2,
-      "output": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-avl-updates/output",
+      "output": "evidence/34843e0396ed9b5480b7",
       "output_files": {
         "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
         "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
@@ -191,7 +191,7 @@
       }
     },
     "fpp-acomp": {
-      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "run": "evidence/ada538d5d1be160cf8e6",
       "mode": "rust-only",
       "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "run_files": {
@@ -208,7 +208,7 @@
       "selected_version": "fff72d1e037f10ac538f4383355f56f82326eb5536931f2294a3fc8c90244ab6",
       "selected_source_optimized": false,
       "stage_schema": 2,
-      "output": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-acomp/output",
+      "output": "evidence/348e80e3ed63602d5e53",
       "output_files": {
         "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
         "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
@@ -226,7 +226,7 @@
       }
     },
     "hol-eratosthenes": {
-      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "run": "evidence/ada538d5d1be160cf8e6",
       "mode": "rust-only",
       "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "run_files": {
@@ -243,7 +243,7 @@
       "selected_version": "c7f680e2056214befc184364e4432c6efe83f90263fdd3cb47e6941c0dd84ef0",
       "selected_source_optimized": false,
       "stage_schema": 2,
-      "output": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-eratosthenes/output",
+      "output": "evidence/c53f757b1bfde2267466",
       "output_files": {
         "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
         "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
@@ -261,7 +261,7 @@
       }
     },
     "hol-polynomial": {
-      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "run": "evidence/ada538d5d1be160cf8e6",
       "mode": "rust-only",
       "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "run_files": {
@@ -278,7 +278,7 @@
       "selected_version": "fbd5fb3301b396ea369d6f4dfa1460cfc28acd38dce4279c4cb0dfb5eb5b5cd5",
       "selected_source_optimized": false,
       "stage_schema": 2,
-      "output": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-polynomial/output",
+      "output": "evidence/07b8585b9452f2b0ac56",
       "output_files": {
         "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
         "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
@@ -296,7 +296,7 @@
       }
     },
     "hol-fibonacci": {
-      "run": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only",
+      "run": "evidence/b4b94cfa82f534ed37ae",
       "mode": "rust-only",
       "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "run_files": {
@@ -313,7 +313,7 @@
       "selected_version": "b59b1a506ad7264d3db6362b7f1b37e751c4b2930edd236725eb8894f6663d42",
       "selected_source_optimized": false,
       "stage_schema": 2,
-      "output": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only/optimization/hol-fibonacci/output",
+      "output": "evidence/f54da6c1ea2a80f2f283",
       "output_files": {
         "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
         "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
@@ -331,7 +331,7 @@
       }
     },
     "fpp-leftist-heap-merge": {
-      "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
+      "run": "evidence/3f08a788d1700e83fce0",
       "mode": "rust-only",
       "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "run_files": {
@@ -348,7 +348,7 @@
       "selected_version": "c6356400c3708af78c63a00484f3eef0d2162a093c3c794ca5400881221345b3",
       "selected_source_optimized": false,
       "stage_schema": 2,
-      "output": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-leftist-heap-merge/output",
+      "output": "evidence/f87fad7280cfe495e35e",
       "output_files": {
         "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
         "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
@@ -372,7 +372,7 @@
   "mixed_controller_releases": false,
   "reason": "Representative display cases selected by the recorded conditional source-success/category rule; not an unbiased source-success-rate sample. Workloads are unchanged. Wider twenty-case aggregation retains unsuccessful and no-gain cases.",
   "plan": {
-    "path": "artifact/runs/source-first-20261114-development/source-workflow-repair/representative-ten-selection-plan-v2.json",
+    "path": "evidence/397d76b351f5fe60c717",
     "sha256": "21052a2cb68c832231749e561306fd07284b37e848a88f7fd1272be9e19419cb"
   }
 }

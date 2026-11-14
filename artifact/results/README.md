@@ -1,20 +1,21 @@
 # Paper results
 
-These versionable publication records are separate from local raw runs.
+Final results produced by the agent in `agent/`.
 
-| Question | Final records |
+| Question | Records |
 | --- | --- |
 | RQ1: translation correctness and recovery | [rq1/](rq1/README.md) |
 | RQ2: optimization and numeric representation | [rq2/](rq2/README.md) |
 | RQ3: cross-language performance | [rq3/](rq3/README.md) |
 
-`artifact/results/` is intended for Git. `artifact/runs/` stays Git-ignored and
-retains original experiments, checkpoints, generated programs and raw evidence.
-No historical runs were deleted to produce these records. This result collection
-is not a self-contained bundle of all generated programs or raw observations.
+`artifact/results/` contains the versioned publication records. Raw execution
+state and source evidence remain local in Git-ignored `artifact/runs/`.
+Run-specific implementation identities, configurations, validation outcomes and
+measurement qualifications remain in the records.
 
-Published records preserve numeric results and remove personal path prefixes.
-Each RQ has a `checksums.json` for its publication files. Source receipt hashes
-refer to the original evidence, not to redacted copies. Repository-relative
-`artifact/` references resolve from the repository root. `workspace/` references
-identify material outside the repository and are not bundled here.
+References beginning `evidence/` are stable identifiers, not checkout paths.
+[evidence-index.json](evidence-index.json) provides hashes for available source
+files; null means the reference denotes a directory or an unavailable local
+file. Raw evidence is not bundled in this source repository. Each RQ has a
+`checksums.json` covering its publication files. Source hashes identify original
+evidence; publication checksums identify the anonymized copies.

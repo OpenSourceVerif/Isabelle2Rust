@@ -1,8 +1,5 @@
 {
-  "at": "2026-11-14T06:42:48.945983+00:00",
-  "user_instruction": "Keep the original ten when they yield at least five selected source optimizations; otherwise bring back already successful Tree inorder and Multiplication only as needed to reach five. Keep every record for the wider twenty-case study. No continued search solely for a sixth source case.",
   "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
-  "controller_changed": false,
   "manifest": "artifact/datasets/performance/manifest.json",
   "manifest_sha256": "69c621005bde32efc5f6071c139835279303f48deb58c0c530965d10fffaedd2",
   "cases": [
@@ -17,11 +14,6 @@
     "hol-fibonacci",
     "fpp-leftist-heap-merge"
   ],
-  "restored_cases": [
-    "fpp-msort",
-    "fpp-avl-updates",
-    "fpp-leftist-heap-merge"
-  ],
   "minimum_source_target": 5,
   "supplementary_only": [
     "fpp-multip",
@@ -29,7 +21,6 @@
     "fpp-tree-inorder"
   ],
   "excluded_exponentiation": "Inherited quick_and_dirty proof dependencies; keep original attempts/costs.",
-  "baseline": "artifact/runs/paired-numerics-source-five-20261114-collection",
   "limits": {
     "max_model_calls": 25,
     "max_seconds": 3600,
@@ -41,38 +32,12 @@
       "reserve_rust_seconds": 1800
     }
   },
-  "case_runs": {
-    "full": {
-      "hol-integer-gcd": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
-      "fpp-map": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
-      "fpp-deq-list": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
-      "fpp-msort": "artifact/runs/optimization-original-ten-v4-20261114-restored-full",
-      "fpp-avl-updates": "artifact/runs/optimization-original-ten-v4-20261114-restored-full",
-      "fpp-acomp": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
-      "hol-eratosthenes": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
-      "hol-polynomial": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
-      "hol-fibonacci": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full",
-      "fpp-leftist-heap-merge": "artifact/runs/optimization-original-ten-v4-20261114-restored-full"
-    },
-    "rust-only": {
-      "hol-integer-gcd": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
-      "fpp-map": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
-      "fpp-deq-list": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
-      "fpp-msort": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
-      "fpp-avl-updates": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
-      "fpp-acomp": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
-      "hol-eratosthenes": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
-      "hol-polynomial": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
-      "hol-fibonacci": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only",
-      "fpp-leftist-heap-merge": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only"
-    }
-  },
   "new_runs": {
-    "full": "artifact/runs/optimization-original-ten-v4-20261114-restored-full",
-    "rust-only": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only"
+    "full": "evidence/36fcda2541560b710d69",
+    "rust-only": "evidence/3f08a788d1700e83fce0"
   },
-  "matrix": "artifact/runs/matrix-original-ten-v4-20261114",
-  "report": "workspace/output/performance-original-ten-20261114-v4",
+  "matrix": "evidence/9130ee34a7c6083d02c7",
+  "report": "evidence/f67c04a9a0e5edeadfa7",
   "rules": [
     "All runs use identical frozen controller bytes and the same per-case limits.",
     "Reuse validated baseline bytes and frozen tests/observations.",
@@ -81,7 +46,7 @@
     "Prefer the original ten; use only the two named supplements when needed, under the recorded conditional rule.",
     "Once five source cases are available, do not launch additional source searches merely to seek six."
   ],
-  "previous_plan": "artifact/runs/source-first-20261114-development/source-workflow-repair/original-ten-restoration-plan-v1.json",
+  "previous_plan": "evidence/44451a9e31f936a27470",
   "previous_plan_sha256": "e93c48b1d23363aa6a00a7a3112f61768eee5cd0af67c5b3b33f82f60af8f3ce",
   "source_target": 5,
   "stop_seeking_extra_source_at": 5,
@@ -125,17 +90,18 @@
   },
   "supplement_runs": {
     "fpp-tree-inorder": {
-      "full": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
-      "rust-only": "artifact/runs/optimization-five-six-v4-20261114-rust-only"
+      "full": "evidence/7d6c40bce0ae00655895",
+      "rust-only": "evidence/ada538d5d1be160cf8e6"
     },
     "fpp-multip": {
-      "full": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
-      "rust-only": "artifact/runs/optimization-five-six-v4-20261114-rust-only"
+      "full": "evidence/7d6c40bce0ae00655895",
+      "rust-only": "evidence/ada538d5d1be160cf8e6"
     }
   },
   "reporting": {
     "representative_ten": "Explicitly selected examples; selection count is not an unbiased source-success rate.",
     "broader_twenty": "Preserve all successes, failures and no-gain cases. The full twenty-case set is not yet complete.",
     "records_deleted": false
-  }
+  },
+  "selection_policy": "Targeted representative cohort, selected using program categories and observed source-optimization applicability, with a target of at least five source-optimized cases. This is not an unbiased sample or an estimate of source-optimization success over the original corpus."
 }

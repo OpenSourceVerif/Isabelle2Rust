@@ -22,16 +22,10 @@ for an experiment. `config.json` supplies the shared experiment settings;
 
 The versioned [result summary](results/rq1/summary.json)
 records FPP 307/313 and Unit 479/488 accepted tasks, including all failures.
-Completed raw evidence is located at:
-
-- `runs/fpp-formal-clean-20261113/`
-- `runs/unit-formal-20261113-r2/`
-
-Runs contain generated programs, reference observations, reports, and validation
-receipts. These local directories are Git-ignored; a source clone alone does not
-include them. Stored receipts can contain machine-specific paths and must not be
-published without an anonymity and relocation check. A current rerun uses a new
-run directory and does not overwrite the recorded result.
+Raw runs contain generated programs, reference observations, validation receipts
+and reports. They remain local under Git-ignored `runs/`. The publication records
+are self-contained summaries, not a bundle of every generated program or raw
+observation. Use a new run directory for a new experiment.
 
 ## Performance
 
@@ -40,15 +34,9 @@ optimization and final-matrix commands, and [the detailed protocol](../agent/doc
 for budgets and acceptance rules. Use fresh final measurements for reported
 comparisons; search timings are not final measurements.
 
-The [final results](results/README.md) contain the reported aggregates and
-references to their measured inputs:
-
-- RQ2: `runs/matrix-representative-ten-v4-primary-20261114/` (ten primary workloads).
-- RQ3: `runs/rq3-rust-only-ten-bounded-heap-20261114/` (Rust-only arbitrary versus four reference backends).
-
-The RQ2 matrix references frozen selected programs from multiple runs with one
-controller identity. Its parent measurement records are necessary evidence.
-Auxiliary workload measurements are incomplete and are not the reported result.
+[Final results](results/README.md) provide the paper's measurements and evidence
+identifiers. RQ2 reports ten primary workloads; auxiliary measurements are not
+part of the reported matrix.
 
 ## Versioned publication records
 

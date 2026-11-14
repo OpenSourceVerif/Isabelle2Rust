@@ -134,6 +134,10 @@ Final measurements must be separate from optimization search measurements.
 
 ## Recorded results
 
+The results below were produced by this agent. RQ1 evaluates correctness and
+recovery; RQ2 and RQ3 evaluate optimization and performance. The result records
+retain the implementation identity and configuration used for each experiment.
+
 | Dataset | Completed | Accepted | Failed |
 | --- | ---: | ---: | ---: |
 | FPP | 313 | 307 | 6 |

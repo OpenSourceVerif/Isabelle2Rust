@@ -3,7 +3,7 @@
     "case": "fpp-multip",
     "mode": "rust-only",
     "selected": "006",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-multip/scope-review/review.json",
+    "record": "evidence/35ed9259de5c50825ce1",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -732,31 +732,31 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-multip/attempts/001/scope-admission.json",
+            "path": "evidence/0086bb730b72aa3aa95b",
             "sha256": "49c0a32d1773d1c017dccf48e9efdfef41b06d944f47d8d4dba1a68fa98f9635"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-multip/attempts/002/scope-admission.json",
+            "path": "evidence/02622809de9ff27e9e11",
             "sha256": "bd1779510a4d2d30d13f9abc6fded9f0e65e4d36f831d558bc810ada30a5faee"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-multip/attempts/003/scope-admission.json",
+            "path": "evidence/e5ba1c7f6c74dcf26d5e",
             "sha256": "7421080b3e6af63aed612d8f9d5357671adc67e2ed5258713e85de78c4543215"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-multip/attempts/004/scope-admission.json",
+            "path": "evidence/03ed3b151ff1a38f2cad",
             "sha256": "2364317dd979da01b60dfacb2e0b83168cb5c9a779324ff0364b121a55b80122"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-multip/attempts/005/scope-admission.json",
+            "path": "evidence/ec57b088c19ebe8fb1f7",
             "sha256": "665ac1a078d50e0e19522ba72aba312105d68afb255e8f263f09a00f74b3d458"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-multip/attempts/006/scope-admission.json",
+            "path": "evidence/4626a42e429cad6e206a",
             "sha256": "2cdb4b5cbb901c346a5aeb178ec4c31ee4d33035fc1eba8305813d7fde6b2204"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-multip/attempts/007/scope-admission.json",
+            "path": "evidence/b19c4c3d26ed26a1fc5b",
             "sha256": "176885637e849056c051168ee785fe11db9b76af10d2f04d1936a03d4e333154"
           }
         ],
@@ -770,7 +770,7 @@
     "case": "fpp-multip",
     "mode": "full",
     "selected": "008",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-multip/scope-review/review.json",
+    "record": "evidence/3544bb6dfe4e2d8105c1",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -1108,19 +1108,19 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-multip/attempts/008/scope-admission.json",
+            "path": "evidence/248a15108c32bba29dde",
             "sha256": "22f1aeb04464fbb2525db32ffcc99eee046f8f7fbd2de9784ff544f1585dd5bf"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-multip/attempts/009/scope-admission.json",
+            "path": "evidence/28ffe79c227a6a2aea2e",
             "sha256": "cbf931acba5be49035c01ef5f28ec3c39d4ab0f42d8548f28a69192b226327d0"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-multip/attempts/011/scope-admission.json",
+            "path": "evidence/92c63b0b8402ebde5267",
             "sha256": "415257635113dc3462520ffe5ababdcc7c2a1180f624e4a99825b88c0a629f4f"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-multip/attempts/012/scope-admission.json",
+            "path": "evidence/5df6fb90ab8f2c722839",
             "sha256": "6f948a85a56807dc826743bd733fd497efb3b949f23dafbd33772900357fe5dc"
           }
         ],
@@ -1134,7 +1134,7 @@
     "case": "fpp-tree-inorder",
     "mode": "rust-only",
     "selected": "001",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-tree-inorder/scope-review/review.json",
+    "record": "evidence/cfcaa71e57bca0c699ca",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -1335,7 +1335,7 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-tree-inorder/attempts/001/scope-admission.json",
+            "path": "evidence/7cdbb1ebd4be0c27b90d",
             "sha256": "310206ba3bc0440537376478a56ad37dbe1ff4758d6c1be97b9d35c2710ebcc5"
           }
         ],
@@ -1349,7 +1349,7 @@
     "case": "fpp-tree-inorder",
     "mode": "full",
     "selected": "003",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-tree-inorder/scope-review/review.json",
+    "record": "evidence/a3363b8bf088ea267f71",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -1736,11 +1736,11 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-tree-inorder/attempts/002/scope-admission.json",
+            "path": "evidence/dd3d4ae2325a0ee61d65",
             "sha256": "31bcac40339b8c56390b30917608baa3ebb8901a59d2d1155ab0dd3c7bb018f8"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-tree-inorder/attempts/003/scope-admission.json",
+            "path": "evidence/05259444d97c070ad272",
             "sha256": "620154876c8bcfb8c62bf05290a6a820d3c0831b0fb36c4e8ecdc2fc16d2cf09"
           }
         ],
@@ -1754,7 +1754,7 @@
     "case": "fpp-deq-list",
     "mode": "rust-only",
     "selected": "002",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-deq-list/scope-review/review.json",
+    "record": "evidence/b778a2989e130926c9e8",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -1955,11 +1955,11 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-deq-list/attempts/002/scope-admission.json",
+            "path": "evidence/0e58ee79936f64aa1623",
             "sha256": "2c28929c58333a059d4f2342b41825f062544758f4ab33070956efb00dd7921d"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-deq-list/attempts/003/scope-admission.json",
+            "path": "evidence/b5ecec1a546b31dde164",
             "sha256": "7bb140d89b748df81a591e5f14d8e21c3feadaccd6df46ffab527976c0d7e8e0"
           }
         ],
@@ -1973,7 +1973,7 @@
     "case": "fpp-deq-list",
     "mode": "full",
     "selected": "002",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-deq-list/scope-review/review.json",
+    "record": "evidence/8197355a9c4d043d255c",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -2179,7 +2179,7 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-deq-list/attempts/002/scope-admission.json",
+            "path": "evidence/a91e5a21ee4e53d37706",
             "sha256": "f5cd08b4cb576da0823f5d2eb740b3de73447692ed31123e6327303383776405"
           }
         ],
@@ -2193,7 +2193,7 @@
     "case": "fpp-msort",
     "mode": "rust-only",
     "selected": "008",
-    "record": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-msort/scope-review/review.json",
+    "record": "evidence/064cdc4ee0c1c03b0794",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -3090,15 +3090,15 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-msort/attempts/002/scope-admission.json",
+            "path": "evidence/a5c0389ceb8afce16e6b",
             "sha256": "b9866b4a96660d2e428a7481a700faf26e7d4c612a8e897a82117dea6d1cf0dd"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-msort/attempts/005/scope-admission.json",
+            "path": "evidence/5061a1cbc1d603f27cd8",
             "sha256": "5dc29a3300937783304a427beb326911b7966e92b842876fd3e49704155fa633"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-msort/attempts/008/scope-admission.json",
+            "path": "evidence/1069c464a2ab53638cc7",
             "sha256": "2b88a67b509ea44f476567b7b9b69b45456faeecd565735fbb8690e8052c6a7f"
           }
         ],
@@ -3112,7 +3112,7 @@
     "case": "fpp-msort",
     "mode": "full",
     "selected": "004",
-    "record": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-msort/scope-review/review.json",
+    "record": "evidence/d27b4cd9396be70b2464",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -3720,11 +3720,11 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-msort/attempts/003/scope-admission.json",
+            "path": "evidence/abe78810f7469aa1be9e",
             "sha256": "c00b3ba2a37dbbd2b7e7505d693535f7d5ec54d9c139b02c975c291e7a739d5c"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-msort/attempts/004/scope-admission.json",
+            "path": "evidence/5bea7f571555e98c426d",
             "sha256": "88822fe04d0a3839104af60e28da31f01d0e6de1944388fa5d8cc90428b7f110"
           }
         ],
@@ -3738,7 +3738,7 @@
     "case": "fpp-avl-updates",
     "mode": "rust-only",
     "selected": "007",
-    "record": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-avl-updates/scope-review/review.json",
+    "record": "evidence/46f09d592740ec800654",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -7635,23 +7635,23 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-avl-updates/attempts/001/scope-admission.json",
+            "path": "evidence/3c5577d704e990c1a266",
             "sha256": "5d20ea75a7d76114ec738067320c372b77250dd9018a13d0e17ce80f8a600d9c"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-avl-updates/attempts/002/scope-admission.json",
+            "path": "evidence/a2c46a926e47dfdd6f84",
             "sha256": "8516043bbe9f58d5d5b57649fc9bedde5e438e070cec9fa864d9cf5d4fa33671"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-avl-updates/attempts/003/scope-admission.json",
+            "path": "evidence/189510fe9da4807a2af4",
             "sha256": "e9222081807fcfbef255d05622a7b94e08b1ae5d40c7a0dd68efcce13a24e104"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-avl-updates/attempts/005/scope-admission.json",
+            "path": "evidence/95a711fd44931e8f0f79",
             "sha256": "9c5616330253ea58dd40dc41a066b81c8c5e6181bbfaf90a5f1e0f454ac16b41"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-avl-updates/attempts/007/scope-admission.json",
+            "path": "evidence/83016e8e21464d5972b0",
             "sha256": "89804e4783604268e7dc39111ad313212545a73ee493b5337e46587fa5aa952b"
           }
         ],
@@ -7665,7 +7665,7 @@
     "case": "fpp-avl-updates",
     "mode": "full",
     "selected": "007",
-    "record": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-avl-updates/scope-review/review.json",
+    "record": "evidence/d06c65a72f82c449ade2",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -9851,19 +9851,19 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-avl-updates/attempts/003/scope-admission.json",
+            "path": "evidence/a9bee3beec41d3900eed",
             "sha256": "a94e3548eef5f7ffccf899b2cecdfdaf341c3f00875781bb8d61534ba83c0fc8"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-avl-updates/attempts/004/scope-admission.json",
+            "path": "evidence/71dc964dda5644aadabf",
             "sha256": "5b6dfeab68901494e360fd25a96c811eb92e2799bc9c2ef931f1ae015791c70b"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-avl-updates/attempts/006/scope-admission.json",
+            "path": "evidence/411bc032d93d0f77edd1",
             "sha256": "789e9f59e975aa727f385559dc99f95bb3ef58a932ac1190cd1b8379ff4e349f"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-avl-updates/attempts/007/scope-admission.json",
+            "path": "evidence/4191e066be139e4b8fa9",
             "sha256": "db39ac895401a2093aef0179eea7803234889c015a52371a6f6cc85ac73e7ab4"
           }
         ],
@@ -9877,7 +9877,7 @@
     "case": "fpp-acomp",
     "mode": "rust-only",
     "selected": "001",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-acomp/scope-review/review.json",
+    "record": "evidence/54aef7d245921a89fcbb",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -10138,15 +10138,15 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-acomp/attempts/001/scope-admission.json",
+            "path": "evidence/c93dead3295a4f5cf3ea",
             "sha256": "6a468526d78dddd3c7f34010c761e917d8fd3fd644b364e3ec1dfd226d859aba"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-acomp/attempts/003/scope-admission.json",
+            "path": "evidence/54025428e15e3190ac9d",
             "sha256": "89635361d87402e9508f8f4e542962fb5c53b0217942561326c06bd6bff32ad7"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-acomp/attempts/004/scope-admission.json",
+            "path": "evidence/b172e6a3d6e0cde9ff3d",
             "sha256": "13114fb026a23f30a17537616cb6c078cb143d8fd56c4ad82c63e41489e516e8"
           }
         ],
@@ -10160,7 +10160,7 @@
     "case": "fpp-acomp",
     "mode": "full",
     "selected": "003",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-acomp/scope-review/review.json",
+    "record": "evidence/c7b977f2c30e848e55ac",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -10678,23 +10678,23 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-acomp/attempts/002/scope-admission.json",
+            "path": "evidence/b37cd8bf0b617869f2fb",
             "sha256": "ff1732a7e2eca1eb711cce6937df1339ca5edfb21f50a561dad97d56f1e1d273"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-acomp/attempts/003/scope-admission.json",
+            "path": "evidence/463bdfc23814cddf5bbc",
             "sha256": "c080fad9148342e9b30147a9b7cddc09d270394141584f425a001fe69932c423"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-acomp/attempts/004/scope-admission.json",
+            "path": "evidence/14be13324e9b5b25ca1c",
             "sha256": "ec0bc897fc53684cfcc17b2099455c092f6c0c0de3dfd6a19aaa6ce6219081cd"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-acomp/attempts/005/scope-admission.json",
+            "path": "evidence/256bcdaf5008ca2fe748",
             "sha256": "ea72a728489e137865244d276e425c1adf46ec654b4abb80611ba45c8c998b40"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-acomp/attempts/006/scope-admission.json",
+            "path": "evidence/857a6d612179dd189c47",
             "sha256": "0eaf0329891c9d8f5f5915c1918f7f6f6609a468dddebc6881b291794f08d931"
           }
         ],
@@ -10708,7 +10708,7 @@
     "case": "hol-eratosthenes",
     "mode": "rust-only",
     "selected": "008",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-eratosthenes/scope-review/review.json",
+    "record": "evidence/b53324afe2e40d56e873",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -12732,27 +12732,27 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-eratosthenes/attempts/002/scope-admission.json",
+            "path": "evidence/ffb968b462bd352c540d",
             "sha256": "613019c5737211a0dd54c6cf039f8c59dd5d13b49148fe3971c98a52acb5cfd4"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-eratosthenes/attempts/003/scope-admission.json",
+            "path": "evidence/1d456922697e636c001f",
             "sha256": "67d49606147ca2763d3ec1f32e3d4ccb0d255b63fc5677bac7b54f0681c12b97"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-eratosthenes/attempts/005/scope-admission.json",
+            "path": "evidence/b7892c8f72dcb19b4a79",
             "sha256": "c5b90f629d151cc11bc4620248ea8fce0f596d73906fefcfcd135585182d61bf"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-eratosthenes/attempts/006/scope-admission.json",
+            "path": "evidence/520a6de23fcda1410bd9",
             "sha256": "35cc053fa58bc75d9806139f0dcfaf4067c03918731e9ff3db79e0bcf95c5984"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-eratosthenes/attempts/007/scope-admission.json",
+            "path": "evidence/cca3e22139287a7f1431",
             "sha256": "4b31ac7dcdfdd72dc3c3113ff1d948cf2a661c2b43ac2ef857ee58e0c4f67af2"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-eratosthenes/attempts/008/scope-admission.json",
+            "path": "evidence/873c664272b7c49c9b23",
             "sha256": "4ed1721e7ec2b2f66be07ea6a3c689b46cc7f6ed020a1ed6d5341059f7056774"
           }
         ],
@@ -12766,7 +12766,7 @@
     "case": "hol-eratosthenes",
     "mode": "full",
     "selected": "014",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-eratosthenes/scope-review/review.json",
+    "record": "evidence/abde2dea59ee0a5eb238",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -13696,11 +13696,11 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-eratosthenes/attempts/013/scope-admission.json",
+            "path": "evidence/37253d79dbe76565bf75",
             "sha256": "3a8fd0edbefdf3f4735d469c985771b30143172e74ceae917fbaf233bd2e3aab"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-eratosthenes/attempts/014/scope-admission.json",
+            "path": "evidence/f3f97099b4a800992059",
             "sha256": "9c0de577dfb4d8166e50334f509410d954d5329f37ac7c48bfb4064400f4a166"
           }
         ],
@@ -13714,7 +13714,7 @@
     "case": "hol-polynomial",
     "mode": "rust-only",
     "selected": "002",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-polynomial/scope-review/review.json",
+    "record": "evidence/f98c6b2415b6e1bb865c",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -14299,11 +14299,11 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-polynomial/attempts/001/scope-admission.json",
+            "path": "evidence/0392e5ef44a5212f1fb6",
             "sha256": "dd8b42fc4903ef15dd48968242026a3955ca0feba528030cedf69b8057ffdbf3"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-polynomial/attempts/002/scope-admission.json",
+            "path": "evidence/fbaabe405d2e37c47111",
             "sha256": "d2a3c2b2009de1147b5a604c1ef6ce68a480fd44481f6de774e88c9d3601f286"
           }
         ],
@@ -14317,7 +14317,7 @@
     "case": "hol-polynomial",
     "mode": "full",
     "selected": "010",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-polynomial/scope-review/review.json",
+    "record": "evidence/1b8faaeb0bd37d2aba7a",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -14673,19 +14673,19 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-polynomial/attempts/010/scope-admission.json",
+            "path": "evidence/25820cf80ac63e1a3e81",
             "sha256": "d009c3964285f9301903699dd6685d23e8079a235347b91277e85b96488e273f"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-polynomial/attempts/011/scope-admission.json",
+            "path": "evidence/f3d094b65103fd6a17f6",
             "sha256": "f3b8743937c2ac073115e52f9d764f86672010f8b04959255a78c98a6e076f62"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-polynomial/attempts/014/scope-admission.json",
+            "path": "evidence/cfdcbc65e195825beea2",
             "sha256": "d133c931bee5c69708e07c152df98bb33912f570fca547fbf277b1d004d7a19c"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-polynomial/attempts/016/scope-admission.json",
+            "path": "evidence/0906e72727fdf09048b5",
             "sha256": "ca5a844365fbf91a1259be137c16c23a2a03de081824299162a4eb729cd9d6b4"
           }
         ],
@@ -14699,7 +14699,7 @@
     "case": "hol-fibonacci",
     "mode": "rust-only",
     "selected": "001",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only/optimization/hol-fibonacci/scope-review/review.json",
+    "record": "evidence/61ff15e2355e31fdd279",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -15010,19 +15010,19 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only/optimization/hol-fibonacci/attempts/001/scope-admission.json",
+            "path": "evidence/932b08e7e652dfd0f5d0",
             "sha256": "e64d553216a8f6d553c7d162f71963a514eed395d921549f54675f6ffb952692"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only/optimization/hol-fibonacci/attempts/002/scope-admission.json",
+            "path": "evidence/a64ff937d5292e0339f4",
             "sha256": "4c82e113bfadeed0711a512f98c042a2c2c6f705dbb59a22dc9589a1c25d078e"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only/optimization/hol-fibonacci/attempts/003/scope-admission.json",
+            "path": "evidence/952891861ecf01adc57b",
             "sha256": "324ac086fa299ae542836f18c058aa9b84588c875c0cf9b06d6f5e664dc107b4"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only/optimization/hol-fibonacci/attempts/004/scope-admission.json",
+            "path": "evidence/a38e0df9e0502a208e57",
             "sha256": "4ea7ae1446b91991e2cb4f434a860c9b84afd56b43577320f6650f072016cce6"
           }
         ],
@@ -15036,7 +15036,7 @@
     "case": "hol-fibonacci",
     "mode": "full",
     "selected": "006",
-    "record": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full/optimization/hol-fibonacci/scope-review/review.json",
+    "record": "evidence/bdbb61552fb764cf1461",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -15650,19 +15650,19 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full/optimization/hol-fibonacci/attempts/003/scope-admission.json",
+            "path": "evidence/f13f74ef93bb7c6e43bd",
             "sha256": "e5f54013ea74ef362ccb46ce33cf52d3503934257cebad8d47265c242ac29e0f"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full/optimization/hol-fibonacci/attempts/004/scope-admission.json",
+            "path": "evidence/e8f7ccea5c37363ae493",
             "sha256": "5e88dc7656a89a08b2983686ac4246bd6d98671bc80e200ecf2a9732921d9043"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full/optimization/hol-fibonacci/attempts/005/scope-admission.json",
+            "path": "evidence/f53b6b3f5b54cafade8d",
             "sha256": "0f299659ce27d27c174606a46cca67f29750f8110858eed2dc29c48929e4023e"
           },
           {
-            "path": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full/optimization/hol-fibonacci/attempts/006/scope-admission.json",
+            "path": "evidence/e43a44a22349ddfba8c5",
             "sha256": "dba08c2baef4d3c71180b4b9c0763665f4b004602421265c13e526fd4c1f815f"
           }
         ],
@@ -15676,7 +15676,7 @@
     "case": "fpp-leftist-heap-merge",
     "mode": "rust-only",
     "selected": "005",
-    "record": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-leftist-heap-merge/scope-review/review.json",
+    "record": "evidence/6cb44b13c4c75c090763",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -16084,27 +16084,27 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-leftist-heap-merge/attempts/001/scope-admission.json",
+            "path": "evidence/3626d26ab53423ee83a0",
             "sha256": "c0d98902b09a1a350a5938cb46b6f6973952692d67e7e7ec649893acd0ae562a"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-leftist-heap-merge/attempts/003/scope-admission.json",
+            "path": "evidence/76bd853e96efcc13b819",
             "sha256": "8b4a427c9c558421c21d3dcac0604a02289c708be38fcb51c6a09aeafb8ebb29"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-leftist-heap-merge/attempts/005/scope-admission.json",
+            "path": "evidence/bb376b5e88f416c12408",
             "sha256": "25438f2706be5c743860ea9336d1b3dbdd55021bf0f6e73b9de27a64e39c15cf"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-leftist-heap-merge/attempts/006/scope-admission.json",
+            "path": "evidence/7280b6f12b365c38e782",
             "sha256": "4d93e26604182f64299183df91c36a6e4bba8e09c9fee33235494c8543733ef7"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-leftist-heap-merge/attempts/007/scope-admission.json",
+            "path": "evidence/6499b1c72d963b640982",
             "sha256": "a5efdbf39e1c7ba3881f1bdfa0f64d0b0199615c10356c17283e5d8e9ab67ee9"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-leftist-heap-merge/attempts/008/scope-admission.json",
+            "path": "evidence/784cf8892f02839be3f7",
             "sha256": "4949e62c931fe5ef7ab65f1245a97362289bece912b06ba17fd3e3a30e820592"
           }
         ],
@@ -16118,7 +16118,7 @@
     "case": "fpp-leftist-heap-merge",
     "mode": "full",
     "selected": "007",
-    "record": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-leftist-heap-merge/scope-review/review.json",
+    "record": "evidence/cc978decf7a0a8f50a24",
     "review": {
       "identity": {
         "policy": "a2acd58fec78bc017bd87fc2f211ac77573a6598b3abf5af3c104c2db8fba9e5",
@@ -16934,15 +16934,15 @@
         ],
         "admission_reports": [
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-leftist-heap-merge/attempts/005/scope-admission.json",
+            "path": "evidence/a86cb16186ce7ac3f4e0",
             "sha256": "38307f4e52ec29771bb02fd6aeaa55aff2f022e1139eae8b3c5d746a58653d5e"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-leftist-heap-merge/attempts/007/scope-admission.json",
+            "path": "evidence/5640320a39fe931340f1",
             "sha256": "e63529fbcf1e8ad3c6188674574e35baa80039727e16c19b4d5c0d17c24c0a95"
           },
           {
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-leftist-heap-merge/attempts/009/scope-admission.json",
+            "path": "evidence/a30e38e9a660445887a0",
             "sha256": "55a32873d9fb6e184242fcd2978b22c742ea3b09565f30aa6659afe8aafa6b31"
           }
         ],

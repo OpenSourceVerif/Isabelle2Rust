@@ -121,7 +121,7 @@
     "rounds_with_warnings": 309,
     "clock_resolution_warnings": 36
   },
-  "matrix": "artifact/runs/matrix-representative-ten-v4-primary-20261114",
+  "matrix": "evidence/9e682ec64c7e80e6af74",
   "aggregation": "equal case weight, predeclared primary workloads only",
   "baseline_quality": {
     "schema": 1,
@@ -344,12 +344,12 @@
         "admission_reports": [
           {
             "mode": "rust-only",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-multip/scope-review/review.json",
+            "path": "evidence/35ed9259de5c50825ce1",
             "sha256": "3d819a56da830c65f4a8b73077fc6fac0d5bb51c9e9edcf1242fd1857cc29849"
           },
           {
             "mode": "full",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-multip/scope-review/review.json",
+            "path": "evidence/3544bb6dfe4e2d8105c1",
             "sha256": "80cf15ddd094e133aaa11c9aad457c32cf989201a00c7f5ccfeca8cc3e8ee827"
           }
         ],
@@ -465,12 +465,12 @@
         "admission_reports": [
           {
             "mode": "rust-only",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-tree-inorder/scope-review/review.json",
+            "path": "evidence/cfcaa71e57bca0c699ca",
             "sha256": "dce6acb7a34428e758339f9c289ae579cc61a67c41029179550c15943824e149"
           },
           {
             "mode": "full",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-tree-inorder/scope-review/review.json",
+            "path": "evidence/a3363b8bf088ea267f71",
             "sha256": "0889eafc4e83d7741c483f6bf8ab148e0a8bc8a2bbf646008b7d716f10c1ac75"
           }
         ],
@@ -569,12 +569,12 @@
         "admission_reports": [
           {
             "mode": "rust-only",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-deq-list/scope-review/review.json",
+            "path": "evidence/b778a2989e130926c9e8",
             "sha256": "a590383455fcace7725c22542744b0afa182c1284e7f2b98856908638695ac7e"
           },
           {
             "mode": "full",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-deq-list/scope-review/review.json",
+            "path": "evidence/8197355a9c4d043d255c",
             "sha256": "1f02fe22a429d6253fc8894217dc23a298491bae986b8ee38465bb535a938455"
           }
         ],
@@ -717,12 +717,12 @@
         "admission_reports": [
           {
             "mode": "rust-only",
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-msort/scope-review/review.json",
+            "path": "evidence/064cdc4ee0c1c03b0794",
             "sha256": "8b6d6d6200578d35d1aeeae1d40a024eb6ecb08abf0225ef8a4bc75f900de0e3"
           },
           {
             "mode": "full",
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-msort/scope-review/review.json",
+            "path": "evidence/d27b4cd9396be70b2464",
             "sha256": "7063292d4f33747876828a38332471ecb32cbecea45c71935f7fa0cc7e0e14be"
           }
         ],
@@ -933,12 +933,12 @@
         "admission_reports": [
           {
             "mode": "rust-only",
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-avl-updates/scope-review/review.json",
+            "path": "evidence/46f09d592740ec800654",
             "sha256": "08c20a12ecc7d60152afc26a66102f97c73efb15d53646e49ea5235d5118b963"
           },
           {
             "mode": "full",
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-avl-updates/scope-review/review.json",
+            "path": "evidence/d06c65a72f82c449ade2",
             "sha256": "f1bd634d61f60886e41fc7bfdf898fb3e1e434f3a435a0a4ca289506ead9238d"
           }
         ],
@@ -1106,12 +1106,12 @@
         "admission_reports": [
           {
             "mode": "rust-only",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-acomp/scope-review/review.json",
+            "path": "evidence/54aef7d245921a89fcbb",
             "sha256": "a63c4312d74da187695f7d090d74741b2a2dca96d0b0495e76de517c720ae9ec"
           },
           {
             "mode": "full",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-acomp/scope-review/review.json",
+            "path": "evidence/c7b977f2c30e848e55ac",
             "sha256": "bbd2719364a7fa9250c1c338687a3e489ec9571fe0eb5addb307e9d6295e6291"
           }
         ],
@@ -1298,12 +1298,12 @@
         "admission_reports": [
           {
             "mode": "rust-only",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-eratosthenes/scope-review/review.json",
+            "path": "evidence/b53324afe2e40d56e873",
             "sha256": "2c13771104f34a4c0028bfeba7aed15255f9ffa8ffa9817e989092b6b40fcde6"
           },
           {
             "mode": "full",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-eratosthenes/scope-review/review.json",
+            "path": "evidence/abde2dea59ee0a5eb238",
             "sha256": "32f1179b6ae4cf9cdf4febf29fc89cad713b9b4f523e450bee5e6562ccd63369"
           }
         ],
@@ -1504,12 +1504,12 @@
         "admission_reports": [
           {
             "mode": "rust-only",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-polynomial/scope-review/review.json",
+            "path": "evidence/f98c6b2415b6e1bb865c",
             "sha256": "3292397fe802c6dfced543842783abeb58ee87dc000b0021417011a35fe68d1a"
           },
           {
             "mode": "full",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-polynomial/scope-review/review.json",
+            "path": "evidence/1b8faaeb0bd37d2aba7a",
             "sha256": "8486857dc8db9fc39478ac6bd17b5bd56fa03d996234c61fe2c409b5873823b8"
           }
         ],
@@ -1681,12 +1681,12 @@
         "admission_reports": [
           {
             "mode": "rust-only",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only/optimization/hol-fibonacci/scope-review/review.json",
+            "path": "evidence/61ff15e2355e31fdd279",
             "sha256": "e8a4b1c93fd54330ca56f8c074963f974b4e2d3991317fd01fffe2a4fb85be7a"
           },
           {
             "mode": "full",
-            "path": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full/optimization/hol-fibonacci/scope-review/review.json",
+            "path": "evidence/bdbb61552fb764cf1461",
             "sha256": "d2f6360f61c62e420267303f2788f06e9f7abcf411d3954842c3ed175898d6fe"
           }
         ],
@@ -1872,12 +1872,12 @@
         "admission_reports": [
           {
             "mode": "rust-only",
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-leftist-heap-merge/scope-review/review.json",
+            "path": "evidence/6cb44b13c4c75c090763",
             "sha256": "e250dcfa1f75a8da2f1797cb7b7c245dfee6d697bc21b3254b433c89a3371f80"
           },
           {
             "mode": "full",
-            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-leftist-heap-merge/scope-review/review.json",
+            "path": "evidence/cc978decf7a0a8f50a24",
             "sha256": "acd63fe59d64d95afe2ee417847f09a423c7ddebd4ab2eaf6a50a4872af3abfc"
           }
         ],
@@ -1926,37 +1926,37 @@
   },
   "controller_releases": [
     {
-      "run": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
+      "run": "evidence/7d6c40bce0ae00655895",
       "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "release_sha256": "656b2a85f30b954b6fa090e233ff79a7e20e9df8a68277676da93bceca1a15fd"
     },
     {
-      "run": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
+      "run": "evidence/3e9d0c568990914b9c6d",
       "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "release_sha256": "c4393e21f7084b9c856eaa9c3543ab4aa2366e8c949d1427e89939f65c745786"
     },
     {
-      "run": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full",
+      "run": "evidence/3bed883137e00ac130e5",
       "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "release_sha256": "f81d58f398baa61297aba17e9dcd07a3170d5eafd9d82a7eec4ee986e07324ef"
     },
     {
-      "run": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only",
+      "run": "evidence/b4b94cfa82f534ed37ae",
       "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "release_sha256": "6adbb4b4f2a8dc4a953bfd27c2d11ec624c1ba7351cf254cce6e23cf3d68932e"
     },
     {
-      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "run": "evidence/ada538d5d1be160cf8e6",
       "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "release_sha256": "aabcd306d447a47fb11383fd4d9299c9aa3eb94f019faf6c3c76b0bd43223e46"
     },
     {
-      "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-full",
+      "run": "evidence/36fcda2541560b710d69",
       "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "release_sha256": "0cb19f728b35157d9b196f29865966321b7f52f6330e7cdc46606c79276b76ea"
     },
     {
-      "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
+      "run": "evidence/3f08a788d1700e83fce0",
       "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
       "release_sha256": "729e42f37b8841130114d94fbc8f486c3ea279697b8703fa7ab53a9815746932"
     }
