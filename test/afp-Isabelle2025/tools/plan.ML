@@ -7,11 +7,12 @@ local
       val loaded = filter (is_some o Thy_Info.lookup_theory) requested;
       val originals = map Thy_Info.get_theory loaded;
       val declarations = children "declaration" request;
-      val merged = capture begin (loaded @ setups);
+      fun with_setups theories = filter_out (member (op =) setups) theories @ setups;
+      val merged = capture begin (with_setups loaded);
       val maximal = filter_out (fn thy =>
         exists (fn other => Context.proper_subthy (thy, other)) originals) originals;
-      val parents = (case merged of Exn.Res _ => [loaded @ setups]
-        | Exn.Exn _ => map (fn thy => Context.theory_long_name thy :: setups) maximal);
+      val parents = (case merged of Exn.Res _ => [with_setups loaded]
+        | Exn.Exn _ => map (fn thy => with_setups [Context.theory_long_name thy]) maximal);
       fun describe parents =
         let
           val res = capture begin parents;

@@ -165,23 +165,43 @@ def parse_selection(path, entry, session, expected):
     if (len(set(loaded)) != len(loaded) or not set(loaded) <= set(expected["theories"])
             or not set(expected["required"][session]) <= set(loaded)):
         raise ValueError("Invalid loaded-theory inventory")
+    if any(n.tag not in {"loaded", "merge", "context"} for n in root):
+        raise ValueError("Unknown context-selection record")
     merges = root.findall("merge")
     if (len(merges) != 1 or set(merges[0].attrib) != {"status"}
-            or merges[0].get("status") not in {"complete", "failed"} or len(merges[0])):
+            or merges[0].get("status") not in {"complete", "failed"}):
+        raise ValueError("Invalid context merge record")
+    merge = merges[0]
+    if merge.get("status") == "complete":
+        valid_merge = len(merge) == 0
+    else:
+        valid_merge = (len(merge) == 1 and merge[0].tag == "error"
+                       and not merge[0].attrib and not len(merge[0])
+                       and bool((merge[0].text or "").strip()))
+    if not valid_merge:
         raise ValueError("Invalid context merge record")
     contexts = []
     for node in root.findall("context"):
         if set(node.attrib) != {"status"} or node.get("status") != "complete":
             raise ValueError("Unresolved context selection: " + node.findtext("error", ""))
+        if any(n.tag not in {"parent", "declaration"} for n in node):
+            raise ValueError("Unknown selected context record")
         parent_nodes = node.findall("parent")
         if any(set(n.attrib) != {"name"} or len(n) for n in parent_nodes):
             raise ValueError("Invalid selected context parent")
         parents = [n.get("name") for n in parent_nodes]
-        declarations = sorted([dict(n.attrib) for n in node.findall("declaration")], key=dp.declaration_id)
-        if (len(parents) <= len(dp.SETUPS) or
+        declaration_nodes = node.findall("declaration")
+        if any(set(n.attrib) != {"source", "owner", "name"} or len(n)
+               for n in declaration_nodes):
+            raise ValueError("Invalid selected declaration record")
+        declarations = sorted([dict(n.attrib) for n in declaration_nodes], key=dp.declaration_id)
+        if len({dp.declaration_id(d) for d in declarations}) != len(declarations):
+            raise ValueError("Duplicate selected declaration")
+        if (len(parents) < len(dp.SETUPS) or
                 parents[-len(dp.SETUPS):] != list(dp.SETUPS) or
                 not set(parents[:-len(dp.SETUPS)]) <= set(loaded)
-                or len(set(parents)) != len(parents)):
+                or len(set(parents)) != len(parents)
+                or (len(parents) == len(dp.SETUPS) and not set(loaded) <= set(dp.SETUPS))):
             raise ValueError("Invalid fixed parent order/backend setup")
         if any(d not in expected["declarations"] for d in declarations):
             raise ValueError("Foreign declaration in selected context")
