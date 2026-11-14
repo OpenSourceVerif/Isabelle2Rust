@@ -1,4 +1,4 @@
-(* Author: Tobias Nipkow *)
+
 
 section \<open>Improved Simproc for $<$\<close>
 

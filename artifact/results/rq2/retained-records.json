@@ -1,0 +1,1413 @@
+{
+  "schema": 1,
+  "as_of": "2026-11-14T07:37:53.697570+00:00",
+  "purpose": "Retain every available baseline and completed optimization record for the later twenty-case study; display selection never deletes an experiment.",
+  "validated_baseline_count": 15,
+  "twenty_case_study_complete": false,
+  "baseline_collection": "artifact/runs/paired-numerics-source-five-20261114-collection/baseline-sources.json",
+  "baseline_collection_sha256": "80bf4c32a6c079293f8517e01dc9b968d08adb81fae02a15c75c8542c9b1bac4",
+  "current_controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+  "representative_selection_plan": "artifact/runs/source-first-20261114-development/source-workflow-repair/representative-ten-selection-plan-v2.json",
+  "selection_plan_sha256": "21052a2cb68c832231749e561306fd07284b37e848a88f7fd1272be9e19419cb",
+  "active_and_finished_current_case_runs": {
+    "full": {
+      "hol-integer-gcd": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
+      "fpp-map": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
+      "fpp-deq-list": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
+      "fpp-msort": "artifact/runs/optimization-original-ten-v4-20261114-restored-full",
+      "fpp-avl-updates": "artifact/runs/optimization-original-ten-v4-20261114-restored-full",
+      "fpp-acomp": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
+      "hol-eratosthenes": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
+      "hol-polynomial": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
+      "hol-fibonacci": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full",
+      "fpp-leftist-heap-merge": "artifact/runs/optimization-original-ten-v4-20261114-restored-full"
+    },
+    "rust-only": {
+      "hol-integer-gcd": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "fpp-map": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "fpp-deq-list": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "fpp-msort": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
+      "fpp-avl-updates": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
+      "fpp-acomp": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "hol-eratosthenes": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "hol-polynomial": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "hol-fibonacci": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only",
+      "fpp-leftist-heap-merge": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only"
+    }
+  },
+  "supplement_runs": {
+    "fpp-tree-inorder": {
+      "full": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
+      "rust-only": "artifact/runs/optimization-five-six-v4-20261114-rust-only"
+    },
+    "fpp-multip": {
+      "full": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
+      "rust-only": "artifact/runs/optimization-five-six-v4-20261114-rust-only"
+    }
+  },
+  "records": {
+    "hol-integer-gcd": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-20261113-r1",
+        "release_sha256": "c6336d39fd6a602a178bd2866d7da307931348b0490a9367387219761bb41e56",
+        "files": {
+          "outcome.json": "00ca0f26e9b6fa67af6c3b8484e21b7dd6ae6202626dec74aa570560e193a873",
+          "diagnostics/segmented-checkpoint.json": "a2b96d2570891c48325d0c8806f311beeba6a4060f4370f8c8159d882add0cea",
+          "diagnostics/effective-config.json": "1201474dc55664ca43aec25dea6cb0e1da56705006c54ee83332dfdda614396c"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-20261113-rust-only",
+          "result": "artifact/runs/optimization-20261113-rust-only/optimization/hol-integer-gcd/result.json",
+          "result_sha256": "9923831f9682cb3f23c931fa8f943f83f9552fc9cd850870529a34bc78cc69f7",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 15,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-20261114-full",
+          "result": "artifact/runs/optimization-20261114-full/optimization/hol-integer-gcd/result.json",
+          "result_sha256": "ea086da9e506227a0d4dd9dddaa560fb4ab134400d2374fc69f732a24a6dfa25",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 14,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-integer-gcd/result.json",
+          "result_sha256": "867a30cbb7ae9d1dc127c62059a68d2d821f13a73577e890776aa0dcd867a871",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 10,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-integer-gcd/result.json",
+          "result_sha256": "ac3d114a58471c19af2ef9a2a121cb3f8f2e1339669a2272ea60871306d4db29",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 11,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-full",
+          "result": "artifact/runs/optimization-source-first-20261114-full/optimization/hol-integer-gcd/result.json",
+          "result_sha256": "f8edc5a4f9f6304ecbb3b9320303ccc97c87b398bc6c829f408bec5c1cce693b",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 14,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-rust-only",
+          "result": "artifact/runs/optimization-source-first-20261114-rust-only/optimization/hol-integer-gcd/result.json",
+          "result_sha256": "86966a25c1f53c62cca056abc406d9310262112ca976fc4ad957eb328f5653bb",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 8,
+          "publication_hold": false,
+          "role": "historical_development"
+        }
+      ]
+    },
+    "fpp-map": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-20261113-r1",
+        "release_sha256": "c6336d39fd6a602a178bd2866d7da307931348b0490a9367387219761bb41e56",
+        "files": {
+          "outcome.json": "d88e158f953c23f830c452cd2113520f1c251e7178c113ae77697efbcd02a1ea",
+          "diagnostics/segmented-checkpoint.json": "2c092971a067bf87a93e0cd2b0ddf3203d110c430bc10b670dd36ff659ec40f0",
+          "diagnostics/effective-config.json": "4adb1d253352e3b82c679084cb3d6748038f1c2a5a8cbb565430f8f4a838576f"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-20261113-rust-only",
+          "result": "artifact/runs/optimization-20261113-rust-only/optimization/fpp-map/result.json",
+          "result_sha256": "ff91d0e46f376c6c6f54fbc312a9ba37c7124782db3c6f45cc34d673355fda7f",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": false,
+          "model_calls": 25,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-20261114-full",
+          "result": "artifact/runs/optimization-20261114-full/optimization/fpp-map/result.json",
+          "result_sha256": "0dd160f5d2e99520da0ef56eb5be66c735aab1943fa3d42a17c3f3565b1b3527",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 9,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-final-workflow-20261114-full",
+          "result": "artifact/runs/optimization-final-workflow-20261114-full/optimization/fpp-map/result.json",
+          "result_sha256": "3d9725450d5aaaf2e1ad6a3b6913487e8e735d3e758039d4b6b1c19881185806",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": false,
+          "controller_identity": "6d4d3dad317317027b51f161c7f8d1ca625d0f28a9a9dbd3724530426ac1de1c",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 6,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-final-workflow-20261114-rust-only",
+          "result": "artifact/runs/optimization-final-workflow-20261114-rust-only/optimization/fpp-map/result.json",
+          "result_sha256": "af32ed7362e5f741f7a055aab684b27ab495a25810c8213af04988c90c085620",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": false,
+          "controller_identity": "6d4d3dad317317027b51f161c7f8d1ca625d0f28a9a9dbd3724530426ac1de1c",
+          "selected_source_optimized": false,
+          "improved_during_search": false,
+          "model_calls": 5,
+          "publication_hold": true,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/fpp-map/result.json",
+          "result_sha256": "3a02b7a5276696430d617baf9eead23887842754c2e73919b76c32f6e1279eae",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 6,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-map/result.json",
+          "result_sha256": "e9c395e137e5b539decbb9ccfcad6c96a3f4135df63de5f72dbbe91c52895b4d",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 3,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-five-source-20261114-rust-only",
+          "result": "artifact/runs/optimization-five-source-20261114-rust-only/optimization/fpp-map/result.json",
+          "result_sha256": "982136aae92688d0c3b69e19b4f595117fcfda19632fda218487e75bdc680461",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": false,
+          "controller_identity": "f2fc8ce621ebc18ee68d0359a6e22f8e5f51e944caf10cd9f901eddbb19e67f4",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 3,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-full",
+          "result": "artifact/runs/optimization-source-first-20261114-full/optimization/fpp-map/result.json",
+          "result_sha256": "d90e964f6c4ed33dc80e357cb6d8052bed8c9bec2f9c1ee587a9af8fcaaf4197",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 6,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-rust-only",
+          "result": "artifact/runs/optimization-source-first-20261114-rust-only/optimization/fpp-map/result.json",
+          "result_sha256": "a1c66a64d5bd5b9f586a5b191dcead040084baf4f4d7bc246c5f7cc1304d86a8",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 5,
+          "publication_hold": false,
+          "role": "historical_development"
+        }
+      ]
+    },
+    "fpp-deq-list": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-20261113-r1",
+        "release_sha256": "c6336d39fd6a602a178bd2866d7da307931348b0490a9367387219761bb41e56",
+        "files": {
+          "outcome.json": "c56973819ce2640351ab3385f21e449bd11e25789f4fdd6929eebe3cffcfea96",
+          "diagnostics/segmented-checkpoint.json": "63a4c6eeedd3b6f4677c90b16a110039a4ee15540e032510ec9b3b5e72a50fed",
+          "diagnostics/effective-config.json": "29a588acf2a69518127ac18de0349933836c42aeacb078f6f3466671bcb89bbc"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-20261113-rust-only",
+          "result": "artifact/runs/optimization-20261113-rust-only/optimization/fpp-deq-list/result.json",
+          "result_sha256": "0e3580f60e420722048cb5db152f1a296235dd35444566b5518f46dc2eddb970",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 11,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-20261114-full",
+          "result": "artifact/runs/optimization-20261114-full/optimization/fpp-deq-list/result.json",
+          "result_sha256": "9b7812b41591ece4d95d8074e3a9cff3816ed85319840b9423f4b744706471f7",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 14,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-final-workflow-20261114-rust-only",
+          "result": "artifact/runs/optimization-final-workflow-20261114-rust-only/optimization/fpp-deq-list/result.json",
+          "result_sha256": "1869d3965a6e37b89ce0183661d6756fcb013f75f6d074ebef15eb8d6cf9d399",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": false,
+          "controller_identity": "6d4d3dad317317027b51f161c7f8d1ca625d0f28a9a9dbd3724530426ac1de1c",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 3,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-deq-list/result.json",
+          "result_sha256": "de74391486d85f1f090bb7b1f434993f1bbb105edc4ca5af6206a05fb5cae01c",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 4,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-deq-list/result.json",
+          "result_sha256": "2fafb338cfec691246eb95ffaa907af0dcafde792111c1d40056db8afc40988e",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 6,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-primitive-bridge-20261114-candidates-full",
+          "result": "artifact/runs/optimization-primitive-bridge-20261114-candidates-full/optimization/fpp-deq-list/result.json",
+          "result_sha256": "981d278c15f707154e3f07304cb8a0343b225d0d0559d11a822946f41b862c89",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": false,
+          "controller_identity": "158f237e763cee69cfd441aaf82334762b050d4dd6dad3c4ed2afb0d1230c5c2",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 8,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-context-20261114-candidates-full",
+          "result": "artifact/runs/optimization-source-context-20261114-candidates-full/optimization/fpp-deq-list/result.json",
+          "result_sha256": "0926f5d742ff97d1b0e028d5ea513ebbff825c863be209f5490ee46411357926",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": false,
+          "controller_identity": "a4d7d13cbb484b61b977a22250ad222eaf23733b9b05d18f6170a27cf25e41fc",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 6,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-full",
+          "result": "artifact/runs/optimization-source-first-20261114-full/optimization/fpp-deq-list/result.json",
+          "result_sha256": "a46928950c8241f0fd0958eb835d3306311996f4c80da190c5af3360fb7dc26d",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 13,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-rust-only",
+          "result": "artifact/runs/optimization-source-first-20261114-rust-only/optimization/fpp-deq-list/result.json",
+          "result_sha256": "e397c9acbfc7ba74e8964e41bd75be08bb81835358b359f3e808191978291a99",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 3,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-policy-20261114-candidates-full",
+          "result": "artifact/runs/optimization-source-policy-20261114-candidates-full/optimization/fpp-deq-list/result.json",
+          "result_sha256": "b7ceacb7056f401d1efb35d48487c372b891686e6ab6e3e6bbe8b2d48b764592",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": false,
+          "controller_identity": "abc337e3414c05deb6aa2f9da09aadc1ff4a3608599976b965a366c3f04b71bf",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 4,
+          "publication_hold": false,
+          "role": "historical_development"
+        }
+      ]
+    },
+    "fpp-msort": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-20261113-r1",
+        "release_sha256": "c6336d39fd6a602a178bd2866d7da307931348b0490a9367387219761bb41e56",
+        "files": {
+          "outcome.json": "0d55b08183f6647858e845ddff9ac75726bb018ce87a466b5e2a61adcac4c227",
+          "diagnostics/segmented-checkpoint.json": "156651280ec33a7744e79dd6487f6496b2eb8ed980833546b42461e298445b34",
+          "diagnostics/effective-config.json": "c252eeb4d06ec7ff7a2be2a50ee97626031c995794276c3d82054cd61bd01515"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-20261113-rust-only",
+          "result": "artifact/runs/optimization-20261113-rust-only/optimization/fpp-msort/result.json",
+          "result_sha256": "3fba5c204347296bc00538158135e738179adf3e6bed09be213c9e78b1c2976b",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 12,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-20261114-full",
+          "result": "artifact/runs/optimization-20261114-full/optimization/fpp-msort/result.json",
+          "result_sha256": "e36f5952754c0b91d8cf0c1b0a21665d6f18e69aeaad09bf947e0ddf4e4f943a",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 7,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-full",
+          "result": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-msort/result.json",
+          "result_sha256": "eb078196f5e1be035c4a820a615ca2e5325428d512083b8102d07c012afd8554",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 9,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
+          "result": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-msort/result.json",
+          "result_sha256": "ef950c54224ed8ff2cefa428a564ded2f1a7224505625689bd2552e5fb3c30b6",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 13,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-full",
+          "result": "artifact/runs/optimization-source-first-20261114-full/optimization/fpp-msort/result.json",
+          "result_sha256": "f82624ebb4f16b85e2461e4e7933228b280c8c7e1d2dd6bdab488d317b013024",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 10,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-rust-only",
+          "result": "artifact/runs/optimization-source-first-20261114-rust-only/optimization/fpp-msort/result.json",
+          "result_sha256": "62f3ba3e5cb069f2e8aed1f3ed73eb423ccbf9dcfdceb4986aaec1790c5787a2",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 11,
+          "publication_hold": false,
+          "role": "historical_development"
+        }
+      ]
+    },
+    "fpp-avl-updates": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-20261113-r1",
+        "release_sha256": "c6336d39fd6a602a178bd2866d7da307931348b0490a9367387219761bb41e56",
+        "files": {
+          "outcome.json": "f53b367dfa3d507c1221b4cc5670e5100f959eac131bc256d8c2273dcdbe804b",
+          "diagnostics/segmented-checkpoint.json": "9a3f98ab0fb18ffed75bbcd1c76acff9d3fb46a999f9046119f27919e64cca62",
+          "diagnostics/effective-config.json": "9dca46d6674974d9e58f8b420e0cca93e4cbc96838f7c2efa863ad869ebfd5c1"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-20261113-rust-only",
+          "result": "artifact/runs/optimization-20261113-rust-only/optimization/fpp-avl-updates/result.json",
+          "result_sha256": "7bbe67d54f3277525a1244626b61c11932089ed853b2a503a5cc206b87b0decc",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": false,
+          "model_calls": 13,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-20261114-full",
+          "result": "artifact/runs/optimization-20261114-full/optimization/fpp-avl-updates/result.json",
+          "result_sha256": "6b976d0510b10bba7e8836d857c332d8eb37bbfa05899f081c02c84a407c92ad",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 25,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-full",
+          "result": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-avl-updates/result.json",
+          "result_sha256": "5ec05abda44424b8249922d8c94e927c25a0219667409937ca9f5faad4990f8e",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 13,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
+          "result": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-avl-updates/result.json",
+          "result_sha256": "2a7c0acec2961d0f79ada268412a5e2f495b49871fcf10ed0fb595c31df3d81c",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 15,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-full",
+          "result": "artifact/runs/optimization-source-first-20261114-full/optimization/fpp-avl-updates/result.json",
+          "result_sha256": "d5337fb19832842b57ad9ddff938e309a7c60573608211cdf1127f1de5fcf9b7",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 8,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-rust-only",
+          "result": "artifact/runs/optimization-source-first-20261114-rust-only/optimization/fpp-avl-updates/result.json",
+          "result_sha256": "892967885d08f259dd9eee1486c80d6b0f789947e812a54becb42f274349543c",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 7,
+          "publication_hold": false,
+          "role": "historical_development"
+        }
+      ]
+    },
+    "fpp-acomp": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-20261113-r1",
+        "release_sha256": "c6336d39fd6a602a178bd2866d7da307931348b0490a9367387219761bb41e56",
+        "files": {
+          "outcome.json": "6ccf6a318d989f3740899385548be8ac0fc5e3185b77ea31c9606c27c1c395ca",
+          "diagnostics/segmented-checkpoint.json": "5dba9e933eb160142ffa09b3a548b4953eb8b4ec33d7bf097d7acb32bb64bc2a",
+          "diagnostics/effective-config.json": "fc0e9dd16161581eb7b948a4a8883ffe7634b9176391a9bad7053840ab1a6d8e"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-20261113-rust-only",
+          "result": "artifact/runs/optimization-20261113-rust-only/optimization/fpp-acomp/result.json",
+          "result_sha256": "7e857143e109ed892a94253088d862ab9086936afa995a3f2acb26811d22bae3",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 11,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-20261114-full",
+          "result": "artifact/runs/optimization-20261114-full/optimization/fpp-acomp/result.json",
+          "result_sha256": "53e37f903957772c4eb8b4dcf20461046918a2bbf0c4b617b0de9267f9ae40cc",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 12,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-acomp/result.json",
+          "result_sha256": "11fdea0c84fb20f352268e652acef2f302cc7d07f06bcf8f71ea10daca9e42f8",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 11,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-acomp/result.json",
+          "result_sha256": "cc66dd4732967c6a71f801ae17305b86c38defe2a9e9a771f6d9162a4f572f90",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 8,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-primitive-bridge-20261114-candidates-full",
+          "result": "artifact/runs/optimization-primitive-bridge-20261114-candidates-full/optimization/fpp-acomp/result.json",
+          "result_sha256": "e296a3b2acde6b204cfbd048eab5e655c824dbb165a3627fc3954e266449f988",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": false,
+          "controller_identity": "158f237e763cee69cfd441aaf82334762b050d4dd6dad3c4ed2afb0d1230c5c2",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 10,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-full",
+          "result": "artifact/runs/optimization-source-first-20261114-full/optimization/fpp-acomp/result.json",
+          "result_sha256": "a789cf3a62e6c719a0e8ee7362d915d5a7dfd51bcef840308a9f8402b22ff4e8",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 23,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-rust-only",
+          "result": "artifact/runs/optimization-source-first-20261114-rust-only/optimization/fpp-acomp/result.json",
+          "result_sha256": "9616875990100d51cd50ef4a870150589cfb1dea5e0f8fb183b21b1d3463d7e2",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 5,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-repair-20261114-full",
+          "result": "artifact/runs/optimization-source-first-repair-20261114-full/optimization/fpp-acomp/result.json",
+          "result_sha256": "09199cd10acccdb1472b5dea7bf07e557fb2441c0cbb078a073c9823d28bfe99",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "48752f2bcbff0a337a9e98956f0655edff9e35ece729c3fee110fa4b71cf6992",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 12,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-repair-20261114-rust-only",
+          "result": "artifact/runs/optimization-source-first-repair-20261114-rust-only/optimization/fpp-acomp/result.json",
+          "result_sha256": "44d3ececfc30a5013db09f4d082bece6c72a9576498c73374c7522a2ba9b607d",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "48752f2bcbff0a337a9e98956f0655edff9e35ece729c3fee110fa4b71cf6992",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 7,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-policy-20261114-candidates-full",
+          "result": "artifact/runs/optimization-source-policy-20261114-candidates-full/optimization/fpp-acomp/result.json",
+          "result_sha256": "b46c06560d6031775c6fd3cfb4117556a6b6010336e4c6e3b6961f77aa83b417",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": false,
+          "controller_identity": "abc337e3414c05deb6aa2f9da09aadc1ff4a3608599976b965a366c3f04b71bf",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 6,
+          "publication_hold": false,
+          "role": "historical_development"
+        }
+      ]
+    },
+    "hol-eratosthenes": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-20261113-r1",
+        "release_sha256": "c6336d39fd6a602a178bd2866d7da307931348b0490a9367387219761bb41e56",
+        "files": {
+          "outcome.json": "7597d5fbad0cde01fd9612242a5a22fdd5df4e0fea1e5995bc05e5ab2428f6d0",
+          "diagnostics/segmented-checkpoint.json": "9f67ffa4c5c4eca4ea0b9ab409471710a2d01d2c14f452e8086365e178232de3",
+          "diagnostics/effective-config.json": "9945861bac4c7c18303ea075b3780aa72504cf2d5adb736d9bce2ea9ff060188"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-20261113-rust-only",
+          "result": "artifact/runs/optimization-20261113-rust-only/optimization/hol-eratosthenes/result.json",
+          "result_sha256": "f3a1bdd2eba782c406daf789089f344e97ab306299cc567ab902882a361f2d96",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 22,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-20261114-full",
+          "result": "artifact/runs/optimization-20261114-full/optimization/hol-eratosthenes/result.json",
+          "result_sha256": "b22208923a05c119a7c77e409620e7fd2e59cef9827b44f7faa434a72354d87f",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 23,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-eratosthenes/result.json",
+          "result_sha256": "3016134d594b2e4e69593384523c690d17b857edd60ef06f775630f1cf2b5427",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 23,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-eratosthenes/result.json",
+          "result_sha256": "0ff5b86d21468dc60ea1c46e53e3cf42e333a068ba89a72e462817c1e7d9dc4b",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 23,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-full",
+          "result": "artifact/runs/optimization-source-first-20261114-full/optimization/hol-eratosthenes/result.json",
+          "result_sha256": "ac946fae978dfa5f9eb17a7da746bedd47fb7eaf65f66483ec5aaff589a1bdfc",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": false,
+          "model_calls": 7,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-rust-only",
+          "result": "artifact/runs/optimization-source-first-20261114-rust-only/optimization/hol-eratosthenes/result.json",
+          "result_sha256": "54d5abe0c7320b0c5ce3874827d3dced1b0eb141e9fd2a364a73ad1342ecf33d",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 10,
+          "publication_hold": false,
+          "role": "historical_development"
+        }
+      ]
+    },
+    "hol-polynomial": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-20261113-r1",
+        "release_sha256": "c6336d39fd6a602a178bd2866d7da307931348b0490a9367387219761bb41e56",
+        "files": {
+          "outcome.json": "c4d8583141c7443f6446fda638333b02585400d97956bfeae9cbce5c619b0b15",
+          "diagnostics/segmented-checkpoint.json": "495fdbadee993650e08a7e7d3483db5a8b2221bb27429e8a0c58d3c33802a09f",
+          "diagnostics/effective-config.json": "7f30babc11738b00dcc2a49e94bc6686727b8e6698e884aae6d9383c8193abee"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-20261113-rust-only",
+          "result": "artifact/runs/optimization-20261113-rust-only/optimization/hol-polynomial/result.json",
+          "result_sha256": "dfe0d0bc40dd891172ec596b565acf6b20a91c14978b22120f8c4de2273c1025",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 9,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-20261114-full",
+          "result": "artifact/runs/optimization-20261114-full/optimization/hol-polynomial/result.json",
+          "result_sha256": "66ce9073a76cf75f3c4d7138527a6da7f2653e03130e91b81226dfec147c6345",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": false,
+          "model_calls": 6,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-polynomial/result.json",
+          "result_sha256": "843fb3938515b033ac67ac9750f9a8023d8bba8f3dc2ec87fd410e14c6de688b",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 22,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-polynomial/result.json",
+          "result_sha256": "7abaec0cd3fe3b9d427468bed594ae7df78c49ec15b0ec56543567f62f55fd58",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 9,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-full",
+          "result": "artifact/runs/optimization-source-first-20261114-full/optimization/hol-polynomial/result.json",
+          "result_sha256": "712ee421615f20a13ca2e48d36a5c68946f02be48df36c6dc8dfac125b6dc44b",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 18,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-rust-only",
+          "result": "artifact/runs/optimization-source-first-20261114-rust-only/optimization/hol-polynomial/result.json",
+          "result_sha256": "b04ef81b9d837253dcc03e8d2ea235ad4249342738247761daf96231d6fd08e6",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 11,
+          "publication_hold": false,
+          "role": "historical_development"
+        }
+      ]
+    },
+    "hol-fibonacci": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-20261113-r2-additional",
+        "release_sha256": "31b6e5e9ee5a6b4dad66dcf56adf7af352f4bacea3c06d2c6cb1eb3b54828be5",
+        "files": {
+          "outcome.json": "084003a2ff6e71ee2d05bbb8d365e9f0098b2e8b11aa28141a77b0f94d8c5ee2",
+          "diagnostics/segmented-checkpoint.json": "bdd704917545b25514e26ec76579ca42bf204b23715b50508dca87744f84ab66",
+          "diagnostics/effective-config.json": "13902c9803f01158340c207febfc762bd11f69d8c04f9b1b86e1b8489b3ab78b"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-20261113-rust-only",
+          "result": "artifact/runs/optimization-20261113-rust-only/optimization/hol-fibonacci/result.json",
+          "result_sha256": "84dc68765d27a0fc49bd1d286d1f54162f780dd9d6b9e68582722eeae6ecd277",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 9,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-20261114-full",
+          "result": "artifact/runs/optimization-20261114-full/optimization/hol-fibonacci/result.json",
+          "result_sha256": "f4f68579fa3b29ba36b7aff7f0e674e0a9073b3efdadbaa7a84974d89f6a1916",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 14,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full/optimization/hol-fibonacci/result.json",
+          "result_sha256": "5e06417323946c5b869a7b2014f08f2f891f3a65b5b383aeff57fe639efe4133",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 11,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only/optimization/hol-fibonacci/result.json",
+          "result_sha256": "142015524f107633d26bad915624985300d671d8eadcb6f36db11c40bcb94d99",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 9,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-full",
+          "result": "artifact/runs/optimization-source-first-20261114-full/optimization/hol-fibonacci/result.json",
+          "result_sha256": "829a0711982ed08a913fabab95d87a465bd6f14b84d4d48b6e90ef9c6ddafa85",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 22,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-rust-only",
+          "result": "artifact/runs/optimization-source-first-20261114-rust-only/optimization/hol-fibonacci/result.json",
+          "result_sha256": "01be85f468c8bde97ba931f0e72befde30f529e8dc16401b399d38d50ebe3df6",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 8,
+          "publication_hold": false,
+          "role": "historical_development"
+        }
+      ]
+    },
+    "fpp-leftist-heap-merge": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-20261113-r2-additional",
+        "release_sha256": "31b6e5e9ee5a6b4dad66dcf56adf7af352f4bacea3c06d2c6cb1eb3b54828be5",
+        "files": {
+          "outcome.json": "e7eda15898df7189bc3f4e55c104dfa5a58445199588487f24179f4a1a99daf9",
+          "diagnostics/segmented-checkpoint.json": "59033b6daed72e72bdb1ee0e871944114df398a45ec8544267ecb109594a9d98",
+          "diagnostics/effective-config.json": "8d930c8bdbdd6b573d89741286d88ff68fe48366dbf282ea73a20944f9ffb537"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-20261113-rust-only",
+          "result": "artifact/runs/optimization-20261113-rust-only/optimization/fpp-leftist-heap-merge/result.json",
+          "result_sha256": "b71db752a77d6ab388c09b068cf2b05f43593845eb83726de08ea889e8d0acb3",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 11,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-20261114-full",
+          "result": "artifact/runs/optimization-20261114-full/optimization/fpp-leftist-heap-merge/result.json",
+          "result_sha256": "2d42710953a435a606689cd0c9fd7c586131e89541f24b3a609bec82c038e58a",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "c4c3bf14818783393fa1bb2ff7b242ecd54e63e75e24c20999c88a64b0156909",
+          "selected_source_optimized": false,
+          "improved_during_search": false,
+          "model_calls": 15,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-full",
+          "result": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-leftist-heap-merge/result.json",
+          "result_sha256": "a198798f063ec5dc59261f4402389c30674f1280d9d1eeb1828efec8663c6b46",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 17,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
+          "result": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-leftist-heap-merge/result.json",
+          "result_sha256": "6f1894ce1aa8f89ea507b532e5b9ad8afc9a33590e24263966341e3326b3c692",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 14,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-full",
+          "result": "artifact/runs/optimization-source-first-20261114-full/optimization/fpp-leftist-heap-merge/result.json",
+          "result_sha256": "c7babdb6ef2fdf5285afc29131fe3e322fa0207eb0bd4aae908b481062320b5d",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": false,
+          "model_calls": 5,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-first-20261114-rust-only",
+          "result": "artifact/runs/optimization-source-first-20261114-rust-only/optimization/fpp-leftist-heap-merge/result.json",
+          "result_sha256": "a83b15a020e0b0eb440748dc74532ecd718a535e9cd4c13470412e447e1b5c0a",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "0dd3ad755e6ca1362a3b3f1d0bf9401f8add996a7ca705c70b4bb17d7bf92004",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 10,
+          "publication_hold": false,
+          "role": "historical_development"
+        }
+      ]
+    },
+    "fpp-multip": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-source-qualified-20261114-new",
+        "release_sha256": "dcbcd6bb624793c1ba398c96f2303f4b16ca6b4892be810c7a6e9987969edde6",
+        "files": {
+          "outcome.json": "c1bf46fe5b16175074eae6761e0877df20c0c2019cd62408211570b9066e61d4",
+          "diagnostics/segmented-checkpoint.json": "800754866475c2568a4880f74e61ebd040c71132273c3a3bf86ddb84139525a0",
+          "diagnostics/effective-config.json": "87dc07f00ab0ba9ad36ea266b1fdb914d97dd3528ee0da13ec8cf7c09a3a42ee"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-multip/result.json",
+          "result_sha256": "fda0479cbcb21d4bfd9c9ba9bd6cb64c218e6a08473ed7bd321cd971846c776e",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 17,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-multip/result.json",
+          "result_sha256": "e3d24b8a21088849931a2998fa8d5ab12a0f6eef20743ca6d26c98f8bc7437de",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 15,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-primitive-bridge-20261114-multip-full",
+          "result": "artifact/runs/optimization-primitive-bridge-20261114-multip-full/optimization/fpp-multip/result.json",
+          "result_sha256": "85ea1f05f7538f7495d4912e525833dca017ad9f788849d9d64d7c62be56343d",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "158f237e763cee69cfd441aaf82334762b050d4dd6dad3c4ed2afb0d1230c5c2",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 4,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-context-20261114-candidates-full",
+          "result": "artifact/runs/optimization-source-context-20261114-candidates-full/optimization/fpp-multip/result.json",
+          "result_sha256": "c7faabab7e91030809f76193b43782ad1cec3f021e5bb971e223dfb9dc839b22",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": false,
+          "controller_identity": "a4d7d13cbb484b61b977a22250ad222eaf23733b9b05d18f6170a27cf25e41fc",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 9,
+          "publication_hold": false,
+          "role": "historical_development"
+        },
+        {
+          "run": "artifact/runs/optimization-source-policy-20261114-candidates-full",
+          "result": "artifact/runs/optimization-source-policy-20261114-candidates-full/optimization/fpp-multip/result.json",
+          "result_sha256": "9e3fc005a2eda1215dca8a20886bfbb003b2b498e413e306c0f5968df7d00a72",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": false,
+          "controller_identity": "abc337e3414c05deb6aa2f9da09aadc1ff4a3608599976b965a366c3f04b71bf",
+          "selected_source_optimized": false,
+          "improved_during_search": false,
+          "model_calls": 9,
+          "publication_hold": false,
+          "role": "historical_development"
+        }
+      ]
+    },
+    "fpp-quicksort": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-source-qualified-20261114-new",
+        "release_sha256": "dcbcd6bb624793c1ba398c96f2303f4b16ca6b4892be810c7a6e9987969edde6",
+        "files": {
+          "outcome.json": "6bcbdb2618bc844e9738feba1f682df498ceac012be7fa2f322819e4629bfaec",
+          "diagnostics/segmented-checkpoint.json": "4bd73ce97d85b3472a9d8d39d47a4a334a3e90ec3aa6e95df2a8b70e3427335a",
+          "diagnostics/effective-config.json": "26e2281a35657f028e7ac5897319a6cbb63ecc7a332dd364114637e11eb66600"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/fpp-quicksort/result.json",
+          "result_sha256": "d0e25c8567f90afe83e1b63c5bd57f12982ca22adfcb54a39b9b735e5c1dc192",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": false,
+          "model_calls": 18,
+          "publication_hold": true,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-quicksort/result.json",
+          "result_sha256": "3efa45ccf55a6b2f07a5f4c53b6e1334fa5b590f3571427f378a678285f90026",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 22,
+          "publication_hold": true,
+          "role": "current_controller"
+        }
+      ]
+    },
+    "fpp-next-listprog-endswith": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-source-qualified-20261114-new",
+        "release_sha256": "dcbcd6bb624793c1ba398c96f2303f4b16ca6b4892be810c7a6e9987969edde6",
+        "files": {
+          "outcome.json": "90bf62736c1253e379b68f5438bea5023b98b47426ee3baee62b719db2ebcece",
+          "diagnostics/segmented-checkpoint.json": "fb79bcccf80d201d9717bec6606c7bcd37915751582a33e453f4e36fc78ce989",
+          "diagnostics/effective-config.json": "25afcc6a69c2dc3be600ce1f4f18b6a77413ebf330646d750a1ba25d36b5a62b"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-primitive-bridge-20261114-candidates-full",
+          "result": "artifact/runs/optimization-primitive-bridge-20261114-candidates-full/optimization/fpp-next-listprog-endswith/result.json",
+          "result_sha256": "5928cbab7a8693cce121323b326047e1ef4f945175cd8c57b8c446367e800e36",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": false,
+          "controller_identity": "158f237e763cee69cfd441aaf82334762b050d4dd6dad3c4ed2afb0d1230c5c2",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 15,
+          "publication_hold": false,
+          "role": "historical_development"
+        }
+      ]
+    },
+    "fpp-next-recursion-exp": {
+      "baseline": {
+        "run": "artifact/runs/paired-numerics-source-five-20261114-new",
+        "release_sha256": "6369fe8ab3235918c32b1d1ebaddd00b7aa30b894e99221cfdd49ddf6bad9290",
+        "files": {
+          "outcome.json": "7caa4d88794b8a14b7d474b05893f972cadaf666f16570dc5bda137ab092b4a9",
+          "diagnostics/segmented-checkpoint.json": "f29be910509bdc5a537147e3d3c90d9f3f480046c50d11da29e24842662609d3",
+          "diagnostics/effective-config.json": "cebf4200ce69779f0b0c9aa96621ff792cba8f329505352006cea457ae8baea5"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-next-recursion-exp/result.json",
+          "result_sha256": "b54ac7c2f5ab32a7da4e294802bc91ce2ba05c073c1104fe81e9ae2e1be01481",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 19,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-next-recursion-exp/result.json",
+          "result_sha256": "50815a468b99b0e1a060a21847e79b009fb7201c3989df4204914a160a8e8506",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 3,
+          "publication_hold": false,
+          "role": "current_controller"
+        }
+      ]
+    },
+    "fpp-tree-inorder": {
+      "baseline": {
+        "run": "artifact/runs/source-first-20261114-development/source-workflow-repair/tree-fixture-export-repair/admission",
+        "release_sha256": "480ef14e96258c0f99bf635f1e550a904b802eabe48ef2134913da49566b55af",
+        "files": {
+          "outcome.json": "170b267b82fd3a8d9cb93a7a71cbad5d7cbb4a89517ac36162985252ed2cfd4f",
+          "diagnostics/segmented-checkpoint.json": "6655bed4756ff3fd2cb6f87da5f2298d5cb9df543ab3c0005dd852e7138bb30a",
+          "diagnostics/effective-config.json": "be48faa94ca23dc2df63d7451979c5730fba279b7c448f96e8046ee9373109e3"
+        }
+      },
+      "optimization_records": [
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-tree-inorder/result.json",
+          "result_sha256": "77b9d1cc68990952a1dece9ac7a410fc9a64cb20cc5ae23ae185ebf5e16c965c",
+          "mode": "full",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": true,
+          "improved_during_search": true,
+          "model_calls": 6,
+          "publication_hold": false,
+          "role": "current_controller"
+        },
+        {
+          "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+          "result": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-tree-inorder/result.json",
+          "result_sha256": "15b79a223a11f907c9470ab81b4ea55e096b207ee6f190cdbc00a0348839e0f4",
+          "mode": "rust-only",
+          "case_status": "complete",
+          "batch_complete": true,
+          "controller_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+          "selected_source_optimized": false,
+          "improved_during_search": true,
+          "model_calls": 3,
+          "publication_hold": false,
+          "role": "current_controller"
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "This index is a snapshot; still-active runs are referenced but are not reported as completed.",
+    "Historical development controllers are not combined with current-controller results for aggregate inference.",
+    "The representative ten are explicitly selected examples, not an unbiased source-success-rate sample.",
+    "All original directories, including unsuccessful and interrupted trials, remain in place."
+  ]
+}

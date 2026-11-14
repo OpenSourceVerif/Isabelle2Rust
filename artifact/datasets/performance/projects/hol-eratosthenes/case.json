@@ -1,0 +1,14 @@
+{
+  "id": "hol-eratosthenes",
+  "cohort_id": "paper-07",
+  "source_files": [],
+  "contract": "One token n, initially 0..512. Execute original primes_upto_sieve code equation; full prime list observed.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy"
+  },
+  "algorithm_project": "program",
+  "testing_project": "testing"
+}

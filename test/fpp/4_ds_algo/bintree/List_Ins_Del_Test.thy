@@ -1,4 +1,4 @@
-(* Author: Tobias Nipkow *)
+
 
 section \<open>List Insertion and Deletion\<close>
 

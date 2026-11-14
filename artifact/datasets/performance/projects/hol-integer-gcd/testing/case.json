@@ -1,0 +1,12 @@
+{
+  "id": "hol-integer-gcd",
+  "source_files": [],
+  "contract": "Thin monomorphic binding of original integer gcd. Input has exactly two nonnegative wire tokens encoding signed-64 integers via Model.decode. Gcd result is a nonnegative integer. No authored expected outputs. Original OCaml Z.gcd code_printing remains enabled.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Prepared signed integer pair -> original gcd -> encoded result"
+  }
+}

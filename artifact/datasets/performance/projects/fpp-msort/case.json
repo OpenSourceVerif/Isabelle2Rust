@@ -1,0 +1,14 @@
+{
+  "id": "fpp-msort",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "FPP original source observation: MergeSort_Test.linorder_class.msort input; inputs follow fixed fpp_suites domain. No semantic claim outside tested observations.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Prepared algorithm inputs to complete algorithm result; wire conversion, expression construction, and output encoding are outside timing."
+  }
+}

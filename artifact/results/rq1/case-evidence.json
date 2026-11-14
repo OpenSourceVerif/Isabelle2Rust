@@ -1,0 +1,88 @@
+[
+  {
+    "case": "unit-mapping-wordbigint-word-mask-6618a6",
+    "result_path": "artifact/runs/unit-formal-20261113-r2/tasks/unit-mapping-wordbigint-word-mask-6618a6/diagnostics/result.json",
+    "result_sha256": "58f3a2e6d34538a4a4e140ca123e4ec34410371567e1e0a9d566ee9bc37e28f1",
+    "failed_step": 14,
+    "recovered_step": 23,
+    "tests_unchanged": true,
+    "candidate_state_unchanged": false,
+    "test_before": "fn push_bit_integer_zero_huge_count() {\n    let huge = ubig_dec(\"1606938044258990275541962092341162602522202993782792835301376\");\n    assert_eq!(push_bit_integer(&huge, &IBig::from(0u32)), IBig::from(0u32));\n}",
+    "test_after": "fn push_bit_integer_zero_huge_count() {\n    let huge = ubig_dec(\"1606938044258990275541962092341162602522202993782792835301376\");\n    assert_eq!(push_bit_integer(&huge, &IBig::from(0u32)), IBig::from(0u32));\n}",
+    "tests_passed_after_recovery": 17,
+    "source_check_actions": [
+      {
+        "attempt": 15,
+        "action": "candidate_repair"
+      }
+    ],
+    "final_differential_checks": [
+      {
+        "kind": "fixed",
+        "status": "passed",
+        "count": 8
+      },
+      {
+        "kind": "kernel_fixed",
+        "status": "passed",
+        "count": 8
+      },
+      {
+        "kind": "generated_differential",
+        "status": "passed",
+        "count": 40
+      },
+      {
+        "kind": "kernel_generated_differential",
+        "status": "passed",
+        "count": 40
+      }
+    ],
+    "candidate_patch": "--- src/lib.rs\n+++ src/lib.rs\n@@ -231,6 +231,12 @@\n /// is the natural number `n`, so the generic `power` recurrence is used over\n /// exact `IBig` arithmetic.\n pub fn push_bit_integer(n: &Nat, k: &Integer) -> Integer {\n+    // Source `times_integer zero ?l = zero` absorbs on the left before the\n+    // powered argument needs to be evaluated; keep that branch selective so\n+    // a zero multiplier with an arbitrarily large exponent stays constant.\n+    if k == &Integer::from(0u32) {\n+        return k.clone();\n+    }\n     let base = pos(num_bit0(num_one()));\n     times_integer(k.clone(), power(&base, n))\n }\n"
+  },
+  {
+    "case": "fpp-full-queue-test-dequeue-45c975",
+    "result_path": "artifact/runs/fpp-formal-clean-20261113/tasks/fpp-full-queue-test-dequeue-45c975/diagnostics/result.json",
+    "result_sha256": "00a7ed0b2d3824b6a46b616eeeecdcb13e04846c409a2f791c9129136ce749bc",
+    "failed_step": 7,
+    "recovered_step": 11,
+    "tests_unchanged": false,
+    "candidate_state_unchanged": true,
+    "test_before": "fn dequeue_generic_clone_only() {\n    // Only Clone is required by the source; no Eq/Ord/Debug is available here.\n    let xs = list_from_vec(vec![\n        TaggedVal { id: 1 },\n        TaggedVal { id: 2 },\n        TaggedVal { id: 3 },\n    ]);\n    let (last, prefix) = dequeue(&xs);\n    assert_eq!(last.id, 3u32);\n    let ids: Vec<u32> = list_into_vec(prefix).into_iter().map(|v| v.id).collect();\n    assert_eq!(ids, vec![1u32, 2, 3]);\n}",
+    "test_after": "fn dequeue_generic_clone_only() {\n    // Only Clone is required by the source; no Eq/Ord/Debug is available here.\n    let xs = list_from_vec(vec![\n        TaggedVal { id: 1 },\n        TaggedVal { id: 2 },\n        TaggedVal { id: 3 },\n    ]);\n    let (last, prefix) = dequeue(&xs);\n    assert_eq!(last.id, 3u32);\n    let ids: Vec<u32> = list_into_vec(prefix).into_iter().map(|v| v.id).collect();\n    assert_eq!(ids, vec![1u32, 2]);\n}",
+    "tests_passed_after_recovery": 14,
+    "source_check_actions": [
+      {
+        "attempt": 8,
+        "action": "binding_fix"
+      },
+      {
+        "attempt": 10,
+        "action": "accept_revision"
+      }
+    ],
+    "final_differential_checks": [
+      {
+        "kind": "fixed",
+        "status": "passed",
+        "count": 12
+      },
+      {
+        "kind": "kernel_fixed",
+        "status": "passed",
+        "count": 12
+      },
+      {
+        "kind": "generated_differential",
+        "status": "passed",
+        "count": 40
+      },
+      {
+        "kind": "kernel_generated_differential",
+        "status": "passed",
+        "count": 40
+      }
+    ],
+    "candidate_patch": null
+  }
+]

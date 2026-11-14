@@ -1,7 +1,0 @@
-experiment=RQ3 Clippy comparison
-recorded_at=2026-08-20T22:34:23+08:00
-host_arch=x86_64
-rustc=1.94.0 (stable)
-cargo=1.94.0 (stable)
-clippy=0.1.94
-scope=93 Stage-1/Stage-2 crate pairs

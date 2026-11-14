@@ -17,3 +17,6 @@ i2r-fpp = "i2r_agent.fpp_runner:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+i2r_agent = ["numeric_runtime/Cargo.toml", "numeric_runtime/src/*.rs", "numeric_runtime/tests/*.rs"]

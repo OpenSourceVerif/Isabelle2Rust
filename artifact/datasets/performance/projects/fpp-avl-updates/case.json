@@ -1,0 +1,14 @@
+{
+  "id": "fpp-avl-updates",
+  "cohort_id": "paper-05",
+  "source_files": [],
+  "contract": "Header k selects initial keys from next k tokens. Build a valid AVL using original insert before timing. Remaining tokens schedule insert (even)/delete (odd) of token div 2. All scheduled updates are timed. Observe complete structure, keys and stored heights. Both insert and delete are translation entries.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy"
+  },
+  "algorithm_project": "program",
+  "testing_project": "testing"
+}

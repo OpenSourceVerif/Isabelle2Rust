@@ -1,4 +1,4 @@
-(* Author: Tobias Nipkow *)
+
 
 subsection \<open>Invariant\<close>
 

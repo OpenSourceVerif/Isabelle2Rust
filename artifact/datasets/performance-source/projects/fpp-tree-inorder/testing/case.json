@@ -1,0 +1,13 @@
+{
+  "id": "fpp-tree-inorder",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Input [] denotes an empty tree; otherwise first token modulo 3 selects left spine, right spine, or balanced fixture over remaining values. Tree construction happens before timing. The measured operation is original generic Tree_Test.inorder; output is the complete inorder list.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "hol-fibonacci",
+  "cohort_id": "paper-09",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "One natural n. Original HOL Fib code equations, including the existing gen_fib implementation. Input n=200 is a correctness/range probe; timing n<=180 fits checked.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy"
+  }
+}

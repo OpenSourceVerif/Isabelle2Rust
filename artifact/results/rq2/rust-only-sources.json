@@ -1,0 +1,378 @@
+{
+  "schema": 1,
+  "mode": "rust-only",
+  "policy": "Explicit immutable case-to-original-run references. No performance-based selection, copied candidates, invented runs, new optimization or reused timing samples.",
+  "case_order": [
+    "fpp-multip",
+    "fpp-tree-inorder",
+    "fpp-deq-list",
+    "fpp-msort",
+    "fpp-avl-updates",
+    "fpp-acomp",
+    "hol-eratosthenes",
+    "hol-polynomial",
+    "hol-fibonacci",
+    "fpp-leftist-heap-merge"
+  ],
+  "cases": {
+    "fpp-multip": {
+      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "mode": "rust-only",
+      "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "run_files": {
+        "release.json": "aabcd306d447a47fb11383fd4d9299c9aa3eb94f019faf6c3c76b0bd43223e46",
+        "optimization-origin.json": "299a018d98b0d81663f416279c1de4fbc1ff264023f5c3ea7a373c1b15d9bdf8",
+        "optimization-report.json": "d61ec08e14403bb63d3695dc6ed8ee2ee72d35a9b05d4d4f27fd4c1d226679fb"
+      },
+      "files": {
+        "result.json": "e3d24b8a21088849931a2998fa8d5ab12a0f6eef20743ca6d26c98f8bc7437de",
+        "selected-state.json": "fce9a0c0e8ff17dc13ae1a68611da1abb62a6865bd621dddfba14d69379faf3e",
+        "scope-review/review.json": "3d819a56da830c65f4a8b73077fc6fac0d5bb51c9e9edcf1242fd1857cc29849",
+        "scope-review/selection.json": "c5e040068a8a36cc6e6ff888ad3cd2f5ebdf24984dc17d373a8485ecd309d1db"
+      },
+      "selected_version": "d8b8ddb455eac4d345767620f5b2a2151df68673c46b2680867b276c6e79d9d7",
+      "selected_source_optimized": false,
+      "stage_schema": 2,
+      "output": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-multip/output",
+      "output_files": {
+        "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
+        "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
+        "Cargo.lock": "19c2800aa495692a31cbeb370908bedd73826d5522d593b4aefd4806c12e5e28",
+        ".managed-files.json": "2b0020e4b4c4d5cd945476eea5e8e86228238a3aba739c9caa70644b12ab091a",
+        "rust-toolchain.toml": "b4cda633da2ab21937850415a73f2bb1cc8c006c950ed85837fd95098a0d11c4",
+        "numeric-runtime/Cargo.toml": "0b1d537347173745cff25fd523e565d61c8affd47cc749fbe6609c9b6cefd029",
+        "harness/Cargo.toml": "981e1ec12b332fcac07f7fb9a1ae7ddd617e6e8a763aa38bb1e868f3ac25309f",
+        "harness/Cargo.lock": "4bf02bf7b958cf2c9eaa18186c8eb0e09be1cd396a9b461ea27936a0743e0186",
+        "harness/.managed-files.json": "e5a44978cc48d8293996c83d5b0a74c176cfbdd466fc995a4b5634db87d6163a",
+        "src/lib.rs": "e2c9738dc189f54ae66cc050580f0db27536252c03114418ed3ed96651701640",
+        "numeric-runtime/src/lib.rs": "5f3a4b5502894e74f1c599fe1fc7fa02aee8d6e79fd1c9be99012e0e14956dcc",
+        "harness/src/lib.rs": "62f14e576a7e212635475aa719c0e9a73566a61c35149edd7320da13541a6fed",
+        "harness/src/main.rs": "0ce2cf015d46d7ed8a5427d5d2ebd6be468d525bfa4966894988f7481be248c1"
+      }
+    },
+    "fpp-tree-inorder": {
+      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "mode": "rust-only",
+      "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "run_files": {
+        "release.json": "aabcd306d447a47fb11383fd4d9299c9aa3eb94f019faf6c3c76b0bd43223e46",
+        "optimization-origin.json": "299a018d98b0d81663f416279c1de4fbc1ff264023f5c3ea7a373c1b15d9bdf8",
+        "optimization-report.json": "d61ec08e14403bb63d3695dc6ed8ee2ee72d35a9b05d4d4f27fd4c1d226679fb"
+      },
+      "files": {
+        "result.json": "15b79a223a11f907c9470ab81b4ea55e096b207ee6f190cdbc00a0348839e0f4",
+        "selected-state.json": "ccca0d3460c895a61bc9709aa966f8c11b575cd4f8a0a2b699826e2bed68ddcc",
+        "scope-review/review.json": "dce6acb7a34428e758339f9c289ae579cc61a67c41029179550c15943824e149",
+        "scope-review/selection.json": "c68aa162416efcb0e492721c29b7d3f4c09a677d28060fac9dbfff7fcc426a41"
+      },
+      "selected_version": "05ceb59f13610638c28f36aae13cf217f273413cefe84cf95c485986a9e66528",
+      "selected_source_optimized": false,
+      "stage_schema": 2,
+      "output": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-tree-inorder/output",
+      "output_files": {
+        "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
+        "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
+        "Cargo.lock": "19c2800aa495692a31cbeb370908bedd73826d5522d593b4aefd4806c12e5e28",
+        ".managed-files.json": "2b0020e4b4c4d5cd945476eea5e8e86228238a3aba739c9caa70644b12ab091a",
+        "rust-toolchain.toml": "b4cda633da2ab21937850415a73f2bb1cc8c006c950ed85837fd95098a0d11c4",
+        "numeric-runtime/Cargo.toml": "0b1d537347173745cff25fd523e565d61c8affd47cc749fbe6609c9b6cefd029",
+        "harness/Cargo.toml": "981e1ec12b332fcac07f7fb9a1ae7ddd617e6e8a763aa38bb1e868f3ac25309f",
+        "harness/Cargo.lock": "4bf02bf7b958cf2c9eaa18186c8eb0e09be1cd396a9b461ea27936a0743e0186",
+        "harness/.managed-files.json": "e5a44978cc48d8293996c83d5b0a74c176cfbdd466fc995a4b5634db87d6163a",
+        "src/lib.rs": "cc5c7445e47d582dc9e666ab622210e46c1cafbf798ce0ba33d0be4f46172878",
+        "numeric-runtime/src/lib.rs": "5f3a4b5502894e74f1c599fe1fc7fa02aee8d6e79fd1c9be99012e0e14956dcc",
+        "harness/src/lib.rs": "2686e088f38731d248fe33daeec14440116bdb9d6c489cf152086561352dae5e",
+        "harness/src/main.rs": "0ce2cf015d46d7ed8a5427d5d2ebd6be468d525bfa4966894988f7481be248c1"
+      }
+    },
+    "fpp-deq-list": {
+      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "mode": "rust-only",
+      "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "run_files": {
+        "release.json": "aabcd306d447a47fb11383fd4d9299c9aa3eb94f019faf6c3c76b0bd43223e46",
+        "optimization-origin.json": "299a018d98b0d81663f416279c1de4fbc1ff264023f5c3ea7a373c1b15d9bdf8",
+        "optimization-report.json": "d61ec08e14403bb63d3695dc6ed8ee2ee72d35a9b05d4d4f27fd4c1d226679fb"
+      },
+      "files": {
+        "result.json": "2fafb338cfec691246eb95ffaa907af0dcafde792111c1d40056db8afc40988e",
+        "selected-state.json": "15037a9b02d35a1f291c4386d6a7ce5aa4c16e7e687ea50bf0d46fac7b77e8f1",
+        "scope-review/review.json": "a590383455fcace7725c22542744b0afa182c1284e7f2b98856908638695ac7e",
+        "scope-review/selection.json": "f14a44724f19091a2899b30f90e9539ecaea3a3a1b9fbe4e2d97d2656f04cea1"
+      },
+      "selected_version": "c8a58766b8cbb700267967c8b802576815798c857abcd4ad18c17df3d075f216",
+      "selected_source_optimized": false,
+      "stage_schema": 2,
+      "output": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-deq-list/output",
+      "output_files": {
+        "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
+        "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
+        "Cargo.lock": "19c2800aa495692a31cbeb370908bedd73826d5522d593b4aefd4806c12e5e28",
+        ".managed-files.json": "2b0020e4b4c4d5cd945476eea5e8e86228238a3aba739c9caa70644b12ab091a",
+        "rust-toolchain.toml": "b4cda633da2ab21937850415a73f2bb1cc8c006c950ed85837fd95098a0d11c4",
+        "numeric-runtime/Cargo.toml": "0b1d537347173745cff25fd523e565d61c8affd47cc749fbe6609c9b6cefd029",
+        "harness/Cargo.toml": "981e1ec12b332fcac07f7fb9a1ae7ddd617e6e8a763aa38bb1e868f3ac25309f",
+        "harness/Cargo.lock": "4bf02bf7b958cf2c9eaa18186c8eb0e09be1cd396a9b461ea27936a0743e0186",
+        "harness/.managed-files.json": "e5a44978cc48d8293996c83d5b0a74c176cfbdd466fc995a4b5634db87d6163a",
+        "src/lib.rs": "4b50258c99049a0ec3609429bf6ba392555e091a57b5ec8a1e499adee5caf888",
+        "numeric-runtime/src/lib.rs": "5f3a4b5502894e74f1c599fe1fc7fa02aee8d6e79fd1c9be99012e0e14956dcc",
+        "harness/src/lib.rs": "8b715c28ba092bf6c15dad4933c89755921c6477fd3348f68071a6bc8543d5be",
+        "harness/src/main.rs": "0ce2cf015d46d7ed8a5427d5d2ebd6be468d525bfa4966894988f7481be248c1"
+      }
+    },
+    "fpp-msort": {
+      "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
+      "mode": "rust-only",
+      "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "run_files": {
+        "release.json": "729e42f37b8841130114d94fbc8f486c3ea279697b8703fa7ab53a9815746932",
+        "optimization-origin.json": "cd5fcb3e0a0e8c20ccf24148a18547ab7892a6be5378a3489b594358adc4aa53",
+        "optimization-report.json": "584ebfadae7d50f8e9c0734e6997018d590db03e52027469398300597fb456e8"
+      },
+      "files": {
+        "result.json": "ef950c54224ed8ff2cefa428a564ded2f1a7224505625689bd2552e5fb3c30b6",
+        "selected-state.json": "61d76b58ae1f436605b65e1e4faff7d261234e93df49f70251e8b5341b77d7ad",
+        "scope-review/review.json": "8b6d6d6200578d35d1aeeae1d40a024eb6ecb08abf0225ef8a4bc75f900de0e3",
+        "scope-review/selection.json": "6577a7e1e24074a0c0c372f549c4fe3f7a468f643a8931b4301c6ab2be4a2304"
+      },
+      "selected_version": "cec5a77a302dfec1f938fa7508ba65bbe04c95b334b2ce584c6139fbcb02b875",
+      "selected_source_optimized": false,
+      "stage_schema": 2,
+      "output": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-msort/output",
+      "output_files": {
+        "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
+        "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
+        "Cargo.lock": "19c2800aa495692a31cbeb370908bedd73826d5522d593b4aefd4806c12e5e28",
+        ".managed-files.json": "2b0020e4b4c4d5cd945476eea5e8e86228238a3aba739c9caa70644b12ab091a",
+        "rust-toolchain.toml": "b4cda633da2ab21937850415a73f2bb1cc8c006c950ed85837fd95098a0d11c4",
+        "numeric-runtime/Cargo.toml": "0b1d537347173745cff25fd523e565d61c8affd47cc749fbe6609c9b6cefd029",
+        "harness/Cargo.toml": "981e1ec12b332fcac07f7fb9a1ae7ddd617e6e8a763aa38bb1e868f3ac25309f",
+        "harness/Cargo.lock": "4bf02bf7b958cf2c9eaa18186c8eb0e09be1cd396a9b461ea27936a0743e0186",
+        "harness/.managed-files.json": "e5a44978cc48d8293996c83d5b0a74c176cfbdd466fc995a4b5634db87d6163a",
+        "src/lib.rs": "17a8e173f59ac4f4fa90ef6a68ca2a91721eaa8fc0cc517fa45a2f7567bf775e",
+        "numeric-runtime/src/lib.rs": "5f3a4b5502894e74f1c599fe1fc7fa02aee8d6e79fd1c9be99012e0e14956dcc",
+        "harness/src/lib.rs": "d26056d67a7f4b3b820baab98951068fcbb699a8c16ce1ddd4aee52ada30570b",
+        "harness/src/main.rs": "0ce2cf015d46d7ed8a5427d5d2ebd6be468d525bfa4966894988f7481be248c1"
+      }
+    },
+    "fpp-avl-updates": {
+      "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
+      "mode": "rust-only",
+      "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "run_files": {
+        "release.json": "729e42f37b8841130114d94fbc8f486c3ea279697b8703fa7ab53a9815746932",
+        "optimization-origin.json": "cd5fcb3e0a0e8c20ccf24148a18547ab7892a6be5378a3489b594358adc4aa53",
+        "optimization-report.json": "584ebfadae7d50f8e9c0734e6997018d590db03e52027469398300597fb456e8"
+      },
+      "files": {
+        "result.json": "2a7c0acec2961d0f79ada268412a5e2f495b49871fcf10ed0fb595c31df3d81c",
+        "selected-state.json": "3eb414df18cf3c65f11a7c4d431528263e834b78c1d2e5551bc3a322dc9a1dd6",
+        "scope-review/review.json": "08c20a12ecc7d60152afc26a66102f97c73efb15d53646e49ea5235d5118b963",
+        "scope-review/selection.json": "d7f9aceda9edbed7ad7e08f301b1afa16f1cabe56c9754e130b5a4f64b8311fd"
+      },
+      "selected_version": "f17414738ec6b5597f1f77090f70d96e3a5eadf4be7000703a574ba43eeb6a58",
+      "selected_source_optimized": false,
+      "stage_schema": 2,
+      "output": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-avl-updates/output",
+      "output_files": {
+        "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
+        "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
+        "Cargo.lock": "19c2800aa495692a31cbeb370908bedd73826d5522d593b4aefd4806c12e5e28",
+        ".managed-files.json": "2b0020e4b4c4d5cd945476eea5e8e86228238a3aba739c9caa70644b12ab091a",
+        "rust-toolchain.toml": "b4cda633da2ab21937850415a73f2bb1cc8c006c950ed85837fd95098a0d11c4",
+        "numeric-runtime/Cargo.toml": "0b1d537347173745cff25fd523e565d61c8affd47cc749fbe6609c9b6cefd029",
+        "harness/Cargo.toml": "981e1ec12b332fcac07f7fb9a1ae7ddd617e6e8a763aa38bb1e868f3ac25309f",
+        "harness/Cargo.lock": "4bf02bf7b958cf2c9eaa18186c8eb0e09be1cd396a9b461ea27936a0743e0186",
+        "harness/.managed-files.json": "e5a44978cc48d8293996c83d5b0a74c176cfbdd466fc995a4b5634db87d6163a",
+        "src/lib.rs": "4ea1057531980264dc99c9fc7e173127fb78f7ab0a102c448b64b7f6a4097968",
+        "numeric-runtime/src/lib.rs": "5f3a4b5502894e74f1c599fe1fc7fa02aee8d6e79fd1c9be99012e0e14956dcc",
+        "harness/src/lib.rs": "eabfd513bd7cb8e9b503135bdaf38484cc75f99f843b06230a692a76f887a6ae",
+        "harness/src/main.rs": "0ce2cf015d46d7ed8a5427d5d2ebd6be468d525bfa4966894988f7481be248c1"
+      }
+    },
+    "fpp-acomp": {
+      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "mode": "rust-only",
+      "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "run_files": {
+        "release.json": "aabcd306d447a47fb11383fd4d9299c9aa3eb94f019faf6c3c76b0bd43223e46",
+        "optimization-origin.json": "299a018d98b0d81663f416279c1de4fbc1ff264023f5c3ea7a373c1b15d9bdf8",
+        "optimization-report.json": "d61ec08e14403bb63d3695dc6ed8ee2ee72d35a9b05d4d4f27fd4c1d226679fb"
+      },
+      "files": {
+        "result.json": "cc66dd4732967c6a71f801ae17305b86c38defe2a9e9a771f6d9162a4f572f90",
+        "selected-state.json": "7663ecd6f2fd88129cef0b89d5bc64c4d64d39e49a341a347cff7559578cbb4c",
+        "scope-review/review.json": "a63c4312d74da187695f7d090d74741b2a2dca96d0b0495e76de517c720ae9ec",
+        "scope-review/selection.json": "29e3f00392c0f4fda6c42cc3b1097533ca6dfeb58b55c8dee3a3f888aa04ea8b"
+      },
+      "selected_version": "fff72d1e037f10ac538f4383355f56f82326eb5536931f2294a3fc8c90244ab6",
+      "selected_source_optimized": false,
+      "stage_schema": 2,
+      "output": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-acomp/output",
+      "output_files": {
+        "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
+        "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
+        "Cargo.lock": "19c2800aa495692a31cbeb370908bedd73826d5522d593b4aefd4806c12e5e28",
+        ".managed-files.json": "2b0020e4b4c4d5cd945476eea5e8e86228238a3aba739c9caa70644b12ab091a",
+        "rust-toolchain.toml": "b4cda633da2ab21937850415a73f2bb1cc8c006c950ed85837fd95098a0d11c4",
+        "numeric-runtime/Cargo.toml": "0b1d537347173745cff25fd523e565d61c8affd47cc749fbe6609c9b6cefd029",
+        "harness/Cargo.toml": "981e1ec12b332fcac07f7fb9a1ae7ddd617e6e8a763aa38bb1e868f3ac25309f",
+        "harness/Cargo.lock": "4bf02bf7b958cf2c9eaa18186c8eb0e09be1cd396a9b461ea27936a0743e0186",
+        "harness/.managed-files.json": "e5a44978cc48d8293996c83d5b0a74c176cfbdd466fc995a4b5634db87d6163a",
+        "src/lib.rs": "3ed2510a04da6f4532a68e3bd53ae2a7084ced3fcce6eb8526b7234d8c8faa8b",
+        "numeric-runtime/src/lib.rs": "5f3a4b5502894e74f1c599fe1fc7fa02aee8d6e79fd1c9be99012e0e14956dcc",
+        "harness/src/lib.rs": "aa8c3613b555eb4e3bd0d12085875f1190433eb667f08c37061a194d62da6033",
+        "harness/src/main.rs": "0ce2cf015d46d7ed8a5427d5d2ebd6be468d525bfa4966894988f7481be248c1"
+      }
+    },
+    "hol-eratosthenes": {
+      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "mode": "rust-only",
+      "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "run_files": {
+        "release.json": "aabcd306d447a47fb11383fd4d9299c9aa3eb94f019faf6c3c76b0bd43223e46",
+        "optimization-origin.json": "299a018d98b0d81663f416279c1de4fbc1ff264023f5c3ea7a373c1b15d9bdf8",
+        "optimization-report.json": "d61ec08e14403bb63d3695dc6ed8ee2ee72d35a9b05d4d4f27fd4c1d226679fb"
+      },
+      "files": {
+        "result.json": "0ff5b86d21468dc60ea1c46e53e3cf42e333a068ba89a72e462817c1e7d9dc4b",
+        "selected-state.json": "56e79bd07047ef87945843e6e6d7ce109daa71bc28c5adc57971de9dab9c3fcf",
+        "scope-review/review.json": "2c13771104f34a4c0028bfeba7aed15255f9ffa8ffa9817e989092b6b40fcde6",
+        "scope-review/selection.json": "b246726779077c5b1071b441be09587d3a2c712a1c6713ae5f6af9579600a751"
+      },
+      "selected_version": "c7f680e2056214befc184364e4432c6efe83f90263fdd3cb47e6941c0dd84ef0",
+      "selected_source_optimized": false,
+      "stage_schema": 2,
+      "output": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-eratosthenes/output",
+      "output_files": {
+        "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
+        "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
+        "Cargo.lock": "19c2800aa495692a31cbeb370908bedd73826d5522d593b4aefd4806c12e5e28",
+        ".managed-files.json": "2b0020e4b4c4d5cd945476eea5e8e86228238a3aba739c9caa70644b12ab091a",
+        "rust-toolchain.toml": "b4cda633da2ab21937850415a73f2bb1cc8c006c950ed85837fd95098a0d11c4",
+        "numeric-runtime/Cargo.toml": "0b1d537347173745cff25fd523e565d61c8affd47cc749fbe6609c9b6cefd029",
+        "harness/Cargo.toml": "981e1ec12b332fcac07f7fb9a1ae7ddd617e6e8a763aa38bb1e868f3ac25309f",
+        "harness/Cargo.lock": "4bf02bf7b958cf2c9eaa18186c8eb0e09be1cd396a9b461ea27936a0743e0186",
+        "harness/.managed-files.json": "e5a44978cc48d8293996c83d5b0a74c176cfbdd466fc995a4b5634db87d6163a",
+        "src/lib.rs": "d47b4ae7994b1a5f0fa963e6a94ca0cf0b3249507fa9b3296ff566bf564a49f2",
+        "numeric-runtime/src/lib.rs": "5f3a4b5502894e74f1c599fe1fc7fa02aee8d6e79fd1c9be99012e0e14956dcc",
+        "harness/src/lib.rs": "55a8d874efbc3eff9a84a2b8d1a3e4a4373bbb93d42c2c5011a2248dde03aa5f",
+        "harness/src/main.rs": "0ce2cf015d46d7ed8a5427d5d2ebd6be468d525bfa4966894988f7481be248c1"
+      }
+    },
+    "hol-polynomial": {
+      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "mode": "rust-only",
+      "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "run_files": {
+        "release.json": "aabcd306d447a47fb11383fd4d9299c9aa3eb94f019faf6c3c76b0bd43223e46",
+        "optimization-origin.json": "299a018d98b0d81663f416279c1de4fbc1ff264023f5c3ea7a373c1b15d9bdf8",
+        "optimization-report.json": "d61ec08e14403bb63d3695dc6ed8ee2ee72d35a9b05d4d4f27fd4c1d226679fb"
+      },
+      "files": {
+        "result.json": "7abaec0cd3fe3b9d427468bed594ae7df78c49ec15b0ec56543567f62f55fd58",
+        "selected-state.json": "d6cc32074ae265a167355c3915cd9341e553c8500720377cd3a382efc6d926b3",
+        "scope-review/review.json": "3292397fe802c6dfced543842783abeb58ee87dc000b0021417011a35fe68d1a",
+        "scope-review/selection.json": "ddb88769d6398ab37f408d72e505ecb6f9efd2f29161e5ea6483bdeb100c9498"
+      },
+      "selected_version": "fbd5fb3301b396ea369d6f4dfa1460cfc28acd38dce4279c4cb0dfb5eb5b5cd5",
+      "selected_source_optimized": false,
+      "stage_schema": 2,
+      "output": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-polynomial/output",
+      "output_files": {
+        "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
+        "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
+        "Cargo.lock": "19c2800aa495692a31cbeb370908bedd73826d5522d593b4aefd4806c12e5e28",
+        ".managed-files.json": "2b0020e4b4c4d5cd945476eea5e8e86228238a3aba739c9caa70644b12ab091a",
+        "rust-toolchain.toml": "b4cda633da2ab21937850415a73f2bb1cc8c006c950ed85837fd95098a0d11c4",
+        "numeric-runtime/Cargo.toml": "0b1d537347173745cff25fd523e565d61c8affd47cc749fbe6609c9b6cefd029",
+        "harness/Cargo.toml": "981e1ec12b332fcac07f7fb9a1ae7ddd617e6e8a763aa38bb1e868f3ac25309f",
+        "harness/Cargo.lock": "4bf02bf7b958cf2c9eaa18186c8eb0e09be1cd396a9b461ea27936a0743e0186",
+        "harness/.managed-files.json": "e5a44978cc48d8293996c83d5b0a74c176cfbdd466fc995a4b5634db87d6163a",
+        "src/lib.rs": "8b89801486dba458c7711f9bd371154911199a21f794530708cbd28700581de0",
+        "numeric-runtime/src/lib.rs": "5f3a4b5502894e74f1c599fe1fc7fa02aee8d6e79fd1c9be99012e0e14956dcc",
+        "harness/src/lib.rs": "c9b9b33f825efb8c2e4577d718997beaa9ad73c535f8ccee8de54dfc004866f6",
+        "harness/src/main.rs": "0ce2cf015d46d7ed8a5427d5d2ebd6be468d525bfa4966894988f7481be248c1"
+      }
+    },
+    "hol-fibonacci": {
+      "run": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only",
+      "mode": "rust-only",
+      "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "run_files": {
+        "release.json": "6adbb4b4f2a8dc4a953bfd27c2d11ec624c1ba7351cf254cce6e23cf3d68932e",
+        "optimization-origin.json": "8daa7db5762faf82a7c1ef38f8caf2e0250a683e3f611a999a947bc731b91be5",
+        "optimization-report.json": "b581372b9e7275a2e7b1bdecd01284be9ea2dcad686ff0670cffa58b38649afb"
+      },
+      "files": {
+        "result.json": "142015524f107633d26bad915624985300d671d8eadcb6f36db11c40bcb94d99",
+        "selected-state.json": "f103e361243c7e3ff499c3c8614f0b1a068adbaf270198399d6392f54a185781",
+        "scope-review/review.json": "e8a4b1c93fd54330ca56f8c074963f974b4e2d3991317fd01fffe2a4fb85be7a",
+        "scope-review/selection.json": "102a7729e5888fc35633aa8f550ec350f677829cf4ce63814eb363ce7753b2b6"
+      },
+      "selected_version": "b59b1a506ad7264d3db6362b7f1b37e751c4b2930edd236725eb8894f6663d42",
+      "selected_source_optimized": false,
+      "stage_schema": 2,
+      "output": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only/optimization/hol-fibonacci/output",
+      "output_files": {
+        "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
+        "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
+        "Cargo.lock": "19c2800aa495692a31cbeb370908bedd73826d5522d593b4aefd4806c12e5e28",
+        ".managed-files.json": "2b0020e4b4c4d5cd945476eea5e8e86228238a3aba739c9caa70644b12ab091a",
+        "rust-toolchain.toml": "b4cda633da2ab21937850415a73f2bb1cc8c006c950ed85837fd95098a0d11c4",
+        "numeric-runtime/Cargo.toml": "0b1d537347173745cff25fd523e565d61c8affd47cc749fbe6609c9b6cefd029",
+        "harness/Cargo.toml": "981e1ec12b332fcac07f7fb9a1ae7ddd617e6e8a763aa38bb1e868f3ac25309f",
+        "harness/Cargo.lock": "4bf02bf7b958cf2c9eaa18186c8eb0e09be1cd396a9b461ea27936a0743e0186",
+        "harness/.managed-files.json": "e5a44978cc48d8293996c83d5b0a74c176cfbdd466fc995a4b5634db87d6163a",
+        "src/lib.rs": "d9088eaace15cad148b7e35fec143b13269695e6885e0c0486c039b8624f607d",
+        "numeric-runtime/src/lib.rs": "5f3a4b5502894e74f1c599fe1fc7fa02aee8d6e79fd1c9be99012e0e14956dcc",
+        "harness/src/lib.rs": "6e12ef140ba8c8575312a4b3aecfad99826e8a89953ff55da40061208bf6e760",
+        "harness/src/main.rs": "0ce2cf015d46d7ed8a5427d5d2ebd6be468d525bfa4966894988f7481be248c1"
+      }
+    },
+    "fpp-leftist-heap-merge": {
+      "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
+      "mode": "rust-only",
+      "release_identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "run_files": {
+        "release.json": "729e42f37b8841130114d94fbc8f486c3ea279697b8703fa7ab53a9815746932",
+        "optimization-origin.json": "cd5fcb3e0a0e8c20ccf24148a18547ab7892a6be5378a3489b594358adc4aa53",
+        "optimization-report.json": "584ebfadae7d50f8e9c0734e6997018d590db03e52027469398300597fb456e8"
+      },
+      "files": {
+        "result.json": "6f1894ce1aa8f89ea507b532e5b9ad8afc9a33590e24263966341e3326b3c692",
+        "selected-state.json": "a65e97930b06be64b36a29946f4a41d6b9903b5a821629f3da161011f1d12cf3",
+        "scope-review/review.json": "e250dcfa1f75a8da2f1797cb7b7c245dfee6d697bc21b3254b433c89a3371f80",
+        "scope-review/selection.json": "d4076f120048ef7e096b79e8edcacd22cd6afe8a4ae087f44f80b580cc1ff3fd"
+      },
+      "selected_version": "c6356400c3708af78c63a00484f3eef0d2162a093c3c794ca5400881221345b3",
+      "selected_source_optimized": false,
+      "stage_schema": 2,
+      "output": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-leftist-heap-merge/output",
+      "output_files": {
+        "Cargo.toml": "326057ea933cd0c4758afc2de82c0687fb8b9d07d903e7ab4c08d98977fe28e4",
+        "rust-config.json": "552f3440398db3cb66be75f93e712e36df7d7adf428c5411d165c0ed0e477fa5",
+        "Cargo.lock": "19c2800aa495692a31cbeb370908bedd73826d5522d593b4aefd4806c12e5e28",
+        ".managed-files.json": "2b0020e4b4c4d5cd945476eea5e8e86228238a3aba739c9caa70644b12ab091a",
+        "rust-toolchain.toml": "b4cda633da2ab21937850415a73f2bb1cc8c006c950ed85837fd95098a0d11c4",
+        "numeric-runtime/Cargo.toml": "0b1d537347173745cff25fd523e565d61c8affd47cc749fbe6609c9b6cefd029",
+        "harness/Cargo.toml": "981e1ec12b332fcac07f7fb9a1ae7ddd617e6e8a763aa38bb1e868f3ac25309f",
+        "harness/Cargo.lock": "4bf02bf7b958cf2c9eaa18186c8eb0e09be1cd396a9b461ea27936a0743e0186",
+        "harness/.managed-files.json": "e5a44978cc48d8293996c83d5b0a74c176cfbdd466fc995a4b5634db87d6163a",
+        "src/lib.rs": "bb4788e3528413b993eb359ada7053e7527a6363542b4ce4b608f39aa1d34391",
+        "numeric-runtime/src/lib.rs": "5f3a4b5502894e74f1c599fe1fc7fa02aee8d6e79fd1c9be99012e0e14956dcc",
+        "harness/src/lib.rs": "67fc270a93de9df4959aacdaa80d77f858cc71138ee874018c34e678bfd7f4f2",
+        "harness/src/main.rs": "0ce2cf015d46d7ed8a5427d5d2ebd6be468d525bfa4966894988f7481be248c1"
+      }
+    }
+  },
+  "release_identities": [
+    "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d"
+  ],
+  "mixed_controller_releases": false,
+  "reason": "Representative display cases selected by the recorded conditional source-success/category rule; not an unbiased source-success-rate sample. Workloads are unchanged. Wider twenty-case aggregation retains unsuccessful and no-gain cases.",
+  "plan": {
+    "path": "artifact/runs/source-first-20261114-development/source-workflow-repair/representative-ten-selection-plan-v2.json",
+    "sha256": "21052a2cb68c832231749e561306fd07284b37e848a88f7fd1272be9e19419cb"
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "original": {
+    "source_type": {
+      "kind": "type",
+      "name": "fun",
+      "args": [
+        {
+          "kind": "type",
+          "name": "List.list",
+          "args": [
+            {
+              "kind": "schematic",
+              "name": "'a",
+              "index": 0,
+              "sort": []
+            }
+          ]
+        },
+        {
+          "kind": "type",
+          "name": "List.list",
+          "args": [
+            {
+              "kind": "schematic",
+              "name": "'a",
+              "index": 0,
+              "sort": []
+            }
+          ]
+        }
+      ]
+    },
+    "execution_type": {
+      "kind": "type",
+      "name": "fun",
+      "args": [
+        {
+          "kind": "type",
+          "name": "List.list",
+          "args": [
+            {
+              "kind": "free",
+              "name": "'a",
+              "sort": []
+            }
+          ]
+        },
+        {
+          "kind": "type",
+          "name": "List.list",
+          "args": [
+            {
+              "kind": "free",
+              "name": "'a",
+              "sort": []
+            }
+          ]
+        }
+      ]
+    },
+    "type_variables": [
+      {
+        "name": "'a",
+        "sort": [
+          "Orderings.linorder"
+        ]
+      }
+    ],
+    "execution_sorts": [
+      [
+        "Orderings.linorder"
+      ]
+    ],
+    "class_dependencies": [
+      "class:Orderings.linorder"
+    ]
+  },
+  "revised": {
+    "source_type": {
+      "kind": "type",
+      "name": "fun",
+      "args": [
+        {
+          "kind": "type",
+          "name": "List.list",
+          "args": [
+            {
+              "kind": "schematic",
+              "name": "'a",
+              "index": 0,
+              "sort": [
+                "Orderings.linorder"
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "type",
+          "name": "List.list",
+          "args": [
+            {
+              "kind": "schematic",
+              "name": "'a",
+              "index": 0,
+              "sort": [
+                "Orderings.linorder"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "execution_type": {
+      "kind": "type",
+      "name": "fun",
+      "args": [
+        {
+          "kind": "type",
+          "name": "List.list",
+          "args": [
+            {
+              "kind": "free",
+              "name": "'a",
+              "sort": []
+            }
+          ]
+        },
+        {
+          "kind": "type",
+          "name": "List.list",
+          "args": [
+            {
+              "kind": "free",
+              "name": "'a",
+              "sort": []
+            }
+          ]
+        }
+      ]
+    },
+    "type_variables": [
+      {
+        "name": "'a",
+        "sort": [
+          "Orderings.linorder"
+        ]
+      }
+    ],
+    "execution_sorts": [
+      [
+        "Orderings.linorder"
+      ]
+    ],
+    "class_dependencies": [
+      "class:Orderings.linorder"
+    ]
+  }
+}

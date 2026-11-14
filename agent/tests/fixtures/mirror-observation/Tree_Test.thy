@@ -1,4 +1,4 @@
-(* Author: Tobias Nipkow *)
+
 (* Todo: minimal ipl of almost complete trees *)
 
 section \<open>Binary Tree\<close>

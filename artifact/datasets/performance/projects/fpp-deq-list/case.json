@@ -1,0 +1,14 @@
+{
+  "id": "fpp-deq-list",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Original FPP observation: Queue_Test.deq2list input []; finite fpp_suites input domain. Signed integers use injective zigzag wire encoding. Higher-order functions/states are observed by explicit finite applications, not claimed equal from finite tests.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Prepared algorithm inputs to complete algorithm result; wire conversion, expression construction, and output encoding are outside timing."
+  }
+}

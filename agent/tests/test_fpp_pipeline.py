@@ -9,7 +9,7 @@ from i2r_agent.task_context import fingerprint
 
 def migration_fixture(tmp_path,monkeypatch):
     rows=[{'id':'first'}]
-    files={'agent/src/i2r_agent/fpp_runner.py':'before','artifact/README.md':'same','artifact/fpp-manifest.json':'fixed'}
+    files={'agent/src/i2r_agent/fpp_runner.py':'before','artifact/README.md':'same','artifact/datasets/fpp/manifest.json':'fixed'}
     old={'identity':fingerprint(files),'files':files,'evaluation_order':['first'],'per_task_calls':48,'per_task_active_seconds':4200,'workers':10,'global_limit':48,'tool_sources':{'source':'unchanged'},'effective_configs':{'first':{'numeric_mode':'arbitrary'}}}
     new=copy.deepcopy(old);new['files']['agent/src/i2r_agent/fpp_runner.py']='after';new['identity']=fingerprint(new['files'])
     save(tmp_path/'release.json',old);fpp_budget.initialize(tmp_path,old);save(tmp_path/'STOP_DISPATCH',{'reason':'pause'})
@@ -44,11 +44,11 @@ def test_migration_fails_closed_before_changes(tmp_path,monkeypatch,change):
     elif change=='checkpoint':save(tmp_path/'tasks/first/diagnostics/segmented-checkpoint.json',{})
     elif change=='config':new['effective_configs']['first']['numeric_mode']='checked'
     elif change=='tools':new['tool_sources']['source']='changed'
-    elif change=='input_file':new['files']['artifact/fpp-manifest.json']='changed'
+    elif change=='input_file':new['files']['artifact/datasets/fpp/manifest.json']='changed'
     elif change=='selection':new['evaluation_order']=['other']
     elif change=='workers':new['workers']=5
     elif change=='old_hash':
-        broken=copy.deepcopy(old);broken['files']['artifact/fpp-manifest.json']='tampered';save(tmp_path/'release.json',broken)
+        broken=copy.deepcopy(old);broken['files']['artifact/datasets/fpp/manifest.json']='tampered';save(tmp_path/'release.json',broken)
     elif change=='expected_identity':expected='wrong'
     elif change=='unpaused':(tmp_path/'STOP_DISPATCH').unlink()
     elif change=='running_prepare':save(tmp_path/'preparation-process.json',{'state':'running'})

@@ -5,6 +5,22 @@ from i2r_agent.common import Failure
 from i2r_agent.kernel_timing import Session, summarize, batch_cap, DEFAULTS
 
 class TimingProtocolTests(unittest.TestCase):
+    def test_williams_order_balances_positions_and_predecessors(self):
+        from collections import Counter
+        from i2r_agent.kernel_timing import process_order
+        for n in [2,3,4,6]:
+            with self.subTest(implementations=n):
+                rounds=n if n%2==0 else 2*n
+                orders=[process_order(list(range(n)),r,'williams') for r in range(rounds)]
+                for pos in range(n):
+                    self.assertEqual(Counter(row[pos] for row in orders),Counter({i:rounds//n for i in range(n)}))
+                pairs=Counter((a,b) for row in orders for a,b in zip(row,row[1:]))
+                self.assertEqual(pairs,Counter({(a,b):rounds//n for a in range(n) for b in range(n) if a!=b}))
+
+    def test_final_round_count_completes_balanced_cycles_after_aliases(self):
+        from i2r_agent.kernel_timing import balanced_rounds
+        self.assertEqual([balanced_rounds(n) for n in range(1,7)],[6,6,6,8,10,6])
+
     def fake(self, root, body):
         p=root/'fake';p.write_text('#!/usr/bin/env python3\n'+body);p.chmod(0o755);return p
 
@@ -64,16 +80,25 @@ class TimingDriverConstructionTests(unittest.TestCase):
 
 
 class TimingReuseTests(unittest.TestCase):
-    def completed_measurement(self,root):
+    def completed_measurement(self,root,overrides=None):
         from unittest.mock import patch
         from i2r_agent.kernel_timing import measure_group
         binary=TimingProtocolTests().fake(root,'import sys\nprint("V2_CLOCK 42 42",flush=True)\nfor line in sys.stdin:\n n=int(line.split()[1]);sys.stdin.readline();sys.stdin.readline();print("V2 1000",n,flush=True)\n')
         builds=[{'id':'candidate','work':str(root/'build'),'binary':str(binary)}]
         options={**DEFAULTS,'processes':1,'samples_per_process':1,'target_batch_ns':100,
-                 'warmup_min_seconds':0,'warmup_max_seconds':0}
+                 'warmup_min_seconds':0,'warmup_max_seconds':0,**(overrides or {})}
         with patch('builtins.print'):
             result=measure_group('sample',builds,[1],[1],options,root/'measurement')
         return builds,options,result
+
+    def test_short_batches_use_fixed_extra_samples_and_retain_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _,_,result=self.completed_measurement(Path(tmp),{'short_batch_samples':40})
+            measured=result['processes']['candidate'][0]
+            self.assertEqual(measured['sample_count'],40)
+            self.assertEqual(len(measured['raw_samples']),40)
+            self.assertIn('batch_too_close_to_clock_resolution',measured['warnings'])
+            self.assertGreater(measured['timer_probe_fraction'],.01)
 
     def test_completed_measurement_keeps_its_date_and_does_not_restart(self):
         from unittest.mock import patch

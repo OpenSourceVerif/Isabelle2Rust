@@ -1,0 +1,19 @@
+{
+  "at": "2026-11-14T09:06:51.643999+00:00",
+  "policy": "Complete the ten predeclared primary workloads first. Reuse completed primary observations byte-for-byte; measure only the missing Heap primary, using the exact already-sealed protocol and binaries. No result-based input substitution. Auxiliary measurements remain in the original run and are incomplete.",
+  "original_manifest": "artifact/runs/source-first-20261114-development/source-workflow-repair/representative-ten-v4-measurement-manifest.json",
+  "original_matrix": "artifact/runs/matrix-representative-ten-v4-20261114",
+  "selected_primary_workloads": {
+    "fpp-multip": "iterations-1024",
+    "fpp-tree-inorder": "balanced-1024",
+    "fpp-deq-list": "descending-1024",
+    "fpp-msort": "descending-1024",
+    "fpp-avl-updates": "mixed-1024",
+    "fpp-acomp": "descending-1024",
+    "hol-eratosthenes": "upper-bound-4096",
+    "hol-polynomial": "degree-1023-point-1",
+    "hol-fibonacci": "n-180",
+    "fpp-leftist-heap-merge": "descending-1024"
+  },
+  "stopped_auxiliary_controller": "artifact/runs/source-first-20261114-development/source-workflow-repair/primary-priority-measurement-stop.json"
+}

@@ -1,0 +1,58 @@
+{
+  "selected_roots": 488,
+  "completed": 488,
+  "accepted": 479,
+  "failed": 9,
+  "pending": 0,
+  "accepted_over_all_roots": 0.9815573770491803,
+  "completed_acceptance_rate": 0.9815573770491803,
+  "first_complete_automatic_rate": 0.9815573770491803,
+  "target": 0.95,
+  "target_met": true,
+  "includes_builtin_repairs": true,
+  "requests": 2559,
+  "known_usage": {
+    "prompt_tokens": 63908159,
+    "completion_tokens": 22392200,
+    "total_tokens": 86300359
+  },
+  "unknown_usage_requests": 10,
+  "failures": [
+    {
+      "case": "unit-mapping-arithmeticint-integer-divmod-abs-2f61b0",
+      "status": "oracle_conflict"
+    },
+    {
+      "case": "unit-mapping-arithmeticint-integer-bits-035c54",
+      "status": "source_check_unresolved"
+    },
+    {
+      "case": "unit-mapping-wordbigint-word-arithmetic-127590",
+      "status": "analysis_no_progress"
+    },
+    {
+      "case": "unit-mapping-wordbigint-word-casts-28b87f",
+      "status": "analysis_no_progress"
+    },
+    {
+      "case": "unit-mapping-wordchecked128-word-bits-a21e97",
+      "status": "budget_exhausted"
+    },
+    {
+      "case": "unit-type_classes-classmethods-twoop-chain-fbca73",
+      "status": "needs_user"
+    },
+    {
+      "case": "unit-type_classes-containerclasses-list-weight-dfe2bd",
+      "status": "source_check_unresolved"
+    },
+    {
+      "case": "unit-terms-name-hygiene-direct-same-type-8ee9a1",
+      "status": "support_oracle_dispute"
+    },
+    {
+      "case": "unit-terms-name-hygiene-frontier-cde3a0",
+      "status": "source_check_unresolved"
+    }
+  ]
+}

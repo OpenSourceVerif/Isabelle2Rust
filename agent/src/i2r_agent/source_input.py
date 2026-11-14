@@ -72,4 +72,5 @@ def numeric_contract(cfg):
         if bundle['numeric_policy']['mode']!='arbitrary':raise Failure('invalid_config','Dashu numeric profile requires arbitrary mode')
         bundle['numeric_policy']['numeric_library']={'name':'dashu-int','version':'=0.6.2','nat':'dashu_int::UBig','int':'dashu_int::IBig','integer':'dashu_int::IBig'}
         bundle['numeric_policy']['representation_selection']='Arbitrary Dashu profile: use dashu_int::UBig for mathematical nat and dashu_int::IBig for int/integer, pinned dashu-int =0.6.2. Prefer this shared backend; do not substitute num-bigint or impose u128/i128 limits. Native container indices require a source-derived resident-container bound. Preserve natural truncated subtraction, totalized division by zero and source signed division/remainder; raw library operators are not automatically the source operations. Generic source parameters stay generic. This correctness run has no machine-overflow boundary or performance optimization objective.'
-    return bundle['numeric_policy']
+    from .numeric_interface import apply_policy
+    return apply_policy(bundle['numeric_policy'], cfg)

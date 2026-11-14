@@ -259,9 +259,12 @@ def dispatch(run,rows,rel,resume=False,pipeline=False):
     return report(run,rows)
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--dataset',choices=['fpp','unit'],default=os.environ.get('I2R_DATASET','fpp'));p.add_argument('--run',type=Path,required=True);p.add_argument('command',choices=['prepare','resume-prepare','run','pause','resume','report','boundary','_child','pipeline','resume-pipeline','_prepare','migrate-pipeline','import-preparation']);p.add_argument('--case',action='append');p.add_argument('--from-run',type=Path,help='Read-only original mechanical preparation run');p.add_argument('--from-identity',help='Expected old frozen identity for scheduler migration or preparation import');p.add_argument('--workers',type=int,help='Concurrent task processes: default 5 for a new run; otherwise use the frozen release value');a=p.parse_args();os.environ['I2R_DATASET']=a.dataset;run=a.run.resolve();run.mkdir(parents=True,exist_ok=True);allrows=art.manifest()['cases']
+    p=argparse.ArgumentParser();p.add_argument('--dataset',choices=['fpp','unit','performance','performance-source'],default=os.environ.get('I2R_DATASET','fpp'));p.add_argument('--run',type=Path,required=True);p.add_argument('command',choices=['prepare','resume-prepare','run','pause','resume','report','boundary','_child','pipeline','resume-pipeline','_prepare','migrate-pipeline','import-preparation','measure','optimize']);p.add_argument('--case',action='append');p.add_argument('--from-run',type=Path,help='Read-only preparation or validated optimization baseline run');p.add_argument('--from-identity',help='Expected old frozen identity for scheduler migration or preparation import');p.add_argument('--workers',type=int,help='Concurrent task processes: default 5 for a new run; otherwise use the frozen release value')
+    from .experiment_config import arguments
+    arguments(p)
+    a=p.parse_args();os.environ['I2R_DATASET']=a.dataset;run=a.run.resolve();run.mkdir(parents=True,exist_ok=True);allrows=art.manifest()['cases']
     if a.command=='pause':save(run/'STOP_DISPATCH',{'reason':'user_pause','policy':'drain active tasks'});return
-    if a.command in {'prepare','resume-prepare','migrate-pipeline','import-preparation'}:
+    if a.command in {'prepare','resume-prepare','migrate-pipeline','import-preparation','measure','optimize'}:
         # Share dispatch's exclusive lease before selection/release initialization.
         with (run/'controller.lock').open('a+') as lease:
             fcntl.flock(lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -269,6 +272,8 @@ def main():
     return execute(a,run,allrows)
 
 def execute(a,run,allrows):
+    from .experiment_config import initialize
+    initialize(run,a)
     selection=run/'selection.json'
     if a.command=='migrate-pipeline' and not selection.exists():raise Failure('scheduler_migration_rejected','An existing frozen selection is required')
     if selection.exists():
@@ -279,9 +284,18 @@ def execute(a,run,allrows):
         if not set(ids)<={r['id'] for r in allrows}:raise Failure('unknown_case',str(ids))
         save(selection,{'ids':ids})
     rows=[r for r in allrows if r['id'] in ids]
-    if a.command=='report':print(json.dumps(report(run,rows),indent=2));return
+    if a.command=='report':
+        result=read(run/'optimization-report.json') if (run/'optimization-report.json').exists() else report(run,rows)
+        print(json.dumps(result,indent=2));return
     if a.command=='migrate-pipeline':return migrate_pipeline(run,rows,a.workers,a.from_identity)
-    rel=release(run,rows,a.workers);fpp_budget.initialize(run,rel)
+    rel=release(run,rows,a.workers)
+    if a.command=='optimize':
+        result=optimize_selected(run,rows,rel,a.from_run)
+        print(json.dumps({'mode':result['mode'],'complete':result['complete'],'improved':result['improved'],'selected':result['selected']},indent=2));return
+    fpp_budget.initialize(run,rel)
+    if a.command=='measure':
+        from .numeric_experiment import measure_run
+        print(json.dumps(measure_run(run,rows,rel),indent=2));return
     if a.command=='import-preparation':
         from .fpp_preparation_import import import_preparation
         if not a.from_run or not a.from_identity:raise Failure('preparation_import_rejected','Require --from-run and --from-identity')
@@ -298,7 +312,9 @@ def execute(a,run,allrows):
         os.fstat(int(os.environ['I2R_FPP_LEASE_FD']))
     if a.command=='_prepare':return prepare_rows(run,rows)
     if a.command in {'pipeline','resume-pipeline'}:
-        print(json.dumps(dispatch(run,rows,rel,resume=a.command=='resume-pipeline',pipeline=True),indent=2));return
+        result=dispatch(run,rows,rel,resume=a.command=='resume-pipeline',pipeline=True)
+        print(json.dumps(result,indent=2))
+        finish_optimization(run,rows,rel);return
     if a.command in {'boundary','_child'}:
         if not a.case or len(a.case)!=1:raise Failure('case_required','Select one task')
         if a.command=='_child':
@@ -310,5 +326,35 @@ def execute(a,run,allrows):
         if (run/'tasks'/row['id']/'outcome.json').exists():continue
         art.admission(row,run)
     print(json.dumps(dispatch(run,rows,rel,resume=a.command=='resume'),indent=2))
+    finish_optimization(run,rows,rel)
+
+
+def optimize_selected(run,rows,rel,baseline=None):
+    from .optimization import run as optimize
+    selection=read(run/'experiment.json') if (run/'experiment.json').exists() else {}
+    if selection.get('optimization','off')=='off':raise Failure('optimization_mode_required','Select --rust-only or --full')
+    if any(not r.get('performance_workloads') for r in rows):
+        raise Failure('performance_workloads_required','Use an admitted dataset with declared timing workloads')
+    baseline=Path(baseline or run).resolve()
+    if selection.get('numeric') is not None:
+        from .experiment_baselines import resolve
+        for row in rows:
+            source=resolve(baseline,row['id'])
+            prior=read(source/'experiment.json') if (source/'experiment.json').exists() else {}
+            if prior.get('numeric')!=selection['numeric']:
+                raise Failure('optimization_numeric_mismatch','Optimization inherits its baseline numeric configuration; no regeneration or numeric replacement')
+    return optimize(baseline,run,rows,selection['optimization'],selection['optimization_limits'],rel)
+
+
+def finish_optimization(run,rows,rel):
+    selection=read(run/'experiment.json') if (run/'experiment.json').exists() else {}
+    if selection.get('optimization','off')=='off':return
+    if (run/'STOP_DISPATCH').exists():return
+    # Run only accepted artifacts; failed correctness cases remain in the report.
+    accepted=[r for r in rows if (run/'tasks'/r['id']/'outcome.json').exists() and read(run/'tasks'/r['id']/'outcome.json').get('policy_accepted')]
+    if accepted:
+        with (run/'controller.lock').open('a+') as lease:
+            fcntl.flock(lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            optimize_selected(run,accepted,rel)
 
 if __name__=='__main__':main()

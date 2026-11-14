@@ -1,4 +1,4 @@
-(* Author: Tobias Nipkow, Daniel Stüwe *)
+
 
 section \<open>Three-Way Comparison\<close>
 

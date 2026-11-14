@@ -1,0 +1,12 @@
+{
+  "id": "hol-polynomial",
+  "cohort_id": "paper-08",
+  "source_files": [],
+  "contract": "Nonempty tokens: zigzag signed evaluation point then low-to-high signed coefficients. Build Poly before timing; evaluate original int poly. Fixed/generated admission uses bounded degrees and values; all actual outputs come from source references.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy"
+  }
+}

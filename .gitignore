@@ -9,7 +9,6 @@ temp/
 *.lock
 !scripts/isabelle-exported.Cargo.lock
 !optimize/**/Cargo.lock
-!evaluation/harness/rq3/sbpf/native/Cargo.lock
 /.isabelle-build.lock
 /liblint_probe.rlib
 /rust_out
@@ -33,22 +32,8 @@ test/x64/x64-validation/5-exec-semantics/exec
 **/stage2
 test/sbpf/theory/performance/
 test/x64/theory/performance/
-evaluation/.work/
-evaluation/harness/rq3/sbpf/native/target/
-evaluation/results/*
-!evaluation/results/agent/
-evaluation/results/agent/*
-!evaluation/results/agent/formal-20261113.json
-!evaluation/results/rq1/
-!evaluation/results/rq1/**
-!evaluation/results/rq2/
-!evaluation/results/rq2/**
-!evaluation/results/rq3/
-evaluation/results/rq3/*
-!evaluation/results/rq3/code-quality/
-!evaluation/results/rq3/code-quality/**
-!evaluation/results/rq3/sbpf/
-!evaluation/results/rq3/sbpf/**
-!evaluation/results/rq3/x64/
-!evaluation/results/rq3/x64/**
 /.agents/
+
+# Local editor and Python test artifacts
+.DS_Store
+.pytest_cache/

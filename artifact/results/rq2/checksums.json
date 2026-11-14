@@ -1,0 +1,19 @@
+{
+  "README.md": "29c818c2590bf6f71d06c2b8851ac1bb66bb5866b03ca2693a83113f74f9b5cd",
+  "case-selection-plan.json": "b0fde1570e20521951c3050e80fed136a70f2f44b666a7e6b077a61f571ff503",
+  "case-selection.json": "cba341cf7b7e7cd0e1f916ead933f3e9abd9dc146ee58a50946e613a1546b01a",
+  "full-sources.json": "1d75f2fe7cba0dab13e8f8ffe0805409249957043ad9933772099534420b5cab",
+  "matrix.json": "45b3585e4a31955bf9f0248844b5d3c1815ec50ed7af8d545cc461a2d2489f8f",
+  "measurement-plan.json": "d665b202f41e9d70676a76e18f67732d5a14c69105cb42bdacc16a95b693e1f3",
+  "normalized-matrix.csv": "2222e08b865d1070d07047deea0058b45f7020282bdcdb14c438371466fffba4",
+  "optimization-cost.csv": "2cd0ae727c38c6d2359202765ec0fe9f46c517ab363b284e17b8381b2ef6f6e9",
+  "retained-records.json": "e339448d2789a2e209e8b08a3761d95b535f402a459067f4333e277b97628261",
+  "rust-only-sources.json": "9f40bd1a5a3462f3ffc5729e2694f84cc6b99a0b4b074d8d4bbb01c07bd875ae",
+  "scope-reviews.json": "49ebd733f969009715c41cea358f133f3a5b4d56377afed302b2388d8b0183cf",
+  "selection-provenance.json": "b4d5f2f5e27f6bcfc4d5531d16a50a8bec2b30efcf254a0ec3a4f8dfcabbdd26",
+  "source-transforms.json": "c70d374cf4363a28051348227aa8f2fb7c0de7a65e92ddac2b1fb63e0da0444a",
+  "speedups.csv": "ff22f6c64b878cf6675232b231df027f5d8831843e62650fe37be3071a62ba18",
+  "summary.json": "9cd3cb5d44222e5a6e97a3b7675eb606003aac56e39b1c0236bcdd8ac99fd80e",
+  "timing-quality.csv": "ca4456e3e42d16ca37a9ff7f524972b434445f97ba0e799b3778153211cbcb63",
+  "timings.csv": "84dba70f06e0dbfa3493b142f7c8c5117f571ac785c434e85569d07ed22e882c"
+}

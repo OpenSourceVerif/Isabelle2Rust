@@ -1,4 +1,4 @@
-(* Author: Andreas Lochbihler, Digital Asset *)
+
 
 section \<open>Laziness tests\<close>
 

@@ -1,5 +1,5 @@
 (*
-Author:     Tobias Nipkow, Daniel Stüwe
+
 Based on the AFP entry AVL.
 *)
 

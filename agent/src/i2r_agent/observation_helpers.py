@@ -2,7 +2,7 @@
 from pathlib import Path
 from .common import digest,read
 
-MIRROR_SOURCE_HASHES = {'Model.thy': '3a2698e072d08c8cd47cb4f0c923d322b04e37988300a201623b394923c90c17', 'Kernel.thy': '2d99c4e0d60454140ef74d10d95a9ad18c60d54577bc31e41a4e93ec03a989d4', 'Tree_Test.thy': 'af0bbaaf7f6365e0b061de292a9e6dc96525aa55f75e0710bcf0d6e35cfa8e1b', 'Export.thy': '4c1fb1e7234d78a12fab6efd4609b16a80103c1ee51e43d49c95b0ac152bf90b'}
+MIRROR_SOURCE_HASHES = {'Model.thy': '3a2698e072d08c8cd47cb4f0c923d322b04e37988300a201623b394923c90c17', 'Kernel.thy': '2d99c4e0d60454140ef74d10d95a9ad18c60d54577bc31e41a4e93ec03a989d4', 'Tree_Test.thy': '189db58c36afc0feaa6f21d62a8d5b5c96caa1ae576a01d9d34f06c982066b7e', 'Export.thy': '4c1fb1e7234d78a12fab6efd4609b16a80103c1ee51e43d49c95b0ac152bf90b'}
 MIRROR_TARGETS = {'type:Tree_Test.tree','constant:Tree_Test.tree.Leaf',
                   'constant:Tree_Test.tree.Node','constant:Tree_Test.mirror'}
 PREORDER_EQUATIONS = r'''fun preorder :: "'a tree \<Rightarrow> 'a list" where

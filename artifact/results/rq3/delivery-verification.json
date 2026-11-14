@@ -1,0 +1,15 @@
+{
+  "complete": true,
+  "cases": 10,
+  "implementation_cells": 50,
+  "independent_process_rounds": 500,
+  "rust_mode": "rust-only",
+  "numeric_backend": "arbitrary",
+  "selected_source_optimized": false,
+  "model_calls": 0,
+  "report_script_sha256": "aa671353ccbffa943512ca2fb849310932ee0005426f9c83dfea086c342d6386",
+  "controller_tests": "15 passed; 6 subtests passed",
+  "measurement_run": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114",
+  "manuscript_modified": false,
+  "scope": "Ten selected primary workloads, prepared-input kernel time. Not an end-to-end or twenty-case result."
+}

@@ -1,7 +1,0 @@
-workload,stage,rust_files,rust_loc
-SBPF-program,stage1,2,6308
-SBPF-program,stage2,2,6215
-SBPF-instruction,stage1,2,6470
-SBPF-instruction,stage2,2,6332
-X64-stepper,stage1,3,24084
-X64-stepper,stage2,3,25841

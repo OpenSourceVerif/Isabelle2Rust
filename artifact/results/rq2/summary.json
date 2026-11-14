@@ -1,0 +1,2062 @@
+{
+  "cases": 10,
+  "workloads": 10,
+  "matrix_cells": 60,
+  "primary_geomean_speedups": {
+    "full-numeric": 2.642891926611686,
+    "full-vs-off-arbitrary": 10.843205061798072,
+    "full-vs-off-checked": 12.657290600460664,
+    "off-numeric": 2.264103750243208,
+    "rust-only-numeric": 2.1460885071887326,
+    "rust-only-vs-off-arbitrary": 4.347292072313816,
+    "rust-only-vs-off-checked": 4.120691709813731
+  },
+  "primary_interval_classification": {
+    "full-numeric": {
+      "gain_ci_above_one": 9,
+      "regression_ci_below_one": 1
+    },
+    "full-vs-off-arbitrary": {
+      "gain_ci_above_one": 10,
+      "regression_ci_below_one": 0
+    },
+    "full-vs-off-checked": {
+      "gain_ci_above_one": 9,
+      "regression_ci_below_one": 0
+    },
+    "off-numeric": {
+      "gain_ci_above_one": 9,
+      "regression_ci_below_one": 0
+    },
+    "rust-only-numeric": {
+      "gain_ci_above_one": 9,
+      "regression_ci_below_one": 1
+    },
+    "rust-only-vs-off-arbitrary": {
+      "gain_ci_above_one": 10,
+      "regression_ci_below_one": 0
+    },
+    "rust-only-vs-off-checked": {
+      "gain_ci_above_one": 8,
+      "regression_ci_below_one": 0
+    }
+  },
+  "range_exclusions": [
+    {
+      "case": "hol-fibonacci",
+      "variant": "off-checked",
+      "lane": "ordinary",
+      "inputs": [
+        [
+          200
+        ]
+      ]
+    },
+    {
+      "case": "hol-fibonacci",
+      "variant": "off-checked",
+      "lane": "kernel",
+      "inputs": [
+        [
+          200
+        ]
+      ]
+    },
+    {
+      "case": "hol-fibonacci",
+      "variant": "rust-only-checked",
+      "lane": "ordinary",
+      "inputs": [
+        [
+          200
+        ]
+      ]
+    },
+    {
+      "case": "hol-fibonacci",
+      "variant": "rust-only-checked",
+      "lane": "kernel",
+      "inputs": [
+        [
+          200
+        ]
+      ]
+    },
+    {
+      "case": "hol-fibonacci",
+      "variant": "full-checked",
+      "lane": "ordinary",
+      "inputs": [
+        [
+          200
+        ]
+      ]
+    },
+    {
+      "case": "hol-fibonacci",
+      "variant": "full-checked",
+      "lane": "kernel",
+      "inputs": [
+        [
+          200
+        ]
+      ]
+    }
+  ],
+  "optimization_attempted_calls": 248,
+  "final_review_attempted_calls": 0,
+  "final_review_seconds": 0,
+  "review_unavailable_cases": [],
+  "selected_source_optimized_cases": [
+    "fpp-multip",
+    "fpp-tree-inorder",
+    "fpp-deq-list",
+    "fpp-acomp",
+    "hol-fibonacci"
+  ],
+  "original_retained": [],
+  "timing_quality": {
+    "process_rounds": 360,
+    "unstable_warmups": 30,
+    "rounds_with_warnings": 309,
+    "clock_resolution_warnings": 36
+  },
+  "matrix": "artifact/runs/matrix-representative-ten-v4-primary-20261114",
+  "aggregation": "equal case weight, predeclared primary workloads only",
+  "baseline_quality": {
+    "schema": 1,
+    "producer": "baseline-quality-separate-from-candidate-scope-v2",
+    "status": "no_recorded_root_hold",
+    "publication_hold": false,
+    "held_cases": [],
+    "affected_modes": [
+      "off",
+      "rust-only",
+      "full"
+    ],
+    "external_integrity_review": null,
+    "cases": {
+      "fpp-multip": {
+        "schema": 1,
+        "policy": "baseline-quality-separate-from-candidate-scope-v2",
+        "baseline_validation": {
+          "baseline_id": "0a891e11f97f91458d62f83c52506873fabffa7091f6c18a054c35e6b9ade8c3",
+          "binding": {
+            "candidate_version": "24aac0d7b42f62e15d75c6f4438cba8aa1f2dee810e556cc5dab42c7b2b58f48",
+            "source_model_sha256": "920a6f02750bfd204c7a1fc0c511a8604c3259eb140d8739ebf525e512a330e1",
+            "numeric_policy_sha256": "75104f180da2711a819570eefc09c49441e511842f850fbba16186ef117e158c",
+            "connector_sha256": "ab69b77b7f867d81c2069ff46ea3c0a648766ad243ed6e11199507b90bde585e",
+            "validation_facts": {
+              "source_test_status": "passed",
+              "source_tests_identity": "87ddaf9737009e0c29c5d6045a2dce2f5b8a047edbe4cab3b24d8bd726d952b5",
+              "differential_statuses": [
+                "passed",
+                "passed",
+                "passed",
+                "passed"
+              ],
+              "validation_evidence_sha256": "7239af3fa3ddc252ae0d565ea51a82774d295f5cc1cc16ce40b5313a0ef428fe"
+            }
+          },
+          "declared_source_exports": [
+            "constant:FirstExample_Test.multip"
+          ],
+          "source_ids": [
+            "constant:FirstExample_Test.multip",
+            "constant:Nat.Suc",
+            "constant:Nat.plus_nat_inst.plus_nat",
+            "constant:Nat.zero_nat_inst.zero_nat",
+            "type:Nat.nat",
+            "type:fun"
+          ],
+          "claim_limit": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "responsibility": "Historical validation facts from the frozen original, qualified by the existing correctness workflow. Candidate scope reviews changed/activated obligations and current business computation. A reported inherited violation affecting a declared root holds all three modes; an unknown or missing all-input proof is recorded, not a new baseline admission requirement."
+        },
+        "inherited_baseline_findings": [
+          {
+            "source_ids": [
+              "constant:FirstExample_Test.multip",
+              "constant:Nat.Suc",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "type:Nat.nat",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed historical evidence only, not an all-input proof or a standalone helper/API proof beyond declared roots.",
+            "evidence": "baseline_validation.validation_facts records passed source tests and differential statuses, and its claim_limit explicitly limits stronger undeclared claims. No concrete inherited violation affecting the declared export is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:FirstExample_Test.multip",
+              "constant:Nat.Suc",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "type:Nat.nat",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed historical evidence, not a mathematical proof of all inputs or of undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.validation_facts reports source tests and four differentials passed; its claim_limit limits stronger all-input/undeclared-helper claims. No concrete inherited violation is reported."
+          },
+          {
+            "source_ids": [
+              "constant:FirstExample_Test.multip",
+              "constant:Nat.Suc",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "type:Nat.nat",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input mathematical proof; undeclared standalone helper/API claims are not established by the baseline.",
+            "evidence": "baseline_validation.claim_limit and binding.validation_facts record passed source tests and differential statuses, but not a proof over all inputs."
+          },
+          {
+            "source_ids": [
+              "constant:FirstExample_Test.multip",
+              "constant:Nat.Suc",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "type:Nat.nat",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.claim_limit; no concrete inherited source violation is supplied, so this is a limit on stronger claims rather than a source contradiction."
+          },
+          {
+            "source_ids": [
+              "constant:FirstExample_Test.multip",
+              "constant:Nat.Suc",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "type:Nat.nat",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input proof and does not establish undeclared standalone helper/API contracts.",
+            "evidence": "baseline_validation records passed source tests and four differentials but its claim_limit explicitly limits those facts; no concrete baseline violation is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:FirstExample_Test.multip",
+              "constant:Nat.Suc",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "type:Nat.nat",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input mathematical proof or a proof of undeclared standalone helper APIs.",
+            "evidence": "baseline_validation records passed source tests and four passed differentials for the frozen original, with no concrete contradiction reported. This is only a limit on stronger claims."
+          },
+          {
+            "source_ids": [
+              "constant:FirstExample_Test.multip",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "type:Nat.nat"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.claim_limit; validation_facts record passed source tests and differentials but do not establish an all-input theorem. This is an inherited claim limit, not a candidate-introduced violation and not an established contradiction of the declared root."
+          },
+          {
+            "source_ids": [
+              "constant:FirstExample_Test.multip",
+              "constant:Nat.Suc",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "type:Nat.nat",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source and differential validation is executed historical evidence, not an all-input mathematical proof or a proof of undeclared standalone helper/API contracts.",
+            "evidence": "baseline_validation records source_test_status passed and all differential_statuses passed under the frozen source-model and numeric-policy hashes, with the stated claim limit."
+          },
+          {
+            "source_ids": [
+              "constant:FirstExample_Test.multip",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "constant:Nat.Suc",
+              "type:Nat.nat"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed historical evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.claim_limit; source tests and four differential runs passed, but no all-input Isabelle/Rust theorem is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:FirstExample_Test.multip",
+              "constant:Nat.Suc",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "type:Nat.nat",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed historical evidence, not an all-input mathematical proof or a proof of undeclared standalone helper API semantics.",
+            "evidence": "baseline_validation.claim_limit states the validation is executed evidence only; no baseline violation affecting the declared root is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:FirstExample_Test.multip",
+              "constant:Nat.Suc",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "type:Nat.nat",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Baseline validation is executed source/differential evidence, not an all-input mathematical proof or an undeclared standalone helper/API contract; no inherited violation is identified.",
+            "evidence": "baseline_validation reports source_test_status passed and four passed differential statuses; its claim_limit states this evidence boundary. The candidate is judged against current equations, not against treating those tests as a proof."
+          }
+        ],
+        "publication_hold": false,
+        "unresolved_inherited_concerns": [],
+        "affected_modes": [
+          "off",
+          "rust-only",
+          "full"
+        ],
+        "claim_limits": [
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "Frozen source/differential validation is executed historical evidence only, not an all-input proof or a standalone helper/API proof beyond declared roots.",
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "Frozen source/differential validation is executed evidence, not an all-input mathematical proof or a proof of undeclared standalone helper APIs.",
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "Frozen source and differential validation is executed historical evidence, not an all-input mathematical proof or a proof of undeclared standalone helper/API contracts.",
+          "Baseline validation is executed source/differential evidence, not an all-input mathematical proof or an undeclared standalone helper/API contract; no inherited violation is identified."
+        ],
+        "admission_reports": [
+          {
+            "mode": "rust-only",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-multip/scope-review/review.json",
+            "sha256": "3d819a56da830c65f4a8b73077fc6fac0d5bb51c9e9edcf1242fd1857cc29849"
+          },
+          {
+            "mode": "full",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-multip/scope-review/review.json",
+            "sha256": "80cf15ddd094e133aaa11c9aad457c32cf989201a00c7f5ccfeca8cc3e8ee827"
+          }
+        ],
+        "claim": "The original correctness workflow qualifies the frozen baseline. Unknown inherited concerns remain visible and are not proofs of either correctness or a defect. Reported violations affecting declared roots hold Off, Rust-only and Full uniformly; candidate repairs do not clear them. Candidate-introduced uncertainty remains subject to the separate strict admission gate."
+      },
+      "fpp-tree-inorder": {
+        "schema": 1,
+        "policy": "baseline-quality-separate-from-candidate-scope-v2",
+        "baseline_validation": {
+          "baseline_id": "d5371bb6affba5f5827fcca3b86750b9c68054d147a034c885ff3e46325654cf",
+          "binding": {
+            "candidate_version": "b816b861cb630960821b5036da202d9bbfac9ba667ca9c9444aaf40d3a814660",
+            "source_model_sha256": "b4fe3c50127deec9fa9da9f0ed5878ccf74d423b24807a8c6fa6258277906dd3",
+            "numeric_policy_sha256": "75104f180da2711a819570eefc09c49441e511842f850fbba16186ef117e158c",
+            "connector_sha256": "2319c70b4da23d55d45c4466a027ffd57c3d26852648d8e259cae9a5a93b9aa5",
+            "validation_facts": {
+              "source_test_status": "passed",
+              "source_tests_identity": "45bc618d1d5ce8c236681099b387edf4b758e8a55f8b259c0a731e7a2e3ee0d2",
+              "differential_statuses": [
+                "passed",
+                "passed",
+                "passed",
+                "passed"
+              ],
+              "validation_evidence_sha256": "1ac6ed208f4e42ba3d23a3167b86ff1b21c01685520bef75bb421519b3fce2ec"
+            }
+          },
+          "declared_source_exports": [
+            "constant:Tree_Test.inorder"
+          ],
+          "source_ids": [
+            "class:HOL.type",
+            "constant:List.append",
+            "constant:List.list.Cons",
+            "constant:List.list.Nil",
+            "constant:Tree_Test.inorder",
+            "constant:Tree_Test.tree.Leaf",
+            "constant:Tree_Test.tree.Node",
+            "type:List.list",
+            "type:Tree_Test.tree",
+            "type:fun"
+          ],
+          "claim_limit": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "responsibility": "Historical validation facts from the frozen original, qualified by the existing correctness workflow. Candidate scope reviews changed/activated obligations and current business computation. A reported inherited violation affecting a declared root holds all three modes; an unknown or missing all-input proof is recorded, not a new baseline admission requirement."
+        },
+        "inherited_baseline_findings": [
+          {
+            "source_ids": [
+              "class:HOL.type",
+              "constant:List.append",
+              "constant:List.list.Cons",
+              "constant:List.list.Nil",
+              "constant:Tree_Test.inorder",
+              "constant:Tree_Test.tree.Leaf",
+              "constant:Tree_Test.tree.Node",
+              "type:List.list",
+              "type:Tree_Test.tree",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen baseline validation is executed evidence, not a mathematical all-input proof or proof of undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.claim_limit; source and differential validation passed, but no all-input theorem is supplied."
+          },
+          {
+            "source_ids": [
+              "class:HOL.type",
+              "constant:List.append",
+              "constant:List.list.Cons",
+              "constant:List.list.Nil",
+              "constant:Tree_Test.inorder",
+              "constant:Tree_Test.tree.Leaf",
+              "constant:Tree_Test.tree.Node",
+              "type:List.list",
+              "type:Tree_Test.tree",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen baseline test and differential validation is executed evidence, not an all-input proof, and it does not establish undeclared standalone helper API contracts.",
+            "evidence": "baseline_validation.claim_limit and validation_facts record passed tests; no universal theorem for all inputs or undeclared helper APIs is supplied."
+          },
+          {
+            "source_ids": [
+              "class:HOL.type",
+              "constant:List.append",
+              "constant:List.list.Cons",
+              "constant:List.list.Nil",
+              "constant:Tree_Test.inorder",
+              "constant:Tree_Test.tree.Leaf",
+              "constant:Tree_Test.tree.Node",
+              "type:List.list",
+              "type:Tree_Test.tree",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation of the original `Tree_Test.inorder` baseline is executed historical evidence, not an all-input mathematical proof; undeclared standalone helper/API claims remain outside that proof.",
+            "evidence": "`baseline_validation.claim_limit` records this limit; the frozen source tests and differential statuses passed, and no concrete contradiction or counterexample is supplied for the declared roots."
+          }
+        ],
+        "publication_hold": false,
+        "unresolved_inherited_concerns": [],
+        "affected_modes": [
+          "off",
+          "rust-only",
+          "full"
+        ],
+        "claim_limits": [
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "Frozen source/differential validation of the original `Tree_Test.inorder` baseline is executed historical evidence, not an all-input mathematical proof; undeclared standalone helper/API claims remain outside that proof."
+        ],
+        "admission_reports": [
+          {
+            "mode": "rust-only",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-tree-inorder/scope-review/review.json",
+            "sha256": "dce6acb7a34428e758339f9c289ae579cc61a67c41029179550c15943824e149"
+          },
+          {
+            "mode": "full",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-tree-inorder/scope-review/review.json",
+            "sha256": "0889eafc4e83d7741c483f6bf8ab148e0a8bc8a2bbf646008b7d716f10c1ac75"
+          }
+        ],
+        "claim": "The original correctness workflow qualifies the frozen baseline. Unknown inherited concerns remain visible and are not proofs of either correctness or a defect. Reported violations affecting declared roots hold Off, Rust-only and Full uniformly; candidate repairs do not clear them. Candidate-introduced uncertainty remains subject to the separate strict admission gate."
+      },
+      "fpp-deq-list": {
+        "schema": 1,
+        "policy": "baseline-quality-separate-from-candidate-scope-v2",
+        "baseline_validation": {
+          "baseline_id": "8e56fc4045edde6750601a62f950d583ef02c5c7b4e54446f574073740d543cb",
+          "binding": {
+            "candidate_version": "1f9c91a20b039310ca7d01a9f7dbe7682103a5a139bb6dba836961a7090b215a",
+            "source_model_sha256": "f7e2d5c4bb0cecac764c43de971482fd9e95493c92463feb9cdcbcbaf594d7e6",
+            "numeric_policy_sha256": "75104f180da2711a819570eefc09c49441e511842f850fbba16186ef117e158c",
+            "connector_sha256": "4579b35df9517cbc1ca87eb538343b1492440aff432af00fe249a7d259a7b0fa",
+            "validation_facts": {
+              "source_test_status": "passed",
+              "source_tests_identity": "77e81102c29d296c443756e071159e1caf811752a0289cce59095eed9cfc1048",
+              "differential_statuses": [
+                "passed",
+                "passed",
+                "passed",
+                "passed"
+              ],
+              "validation_evidence_sha256": "173b785837637ba64a49386c5fc68b487f45c42708a5c349e4552de57e703a52"
+            }
+          },
+          "declared_source_exports": [
+            "constant:Queue_Test.deq2list"
+          ],
+          "source_ids": [
+            "class:HOL.type",
+            "constant:HOL.False",
+            "constant:HOL.If",
+            "constant:HOL.Let",
+            "constant:HOL.True",
+            "constant:List.butlast",
+            "constant:List.last",
+            "constant:List.list.Cons",
+            "constant:List.list.Nil",
+            "constant:List.null",
+            "constant:Product_Type.Pair",
+            "constant:Product_Type.prod.case_prod",
+            "constant:Queue_Test.deq2list",
+            "constant:Queue_Test.dequeue",
+            "type:HOL.bool",
+            "type:List.list",
+            "type:Product_Type.prod",
+            "type:fun"
+          ],
+          "claim_limit": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "responsibility": "Historical validation facts from the frozen original, qualified by the existing correctness workflow. Candidate scope reviews changed/activated obligations and current business computation. A reported inherited violation affecting a declared root holds all three modes; an unknown or missing all-input proof is recorded, not a new baseline admission requirement."
+        },
+        "inherited_baseline_findings": [
+          {
+            "source_ids": [
+              "constant:Queue_Test.deq2list"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not a mathematical all-input proof or a standalone helper/API contract; the candidate review relies on the separately checked source equivalence for the declared root.",
+            "evidence": "baseline_validation records passed source tests and four passed differential statuses together with the explicit claim_limit. No inherited violation is reported for the declared root."
+          },
+          {
+            "source_ids": [
+              "constant:Queue_Test.deq2list"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Executed source and differential validation is historical evidence, not an all-input proof; it does not by itself establish undeclared standalone helper/API contracts.",
+            "evidence": "baseline_validation records passed source tests and four passed differentials, with no concrete inherited contradiction identified for the declared deq2list root. The recorded claim_limit remains visible and is not treated as a candidate transition change."
+          },
+          {
+            "source_ids": [
+              "constant:Queue_Test.deq2list"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input mathematical proof; stronger undeclared standalone helper/API claims (e.g. full-domain total last/dequeue, or Eq/Hash from Rust derives) are not established by this baseline.",
+            "evidence": "baseline_validation binding reports source_test_status passed and four passed differentials but states claim_limit; no unconditional all-input theorem is supplied."
+          }
+        ],
+        "publication_hold": false,
+        "unresolved_inherited_concerns": [],
+        "affected_modes": [
+          "off",
+          "rust-only",
+          "full"
+        ],
+        "claim_limits": [
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "Frozen source/differential validation is executed evidence, not a mathematical all-input proof or a standalone helper/API contract; the candidate review relies on the separately checked source equivalence for the declared root.",
+          "Executed source and differential validation is historical evidence, not an all-input proof; it does not by itself establish undeclared standalone helper/API contracts.",
+          "Frozen source/differential validation is executed evidence, not an all-input mathematical proof; stronger undeclared standalone helper/API claims (e.g. full-domain total last/dequeue, or Eq/Hash from Rust derives) are not established by this baseline."
+        ],
+        "admission_reports": [
+          {
+            "mode": "rust-only",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-deq-list/scope-review/review.json",
+            "sha256": "a590383455fcace7725c22542744b0afa182c1284e7f2b98856908638695ac7e"
+          },
+          {
+            "mode": "full",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-deq-list/scope-review/review.json",
+            "sha256": "1f02fe22a429d6253fc8894217dc23a298491bae986b8ee38465bb535a938455"
+          }
+        ],
+        "claim": "The original correctness workflow qualifies the frozen baseline. Unknown inherited concerns remain visible and are not proofs of either correctness or a defect. Reported violations affecting declared roots hold Off, Rust-only and Full uniformly; candidate repairs do not clear them. Candidate-introduced uncertainty remains subject to the separate strict admission gate."
+      },
+      "fpp-msort": {
+        "schema": 1,
+        "policy": "baseline-quality-separate-from-candidate-scope-v2",
+        "baseline_validation": {
+          "baseline_id": "910d929bd52a746561fe26e764adb20c6b737dceff54c9bcff3fe81f6cf5655d",
+          "binding": {
+            "candidate_version": "19ce479a6e7bb180b851aa3b748ffdcb134632b38315d0af14e4b86535769125",
+            "source_model_sha256": "185e9bb088fccdfcabf9c24e3f9cc98edf7a7b61e2458b4fb960d4e8d50b7267",
+            "numeric_policy_sha256": "75104f180da2711a819570eefc09c49441e511842f850fbba16186ef117e158c",
+            "connector_sha256": "441a5982931a94c1978447cc4ca82a450e30e458ae93d8a19846966fa71e30fb",
+            "validation_facts": {
+              "source_test_status": "passed",
+              "source_tests_identity": "0451527b43fd634dc00e7166f207b59287bb06a7d00d0af886d594078dfbab9d",
+              "differential_statuses": [
+                "passed",
+                "passed",
+                "passed",
+                "passed"
+              ],
+              "validation_evidence_sha256": "fd2a5c43d912e805aec1ed264bcbd8f8535debf69aec5f930cf5ab3a5786805e"
+            }
+          },
+          "declared_source_exports": [
+            "constant:MergeSort_Test.linorder_class.msort"
+          ],
+          "source_ids": [
+            "class:HOL.type",
+            "class:Orderings.linorder",
+            "class:Orderings.ord",
+            "class:Orderings.order",
+            "class:Orderings.preorder",
+            "constant:Euclidean_Rings.divide_nat_inst.divide_nat",
+            "constant:Euclidean_Rings.divmod_nat",
+            "constant:HOL.False",
+            "constant:HOL.If",
+            "constant:HOL.Let",
+            "constant:HOL.True",
+            "constant:HOL.disj",
+            "constant:List.drop",
+            "constant:List.gen_length",
+            "constant:List.list.Cons",
+            "constant:List.list.Nil",
+            "constant:List.size_list_inst.size_list",
+            "constant:List.take",
+            "constant:MergeSort_Test.linorder_class.merge",
+            "constant:MergeSort_Test.linorder_class.msort",
+            "constant:Nat.Suc",
+            "constant:Nat.equal_nat_inst.equal_nat",
+            "constant:Nat.minus_nat_inst.minus_nat",
+            "constant:Nat.nat.case_nat",
+            "constant:Nat.one_nat_inst.one_nat",
+            "constant:Nat.ord_nat_inst.less_eq_nat",
+            "constant:Nat.ord_nat_inst.less_nat",
+            "constant:Nat.plus_nat_inst.plus_nat",
+            "constant:Nat.zero_nat_inst.zero_nat",
+            "constant:Num.nat_of_num",
+            "constant:Num.num.Bit0",
+            "constant:Num.num.Bit1",
+            "constant:Num.num.One",
+            "constant:Orderings.ord_class.less_eq",
+            "constant:Product_Type.Pair",
+            "constant:Product_Type.prod.case_prod",
+            "constant:Product_Type.prod.fst",
+            "type:HOL.bool",
+            "type:List.list",
+            "type:Nat.nat",
+            "type:Num.num",
+            "type:Product_Type.prod",
+            "type:fun"
+          ],
+          "claim_limit": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "responsibility": "Historical validation facts from the frozen original, qualified by the existing correctness workflow. Candidate scope reviews changed/activated obligations and current business computation. A reported inherited violation affecting a declared root holds all three modes; an unknown or missing all-input proof is recorded, not a new baseline admission requirement."
+        },
+        "inherited_baseline_findings": [
+          {
+            "source_ids": [
+              "constant:MergeSort_Test.linorder_class.msort",
+              "constant:MergeSort_Test.linorder_class.merge"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source and differential validation passed, but it is executed evidence only, not an all-input mathematical proof and not proof of undeclared standalone helper/API claims.",
+            "evidence": "baseline_validation.validation_facts record passed source tests and four passed differentials; baseline_validation.claim_limit states the limit. No concrete contradiction or counterexample is supplied, so this is retained as a claim limit rather than a baseline violation."
+          },
+          {
+            "source_ids": [
+              "constant:MergeSort_Test.linorder_class.msort",
+              "constant:MergeSort_Test.linorder_class.merge"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "The frozen baseline validation is executed source/differential evidence, not a mathematical all-input proof, and it does not establish standalone contracts for undeclared public helper APIs.",
+            "evidence": "baseline_validation.claim_limit and binding; supplied source/code evidence shows no concrete contradiction of a declared root obligation, so this remains a claim limit rather than a baseline violation."
+          },
+          {
+            "source_ids": [
+              "constant:MergeSort_Test.linorder_class.msort"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed historical evidence, not an all-input mathematical proof or proof of undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.claim_limit and validation_facts record passed tests/differentials but no all-input theorem; this does not itself establish a candidate-introduced violation."
+          },
+          {
+            "source_ids": [
+              "constant:MergeSort_Test.linorder_class.msort"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source and differential validation is executed historical evidence, not an all-input mathematical proof or a proof of undeclared standalone helper/API contracts.",
+            "evidence": "The supplied baseline_validation reports source tests passed and four differential statuses passed, with no concrete counterexample. This claim limit does not establish a new candidate violation."
+          },
+          {
+            "source_ids": [
+              "constant:MergeSort_Test.linorder_class.msort"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not a mathematical all-input proof or proof of undeclared standalone helper/API contracts.",
+            "evidence": "baseline_validation.claim_limit and binding.validation_facts record passed source tests and differential statuses; no concrete inherited contradiction is supplied."
+          }
+        ],
+        "publication_hold": false,
+        "unresolved_inherited_concerns": [],
+        "affected_modes": [
+          "off",
+          "rust-only",
+          "full"
+        ],
+        "claim_limits": [
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "The frozen baseline validation is executed source/differential evidence, not a mathematical all-input proof, and it does not establish standalone contracts for undeclared public helper APIs.",
+          "Frozen source/differential validation is executed evidence, not a mathematical all-input proof or proof of undeclared standalone helper/API contracts."
+        ],
+        "admission_reports": [
+          {
+            "mode": "rust-only",
+            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-msort/scope-review/review.json",
+            "sha256": "8b6d6d6200578d35d1aeeae1d40a024eb6ecb08abf0225ef8a4bc75f900de0e3"
+          },
+          {
+            "mode": "full",
+            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-msort/scope-review/review.json",
+            "sha256": "7063292d4f33747876828a38332471ecb32cbecea45c71935f7fa0cc7e0e14be"
+          }
+        ],
+        "claim": "The original correctness workflow qualifies the frozen baseline. Unknown inherited concerns remain visible and are not proofs of either correctness or a defect. Reported violations affecting declared roots hold Off, Rust-only and Full uniformly; candidate repairs do not clear them. Candidate-introduced uncertainty remains subject to the separate strict admission gate."
+      },
+      "fpp-avl-updates": {
+        "schema": 1,
+        "policy": "baseline-quality-separate-from-candidate-scope-v2",
+        "baseline_validation": {
+          "baseline_id": "16f928422ebdb95912c5f01dbaffb0b6aade9e9b5615ec493f0392578f971bc9",
+          "binding": {
+            "candidate_version": "39602ba0c1c7af5d72a6f2813cc32e140959734f4502400eb7f852692dd54b44",
+            "source_model_sha256": "ee0f332cd94ed06e8e62355ab383abadffe7eb729d369fde00c1fd68648e08ed",
+            "numeric_policy_sha256": "75104f180da2711a819570eefc09c49441e511842f850fbba16186ef117e158c",
+            "connector_sha256": "172991bc4dc4cd1f6a13004890be8671d66e3bc572d5a938c59db46292b1b3ea",
+            "validation_facts": {
+              "source_test_status": "passed",
+              "source_tests_identity": "784603ba88f1fd30cbc621522bde51b55fe3e43ae7085333833fcb9adfaa1cd2",
+              "differential_statuses": [
+                "passed",
+                "passed",
+                "passed",
+                "passed"
+              ],
+              "validation_evidence_sha256": "dbb9203a3db80741a321c60c19d23cd553bb6faa310bc7ade56ebf1de21946c3"
+            }
+          },
+          "declared_source_exports": [
+            "constant:AVL_Set_Code_Test.delete",
+            "constant:AVL_Set_Code_Test.insert"
+          ],
+          "source_ids": [
+            "class:HOL.equal",
+            "class:HOL.type",
+            "class:Orderings.linorder",
+            "class:Orderings.ord",
+            "class:Orderings.order",
+            "class:Orderings.preorder",
+            "constant:AVL_Set_Code_Test.balL",
+            "constant:AVL_Set_Code_Test.balR",
+            "constant:AVL_Set_Code_Test.delete",
+            "constant:AVL_Set_Code_Test.ht",
+            "constant:AVL_Set_Code_Test.insert",
+            "constant:AVL_Set_Code_Test.node",
+            "constant:AVL_Set_Code_Test.split_max",
+            "constant:Cmp_Test.cmp",
+            "constant:Cmp_Test.cmp_val.EQ",
+            "constant:Cmp_Test.cmp_val.GT",
+            "constant:Cmp_Test.cmp_val.LT",
+            "constant:Cmp_Test.cmp_val.case_cmp_val",
+            "constant:HOL.False",
+            "constant:HOL.If",
+            "constant:HOL.Let",
+            "constant:HOL.True",
+            "constant:HOL.conj",
+            "constant:HOL.eq",
+            "constant:HOL.equal_class.equal",
+            "constant:HOL.undefined",
+            "constant:Nat.Suc",
+            "constant:Nat.equal_nat_inst.equal_nat",
+            "constant:Nat.one_nat_inst.one_nat",
+            "constant:Nat.ord_nat_inst.less_eq_nat",
+            "constant:Nat.ord_nat_inst.less_nat",
+            "constant:Nat.plus_nat_inst.plus_nat",
+            "constant:Nat.zero_nat_inst.zero_nat",
+            "constant:Num.nat_of_num",
+            "constant:Num.num.Bit0",
+            "constant:Num.num.Bit1",
+            "constant:Num.num.One",
+            "constant:Orderings.ord_class.less",
+            "constant:Orderings.ord_class.less_eq",
+            "constant:Orderings.ord_class.max",
+            "constant:Product_Type.Pair",
+            "constant:Product_Type.equal_prod_inst.equal_prod",
+            "constant:Product_Type.prod.case_prod",
+            "constant:Tree_Test.equal_tree_inst.equal_tree",
+            "constant:Tree_Test.tree.Leaf",
+            "constant:Tree_Test.tree.Node",
+            "constant:Tree_Test.tree.case_tree",
+            "type:Cmp_Test.cmp_val",
+            "type:HOL.bool",
+            "type:Nat.nat",
+            "type:Num.num",
+            "type:Product_Type.prod",
+            "type:Tree_Test.tree",
+            "type:fun"
+          ],
+          "claim_limit": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "responsibility": "Historical validation facts from the frozen original, qualified by the existing correctness workflow. Candidate scope reviews changed/activated obligations and current business computation. A reported inherited violation affecting a declared root holds all three modes; an unknown or missing all-input proof is recorded, not a new baseline admission requirement."
+        },
+        "inherited_baseline_findings": [
+          {
+            "source_ids": [
+              "constant:AVL_Set_Code_Test.delete",
+              "constant:AVL_Set_Code_Test.insert"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence only; it is not an all-input mathematical proof or an undeclared standalone helper/HOL API contract.",
+            "evidence": "baseline_validation reports passed source tests and passed differential statuses, while its claim_limit explicitly limits those facts to executed evidence for the frozen original."
+          },
+          {
+            "source_ids": [
+              "constant:AVL_Set_Code_Test.insert",
+              "constant:AVL_Set_Code_Test.delete"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input proof of the declared exports or undeclared helper APIs.",
+            "evidence": "baseline_validation.validation_facts reports passed source tests and four passed differential statuses, while baseline_validation.claim_limit explicitly limits that evidence to executed historical validation, not a mathematical proof."
+          },
+          {
+            "source_ids": [
+              "constant:AVL_Set_Code_Test.delete",
+              "constant:AVL_Set_Code_Test.insert"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source and differential validation is executed historical evidence, not an all-input mathematical proof or a proof of undeclared standalone helper APIs.",
+            "evidence": "The supplied baseline_validation records passing source tests and differential statuses with the same source/numeric model hashes; its own claim_limit limits the strength of those claims but reports no concrete inherited violation affecting the declared roots."
+          },
+          {
+            "source_ids": [
+              "constant:AVL_Set_Code_Test.insert",
+              "constant:AVL_Set_Code_Test.delete"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "The frozen baseline validation is executed historical evidence, not an all-input mathematical proof or proof of undeclared standalone helper APIs.",
+            "evidence": "baseline_validation reports passing source tests and differential statuses, but its own claim_limit states that these are executed evidence rather than a mathematical proof. No concrete inherited violation affecting the declared roots is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:AVL_Set_Code_Test.delete",
+              "constant:AVL_Set_Code_Test.insert"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input mathematical proof or a proof of undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.validation_facts reports source_test_status passed and four differential_statuses passed; baseline_validation.claim_limit explicitly limits their strength. This is a baseline claim limit, not a candidate-introduced violation."
+          },
+          {
+            "source_ids": [
+              "constant:AVL_Set_Code_Test.insert",
+              "constant:AVL_Set_Code_Test.delete"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen baseline validation is executed historical evidence, not an all-input mathematical proof; no concrete inherited violation is identified from the supplied baseline.",
+            "evidence": "baseline_validation records passed source tests and four differential passes but explicitly limits this to executed evidence rather than a proof over all inputs."
+          },
+          {
+            "source_ids": [
+              "constant:AVL_Set_Code_Test.split_max"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen public split_max helper has A: Ord although the source split_max execution sort is only HOL.equal; this is an inherited public-interface strengthening, not a candidate-introduced change.",
+            "evidence": "baseline source graph gives split_max type_variables ['a :: HOL.equal]; frozen interface declares split_max<A: Ord>. Roots insert/delete already require Ord/linorder."
+          },
+          {
+            "source_ids": [
+              "constant:AVL_Set_Code_Test.insert",
+              "constant:AVL_Set_Code_Test.delete"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input mathematical proof or proof of undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.claim_limit; validation_facts show passed source tests and four differential statuses only."
+          },
+          {
+            "source_ids": [
+              "constant:AVL_Set_Code_Test.insert",
+              "constant:AVL_Set_Code_Test.delete"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed historical evidence, not an all-input mathematical proof; it does not establish stronger standalone helper/API contracts beyond the declared insert/delete roots.",
+            "evidence": "baseline_validation.validation_facts records passed source tests and four passed differential statuses, and its claim_limit states this evidence limit. No abstract representation roles are declared, and no concrete inherited contradiction is reported."
+          },
+          {
+            "source_ids": [
+              "constant:AVL_Set_Code_Test.insert",
+              "constant:AVL_Set_Code_Test.delete"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "The frozen source/differential validation is executed historical evidence, not an all-input proof; it does not establish undeclared standalone helper or unrestricted HOL API claims.",
+            "evidence": "baseline_validation.claim_limit and validation_facts record passed source tests and differential statuses, but no mathematical all-input proof; no concrete inherited contradiction affecting the declared roots is supplied."
+          }
+        ],
+        "publication_hold": false,
+        "unresolved_inherited_concerns": [],
+        "affected_modes": [
+          "off",
+          "rust-only",
+          "full"
+        ],
+        "claim_limits": [
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "Frozen source/differential validation is executed evidence only; it is not an all-input mathematical proof or an undeclared standalone helper/HOL API contract.",
+          "Frozen source and differential validation is executed historical evidence, not an all-input mathematical proof or a proof of undeclared standalone helper APIs.",
+          "The frozen baseline validation is executed historical evidence, not an all-input mathematical proof or proof of undeclared standalone helper APIs.",
+          "Frozen source/differential validation is executed evidence, not an all-input mathematical proof or a proof of undeclared standalone helper APIs.",
+          "Frozen public split_max helper has A: Ord although the source split_max execution sort is only HOL.equal; this is an inherited public-interface strengthening, not a candidate-introduced change.",
+          "The frozen source/differential validation is executed historical evidence, not an all-input proof; it does not establish undeclared standalone helper or unrestricted HOL API claims."
+        ],
+        "admission_reports": [
+          {
+            "mode": "rust-only",
+            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-avl-updates/scope-review/review.json",
+            "sha256": "08c20a12ecc7d60152afc26a66102f97c73efb15d53646e49ea5235d5118b963"
+          },
+          {
+            "mode": "full",
+            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-avl-updates/scope-review/review.json",
+            "sha256": "f1bd634d61f60886e41fc7bfdf898fb3e1e434f3a435a0a4ca289506ead9238d"
+          }
+        ],
+        "claim": "The original correctness workflow qualifies the frozen baseline. Unknown inherited concerns remain visible and are not proofs of either correctness or a defect. Reported violations affecting declared roots hold Off, Rust-only and Full uniformly; candidate repairs do not clear them. Candidate-introduced uncertainty remains subject to the separate strict admission gate."
+      },
+      "fpp-acomp": {
+        "schema": 1,
+        "policy": "baseline-quality-separate-from-candidate-scope-v2",
+        "baseline_validation": {
+          "baseline_id": "c307f244b5130336243524bed1df267ca733520b189a068b3d190820837351a9",
+          "binding": {
+            "candidate_version": "f9d68911a920baa9925b87bdb7098dfd5405c4be18a14c9774a30b3234105ab2",
+            "source_model_sha256": "e4cfeedb9c8a96638164b8d2a67919ccd0a9601d21b45ad25a6f0cb9828c7f7f",
+            "numeric_policy_sha256": "75104f180da2711a819570eefc09c49441e511842f850fbba16186ef117e158c",
+            "connector_sha256": "b596068519bc40af90502b64cd486eea9a25f1f0492b04b2f117e432b1079d14",
+            "validation_facts": {
+              "source_test_status": "passed",
+              "source_tests_identity": "1ba3a3138100f52faad6f73326e14c7e358608eca8e181cba057296f27bc23e1",
+              "differential_statuses": [
+                "passed",
+                "passed",
+                "passed",
+                "passed"
+              ],
+              "validation_evidence_sha256": "832d7a7b0d6e2db41adb7448621ac9be446f19cffaa1121e80a508461187be64"
+            }
+          },
+          "declared_source_exports": [
+            "constant:Compiler_Test.acomp"
+          ],
+          "source_ids": [
+            "class:HOL.type",
+            "constant:AExp_Test.aexp.N",
+            "constant:AExp_Test.aexp.Plus",
+            "constant:AExp_Test.aexp.V",
+            "constant:Compiler_Test.acomp",
+            "constant:Compiler_Test.instr.ADD",
+            "constant:Compiler_Test.instr.JMP",
+            "constant:Compiler_Test.instr.JMPGE",
+            "constant:Compiler_Test.instr.JMPLESS",
+            "constant:Compiler_Test.instr.LOAD",
+            "constant:Compiler_Test.instr.LOADI",
+            "constant:Compiler_Test.instr.STORE",
+            "constant:HOL.False",
+            "constant:HOL.True",
+            "constant:Int.Neg",
+            "constant:Int.Pos",
+            "constant:Int.zero_int_inst.zero_int",
+            "constant:List.append",
+            "constant:List.list.Cons",
+            "constant:List.list.Nil",
+            "constant:Num.num.Bit0",
+            "constant:Num.num.Bit1",
+            "constant:Num.num.One",
+            "constant:String.char.Char",
+            "type:AExp_Test.aexp",
+            "type:Compiler_Test.instr",
+            "type:HOL.bool",
+            "type:Int.int",
+            "type:List.list",
+            "type:Num.num",
+            "type:String.char",
+            "type:fun"
+          ],
+          "claim_limit": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "responsibility": "Historical validation facts from the frozen original, qualified by the existing correctness workflow. Candidate scope reviews changed/activated obligations and current business computation. A reported inherited violation affecting a declared root holds all three modes; an unknown or missing all-input proof is recorded, not a new baseline admission requirement."
+        },
+        "inherited_baseline_findings": [
+          {
+            "source_ids": [
+              "constant:Compiler_Test.acomp"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Baseline validation is executed source-test/differential evidence, not an all-input mathematical proof; no concrete inherited root-affecting violation is supplied.",
+            "evidence": "baseline_validation reports passed source tests and four passed differential checks, with an explicit claim_limit. This limits stronger proof claims only and does not identify a concrete inherited violation of the declared root."
+          },
+          {
+            "source_ids": [
+              "constant:Compiler_Test.acomp",
+              "type:AExp_Test.aexp",
+              "type:Compiler_Test.instr",
+              "type:Int.int",
+              "type:List.list",
+              "type:String.char"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen baseline validation is executed evidence for the original Compiler_Test.acomp roots, not a mathematical proof for all inputs or for undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.binding.validation_facts reports source_test_status passed and four differential_statuses passed; its claim_limit expressly limits this to executed evidence, not an all-input proof."
+          },
+          {
+            "source_ids": [
+              "constant:Compiler_Test.acomp"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source tests and differential validation are executed evidence only; they do not establish an all-input mathematical proof or undeclared standalone helper/API contracts.",
+            "evidence": "baseline_validation.claim_limit records this limit while reporting passed source tests and four passed differentials; no concrete violated declared-root obligation is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:Compiler_Test.acomp"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed evidence, not a mathematical all-input proof and does not establish undeclared standalone helper/API contracts.",
+            "evidence": "baseline_validation.claim_limit; binding validation facts report source tests and differential checks passed."
+          },
+          {
+            "source_ids": [
+              "constant:Compiler_Test.acomp",
+              "constant:List.append",
+              "constant:List.list.Cons",
+              "constant:List.list.Nil"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "The frozen baseline validation is executed evidence, not a mathematical proof over all inputs or a proof of undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.binding.validation_facts report passed source/differential validation, and baseline_validation.claim_limit states the limit. No concrete inherited source/code contradiction is supplied here."
+          },
+          {
+            "source_ids": [
+              "constant:Compiler_Test.acomp"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input mathematical proof and does not establish undeclared standalone helper/API contracts.",
+            "evidence": "baseline_validation under baseline_id c307f244b5130336243524bed1df267ca733520b189a068b3d190820837351a9 records passed source tests and passed differentials with an explicit claim_limit; no concrete inherited violation is reported for the declared root."
+          },
+          {
+            "source_ids": [
+              "constant:Compiler_Test.acomp"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed historical evidence, not an all-input mathematical proof and not proof of undeclared standalone helper APIs.",
+            "evidence": "baseline_validation records passed source tests and four passed differential checks, with an explicit claim_limit; no concrete inherited violation is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:Compiler_Test.acomp"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "The frozen validation is executed historical evidence, not an all-input proof for acomp or undeclared standalone helper/API claims.",
+            "evidence": "baseline_validation records source tests and four differential statuses passed and explicitly limits proof strength; no concrete counterexample to the declared acomp root is supplied."
+          }
+        ],
+        "publication_hold": false,
+        "unresolved_inherited_concerns": [],
+        "affected_modes": [
+          "off",
+          "rust-only",
+          "full"
+        ],
+        "claim_limits": [
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "Baseline validation is executed source-test/differential evidence, not an all-input mathematical proof; no concrete inherited root-affecting violation is supplied.",
+          "The frozen baseline validation is executed evidence, not a mathematical proof over all inputs or a proof of undeclared standalone helper APIs.",
+          "Frozen source/differential validation is executed evidence, not an all-input mathematical proof and does not establish undeclared standalone helper/API contracts.",
+          "Frozen source/differential validation is executed historical evidence, not an all-input mathematical proof and not proof of undeclared standalone helper APIs.",
+          "The frozen validation is executed historical evidence, not an all-input proof for acomp or undeclared standalone helper/API claims."
+        ],
+        "admission_reports": [
+          {
+            "mode": "rust-only",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/fpp-acomp/scope-review/review.json",
+            "sha256": "a63c4312d74da187695f7d090d74741b2a2dca96d0b0495e76de517c720ae9ec"
+          },
+          {
+            "mode": "full",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-acomp/scope-review/review.json",
+            "sha256": "bbd2719364a7fa9250c1c338687a3e489ec9571fe0eb5addb307e9d6295e6291"
+          }
+        ],
+        "claim": "The original correctness workflow qualifies the frozen baseline. Unknown inherited concerns remain visible and are not proofs of either correctness or a defect. Reported violations affecting declared roots hold Off, Rust-only and Full uniformly; candidate repairs do not clear them. Candidate-introduced uncertainty remains subject to the separate strict admission gate."
+      },
+      "hol-eratosthenes": {
+        "schema": 1,
+        "policy": "baseline-quality-separate-from-candidate-scope-v2",
+        "baseline_validation": {
+          "baseline_id": "d5f2246cc41ee7c1df4574d4ce71dfb1c441213891d66088e72180e5d8ec14ff",
+          "binding": {
+            "candidate_version": "ebe2233b927463d240ac169a3cee63e1d248c4a7812132cbd9871b975f539a9c",
+            "source_model_sha256": "def56fbcdf7258c900d650da46d462d29ec31bf38c55f8d8a844b82ea8f7c81f",
+            "numeric_policy_sha256": "75104f180da2711a819570eefc09c49441e511842f850fbba16186ef117e158c",
+            "connector_sha256": "9023496cafec22d94085ac7ee671f53e6c58f35b475de49667a35bb75eef5ee6",
+            "validation_facts": {
+              "source_test_status": "passed",
+              "source_tests_identity": "10cfd449d6ca162f967cba044a6a36c8461cc5fe3248894ce57bb40c6a84d96e",
+              "differential_statuses": [
+                "passed",
+                "passed",
+                "passed",
+                "passed"
+              ],
+              "validation_evidence_sha256": "ed8f442cfff7547097c9a22af25c3799b0a4b09b26142cb12691ba8abfa72bc5"
+            }
+          },
+          "declared_source_exports": [
+            "constant:Eratosthenes.primes_upto"
+          ],
+          "source_ids": [
+            "class:HOL.type",
+            "constant:Eratosthenes.mark_out",
+            "constant:Eratosthenes.mark_out_aux",
+            "constant:Eratosthenes.primes_upto",
+            "constant:Eratosthenes.sieve",
+            "constant:HOL.False",
+            "constant:HOL.If",
+            "constant:HOL.Let",
+            "constant:HOL.True",
+            "constant:List.enumerate",
+            "constant:List.list.Cons",
+            "constant:List.list.Nil",
+            "constant:List.map_filter",
+            "constant:List.replicate",
+            "constant:Nat.Suc",
+            "constant:Nat.minus_nat_inst.minus_nat",
+            "constant:Nat.one_nat_inst.one_nat",
+            "constant:Nat.plus_nat_inst.plus_nat",
+            "constant:Nat.zero_nat_inst.zero_nat",
+            "constant:Num.nat_of_num",
+            "constant:Num.num.Bit0",
+            "constant:Num.num.Bit1",
+            "constant:Num.num.One",
+            "constant:Option.option.None",
+            "constant:Option.option.Some",
+            "constant:Option.option.case_option",
+            "constant:Product_Type.Pair",
+            "constant:Product_Type.prod.fst",
+            "constant:Product_Type.prod.snd",
+            "type:HOL.bool",
+            "type:List.list",
+            "type:Nat.nat",
+            "type:Num.num",
+            "type:Option.option",
+            "type:Product_Type.prod",
+            "type:fun"
+          ],
+          "claim_limit": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "responsibility": "Historical validation facts from the frozen original, qualified by the existing correctness workflow. Candidate scope reviews changed/activated obligations and current business computation. A reported inherited violation affecting a declared root holds all three modes; an unknown or missing all-input proof is recorded, not a new baseline admission requirement."
+        },
+        "inherited_baseline_findings": [
+          {
+            "source_ids": [
+              "constant:Eratosthenes.primes_upto",
+              "constant:Eratosthenes.sieve",
+              "constant:Eratosthenes.mark_out",
+              "constant:Eratosthenes.mark_out_aux",
+              "constant:List.replicate",
+              "constant:List.enumerate",
+              "constant:List.map_filter",
+              "constant:Num.nat_of_num"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source and differential validation is executed historical evidence, not an all-input proof or a standalone contract for helpers/API beyond the declared roots.",
+            "evidence": "baseline_validation d5f2246cc41ee7c1df4574d4ce71dfb1c441213891d66088e72180e5d8ec14ff records source_test_status passed and four passed differential statuses, with an explicit claim_limit; no inherited counterexample or concrete obligation contradiction is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:Eratosthenes.primes_upto"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input mathematical proof; undeclared standalone helper APIs are not thereby proved.",
+            "evidence": "baseline_validation.claim_limit; declared export is Eratosthenes.primes_upto. This is a limit on stronger claims, not a concrete inherited violation."
+          },
+          {
+            "source_ids": [
+              "constant:Eratosthenes.primes_upto",
+              "constant:Eratosthenes.mark_out",
+              "constant:Eratosthenes.mark_out_aux",
+              "constant:Eratosthenes.sieve"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen baseline validation is executed evidence, not a mathematical all-input proof; undeclared standalone helper/API claims remain limited.",
+            "evidence": "baseline_validation.validation_facts report passed source and differential checks, and baseline_validation.claim_limit states the proof-scope limit; no concrete inherited violation is asserted here."
+          },
+          {
+            "source_ids": [
+              "constant:Eratosthenes.primes_upto"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen baseline validation is executed historical evidence, not an all-input mathematical proof, and it does not establish undeclared standalone helper/API claims.",
+            "evidence": "baseline_validation records passed source tests and differential runs but explicitly limits them to historical validation facts; no concrete counterexample or violated declared obligation is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:Eratosthenes.primes_upto",
+              "constant:Eratosthenes.sieve",
+              "constant:Eratosthenes.mark_out",
+              "constant:Eratosthenes.mark_out_aux"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed historical evidence, not an all-input mathematical proof; no concrete inherited violation is established by the supplied baseline evidence.",
+            "evidence": "baseline_validation.claim_limit and validation_facts bind the frozen baseline; passed tests/differentials do not prove all inputs or undeclared helper APIs."
+          },
+          {
+            "source_ids": [
+              "constant:Eratosthenes.primes_upto",
+              "constant:Eratosthenes.sieve",
+              "constant:Eratosthenes.mark_out",
+              "constant:Eratosthenes.mark_out_aux",
+              "constant:List.enumerate",
+              "constant:List.replicate",
+              "constant:List.map_filter"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Executed source/differential validation is evidence, not an all-input mathematical proof; undeclared standalone helper/API claims are not established.",
+            "evidence": "baseline_validation records passed source/differential facts and explicitly limits them to executed evidence; no concrete inherited contradiction for the declared root is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:Eratosthenes.primes_upto",
+              "type:Nat.nat",
+              "type:List.list"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input mathematical proof or proof of undeclared standalone helper/API claims.",
+            "evidence": "baseline_validation baseline_id d5f2246cc41ee7c1df4574d4ce71dfb1c441213891d66088e72180e5d8ec14ff reports passed source tests and differential statuses, with the supplied claim_limit; this records the proof limit without identifying a concrete declared-root contradiction."
+          },
+          {
+            "source_ids": [
+              "constant:Eratosthenes.primes_upto",
+              "constant:Eratosthenes.mark_out_aux",
+              "constant:Eratosthenes.sieve",
+              "constant:List.enumerate"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source and differential validation is executed evidence, not an all-input mathematical proof or a proof of undeclared standalone helper/API claims.",
+            "evidence": "baseline_validation.claim_limit and validation_facts; no concrete inherited contradiction is supplied."
+          }
+        ],
+        "publication_hold": false,
+        "unresolved_inherited_concerns": [],
+        "affected_modes": [
+          "off",
+          "rust-only",
+          "full"
+        ],
+        "claim_limits": [
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "Frozen source and differential validation is executed historical evidence, not an all-input proof or a standalone contract for helpers/API beyond the declared roots.",
+          "Executed source/differential validation is evidence, not an all-input mathematical proof; undeclared standalone helper/API claims are not established.",
+          "Frozen source/differential validation is executed evidence, not an all-input mathematical proof or proof of undeclared standalone helper/API claims.",
+          "Frozen source and differential validation is executed evidence, not an all-input mathematical proof or a proof of undeclared standalone helper/API claims."
+        ],
+        "admission_reports": [
+          {
+            "mode": "rust-only",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-eratosthenes/scope-review/review.json",
+            "sha256": "2c13771104f34a4c0028bfeba7aed15255f9ffa8ffa9817e989092b6b40fcde6"
+          },
+          {
+            "mode": "full",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-eratosthenes/scope-review/review.json",
+            "sha256": "32f1179b6ae4cf9cdf4febf29fc89cad713b9b4f523e450bee5e6562ccd63369"
+          }
+        ],
+        "claim": "The original correctness workflow qualifies the frozen baseline. Unknown inherited concerns remain visible and are not proofs of either correctness or a defect. Reported violations affecting declared roots hold Off, Rust-only and Full uniformly; candidate repairs do not clear them. Candidate-introduced uncertainty remains subject to the separate strict admission gate."
+      },
+      "hol-polynomial": {
+        "schema": 1,
+        "policy": "baseline-quality-separate-from-candidate-scope-v2",
+        "baseline_validation": {
+          "baseline_id": "068eb57bc385202d1aa93d5bf12b1b9e9a5c5763c044c77a6ef5e2449447582d",
+          "binding": {
+            "candidate_version": "1e5c0206d8291c957569b8febf4043137c309ba50cc1590698b8e088b4d81a01",
+            "source_model_sha256": "2d603f1e6aba64ddd49451db2c1a82243bb8e93f8b0046f25ba1d9804507c7a0",
+            "numeric_policy_sha256": "75104f180da2711a819570eefc09c49441e511842f850fbba16186ef117e158c",
+            "connector_sha256": "52fa1ab38ba70b2b763e292029555b8d43a1a36a42c532d5f6a0ed7295eaf613",
+            "validation_facts": {
+              "source_test_status": "passed",
+              "source_tests_identity": "5fec5311deec58f5e84a6225b0bf2ed466570bf60048c87dd0bdd0d58705c0c6",
+              "differential_statuses": [
+                "passed",
+                "passed",
+                "passed",
+                "passed"
+              ],
+              "validation_evidence_sha256": "01d2e2147376bb72b6f1f82b3a5924dcfdd81133ff180f12aabf5ba93b33dd55"
+            }
+          },
+          "declared_source_exports": [
+            "constant:Poly_Entry.poly_entry"
+          ],
+          "source_ids": [
+            "class:Groups.ab_semigroup_add",
+            "class:Groups.ab_semigroup_mult",
+            "class:Groups.comm_monoid_add",
+            "class:Groups.monoid_add",
+            "class:Groups.plus",
+            "class:Groups.semigroup_add",
+            "class:Groups.semigroup_mult",
+            "class:Groups.times",
+            "class:Groups.zero",
+            "class:HOL.type",
+            "class:Rings.comm_semiring",
+            "class:Rings.comm_semiring_0",
+            "class:Rings.mult_zero",
+            "class:Rings.semiring",
+            "class:Rings.semiring_0",
+            "constant:Fun.comp",
+            "constant:Fun.id",
+            "constant:Groups.plus_class.plus",
+            "constant:Groups.times_class.times",
+            "constant:Groups.zero_class.zero",
+            "constant:Groups_List.comm_semiring_0_class.horner_sum",
+            "constant:Int.Neg",
+            "constant:Int.Pos",
+            "constant:Int.dup",
+            "constant:Int.minus_int_inst.minus_int",
+            "constant:Int.one_int_inst.one_int",
+            "constant:Int.plus_int_inst.plus_int",
+            "constant:Int.sub",
+            "constant:Int.times_int_inst.times_int",
+            "constant:Int.uminus_int_inst.uminus_int",
+            "constant:Int.zero_int_inst.zero_int",
+            "constant:List.foldr",
+            "constant:List.list.Cons",
+            "constant:List.list.Nil",
+            "constant:Num.BitM",
+            "constant:Num.num.Bit0",
+            "constant:Num.num.Bit1",
+            "constant:Num.num.One",
+            "constant:Num.plus_num_inst.plus_num",
+            "constant:Num.times_num_inst.times_num",
+            "constant:Poly_Entry.poly_entry",
+            "constant:Polynomial.Poly",
+            "constant:Polynomial.coeffs",
+            "constant:Polynomial.poly",
+            "type:Int.int",
+            "type:List.list",
+            "type:Num.num",
+            "type:Polynomial.poly",
+            "type:fun"
+          ],
+          "claim_limit": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "responsibility": "Historical validation facts from the frozen original, qualified by the existing correctness workflow. Candidate scope reviews changed/activated obligations and current business computation. A reported inherited violation affecting a declared root holds all three modes; an unknown or missing all-input proof is recorded, not a new baseline admission requirement."
+        },
+        "inherited_baseline_findings": [
+          {
+            "source_ids": [
+              "type:Polynomial.poly",
+              "constant:Polynomial.coeffs",
+              "constant:Polynomial.Poly"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "The polynomial coefficient projection is supplied only as a theorem=null code-abstraction certificate on its representation domain; no unconditional HOL theorem for arbitrary raw Poly values is established, and frozen validation is executed evidence rather than an all-input proof.",
+            "evidence": "performance_contract.abstract_representation_roles for type:Polynomial.poly: coeffs (Poly x)=x has theorem=null and logical_theorem_present=false; baseline_validation records the executed-evidence claim limit. Candidate leaves Poly/from_coeffs unchanged; candidate-specific direct read is assessed on the same representation domain."
+          },
+          {
+            "source_ids": [
+              "constant:Polynomial.coeffs",
+              "constant:Polynomial.Poly",
+              "type:Polynomial.poly"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "The coeffs (Poly x) = x certificate is a code-abstraction execution certificate with theorem=null; it supports payload projection on the justified Poly representation domain but is not an unconditional HOL theorem for arbitrary raw constructor values.",
+            "evidence": "performance_contract.abstract_representation_roles[type:Polynomial.poly] records the code certificate and authority limit; the frozen adapter constructs values through Poly::from_coeffs, and the field is private. This is an inherited claim limit, not a candidate-introduced violation."
+          },
+          {
+            "source_ids": [
+              "constant:Polynomial.coeffs",
+              "type:Polynomial.poly"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "affected",
+            "finding": "coeffs (Poly x)=x is only a code-abstraction execution certificate (theorem=null); it is not an unconditional HOL abstraction theorem for arbitrary raw Poly values. poly_entry relies on this representation-domain projection.",
+            "evidence": "performance_contract abstract_representation_roles code_certificates for constant:Polynomial.coeffs has logical_theorem_present=false and authority_limit; baseline validation is executed evidence, not an all-input HOL proof. This is inherited and not candidate-introduced."
+          },
+          {
+            "source_ids": [
+              "constant:Poly_Entry.poly_entry"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed historical evidence, not an all-input mathematical proof or proof of undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.claim_limit; no concrete counterexample is supplied, so this remains a claim limit rather than a baseline violation."
+          },
+          {
+            "source_ids": [
+              "constant:Polynomial.Poly",
+              "constant:Polynomial.coeffs",
+              "type:Polynomial.poly"
+            ],
+            "status": "unknown",
+            "declared_root_impact": "affected",
+            "finding": "The baseline Poly::from_coeffs stores the incoming coefficient list verbatim; it is not proved that this enforces the source Poly/pCons normalization contract for all non-empty coefficient lists, such as lists with zero coefficients, before poly_entry evaluates them.",
+            "evidence": "from_coeffs(xs) builds Poly { coeffs: xs }; the boundary condition requires source Poly/pCons normalization. Baseline source/differential tests are executed evidence, not an all-input proof. Candidate 001 did not change from_coeffs or the coefficient representation."
+          },
+          {
+            "source_ids": [
+              "constant:Polynomial.coeffs",
+              "constant:Polynomial.Poly",
+              "type:Polynomial.poly",
+              "constant:Poly_Entry.poly_entry"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation and the theorem=null coeffs (Poly x)=x code certificate do not establish an all-input mathematical proof or an unconditional HOL abstraction contract for arbitrary raw Poly values; this is an inherited validation/certificate limit, not a candidate-introduced transition change.",
+            "evidence": "baseline_validation claim_limit; performance_contract abstract representation role for type:Polynomial.poly marks the coeffs certificate as a code-abstraction execution certificate with authority limited to its representation domain."
+          },
+          {
+            "source_ids": [
+              "constant:Polynomial.coeffs",
+              "type:Polynomial.poly"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation and the coeffs code-abstraction certificate (theorem=null) are executed/representation-domain evidence, not an all-input HOL proof for arbitrary raw Poly values or undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.claim_limit states validation is not a mathematical proof of all inputs; performance_contract.abstract_representation_roles identifies coeffs (Poly x)=x as a code certificate with theorem=null on the justified representation domain."
+          },
+          {
+            "source_ids": [
+              "type:Polynomial.poly",
+              "constant:Polynomial.coeffs",
+              "constant:Polynomial.Poly",
+              "constant:Poly_Entry.poly_entry"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "The Polynomial.poly/coeffs representation is supported by a code-abstraction execution certificate with theorem=null on the Poly x representation domain, not an unconditional HOL theorem for arbitrary raw constructor values; frozen validation is executed evidence, not an all-input proof.",
+            "evidence": "performance_contract.abstract_representation_roles records the code certificate authority limit and representation-domain restriction; baseline_validation.claim_limit records that source/differential validation is not a mathematical proof. The declared root poly_entry uses the coeffs projection on that representation domain, so this is an inherited claim limit, not a supplied contradiction or candidate transition change."
+          }
+        ],
+        "publication_hold": false,
+        "unresolved_inherited_concerns": [
+          {
+            "source_ids": [
+              "constant:Polynomial.Poly",
+              "constant:Polynomial.coeffs",
+              "type:Polynomial.poly"
+            ],
+            "status": "unknown",
+            "declared_root_impact": "affected",
+            "finding": "The baseline Poly::from_coeffs stores the incoming coefficient list verbatim; it is not proved that this enforces the source Poly/pCons normalization contract for all non-empty coefficient lists, such as lists with zero coefficients, before poly_entry evaluates them.",
+            "evidence": "from_coeffs(xs) builds Poly { coeffs: xs }; the boundary condition requires source Poly/pCons normalization. Baseline source/differential tests are executed evidence, not an all-input proof. Candidate 001 did not change from_coeffs or the coefficient representation."
+          }
+        ],
+        "affected_modes": [
+          "off",
+          "rust-only",
+          "full"
+        ],
+        "claim_limits": [
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "The coeffs (Poly x) = x certificate is a code-abstraction execution certificate with theorem=null; it supports payload projection on the justified Poly representation domain but is not an unconditional HOL theorem for arbitrary raw constructor values.",
+          "Frozen source/differential validation and the coeffs code-abstraction certificate (theorem=null) are executed/representation-domain evidence, not an all-input HOL proof for arbitrary raw Poly values or undeclared standalone helper APIs.",
+          "The Polynomial.poly/coeffs representation is supported by a code-abstraction execution certificate with theorem=null on the Poly x representation domain, not an unconditional HOL theorem for arbitrary raw constructor values; frozen validation is executed evidence, not an all-input proof."
+        ],
+        "admission_reports": [
+          {
+            "mode": "rust-only",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-rust-only/optimization/hol-polynomial/scope-review/review.json",
+            "sha256": "3292397fe802c6dfced543842783abeb58ee87dc000b0021417011a35fe68d1a"
+          },
+          {
+            "mode": "full",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-remaining-full/optimization/hol-polynomial/scope-review/review.json",
+            "sha256": "8486857dc8db9fc39478ac6bd17b5bd56fa03d996234c61fe2c409b5873823b8"
+          }
+        ],
+        "claim": "The original correctness workflow qualifies the frozen baseline. Unknown inherited concerns remain visible and are not proofs of either correctness or a defect. Reported violations affecting declared roots hold Off, Rust-only and Full uniformly; candidate repairs do not clear them. Candidate-introduced uncertainty remains subject to the separate strict admission gate."
+      },
+      "hol-fibonacci": {
+        "schema": 1,
+        "policy": "baseline-quality-separate-from-candidate-scope-v2",
+        "baseline_validation": {
+          "baseline_id": "ec6a0c1bc7d8c2d8e0fee28c763efaf257de04db8dd15d81f72e2ec8c346608d",
+          "binding": {
+            "candidate_version": "0724fa60d105ed068153189d9b5f9165ef92698f71332b0ebc6f3987d5cf162a",
+            "source_model_sha256": "15b199eacd2529ea84927ca0c31c3fc76601635b279780cb8adbbc868d886225",
+            "numeric_policy_sha256": "75104f180da2711a819570eefc09c49441e511842f850fbba16186ef117e158c",
+            "connector_sha256": "380888f1617dac72699d7a3e437dcb207f94874a91151406bc5b50ca83a55319",
+            "validation_facts": {
+              "source_test_status": "passed",
+              "source_tests_identity": "1a40e397dcf1223685d5d953b52ec42b2c1c6272c338f175c6ced165bb300a92",
+              "differential_statuses": [
+                "passed",
+                "passed",
+                "passed",
+                "passed"
+              ],
+              "validation_evidence_sha256": "8d02eb9f6223dd436620875e18416e9e55538ac7c6a6a2176e3d8b851df47d3c"
+            }
+          },
+          "declared_source_exports": [
+            "constant:Fib.fib"
+          ],
+          "source_ids": [
+            "constant:Fib.fib",
+            "constant:Fib.gen_fib",
+            "constant:Nat.Suc",
+            "constant:Nat.one_nat_inst.one_nat",
+            "constant:Nat.plus_nat_inst.plus_nat",
+            "constant:Nat.zero_nat_inst.zero_nat",
+            "type:Nat.nat",
+            "type:fun"
+          ],
+          "claim_limit": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "responsibility": "Historical validation facts from the frozen original, qualified by the existing correctness workflow. Candidate scope reviews changed/activated obligations and current business computation. A reported inherited violation affecting a declared root holds all three modes; an unknown or missing all-input proof is recorded, not a new baseline admission requirement."
+        },
+        "inherited_baseline_findings": [
+          {
+            "source_ids": [
+              "constant:Fib.fib",
+              "constant:Fib.gen_fib",
+              "type:Nat.nat"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or of undeclared standalone helper/API semantics such as gen_fib.",
+            "evidence": "baseline_validation.claim_limit states the limit; validation_facts report source_test_status passed and four passed differentials, with no concrete contradiction supplied."
+          },
+          {
+            "source_ids": [
+              "constant:Fib.fib",
+              "constant:Fib.gen_fib",
+              "constant:Nat.Suc",
+              "constant:Nat.one_nat_inst.one_nat",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "type:Nat.nat",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+            "evidence": "The supplied baseline_validation records passed source tests and four passed differential statuses, but its claim_limit explicitly limits stronger undeclared helper/API claims. No concrete inherited violation is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:Fib.fib",
+              "constant:Fib.gen_fib",
+              "type:Nat.nat"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not a mathematical all-inputs proof or a standalone HOL contract for undeclared helpers.",
+            "evidence": "baseline_validation records passed source tests and four passed differentials with the stated claim_limit; no concrete contradiction of a declared obligation is present, so this remains a limit on stronger undeclared helper/API claims rather than a violation affecting the declared root Fib.fib."
+          },
+          {
+            "source_ids": [
+              "constant:Fib.fib",
+              "constant:Fib.gen_fib"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "The frozen source tests and differential checks passed, but this is executed baseline validation rather than an all-input mathematical proof; undeclared standalone helper/API claims, including the retained gen_fib compatibility helper, are not established by the baseline evidence alone.",
+            "evidence": "baseline_validation.binding.validation_facts records source_test_status passed and differential_statuses passed, and baseline_validation.claim_limit states frozen validation is executed evidence, not a proof of all inputs or undeclared standalone helper APIs. No concrete baseline contradiction is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:Fib.fib",
+              "constant:Fib.gen_fib",
+              "constant:Nat.Suc",
+              "constant:Nat.one_nat_inst.one_nat",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "type:Nat.nat",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "The frozen baseline validation is executed historical evidence, not an all-input mathematical proof, and it does not establish undeclared standalone helper/API contracts.",
+            "evidence": "baseline_validation records passed source tests and four passed differential statuses together with the supplied claim_limit; no all-input proof is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:Fib.fib",
+              "constant:Fib.gen_fib",
+              "constant:Nat.Suc",
+              "constant:Nat.one_nat_inst.one_nat",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "type:Nat.nat",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source and differential validation is executed evidence, not a mathematical all-input proof or proof of undeclared standalone helper/API contracts beyond the declared root.",
+            "evidence": "baseline_validation reports passed source tests and differential statuses, with an explicit claim_limit; no all-input Isabelle theorem or standalone helper API proof is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:Fib.fib"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen baseline validation is executed historical evidence (tests/differentials), not an all-input mathematical proof for the declared root.",
+            "evidence": "baseline_validation.claim_limit and validation_facts; no all-input proof is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:Fib.fib",
+              "constant:Fib.gen_fib",
+              "type:Nat.nat"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Baseline validation is executed evidence, not an all-input proof or a proof of undeclared standalone helper/API claims; Fib.gen_fib is not a declared source export.",
+            "evidence": "baseline_validation records passed source tests and differentials and explicitly limits stronger claims; declared_source_exports contains only constant:Fib.fib."
+          },
+          {
+            "source_ids": [
+              "constant:Fib.gen_fib"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Baseline validation does not establish a standalone source contract for undeclared helper Fib.gen_fib; its retained Rust implementation is not evidence for the declared Fib.fib root.",
+            "evidence": "baseline_validation.declared_source_exports lists only constant:Fib.fib and claim_limit excludes undeclared standalone helper APIs."
+          }
+        ],
+        "publication_hold": false,
+        "unresolved_inherited_concerns": [],
+        "affected_modes": [
+          "off",
+          "rust-only",
+          "full"
+        ],
+        "claim_limits": [
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "Frozen source/differential validation is executed evidence, not a mathematical all-inputs proof or a standalone HOL contract for undeclared helpers.",
+          "The frozen baseline validation is executed historical evidence, not an all-input mathematical proof, and it does not establish undeclared standalone helper/API contracts.",
+          "Baseline validation does not establish a standalone source contract for undeclared helper Fib.gen_fib; its retained Rust implementation is not evidence for the declared Fib.fib root."
+        ],
+        "admission_reports": [
+          {
+            "mode": "rust-only",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only/optimization/hol-fibonacci/scope-review/review.json",
+            "sha256": "e8a4b1c93fd54330ca56f8c074963f974b4e2d3991317fd01fffe2a4fb85be7a"
+          },
+          {
+            "mode": "full",
+            "path": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full/optimization/hol-fibonacci/scope-review/review.json",
+            "sha256": "d2f6360f61c62e420267303f2788f06e9f7abcf411d3954842c3ed175898d6fe"
+          }
+        ],
+        "claim": "The original correctness workflow qualifies the frozen baseline. Unknown inherited concerns remain visible and are not proofs of either correctness or a defect. Reported violations affecting declared roots hold Off, Rust-only and Full uniformly; candidate repairs do not clear them. Candidate-introduced uncertainty remains subject to the separate strict admission gate."
+      },
+      "fpp-leftist-heap-merge": {
+        "schema": 1,
+        "policy": "baseline-quality-separate-from-candidate-scope-v2",
+        "baseline_validation": {
+          "baseline_id": "8b60c07268351cb3b74040f42969b3ee62db16907488467fefd7de902815bb0f",
+          "binding": {
+            "candidate_version": "1a5fabc7085af32f3c2634240415b5d6f9906bc9c7655da315e4e37879454afa",
+            "source_model_sha256": "955b8fd1d61b5751f33033152fc7fb8442bf8235512caa0a499320dba8c62844",
+            "numeric_policy_sha256": "75104f180da2711a819570eefc09c49441e511842f850fbba16186ef117e158c",
+            "connector_sha256": "27adb73d4a54a6620a51bb683d1ea77f01942ddd94a18217a16ee92536493504",
+            "validation_facts": {
+              "source_test_status": "passed",
+              "source_tests_identity": "fcbc57fa582e656486bec6dcb8d8a74cd6db59c338f4a7e4db4a9beac5fbacc9",
+              "differential_statuses": [
+                "passed",
+                "passed",
+                "passed",
+                "passed"
+              ],
+              "validation_evidence_sha256": "e16202ffbcce903ae6bd18d24fe1ba69f29b4275b574aa7bb4dcd33ba88d4edb"
+            }
+          },
+          "declared_source_exports": [
+            "constant:Leftist_Heap_Test.merge"
+          ],
+          "source_ids": [
+            "class:HOL.type",
+            "class:Orderings.ord",
+            "constant:HOL.False",
+            "constant:HOL.If",
+            "constant:HOL.Let",
+            "constant:HOL.True",
+            "constant:Leftist_Heap_Test.merge",
+            "constant:Leftist_Heap_Test.mht",
+            "constant:Leftist_Heap_Test.node",
+            "constant:Nat.Suc",
+            "constant:Nat.one_nat_inst.one_nat",
+            "constant:Nat.ord_nat_inst.less_eq_nat",
+            "constant:Nat.ord_nat_inst.less_nat",
+            "constant:Nat.plus_nat_inst.plus_nat",
+            "constant:Nat.zero_nat_inst.zero_nat",
+            "constant:Orderings.ord_class.less_eq",
+            "constant:Product_Type.Pair",
+            "constant:Tree_Test.tree.Leaf",
+            "constant:Tree_Test.tree.Node",
+            "type:HOL.bool",
+            "type:Nat.nat",
+            "type:Product_Type.prod",
+            "type:Tree_Test.tree",
+            "type:fun"
+          ],
+          "claim_limit": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "responsibility": "Historical validation facts from the frozen original, qualified by the existing correctness workflow. Candidate scope reviews changed/activated obligations and current business computation. A reported inherited violation affecting a declared root holds all three modes; an unknown or missing all-input proof is recorded, not a new baseline admission requirement."
+        },
+        "inherited_baseline_findings": [
+          {
+            "source_ids": [
+              "constant:Leftist_Heap_Test.merge"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "The frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or of undeclared standalone helper APIs.",
+            "evidence": "baseline_validation records passed source tests and differential statuses but explicitly supplies this as a claim limit; no concrete inherited source violation is asserted by this review."
+          },
+          {
+            "source_ids": [
+              "constant:Leftist_Heap_Test.merge"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input mathematical proof and does not establish undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.claim_limit for baseline_id 8b60c07268351cb3b74040f42969b3ee62db16907488467fefd7de902815bb0f; no concrete inherited violation is reported for the declared merge root."
+          },
+          {
+            "source_ids": [
+              "constant:Leftist_Heap_Test.merge",
+              "constant:Leftist_Heap_Test.node",
+              "constant:Leftist_Heap_Test.mht"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen baseline validation is executed historical evidence, not a mathematical all-input proof; it does not establish undeclared standalone helper/API contracts.",
+            "evidence": "baseline_validation.claim_limit; passed source/differential tests provide historical evidence only; no concrete contradiction of a declared obligation is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:Leftist_Heap_Test.merge"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence only, not an all-input proof or proof of undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.claim_limit and binding; no inherited concrete violation is supplied for the declared merge root."
+          },
+          {
+            "source_ids": [
+              "constant:Leftist_Heap_Test.merge"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input mathematical proof or a proof of undeclared standalone helper/API behavior.",
+            "evidence": "baseline_validation.claim_limit records this limit; validation_facts show passed source tests and differentials, with no concrete inherited violation asserted here."
+          },
+          {
+            "source_ids": [
+              "constant:Leftist_Heap_Test.merge"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input proof or a proof of undeclared standalone helper/API contracts.",
+            "evidence": "baseline_validation.claim_limit; source tests and differential statuses passed, but no mathematical proof is supplied."
+          },
+          {
+            "source_ids": [
+              "constant:Leftist_Heap_Test.merge"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "unknown",
+            "finding": "Frozen source/differential validation is executed evidence, not an all-input mathematical proof or proof of undeclared standalone helper APIs.",
+            "evidence": "baseline_validation.claim_limit; no inherited concrete violation is supplied for the declared root."
+          },
+          {
+            "source_ids": [
+              "class:HOL.type",
+              "class:Orderings.ord",
+              "constant:HOL.False",
+              "constant:HOL.If",
+              "constant:HOL.Let",
+              "constant:HOL.True",
+              "constant:Leftist_Heap_Test.merge",
+              "constant:Leftist_Heap_Test.mht",
+              "constant:Leftist_Heap_Test.node",
+              "constant:Nat.Suc",
+              "constant:Nat.one_nat_inst.one_nat",
+              "constant:Nat.ord_nat_inst.less_eq_nat",
+              "constant:Nat.ord_nat_inst.less_nat",
+              "constant:Nat.plus_nat_inst.plus_nat",
+              "constant:Nat.zero_nat_inst.zero_nat",
+              "constant:Orderings.ord_class.less_eq",
+              "constant:Product_Type.Pair",
+              "constant:Tree_Test.tree.Leaf",
+              "constant:Tree_Test.tree.Node",
+              "type:HOL.bool",
+              "type:Nat.nat",
+              "type:Product_Type.prod",
+              "type:Tree_Test.tree",
+              "type:fun"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source tests and differential validation are executed evidence, not an all-input mathematical proof or a standalone HOL contract for undeclared helper/API claims.",
+            "evidence": "baseline_validation.claim_limit and validation_facts record passed source tests and differential statuses, but no all-input proof; this limits stronger claims only and asserts no baseline violation."
+          },
+          {
+            "source_ids": [
+              "constant:Leftist_Heap_Test.merge"
+            ],
+            "status": "claim_limit",
+            "declared_root_impact": "not_affected",
+            "finding": "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or a standalone HOL contract for undeclared helpers.",
+            "evidence": "baseline_validation binding reports source_test_status passed and four differential_statuses passed for declared root Leftist_Heap_Test.merge; its claim_limit explicitly limits all-input and undeclared helper/API claims. No inherited violation is reported."
+          }
+        ],
+        "publication_hold": false,
+        "unresolved_inherited_concerns": [],
+        "affected_modes": [
+          "off",
+          "rust-only",
+          "full"
+        ],
+        "claim_limits": [
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or undeclared standalone helper APIs.",
+          "Frozen source/differential validation is executed evidence only, not an all-input proof or proof of undeclared standalone helper APIs.",
+          "Frozen source/differential validation is executed evidence, not an all-input mathematical proof or a proof of undeclared standalone helper/API behavior.",
+          "Frozen source/differential validation is executed evidence, not an all-input proof or a proof of undeclared standalone helper/API contracts.",
+          "Frozen source tests and differential validation are executed evidence, not an all-input mathematical proof or a standalone HOL contract for undeclared helper/API claims.",
+          "Frozen source/differential validation is executed evidence, not a mathematical proof of all inputs or a standalone HOL contract for undeclared helpers."
+        ],
+        "admission_reports": [
+          {
+            "mode": "rust-only",
+            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only/optimization/fpp-leftist-heap-merge/scope-review/review.json",
+            "sha256": "e250dcfa1f75a8da2f1797cb7b7c245dfee6d697bc21b3254b433c89a3371f80"
+          },
+          {
+            "mode": "full",
+            "path": "artifact/runs/optimization-original-ten-v4-20261114-restored-full/optimization/fpp-leftist-heap-merge/scope-review/review.json",
+            "sha256": "acd63fe59d64d95afe2ee417847f09a423c7ddebd4ab2eaf6a50a4872af3abfc"
+          }
+        ],
+        "claim": "The original correctness workflow qualifies the frozen baseline. Unknown inherited concerns remain visible and are not proofs of either correctness or a defect. Reported violations affecting declared roots hold Off, Rust-only and Full uniformly; candidate repairs do not clear them. Candidate-introduced uncertainty remains subject to the separate strict admission gate."
+      }
+    },
+    "claim": "No recorded hold is not a new correctness proof. Baseline findings from either arm apply to every mode of that baseline; no aggregate publication comparison is produced while any case is held."
+  },
+  "optimization_cost_by_mode": {
+    "rust-only": {
+      "cases": 10,
+      "model_calls": 115,
+      "known_tokens": 10188474,
+      "median_charged_wall_seconds": 1507.819017729009,
+      "median_resource_wait_seconds": 132.3047785419476,
+      "median_wall_excluding_resource_wait_seconds": 1350.059056750033,
+      "source_phase_model_calls": 0,
+      "source_selected_cases": 0,
+      "note": "Wall time excluding resource waits still includes network and tool execution; it is not CPU time."
+    },
+    "full": {
+      "cases": 10,
+      "model_calls": 133,
+      "known_tokens": 11985729,
+      "median_charged_wall_seconds": 1653.7736622499942,
+      "median_resource_wait_seconds": 221.16540458254167,
+      "median_wall_excluding_resource_wait_seconds": 1432.6082576674526,
+      "source_phase_model_calls": 45,
+      "source_selected_cases": 5,
+      "note": "Wall time excluding resource waits still includes network and tool execution; it is not CPU time."
+    }
+  },
+  "sensitivity_without_queue": {
+    "cases": 9,
+    "excluded_case": "fpp-deq-list",
+    "reason": "Supplementary sensitivity to the prepared-container identity workload; the ten-case primary analysis remains unchanged.",
+    "primary_geomean_speedups": {
+      "rust-only-vs-off-arbitrary": 4.295890863734163,
+      "rust-only-numeric": 2.3164039319407737,
+      "full-vs-off-arbitrary": 6.103563662821917,
+      "off-numeric": 2.4562211750783707,
+      "full-vs-off-checked": 7.214717609631469,
+      "full-numeric": 2.903376313239687,
+      "rust-only-vs-off-checked": 4.051352780811669
+    }
+  },
+  "controller_releases": [
+    {
+      "run": "artifact/runs/optimization-five-six-v4-20261114-priority-full",
+      "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "release_sha256": "656b2a85f30b954b6fa090e233ff79a7e20e9df8a68277676da93bceca1a15fd"
+    },
+    {
+      "run": "artifact/runs/optimization-five-six-v4-20261114-remaining-full",
+      "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "release_sha256": "c4393e21f7084b9c856eaa9c3543ab4aa2366e8c949d1427e89939f65c745786"
+    },
+    {
+      "run": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full",
+      "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "release_sha256": "f81d58f398baa61297aba17e9dcd07a3170d5eafd9d82a7eec4ee986e07324ef"
+    },
+    {
+      "run": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-rust-only",
+      "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "release_sha256": "6adbb4b4f2a8dc4a953bfd27c2d11ec624c1ba7351cf254cce6e23cf3d68932e"
+    },
+    {
+      "run": "artifact/runs/optimization-five-six-v4-20261114-rust-only",
+      "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "release_sha256": "aabcd306d447a47fb11383fd4d9299c9aa3eb94f019faf6c3c76b0bd43223e46"
+    },
+    {
+      "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-full",
+      "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "release_sha256": "0cb19f728b35157d9b196f29865966321b7f52f6330e7cdc46606c79276b76ea"
+    },
+    {
+      "run": "artifact/runs/optimization-original-ten-v4-20261114-restored-rust-only",
+      "identity": "20544ff789c9d21c618e25e87e58c443d1c40533ef3cc4ff8091b513e87e2e4d",
+      "release_sha256": "729e42f37b8841130114d94fbc8f486c3ea279697b8703fa7ab53a9815746932"
+    }
+  ],
+  "mixed_controller_releases": false,
+  "workflow": "bounded_source_then_fixed_source_rust",
+  "unique_measured_process_rounds": 360,
+  "executable_aliases": {
+    "fpp-multip": {
+      "off-arbitrary": "off-arbitrary",
+      "off-checked": "off-checked",
+      "rust-only-arbitrary": "rust-only-arbitrary",
+      "rust-only-checked": "rust-only-checked",
+      "full-arbitrary": "full-arbitrary",
+      "full-checked": "full-checked"
+    },
+    "fpp-tree-inorder": {
+      "off-arbitrary": "off-arbitrary",
+      "off-checked": "off-checked",
+      "rust-only-arbitrary": "rust-only-arbitrary",
+      "rust-only-checked": "rust-only-checked",
+      "full-arbitrary": "full-arbitrary",
+      "full-checked": "full-checked"
+    },
+    "fpp-deq-list": {
+      "off-arbitrary": "off-arbitrary",
+      "off-checked": "off-checked",
+      "rust-only-arbitrary": "rust-only-arbitrary",
+      "rust-only-checked": "rust-only-checked",
+      "full-arbitrary": "full-arbitrary",
+      "full-checked": "full-checked"
+    },
+    "fpp-msort": {
+      "off-arbitrary": "off-arbitrary",
+      "off-checked": "off-checked",
+      "rust-only-arbitrary": "rust-only-arbitrary",
+      "rust-only-checked": "rust-only-checked",
+      "full-arbitrary": "full-arbitrary",
+      "full-checked": "full-checked"
+    },
+    "fpp-avl-updates": {
+      "off-arbitrary": "off-arbitrary",
+      "off-checked": "off-checked",
+      "rust-only-arbitrary": "rust-only-arbitrary",
+      "rust-only-checked": "rust-only-checked",
+      "full-arbitrary": "full-arbitrary",
+      "full-checked": "full-checked"
+    },
+    "fpp-acomp": {
+      "off-arbitrary": "off-arbitrary",
+      "off-checked": "off-checked",
+      "rust-only-arbitrary": "rust-only-arbitrary",
+      "rust-only-checked": "rust-only-checked",
+      "full-arbitrary": "full-arbitrary",
+      "full-checked": "full-checked"
+    },
+    "hol-eratosthenes": {
+      "off-arbitrary": "off-arbitrary",
+      "off-checked": "off-checked",
+      "rust-only-arbitrary": "rust-only-arbitrary",
+      "rust-only-checked": "rust-only-checked",
+      "full-arbitrary": "full-arbitrary",
+      "full-checked": "full-checked"
+    },
+    "hol-polynomial": {
+      "off-arbitrary": "off-arbitrary",
+      "off-checked": "off-checked",
+      "rust-only-arbitrary": "rust-only-arbitrary",
+      "rust-only-checked": "rust-only-checked",
+      "full-arbitrary": "full-arbitrary",
+      "full-checked": "full-checked"
+    },
+    "hol-fibonacci": {
+      "off-arbitrary": "off-arbitrary",
+      "off-checked": "off-checked",
+      "rust-only-arbitrary": "rust-only-arbitrary",
+      "rust-only-checked": "rust-only-checked",
+      "full-arbitrary": "full-arbitrary",
+      "full-checked": "full-checked"
+    },
+    "fpp-leftist-heap-merge": {
+      "off-arbitrary": "off-arbitrary",
+      "off-checked": "off-checked",
+      "rust-only-arbitrary": "rust-only-arbitrary",
+      "rust-only-checked": "rust-only-checked",
+      "full-arbitrary": "full-arbitrary",
+      "full-checked": "full-checked"
+    }
+  },
+  "controller_migrations": [],
+  "report_script_sha256": "6e522825532856f5aae5c43278e688a8487d0bbfa9d50b25ba0f69b59d81e935",
+  "study_status": "frozen_controller_experiment",
+  "all_workloads_case_balanced_geomean": {
+    "full-numeric": 2.642891926611686,
+    "full-vs-off-arbitrary": 10.843205061798072,
+    "full-vs-off-checked": 12.657290600460664,
+    "off-numeric": 2.264103750243208,
+    "rust-only-numeric": 2.1460885071887326,
+    "rust-only-vs-off-arbitrary": 4.347292072313816,
+    "rust-only-vs-off-checked": 4.120691709813731
+  },
+  "matplotlib_version": "3.11.2"
+}

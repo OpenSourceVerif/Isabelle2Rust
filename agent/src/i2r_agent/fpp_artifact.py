@@ -11,13 +11,16 @@ RUSTLIGHTAST_COMMIT='1d25bd1ac5b406cfc08c4554ab9980ce5986db8f'
 
 def manifest():
     dataset=os.environ.get('I2R_DATASET','fpp')
-    if dataset not in {'fpp','unit'}:raise Failure('unknown_dataset',dataset)
-    data=read(ARTIFACT/('fpp-manifest.json' if dataset=='fpp' else 'datasets/unit/manifest.json'))
+    if dataset not in {'fpp','unit','performance','performance-source'}:raise Failure('unknown_dataset',dataset)
+    data=read(ARTIFACT/'datasets'/dataset/'manifest.json')
     if dataset=='fpp':
         assert len(data['cases'])==313 and len({r['root'] for r in data['cases']})==313
-    else:
+    elif dataset=='unit':
         assert len(data['cases'])==data['expected_root_count']==488
         assert len({(r['root'],r['original_source']) for r in data['cases']})==488
+    else:
+        assert len(data['cases'])==data['expected_root_count']
+        assert len({r['id'] for r in data['cases']})==data['expected_root_count']
     for name,sha in data['corpus'].items():
         if digest(REPO/name)!=sha:raise Failure('corpus_changed',name)
     return data
@@ -32,7 +35,8 @@ def configuration(row,run):
     cfg['tools']['optimizer_target']=str(run/'optimizer-target')
     cfg['budgets']['max_model_calls']=48
     cfg['testing']['observation_source']={'enabled':True}
-    return cfg
+    from .experiment_config import apply
+    return apply(cfg, run)
 
 def check_tools():
     root=tool_sources.repository('RustLightAST')
@@ -59,6 +63,11 @@ def inputs(row):
     knowledge_run.fixed=fixed;knowledge_run.scoped_fixed=lambda c,bits:fixed(c);knowledge_run.scoped_inputs=generated
 
 def project(row,run):
+    if row.get('external_sources'):
+        executable=configuration(row,run)['tools']['isabelle']
+        home=Path(subprocess.check_output([executable,'getenv','-b','ISABELLE_HOME'],text=True).strip())
+        for spec in row['external_sources']:
+            if digest(home/spec['isabelle_path'])!=spec['sha256']:raise Failure('corpus_changed',spec['isabelle_path'])
     target=run/'projects'/row['id'];source=ARTIFACT/row['project']
     target.mkdir(parents=True,exist_ok=True)
     for name,sha in row['files'].items():
@@ -92,7 +101,7 @@ def prepare(row,run):
         return preprocess(directory,cfg,where,ex)
     start=time.monotonic()
     bundle=source(p/'program',work/'source')
-    if bundle['source_model']['entries']!=[row['root']]:raise Failure('root_changed',row['id'])
+    if bundle['source_model']['entries']!=row.get('roots',[row['root']]):raise Failure('root_changed',row['id'])
     if sorted(bundle['source_model']['entities'])!=row['closure']:raise Failure('closure_changed',row['id'])
     wrapper=source(p/'testing',work/'wrapper')
     # Ownership is resolved by the unchanged core during execution.

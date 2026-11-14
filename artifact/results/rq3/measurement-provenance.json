@@ -1,0 +1,53 @@
+{
+  "copied_complete_measurements": [
+    {
+      "original": "artifact/runs/rq3-rust-only-ten-20261114/measurements/fpp-tree-inorder/balanced-1024/measurement-v2.json",
+      "copy": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-tree-inorder/balanced-1024/measurement-v2.json",
+      "sha256": "620f8efed26a6a7ec218e468c59c8ac97ab2fd8fee736e0ab03cbe23ba37112b"
+    },
+    {
+      "original": "artifact/runs/rq3-rust-only-ten-20261114/measurements/hol-fibonacci/n-180/measurement-v2.json",
+      "copy": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/hol-fibonacci/n-180/measurement-v2.json",
+      "sha256": "96c79384be6224b18204fc3f8c8d45b2b6c6a4e340a58e786bc07b02fecb109c"
+    },
+    {
+      "original": "artifact/runs/rq3-rust-only-ten-20261114/measurements/fpp-avl-updates/mixed-1024/measurement-v2.json",
+      "copy": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-avl-updates/mixed-1024/measurement-v2.json",
+      "sha256": "e91d750c610c63077209c3c6825d12e17d24d64f17523a6497491faa673e6d73"
+    },
+    {
+      "original": "artifact/runs/rq3-rust-only-ten-20261114/measurements/fpp-msort/descending-1024/measurement-v2.json",
+      "copy": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-msort/descending-1024/measurement-v2.json",
+      "sha256": "ae7c9f29221b952b1b9d9e06704fb9c7728c9e79576f116460f06f11241f0822"
+    },
+    {
+      "original": "artifact/runs/rq3-rust-only-ten-20261114/measurements/hol-eratosthenes/upper-bound-4096/measurement-v2.json",
+      "copy": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/hol-eratosthenes/upper-bound-4096/measurement-v2.json",
+      "sha256": "fe67f660605fc6891eba3e5ba390ceae073e8a59ac28bb513b853b69b457d9a4"
+    },
+    {
+      "original": "artifact/runs/rq3-rust-only-ten-20261114/measurements/hol-polynomial/degree-1023-point-1/measurement-v2.json",
+      "copy": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/hol-polynomial/degree-1023-point-1/measurement-v2.json",
+      "sha256": "e8547c4eb73c90c4532daa8a5ebd984cdd61aec02b4fe2b3beb24e0d4b8febeb"
+    },
+    {
+      "original": "artifact/runs/rq3-rust-only-ten-20261114/measurements/fpp-acomp/descending-1024/measurement-v2.json",
+      "copy": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-acomp/descending-1024/measurement-v2.json",
+      "sha256": "bbacaed3e444c7751b3fdfa5fdb1bef1dfc30b9ec275dcd672fe828795babc4f"
+    },
+    {
+      "original": "artifact/runs/rq3-rust-only-ten-20261114/measurements/fpp-multip/iterations-1024/measurement-v2.json",
+      "copy": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-multip/iterations-1024/measurement-v2.json",
+      "sha256": "2abb6b212e4acddad28c7212e7f987df1204a3fd4eb8553c5bcd8625519091a3"
+    },
+    {
+      "original": "artifact/runs/rq3-rust-only-ten-20261114/measurements/fpp-deq-list/descending-1024/measurement-v2.json",
+      "copy": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-deq-list/descending-1024/measurement-v2.json",
+      "sha256": "483d568666012c4d2d92aeeab6619b14d69bc487622034473bc7f508f2070c77"
+    }
+  ],
+  "prior_experiment_seal": "artifact/runs/rq3-rust-only-ten-20261114/experiment-seal.json",
+  "prior_experiment_seal_sha256": "c66c08af83f7e9c3bd8bcf486890a52c9c47b40886497d63bc7e351ca81ec9c3",
+  "heap_policy": "Restart Heap only with uniform max_batch=8 for all five implementations to bound expensive untimed input preparation. Same primary input, binaries, timing boundary, and ten balanced process rounds. All prior partial Heap observations are retained but not pooled.",
+  "original_partial_heap": "artifact/runs/rq3-rust-only-ten-20261114/measurements/fpp-leftist-heap-merge"
+}

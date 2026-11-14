@@ -17,8 +17,5 @@ pipeline --workers 10` for a **new** experiment. Both datasets share generation,
 repair, reference policy and budgets. Configure tools and credentials as described
 in `artifact/README.md`. Never reuse the completed formal run directory.
 
-The 2026-11-13 result is in `artifact/runs/unit-formal-20261113-r2/`; its
-`final-snapshot/` is the historical release. The maintained manifest changes only
-project locations relative to that release. Source/wrapper bytes, input vectors
-and closure lists are retained. The shared config makes the original
-`source_repair_then_diff_accept` policy explicit for both datasets.
+The recorded correctness counts and reference coverage are available in
+[`artifact/results/rq1/summary.json`](../../results/rq1/summary.json).

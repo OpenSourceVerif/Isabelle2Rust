@@ -1,212 +1,162 @@
-# Isabelle2Rust
+# Isabelle2Rust Agent
 
-Isabelle2Rust generates safe Rust from executable Isabelle/HOL specifications.
-Stage-1 translates Thingol into baseline Rust, and Stage-2 applies
-ownership-aware source-to-source optimizations.
+An agent for translating executable Isabelle/HOL specifications into Rust,
+repairing generated programs, and checking their behavior against executable
+reference implementations. Optional optimization compares Rust refinement with
+proof-checked Isabelle source transformations followed by Rust refinement.
 
-## Agent experiments
+## Repository layout
 
-FPP and Unit share the Agent implementation under `agent/` and dataset-specific
-inputs under `artifact/`. See [the experiment entry and run locations](artifact/README.md#formal-results-and-datasets)
-and [the final result summary](evaluation/results/agent/formal-20261113.json).
-Raw results are local Git-ignored run directories; the summary and input adapters
-are maintained in this repository.
-
-## 1. Environment
-
-The project was tested with:
-
-**Hardware and operating systems**
-
-- Linux: Ubuntu 22.04 under WSL2, Intel Core Ultra 9 185H, 15 GiB memory
-- macOS: macOS 26.5.1, Apple M5 (arm64), 16 GiB memory
-
-**Software dependencies**
-
-- Isabelle/HOL 2025
-- Rust 1.94.0
-- Python 3 (3.9.6 on the macOS test machine)
-- OCaml: 4.11.2 on Linux; 4.14.2 on macOS (Apple Silicon)
-
-## 2. Repository Structure
+Most of this project's implementation is in **`agent/`**. The repository is built
+on Isabelle2Rust: its translator, optimizer, source corpora, build support and
+reference build support are retained for code extraction and
+reference comparisons. These inherited directories are dependencies of the agent
+experiments, not additional agent implementations.
 
 ```text
-Isabelle2Rust/
-├── translate/              # Stage-1 Rust backend for Isabelle/HOL code generation
-├── optimize/               # Stage-2 Rust ownership-aware code optimizer
-├── test/
-│   ├── HOL_Codegenerator/  # Official library-scale stress tests
-│   ├── unit/               # Rule-level unit test suite
-│   ├── fpp/                # Program-level test suite
-│   ├── sbpf/               # Solana eBPF case study
-│   └── x64/                # x86-64 semantics case study
-├── agent/                  # Shared Agent generation, repair and validation
-├── artifact/               # FPP/Unit inputs, launchers and ignored run evidence
-├── evaluation/
-│   ├── scripts/            # Generation, validation, and optimization scripts
-│   └── results/            # Evaluation results
-└── ROOT                    # Isabelle session definitions
-
-RustLightAST/               # RustLight AST
+agent/                         Agent implementation and tools
+├── src/i2r_agent/              Translation, repair, validation and optimization
+├── isabelle/                  Isabelle extraction and agent integration
+├── prompts/                   Model instructions
+├── references/                Runtime knowledge and semantic guidance
+├── config/                    Agent defaults and configuration schemas
+├── scripts/                   Measurement, reporting and evidence-audit tools
+├── tests/                     Agent regression tests and fixtures
+└── docs/                      Detailed agent protocols
+artifact/                      Agent experiment inputs and outputs
+├── config.json                Shared paper-experiment configuration
+├── run-agent                  Unified experiment entry point
+├── run-fpp, run-unit           Dataset-specific aliases
+├── datasets/                  Fixed inputs, manifests and export projects
+├── results/                   Versioned final paper records (single entry)
+│   ├── rq1/                   Translation correctness and recovery
+│   ├── rq2/                   Optimization and numeric representation
+│   └── rq3/                   Cross-language performance
+└── runs/                      Local raw runs and history; Git-ignored
+translate/                     Inherited Isabelle2Rust translation backend
+optimize/                      Inherited Isabelle2Rust Rust optimizer
+test/                         Inherited source corpora and reference harnesses
+scripts/                       Inherited build-support scripts
+Makefile, ROOT                 Isabelle2Rust build and session definitions
+rust-toolchain.toml            Pinned Rust toolchain
 ```
 
-`Isabelle2Rust/` and `RustLightAST/` must be sibling directories.
+`agent/config/` supplies implementation defaults; `artifact/config.json` selects
+the shared experiment settings. Machine overrides and credentials stay local.
+Read [artifact/results/README.md](artifact/results/README.md) for this paper's
+results. See [agent/README.md](agent/README.md) for implementation details.
+Retained code may include integration
+adaptations; “inherited” does not mean byte-identical to the upstream release.
 
-## 3. Installation
+## Requirements and installation
 
-#### Install the system packages:
+Use Linux or macOS with Python 3.11+, Isabelle2025, Rust 1.94.0, and OCaml
+with `ocamlfind`, `zarith`, and `yojson`. The runner uses POSIX process groups
+and file locks. Install the Rust `clippy` and `rustfmt` components. Reference
+builds also require a native compiler, Make, pkg-config, GMP, and Jansson.
 
-**Linux (Ubuntu / WSL2)**
+Provide the RustLightAST dependency alongside this checkout, or set
+`RUSTLIGHTAST_ROOT` to its directory. The experiment dependency revision is
+`1d25bd1ac5b406cfc08c4554ab9980ce5986db8f`.
 
-```bash
-sudo apt update
-sudo apt install -y \
-  build-essential curl git make python3 perl util-linux \
-  pkg-config libjansson-dev libgmp-dev opam m4 \
-  cloc time libxi6 libxtst6 libxrender1 fontconfig
-```
+Run all commands below from the repository root:
 
-**macOS**
-
-#### Install the Xcode Command Line Tools and the packages through [Homebrew](https://brew.sh/):
-
-```bash
-xcode-select --install
-brew install python git make perl pkg-config jansson gmp opam m4 cloc gnu-time
-```
-
-#### Install [Isabelle/HOL 2025](https://isabelle.in.tum.de/website-Isabelle2025/index.html) and add its `bin` directory to `PATH`:
-
-**Linux**
-
-```bash
-tar -xzf Isabelle2025_linux.tar.gz -C /YOUR/PATH
-echo 'export PATH="/YOUR/PATH/Isabelle2025/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-isabelle version  # Isabelle2025
-```
-
-**macOS**
-
-```bash
-tar -xzf Isabelle2025_macos.tar.gz -C /Applications
-echo 'export PATH="/Applications/Isabelle2025.app/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-isabelle version  # Isabelle2025
-```
-
-#### Install the [complete AFP release for Isabelle2025](https://isa-afp.org/release/afp-2025-03-17.tar.gz), then register its theories directory on either platform:
-
-Extract the archive and rename its directory to `afp-Isabelle2025`.
-
-```bash
-isabelle components -u /YOUR/PATH/afp-Isabelle2025/thys
-```
-
-#### Install [Rust](https://rust-lang.org/tools/install/):
-
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source "$HOME/.cargo/env"
+```sh
+python3.12 -m venv agent/.venv
+agent/.venv/bin/pip install -e 'agent[test]'
 rustup toolchain install 1.94.0 --profile minimal
 rustup component add clippy rustfmt --toolchain 1.94.0
-rustc +1.94.0 --version         # rustc 1.94.0
-cargo +1.94.0 --version         # cargo 1.94.0
-cargo +1.94.0 clippy --version  # clippy 0.1.94
-rustfmt +1.94.0 --version       # rustfmt 1.8.0
+
+export ISABELLE=/path/to/Isabelle2025/bin/isabelle
+export CARGO=/path/to/cargo
+export OCAMLFIND=/path/to/ocamlfind
+export RUSTLIGHTAST_ROOT=/path/to/RustLightAST
 ```
 
-#### Install OCaml for the SBPF and x86-64 experiments:
+Put the OCaml tools on `PATH`. FPP requires no AFP session; workloads importing
+AFP theories additionally require the matching AFP release via `AFP_ROOT`.
+Tool overrides may be placed in the ignored `artifact/local.json`.
 
-**Linux**
+Model generation uses the provider and model configured in `artifact/config.json`
+(default: DeepSeek Flash). Supply `DEEPSEEK_API_KEY` through the environment.
+Preparation and boundary checks make no model calls; generation and optimization
+consume API requests. Do not place credentials in versioned files.
 
-```bash
-opam init -y --bare
-opam switch create isabelle2rust ocaml-base-compiler.4.11.2
+## Quick start: model-free preparation
+
+```sh
+artifact/run-agent --help
+artifact/run-fpp --run artifact/runs/smoke prepare --case fpp-add
+artifact/run-fpp --run artifact/runs/smoke boundary --case fpp-add
 ```
 
-**macOS**
+This checks one FPP task's source/export and reference boundary. It does not
+establish acceptance of an agent-generated program. Use a separate, new run
+directory for a complete experiment.
 
-```bash
-opam init -y --bare
-opam switch create isabelle2rust ocaml-base-compiler.4.14.2
+## Generate and validate Rust
+
+```sh
+artifact/run-agent --dataset fpp --run artifact/runs/fpp-new pipeline --workers 10
+artifact/run-agent --dataset fpp --run artifact/runs/fpp-new report
+
+artifact/run-agent --dataset unit --run artifact/runs/unit-new pipeline --workers 10
+artifact/run-agent --dataset unit --run artifact/runs/unit-new report
 ```
 
-On both platforms, activate the switch and install the libraries:
+FPP selects 313 runnable roots, with 11 explicit exclusions from 324 roots.
+Unit selects 488 root/source contexts. Each task has a budget of 48 attempted
+model requests and 4200 active seconds. Preparation runs sequentially while
+admitted tasks execute with the configured worker limit. The default limit is
+five workers; the commands above explicitly select ten.
 
-```bash
-eval "$(opam env --switch=isabelle2rust)"
-opam install -y ocamlfind zarith yojson
+To pause and continue an experiment:
 
-ocamlopt -version             # Linux: 4.11.2; macOS: 4.14.2
-ocamlfind query zarith        # path ending in /zarith
-ocamlfind query yojson        # path ending in /yojson
-pkg-config --libs jansson     # contains -ljansson
-export OCAML_VERSION="$(ocamlopt -version)"
+```sh
+artifact/run-agent --dataset fpp --run artifact/runs/fpp-new pause
+artifact/run-agent --dataset fpp --run artifact/runs/fpp-new resume-pipeline
 ```
 
-`OCAML_VERSION` selects the version expected by the SBPF test runners.
+Pause drains active work. Resume requires the same frozen implementation,
+configuration, inputs, and tools; it retains consumed budgets. Use a new run
+for changed settings. Never resume or overwrite a completed paper experiment.
 
-Clone the two repositories into the required layout:
+## Optimization and performance
 
-```bash
-mkdir Isabelle2Rust-workspace
-cd Isabelle2Rust-workspace
+The performance dataset supports `--paired-numerics` with `--off`, `--rust-only`,
+or `--full`. Rust-only and Full start independently from the same validated Off
+artifact. Full additionally checks source equivalence in Isabelle. Paired builds
+share business code and use arbitrary-precision or checked integer runtimes.
 
-git clone -b main https://github.com/OpenSourceVerif/RustLightAST.git
+See [performance commands and controls](artifact/datasets/performance/README.md)
+and [the optimization protocol](agent/docs/performance-experiments.md).
+Final measurements must be separate from optimization search measurements.
 
-git clone -b main https://github.com/OpenSourceVerif/Isabelle2Rust.git
-cd Isabelle2Rust
+## Recorded results
+
+| Dataset | Completed | Accepted | Failed |
+| --- | ---: | ---: | ---: |
+| FPP | 313 | 307 | 6 |
+| Unit | 488 | 479 | 9 |
+
+The [correctness summary](artifact/results/rq1/summary.json) records
+counts, budgets, costs, failures, and reference coverage. Ten Unit requests have
+unknown token usage; known token totals are lower bounds. Stage2 derives from
+Stage1. Differential checks provide finite behavioral evidence, not a proof of
+Rust equivalence. Single-reference cases are reported explicitly.
+
+The [consolidated paper results](artifact/results/README.md) contain RQ1
+correctness/recovery, RQ2 optimization, and RQ3 cross-language measurements.
+RQ2 aggregates
+frozen outputs from multiple run directories using the same controller identity.
+See [datasets and result locations](artifact/README.md). Generated run directories
+are ignored by Git and are not included automatically in a source clone.
+
+## Tests
+
+```sh
+agent/.venv/bin/python -m pytest -q agent/tests
 ```
 
-## 4. Quick Start
-
-Run the complete two-stage pipeline on one Isabelle theory:
-
-```bash
-make test DIR=test/example Name=RBT_Test
-```
-
-`RBT_Test` demonstrates code generation and optimization for a red-black tree.
-
-Here, `DIR` contains the theory and `Name` is its filename without `.thy`. The command
-generates and compiles the Stage-1 crate, applies Stage-2 optimization, and then
-compiles the Stage-2 crate. The generated crates are written to:
-
-```text
-<DIR>/stage1/<Name>/export*/
-<DIR>/stage2/<Name>/export*/
-```
-Omitting `Name` processes every `*_Test.thy` under `DIR`.
-
-## 5. Stage-1: Code Translation
-
-Stage-1 performs a syntax-directed translation from Thingol to baseline Rust.
-
-```bash
-make gen DIR=test/example Name=RBT_Test
-```
-
-### 5.1 Implementation
-
-| Component | Implementation |
-| --- | --- |
-| Code Translation | Core translator: [`translate/code_rust.ML`](translate/code_rust.ML); code adaptations: [`translate/Rust_Base_Setup.thy`](translate/Rust_Base_Setup.thy), [`translate/Rust_BigInt_Setup.thy`](translate/Rust_BigInt_Setup.thy), and [`translate/Rust_Checked128_Setup.thy`](translate/Rust_Checked128_Setup.thy) |
-
-## 6. Stage-2: Code Optimization
-
-Stage-2 applies ownership-aware source-to-source optimizations to the generated baseline
-Rust program.
-
-```bash
-make opt DIR=test/example Name=RBT_Test
-```
-
-This command applies the complete Stage-2 pipeline to an existing Stage-1
-export.
-
-### 6.1 Implementation
-
-| Component | Implementation |
-| --- | --- |
-| Code Optimization | Complete pipeline: [`cargo-opt.rs`](optimize/src/bin/cargo-opt.rs); analyses and cleanup passes: [`optimize/src/`](optimize/src/) |
+Some tests require configured external tools. Test outcomes should be reported
+with the environment; do not interpret skipped tool-dependent tests as passes.

@@ -1,0 +1,25 @@
+{
+  "summary.json": {
+    "role": "Canonical consolidated correctness summary; original run evidence and hashes are recorded inside summary.json.",
+    "supporting_reports": [
+      "fpp-report.json",
+      "unit-report.json"
+    ]
+  },
+  "fpp-report.json": {
+    "source": "artifact/runs/fpp-formal-clean-20261113/report.json",
+    "source_sha256": "2b05628c96d8bdfbb3edf1ca707810b2310fc7c3d3a836a6930761f6d9ef6d45"
+  },
+  "unit-report.json": {
+    "source": "artifact/runs/unit-formal-20261113-r2/report.json",
+    "source_sha256": "0f065045e8fc7044958c64983855081a1f5b768cb63d946b1fbdd6d9df22c9e6"
+  },
+  "recovery-results.json": {
+    "source": "artifact/runs/engineering/paper-rq1-20261114/recovery-results.json",
+    "source_sha256": "5f907d6ead836b0f4614b73483556f053962ec96878f240984b8ea02fd846766"
+  },
+  "case-evidence.json": {
+    "source": "artifact/runs/engineering/paper-rq1-20261114/case-evidence.json",
+    "source_sha256": "53dafeef1042462ccb59bb14f13a29435b22ef5985c048166b39150a50f451c2"
+  }
+}

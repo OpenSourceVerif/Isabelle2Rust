@@ -1,0 +1,299 @@
+[
+  {
+    "case": "fpp-multip",
+    "mode": "full",
+    "proof": {
+      "status": "proved",
+      "kind": "unconditional function equality for every original export",
+      "original_to_optimized": {
+        "constant:FirstExample_Test.multip": "constant:Optimization.i2r_entry_0"
+      },
+      "theory_sha256": "a424a4b1d2c6a944025ce211f9350c773e7317ff2c9b63a64d502adbec9f5992",
+      "proposal": {
+        "action": "source",
+        "direction_id": "dir-multip-commute-swap",
+        "source_assessment": "MEASURED HOTSPOT: diagnostic instrumentation shows src/lib.rs:15:multip with 1025 calls / 155137991 ns inclusive for a 0.43 s run producing 17408, plus_nat 1024 calls. The extracted equations (multip 0 n = 0, multip (Suc m) n = plus_nat n (multip m n)) show one registered Nat addition and one self-call per successor of the FIRST argument, so the baseline walk length is m+1: 17408 = 1024*17 means m = 1024 additions of the tiny factor 17. NOTE ON PRIOR ATTEMPT: the previous submission under this same direction was rejected by a FORMAT error only ('Source fragments must be text' \u2014 definitions was sent as a list); it was not a semantic/proof failure. This repair keeps the direction and uploads definitions as text, and strictly improves the candidate.\n\nSOURCE CHANGE (general algebraic identity + general algorithmic guard, no table, no case-specific answer): the defining theory already proves FirstExample_Test.correctness: multip m n = m * n, hence multip is symmetric in its two arguments. The export may therefore choose WHICH argument the original recurrence walks: i2r_entry_0 m n = (if m <= n then multip m n else multip n m). The private helper keeps its original zero/plus equations literally; only the traversal dimension is chosen as the smaller factor. This is valid for ALL m n (both branches are values of the same source function; the identity multip n m = multip m n is used), so it is an unconditional equivalence with complete general coverage, not a benchmark vector match.\n\nWORK REDUCTION: step count becomes min(m,n)+1 self-calls/additions instead of m+1, i.e. never worse than baseline and, on the measured input, 18 instead of 1025 recursive calls plus 17 instead of 1024 Nat additions (~57x fewer iterations, and the profile is dominated by that inclusive recursion time). Intermediate magnitudes: baseline partial sums are k*n (k <= m), swapped min-branch partial sums are k*other (k <= min(m,n)), both bounded by m*n, so the checked-backend representable/overflow domain is unchanged; overflow still surfaces only through the same registered Nat addition with I2R_NUMERIC_OVERFLOW, never wrap/saturate.\n\nPROOF ROUTE (short, reuses the existing source lemma): lemma multip_swap by metis from FirstExample_Test.correctness and mult.commute; lemma multip_min by case split on m <= n using multip_swap; then unfold i2r_entry_0_def, apply ext twice, and close with multip_min/simp. No new imports beyond the theory that already contains the correctness lemma; no new business primitives, no registered-primitive changes (only Nat.plus, zero, Suc and nat remain in the graph).\n\nREALIZATION PLAN: after re-extraction the graph is a two-argument entry that computes an if/else on the order of the two opaque Nat values (Nat implements Ord) and calls the retained private recursive helper with the chosen argument order; the helper body is unchanged and still lowers to the existing plus primitive. Cost: one comparison per call, negligible versus the avoided recursion; no Clone of the big factor is required beyond what the helper already does (the helper recurses on the decremented factor and only borrows the other). The Rust stage must update the mapping/guidance prose that currently claims the export must recurse on its first argument.",
+        "definitions": "lemma multip_swap: \"FirstExample_Test.multip n m = FirstExample_Test.multip m n\"\n  by (metis FirstExample_Test.correctness mult.commute)\n\nlemma multip_min:\n  \"(if m \\<le> n then FirstExample_Test.multip m n else FirstExample_Test.multip n m) =\n   FirstExample_Test.multip m n\"\n  by (cases \"m \\<le> n\") (simp_all add: multip_swap)",
+        "replacements": [
+          {
+            "source": "constant:FirstExample_Test.multip",
+            "rhs": "\\<lambda>m n. if m \\<le> n then FirstExample_Test.multip m n else FirstExample_Test.multip n m",
+            "proof": "unfolding i2r_entry_0_def\n  by (rule ext)+ (simp add: multip_min)"
+          }
+        ]
+      },
+      "directory": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-multip/attempts/004/source",
+      "skip_proofs": false,
+      "oracle_dependencies": [],
+      "oracle_audit": "root equality proofs and reachable executable code equations",
+      "command_guard": "Isabelle outer lexer with positive command allowlist",
+      "export_type_preservation": {
+        "constant:FirstExample_Test.multip": {
+          "replacement": "constant:Optimization.i2r_entry_0",
+          "type_scheme_sha256": "00c79416f49a3db717c8c048b01b98393dbc4ea171cb5ff003b1950031723103"
+        }
+      },
+      "export_type_authority": "Sign.the_const_constraint in imported original theory context",
+      "export_type_evidence_sha256": "39faa389b0db32c7e35ef4f0df83b8583c95c5c30c56c682a6fb6867d5339f7a",
+      "original_source_hashes": {
+        "Export.thy": "52135a021cd6006e8f5620bf5bdd6adc733190f3bff080235c75485826f60aff",
+        "FirstExample_Test.thy": "95e5240af0df08b39a3dd6ff7fb523ef9b92e3d7ed0a79c4c4f1e8137e90ad8a"
+      }
+    },
+    "selected_state": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-multip/selected-state.json",
+    "selected_state_sha256": "f10201634cdc1040f46aa4235e2bbf3d5c613cb55ac38022e68834db53cced7d"
+  },
+  {
+    "case": "fpp-tree-inorder",
+    "mode": "full",
+    "proof": {
+      "status": "proved",
+      "kind": "unconditional function equality for every original export",
+      "original_to_optimized": {
+        "constant:Tree_Test.inorder": "constant:Optimization.i2r_entry_0"
+      },
+      "theory_sha256": "c18da76308557a0f82a1f28847245ebd717f238f1ee772a696f67eca6c1836e6",
+      "proposal": {
+        "action": "source",
+        "direction_id": "inorder-acc-threading",
+        "source_assessment": "{\"change\": \"Replace the two-sided rebuild `inorder l @ [x] @ inorder r` by a single threaded output accumulator `inorder_acc : 'a tree => 'a list => 'a list` with equations `inorder_acc Leaf acc = acc` and `inorder_acc (Node l x r) acc = inorder_acc r (inorder_acc l acc @ [x])`, and define the export as `inorder t = inorder_acc t []`. No `inorder l` / `inorder r` intermediate lists are ever materialized; the accumulator is extended once per node in exactly the in-order traversal order.\", \"measured_hotspot\": \"src/lib.rs:50:inorder dominates: 2049 calls / 5.94 ms inclusive (2048-node tree). Its cost is not the node visits but the two-owned-list rebuild per node (src/lib.rs:23:list_append, 2048 calls; src/lib.rs:15:list_cons, 1024 calls; src/lib.rs:10:list_nil, 2049 calls). For a subtree of size s with left size l and right size r, the Node case allocates a fresh l+1 buffer, then reallocates l+1+r and copies that prefix again, so every element is re-copied once per ancestor: Theta(n*depth) element copies and 2n large allocations for n nodes.\", \"proof_route\": \"One structural induction on the tree. Auxiliary fact `inorder_acc t acc = acc @ Tree_Test.inorder t`, proved by `(induct t arbitrary: acc) (simp_all add: append_assoc)` (Node case: IH for r turns the inner accumulator into `(inorder_acc l acc @ [x]) @ inorder r`, IH for l turns that into `((acc @ inorder l) @ [x]) @ inorder r`, and `append_assoc` normalizes to `acc @ (inorder l @ [x] @ inorder r)`). The export wrapper then follows immediately from `[] @ xs = xs` via `rule ext` plus unfolding `i2r_entry_0_def` and the auxiliary fact. No new imports or dependencies; `append_assoc` is a HOL.List fact already in scope.\", \"risks_and_bounds\": \"The graph still contains `List.append` and `List.list.Cons`/`Nil` (for `[x]` and `[]`), so the existing native contracts and mappings remain valid and no boundary needs to be invented; `List.append` would only become unused if the Rust turn fully fuses the singleton push. If the Rust realization is literal (`list_cons` builds a fresh singleton and `list_append` extends) the result is still Theta(n) amortized rather than the baseline Theta(n*depth), so the direction is robust to a non-fused lowering. Bounded risk: the proof relies on `append_assoc` normalizing both sides; if `simp` leaves a residual associativity subgoal it is repaired locally with `append_assoc` explicitly, not by abandoning the direction.\", \"rust_realization_plan\": \"Keep the frozen public signature `pub fn inorder<T: Clone>(tree: &Tree<T>) -> List<T>` and add the private helper `inorder_acc<T: Clone>(tree: &Tree<T>, acc: List<T>) -> List<T>` matching the revised equations: `Leaf => acc`; `Node(l,x,r) => inorder_acc(r, list_append_owned(inorder_acc(l, acc), list_cons(x.clone(), list_nil())))`. The accumulator Vec is moved through the recursion (no clone of the buffer), and `list_append(a, list_cons(x, nil))` is the fusable pattern 'push one element onto a consumed owned Vec at the expected capacity', i.e. `a.push(x)` (with the amortized-doubling reserve already present), so total cost is Theta(n) element copies and Theta(n) amortized pushes. Constraint on the Rust turn: do not realize the accumulator by front-insertion (`Vec::insert(0, ..)`) and do not re-materialize `inorder l` / `inorder r` as separate lists; the `list_cons`/`list_append` natives stay declared (they remain in the graph) but the singleton-append-at-the-back pattern must be lowered to an owned push/extend, not to a fresh copy of the accumulator. `T: Clone` remains required only for the node value.\", \"source_ids\": [\"constant:Tree_Test.inorder\", \"constant:List.append\", \"constant:List.list.Cons\", \"constant:List.list.Nil\", \"constant:Tree_Test.tree.Leaf\", \"constant:Tree_Test.tree.Node\"], \"work_reduction\": \"Node visits and recursive calls are unchanged (n), but the per-node work changes from 'allocate a fresh copy of the whole left prefix, then allocate a fresh copy of the whole subtree' to 'extend one threaded buffer by a single element'. Under the Vec realization the singleton extension is an amortized O(1) push into a buffer that is moved (not copied) down the recursion, so total element copies drop from Theta(n*depth) (with 2n big allocations) to Theta(n) amortized (one small singleton per node, fusable into a push). This removes a genuine repeated computation: each already-built prefix is no longer re-copied at every ancestor.\"}",
+        "definitions": "primrec inorder_acc :: \"'a Tree_Test.tree \\<Rightarrow> 'a list \\<Rightarrow> 'a list\" where\n  \"inorder_acc Tree_Test.tree.Leaf acc = acc\" |\n  \"inorder_acc (Tree_Test.tree.Node l x r) acc = inorder_acc r (inorder_acc l acc @ [x])\"\n\nlemma inorder_acc_append:\n  \"inorder_acc t acc = acc @ Tree_Test.inorder t\"\n  by (induct t arbitrary: acc) (simp_all add: append_assoc)",
+        "replacements": [
+          {
+            "source": "constant:Tree_Test.inorder",
+            "rhs": "\\<lambda>t. inorder_acc t []",
+            "proof": "by (rule ext) (simp add: i2r_entry_0_def inorder_acc_append)"
+          }
+        ]
+      },
+      "directory": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-tree-inorder/attempts/001/source",
+      "skip_proofs": false,
+      "oracle_dependencies": [],
+      "oracle_audit": "root equality proofs and reachable executable code equations",
+      "command_guard": "Isabelle outer lexer with positive command allowlist",
+      "export_type_preservation": {
+        "constant:Tree_Test.inorder": {
+          "replacement": "constant:Optimization.i2r_entry_0",
+          "type_scheme_sha256": "1caa442fa89f8d54dc9ec786effe8abbe87b138e5cc8c87bb41c090e1458afc1"
+        }
+      },
+      "export_type_authority": "Sign.the_const_constraint in imported original theory context",
+      "export_type_evidence_sha256": "d7a1fc0c32937fe47e61c302abf7bbda6b93bad909c6b8d1f6081c872409b6dc",
+      "original_source_hashes": {
+        "Export.thy": "ec7e5cab998fe034f9623d7271b2e1764df98a47f742ac9893e67b469be0ef1d",
+        "source/2_functionalprog/Set_Relation_Test.thy": "4201edd4ae48e58cd0a0ff9161740106e8997086638607429996552ba7d90fb1",
+        "source/2_functionalprog/Types_Test.thy": "8af72774dec8e3c645ad753a73697c06f6707478cf04584d652aafa05acc5d56",
+        "source/2_functionalprog/AlgebraicStructure_Test.thy": "7594fd4abb97c484a3c0198ac453a4c9e9f016d8beb2c4e3f9e49d5dd0171add",
+        "source/2_functionalprog/BasicDef_Test.thy": "eb9d20463f30f237a4cefdc274c2814bb6096bd463dcbb08140c234251b027af",
+        "source/2_functionalprog/Listprog_Test.thy": "4d528a7e377fd86f66cec611c80b12c93854f0b38755cbb279740130d847981c",
+        "source/2_functionalprog/Classes_Test.thy": "29e0c85ee7210009ed147bbd6f68bd4cc28538ad66ba7e23695cb7efc3b3385e",
+        "source/2_functionalprog/Function_Test.thy": "3382145cc13242b45b85112d8d504fea60074859102c17cbb6a14671ce85245e",
+        "source/2_functionalprog/FirstExample_Test.thy": "a90a6992dfbb60d4013d3c11dff8f5a80ad186a0fb9c008da3d26f2d0c7b2334",
+        "source/2_functionalprog/Highorder_Func_Test.thy": "fe1c297edd291848838f3628810b250267779cf345242db64a4eda7a84cfca5b",
+        "source/2_functionalprog/Recursion_Test.thy": "442d78f7ee858aa314b46c86a826c261c5c6de4b061aaaef98f4bffb6101150f",
+        "source/1_Intro/func_imp_compare_Test.thy": "8be2a01c3927504bd80d880e6000e81c9515975091f69ac17870cc3dab49d623",
+        "source/5_IMP/Com_Test.thy": "31cba676047690b2e45e5f37fa6ae083e737ad0c55a830a6ef1a2f425273886f",
+        "source/5_IMP/AExp_Test.thy": "a0b4e3a0e83d65f82a6b5114a7892f524d748d2d3c69710cde9f5ab4f9a7f048",
+        "source/5_IMP/Star_Test.thy": "f93f905f49346b5d522dffc0516f79abc73d8e5a71e6697983b50936c740b64d",
+        "source/5_IMP/Big_Step_Test.thy": "97d8ed66351989632a28cdecceff90ec69942a96f00430463521ea109ac1dce7",
+        "source/5_IMP/Small_Step_Test.thy": "6ed1c50f2d2dff2a8bb70cd82a65155cc7d1fff013e34c62794551ba0b1cdee3",
+        "source/5_IMP/Compiler_Test.thy": "f5bfb5b388410dc94f5703da04635578dc7282942157bf9cabfc78e5b38e468a",
+        "source/5_IMP/BExp_Test.thy": "aad3f60ec5228cf8cc653383218bea6c2774b933dea57af590bab50d76f83f7b",
+        "source/3_Proof/Tutorial_Test.thy": "985d085143c1397d76766da8705cad0ce5b3d3eaf4a46a5d745e7ea2c21c76d6",
+        "source/4_ds_algo/search_Test.thy": "89163716cf995cbea3369a526badcddebb18b1b71637b7798c56255273bc7fee",
+        "source/2_functionalprog/imports/Prog2_Test.thy": "92b432e7fe7f7754c20ae32ce7c5d8bb64669f2e81cdc1f622ccc982a715bc25",
+        "source/2_functionalprog/imports/Prog3_Test.thy": "03c6f85d3ee43335520f49d797a81d64712d5a078ed1d76698d5b07d3ef2feb1",
+        "source/2_functionalprog/imports/Prog1_Test.thy": "5212011085fbfbeec62a38d6ad59dea2bfbdd6fd4c1f2f17ceb1430a6aa90912",
+        "source/4_ds_algo/Stack_Queue/Queue_Test.thy": "bd8077d5a4dec815b606f00d3e6a98913d1bfb6dc103b2a6134b7cee9d13d0aa",
+        "source/4_ds_algo/Stack_Queue/PriorityQueue_Test.thy": "34fbe17e348e763915b5353f1954a34af084c940ffded30dbc60bb578fd19cd8",
+        "source/4_ds_algo/Stack_Queue/stack_Test.thy": "577e4e577a161dcf4d52ac718f722db8f0842c44d92d6b7ec0f50d911bcaf1ea",
+        "source/4_ds_algo/Sorting/MergeSort_Test.thy": "c85307616adb626a2f6be48eada737e488785e0cb7bdf2b57dd579aaf61a1f70",
+        "source/4_ds_algo/Sorting/InsertSort_Test.thy": "018a741496ef78a7da2c5ba3fd9fc3f842d6983cf933c8be266535e91035fe1f",
+        "source/4_ds_algo/Sorting/Quicksort_Test.thy": "a3d250dc6acee8b488a25118b3fc90dd237321a45f40b8d8c435d9f20dd9dad5",
+        "source/4_ds_algo/Sorting/Bubblesort_Test.thy": "ea4754d201b82a44d3290e165b6a1092bbaca3d340faf668b751a71d32b59099",
+        "source/4_ds_algo/bintree/Cmp_Test.thy": "616be1a26d5e8b9da2b32780d0fed51bcd73f718440970b9913270fc053c944d",
+        "source/4_ds_algo/bintree/AVL_Set_Code_Test.thy": "15f5869f6139fbdacfc92e40f784922916c87471566e18fc9984a686a284ef17",
+        "source/4_ds_algo/bintree/Tree2_Test.thy": "7147cd17c2ff0a1a726909834a77768de56bd72bd2d04e078cfd59256f75c6a2",
+        "source/4_ds_algo/bintree/Leftist_Heap_Test.thy": "7d04683336e3e9df37b86b39efa554a1bc2538fa039e55c00d8ab5a4b6484b8a",
+        "source/4_ds_algo/bintree/Tree_Set_Test.thy": "8587339df6c648fa8dbda3db22b980c1e6847c379308f39010b9b014d6616b74",
+        "source/4_ds_algo/bintree/Sorted_Less_Test.thy": "71bec4c1e50073fe3eb8882116ccb7e17b39611b00e294d7bedc6f0b417d76d9",
+        "source/4_ds_algo/bintree/Isin2_Test.thy": "b89b4dd41e96f67dbf59535d3b728ceb2245401176ba3c86a235369ee01b288f",
+        "source/4_ds_algo/bintree/Set_Specs_Test.thy": "471b828868029c283b585ec29a5edba9384cedf11496dda42d1e9127425d0765",
+        "source/4_ds_algo/bintree/Tree_Test.thy": "1171f524a784ebb0ea36d44dabb835f4c02261d33291a806b7c2e788480c66ec",
+        "source/4_ds_algo/bintree/AVL_Set_Test.thy": "ae2ea5d1c0150a871a6346e44db80f9891153241fbb276e62b4e2a616ca22d60",
+        "source/4_ds_algo/bintree/List_Ins_Del_Test.thy": "9e5c92d93accbc06bb3cc255f031f505cf07411f3420f6c4d85890e5b0f01912",
+        "source/4_ds_algo/bintree/Less_False_Test.thy": "beb77fb774713bd66bf0816621b0a2e5ba7d502a84c8d3740009b9146c64c0d0",
+        "source/4_ds_algo/bintree/Priority_Queue_Specs_Test.thy": "f169404e12dfef791f043175bcea1fe6d5acf700003f6e719c57bc7305e1e545"
+      }
+    },
+    "selected_state": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-tree-inorder/selected-state.json",
+    "selected_state_sha256": "3932d3076127e7e8a68c7df70be73f6e17570c81fec165086b2a7854f304e73e"
+  },
+  {
+    "case": "fpp-deq-list",
+    "mode": "full",
+    "proof": {
+      "status": "proved",
+      "kind": "unconditional function equality for every original export",
+      "original_to_optimized": {
+        "constant:Queue_Test.deq2list": "constant:Optimization.i2r_entry_0"
+      },
+      "theory_sha256": "0596a22690277b38a1e2a2306dd5049e0f07cb12f5456a41beae2003dd9a5e96",
+      "proposal": {
+        "action": "source",
+        "direction_id": "closed-form-append",
+        "source_assessment": "Measured hot path is Queue_Test.deq2list: 1025 instrumented calls, with 1024 dequeue/cons operations. The executable equations drain the queue from the back and push each element onto the accumulator, so the baseline performs one pop_back + one push_front per element. The source already proves the closed form deq2list_ind: deq2list q xs = q @ xs. Replacing the export implementation by List.append removes the per-element recurrence entirely. For the observed empty accumulator this returns the owned queue as q @ [] without any element moves; generally it moves the accumulator elements after the already-materialized q. Proof route: instantiate the existing deq2list_ind theorem, then use extensionality; no new induction is needed. Realization plan: keep the public signature deq2list<T>(q: List<T>, acc: List<T>) -> List<T>, take ownership of both VecDeques, and realize q @ acc with VecDeque::extend/append of acc after q. No Clone/Copy bound is introduced and there is no benchmark-specific branch: the identity is unconditional over all q and acc.",
+        "definitions": "lemma i2r_deq2list_closed: \"Queue_Test.deq2list q acc = q @ acc\"\n  by (simp add: Queue_Test.deq2list_ind)\n\nlemma i2r_deq2list_closed_fun: \"Queue_Test.deq2list = (\\<lambda>q acc. q @ acc)\"\n  by (intro ext; simp add: i2r_deq2list_closed)",
+        "replacements": [
+          {
+            "source": "constant:Queue_Test.deq2list",
+            "rhs": "\\<lambda>q acc. q @ acc",
+            "proof": "by (simp add: i2r_entry_0_def i2r_deq2list_closed_fun)"
+          }
+        ]
+      },
+      "directory": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-deq-list/attempts/001/source",
+      "skip_proofs": false,
+      "oracle_dependencies": [],
+      "oracle_audit": "root equality proofs and reachable executable code equations",
+      "command_guard": "Isabelle outer lexer with positive command allowlist",
+      "export_type_preservation": {
+        "constant:Queue_Test.deq2list": {
+          "replacement": "constant:Optimization.i2r_entry_0",
+          "type_scheme_sha256": "b9a1d4ba37f01d0d78b6b8d166f4646d92d7c032a0f94361da9e829744f010a7"
+        }
+      },
+      "export_type_authority": "Sign.the_const_constraint in imported original theory context",
+      "export_type_evidence_sha256": "f2b6f517dece715a4fa468ec2c8d823a04e3041ab20b28fea6031cbd744c5e00",
+      "original_source_hashes": {
+        "Queue_Test.thy": "780303cdfd425e41d2f1db928049c9655aba463bc4a2d1026934b9ea227f28dd",
+        "Export.thy": "0e69ad9556c24966b679564a7e16dcecd7f7ccc37527948522f746b88e5b946d"
+      }
+    },
+    "selected_state": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-deq-list/selected-state.json",
+    "selected_state_sha256": "b9336ccb52f267cb875434e9337703194c48a18fec01ffeba163b245d32d5970"
+  },
+  {
+    "case": "fpp-acomp",
+    "mode": "full",
+    "proof": {
+      "status": "proved",
+      "kind": "unconditional function equality for every original export",
+      "original_to_optimized": {
+        "constant:Compiler_Test.acomp": "constant:Optimization.i2r_entry_0"
+      },
+      "theory_sha256": "de5a7f926cc41c1b5187c7afe71370619dffe31489702989261496dc0798f37b",
+      "proposal": {
+        "action": "source",
+        "direction_id": "acomp-accumulator",
+        "source_assessment": "{\"measured_hotspot\": \"In the instrumented run for descending-1024, src/lib.rs:35:list_append is called 2048 times (1024 Plus nodes x 2 appends) and acomp itself is inclusive-dominant (1.16e9 ns instrumented of a 0.44 s run). The uninstrumented baseline is ~600 us (arbitrary) / ~625 us (checked) for descending-1024, growing superlinearly from 64/256.\", \"proof_route\": \"Structural induction on the expression with the accumulator generalized: acomp_acc a acc = acc @ acomp a (base cases by refl, Plus case by the two inductive hypotheses plus associativity of @, i.e. append_assoc); then acomp_acc a [] = acomp a by the Nil/append identity. Final export obligation: unfold i2r_entry_0_def, extensionality, rewrite with the nil lemma.\", \"proposed_change\": \"Introduce one private source helper that carries an accumulator (the already-emitted prefix) and never concatenates two non-singleton lists: acomp_acc (N n) acc = acc @ [LOADI n]; acomp_acc (V x) acc = acc @ [LOAD x]; acomp_acc (Plus a1 a2) acc = acomp_acc a2 (acomp_acc a1 acc) @ [ADD]; and define the export as acomp = (lambda a. acomp_acc a []). Semantics and emission order are unchanged (a1's code, then a2's code, then exactly one ADD); only the association/direction of construction changes, which is exactly the source recurrence, so this is a genuine source algorithm change, not a Rust-only tweak.\", \"realization_plan\": \"Post-extraction Rust keeps the frozen pub fn acomp(expr: AExp) -> List<Instr> signature and the frozen AExp/Instr/List/Int representations. The private helper takes the accumulator by value and returns it (let mut acc; acc.push(instr); acc), so list_append(acc, [instr]) is one push and the Plus case threads a single owned buffer through both children and the trailing ADD. No Clone bounds are added, Int payloads are still moved once, no numeric operation is introduced, and the existing list_append/mapping entries remain valid for their own equations but are no longer exercised on large operands.\", \"risks\": \"Only syntactic/proof-shape risks (constructor qualification, induction hypothesis naming, extensionality step); the mathematical identity is elementary. Instruction order and multiplicity are provably identical, so frozen observations cannot distinguish the results.\", \"root_cause\": \"The exported equation acomp (Plus a1 a2) = (acomp a1 @ acomp a2) @ [ADD] builds the result bottom-up: every Plus node concatenates already-materialized sublists, so every instruction of a subtree is moved/recopied once per ancestor. With the Vec realization of List.append (out = xs; out.extend(ys)) this is quadratic element movement plus one or two fresh/reallocated buffers per Plus node, for left- and right-leaning trees alike.\", \"work_reduction\": \"Each AST node performs exactly one append-into-accumulator of a singleton list; no non-singleton list is ever appended and no prefix is rebuilt. Under the existing Vec realization that singleton append is a push into the owned accumulator, so total instruction emission is Theta(n) amortized pushes with a single growing buffer, versus Theta(n^2) moved elements and repeated reallocation today. Recursive call count per node is unchanged (3 total calls per Plus), the win is in repeated copying/concatenation work.\"}",
+        "definitions": "fun acomp_acc :: \"aexp \\<Rightarrow> instr list \\<Rightarrow> instr list\" where\n  \"acomp_acc (N n) acc = acc @ [LOADI n]\" |\n  \"acomp_acc (V x) acc = acc @ [LOAD x]\" |\n  \"acomp_acc (Plus a1 a2) acc = acomp_acc a2 (acomp_acc a1 acc) @ [ADD]\"\n\nlemma acomp_acc_append: \"acomp_acc a acc = acc @ acomp a\"\n  by (induction a arbitrary: acc) (auto simp: append_assoc)\n\nlemma acomp_acc_nil: \"acomp_acc a [] = acomp a\"\n  by (simp add: acomp_acc_append)",
+        "replacements": [
+          {
+            "source": "constant:Compiler_Test.acomp",
+            "rhs": "\\<lambda>a. acomp_acc a []",
+            "proof": "unfolding i2r_entry_0_def\nby (rule ext) (simp add: acomp_acc_nil)"
+          }
+        ]
+      },
+      "directory": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-acomp/attempts/001/source",
+      "skip_proofs": false,
+      "oracle_dependencies": [],
+      "oracle_audit": "root equality proofs and reachable executable code equations",
+      "command_guard": "Isabelle outer lexer with positive command allowlist",
+      "export_type_preservation": {
+        "constant:Compiler_Test.acomp": {
+          "replacement": "constant:Optimization.i2r_entry_0",
+          "type_scheme_sha256": "ccc64774292e91863fae174a01133b9cc4790a6b9cc6ef481068ec843590b7f6"
+        }
+      },
+      "export_type_authority": "Sign.the_const_constraint in imported original theory context",
+      "export_type_evidence_sha256": "d456e78cadc92ac27eb3e542b23209b7ad536834360c2fb69cdf19d21055f33a",
+      "original_source_hashes": {
+        "Com_Test.thy": "d7e16d0f8c6a5077b4ecbbd8b540f30e828add53bed9e83d492beb5facdbc318",
+        "Export.thy": "e89fc4c6b35570b94700fc795075e3852b454375673a1fc0d884ddcc016a0d31",
+        "AExp_Test.thy": "9d2ef2b3d722be2d62557b6ed25090d4cdbdb8eb31ea6395f87dbadb9bed240c",
+        "Star_Test.thy": "f93f905f49346b5d522dffc0516f79abc73d8e5a71e6697983b50936c740b64d",
+        "Big_Step_Test.thy": "97d8ed66351989632a28cdecceff90ec69942a96f00430463521ea109ac1dce7",
+        "Compiler_Test.thy": "8586cc75d9f849ebde48a1ca909fba928e36b4c5ddb7e3dcb56014d571d98993",
+        "BExp_Test.thy": "c7a9bf3f431a5d6a00be4e24d341030834bcadc14de6456029b1c59524324fd1"
+      }
+    },
+    "selected_state": "artifact/runs/optimization-five-six-v4-20261114-priority-full/optimization/fpp-acomp/selected-state.json",
+    "selected_state_sha256": "b11a804b1bb02cbf2d477b296bddfe4e975898b6533b7c4ed97914d6efac8517"
+  },
+  {
+    "case": "hol-fibonacci",
+    "mode": "full",
+    "proof": {
+      "status": "proved",
+      "kind": "unconditional function equality for every original export",
+      "original_to_optimized": {
+        "constant:Fib.fib": "constant:Optimization.i2r_entry_0"
+      },
+      "theory_sha256": "2fa588f8d3e8c6b3ff26c6f15ebbd8f1f61eb1562c32a3c7643ef7bf27afc39d",
+      "proposal": {
+        "action": "source",
+        "direction_id": "fib-iter-single-base-v1",
+        "source_assessment": "{\"measured_hotspot\": \"Diagnostic profile: src/lib.rs:32:gen_fib has 1 call and 60833 ns inclusive; one_nat has 360 calls/8895 ns, zero_nat 181 calls/5314 ns, plus_nat 179 calls/5050 ns on the n-180 workload.\", \"proof_route\": \"Induct on the original Fib.gen_fib induction rule to prove fib_iter a b n = Fib.gen_fib a b n. The three source cases are immediate by unfolding fib_iter and Fib.gen_fib: the zero case returns a, the Suc 0 case returns b, and the Suc (Suc n) case uses the induction hypothesis on the recursive call. Then combine that equality with the existing lemma Fib.fib_conv_gen_fib: fib n = gen_fib 0 1 n.\", \"realization_plan\": \"Realize fib_iter as a tail-recursive loop: if n is zero return a; otherwise compute next_b = a + b exactly with the paired Nat addition primitive, set a = b, b = next_b, and decrement n by one. The successor branch guarantees the decrement is exact. Hoist the Nat one value outside the loop if predecessor realization needs it. The Fib.fib wrapper becomes fib_iter 0 1 n. No closed form, memoization, benchmark table, numeric narrowing, or new generic bounds are introduced.\", \"source_ids\": [\"constant:Fib.fib\", \"constant:Fib.gen_fib\", \"constant:Nat.one_nat_inst.one_nat\", \"constant:Nat.zero_nat_inst.zero_nat\", \"constant:Nat.plus_nat_inst.plus_nat\"], \"work_reduction\": \"The existing gen_fib recurrence tests both n = 0 and n = 1 on every loop iteration and constructs the one instance repeatedly. The proposed private helper fib_iter a b 0 = a and fib_iter a b (Suc n) = fib_iter b (a + b) n is extensionally equal to gen_fib but has only one base case and one successor test per step. For Fib.fib it gives the exact wrapper Fib.fib n = fib_iter 0 1 n. This eliminates the n = 1 comparison and the associated repeated one_nat construction while preserving the exact plus_nat recurrence, zero/one arguments, and all natural-number semantics. It is a general recurrence change for all n, not a benchmark-specific branch.\"}",
+        "definitions": "fun fib_iter :: \"nat \\<Rightarrow> nat \\<Rightarrow> nat \\<Rightarrow> nat\" where\n  \"fib_iter a b 0 = a\"\n| \"fib_iter a b (Suc n) = fib_iter b (a + b) n\"\n\nlemma fib_iter_gen_fib: \"fib_iter a b n = Fib.gen_fib a b n\"\n  by (induct a b n rule: Fib.gen_fib.induct) (simp_all add: fib_iter.simps)\n\nlemma fib_iter_fib: \"Fib.fib n = fib_iter 0 1 n\"\n  by (simp add: Fib.fib_conv_gen_fib fib_iter_gen_fib)",
+        "replacements": [
+          {
+            "source": "constant:Fib.fib",
+            "rhs": "\\<lambda>n. fib_iter 0 1 n",
+            "proof": "unfolding i2r_entry_0_def\n  by (rule ext) (simp add: fib_iter_fib)"
+          }
+        ]
+      },
+      "directory": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full/optimization/hol-fibonacci/attempts/002/source",
+      "skip_proofs": false,
+      "oracle_dependencies": [],
+      "oracle_audit": "root equality proofs and reachable executable code equations",
+      "command_guard": "Isabelle outer lexer with positive command allowlist",
+      "export_type_preservation": {
+        "constant:Fib.fib": {
+          "replacement": "constant:Optimization.i2r_entry_0",
+          "type_scheme_sha256": "58220a0eecacee099706630b476eb9b82e2d712f5dc1d109ecba525ac13f7720"
+        }
+      },
+      "export_type_authority": "Sign.the_const_constraint in imported original theory context",
+      "export_type_evidence_sha256": "1b88de5cdda79f476b3ef95baac79e03532b341f6d0a385d26a5dce03df47619",
+      "original_source_hashes": {
+        "Export.thy": "8619beaf8ef96fd788eecb1b3661bde4f6b2fb4ba7317bc15ab6aeb1f111bd9d",
+        "Fib_Entry.thy": "b5f8da18d034cb01518643d325b001a39b599df5395d454dc69551a3e074783d"
+      },
+      "text_encoding": {
+        "policy": "configured-isabelle-symbol-encoding-v1",
+        "registries": [
+          {
+            "path": "/Applications/Isabelle2025.app/etc/symbols",
+            "sha256": "70d24921a6db3ed590ff58107c02f54ef90044ef2d8a35313641ab0306a0a679"
+          }
+        ],
+        "original_proposal": "f89919ff58eefc3a7d84818fd4f8883812178ca8e79a0a8d0e8597837f895900",
+        "effective_proposal": "c502ced7a9c7b7d729bd9aaf5aac22477a6c4f50951fa811fa943955800deb12",
+        "changes": [
+          {
+            "field": "definitions",
+            "before": "9c32b7cb781195e340b6458a6c6a8b026066bb9b5c820be7ff0ea20d63859dbf",
+            "after": "88ba91880e5b2874b73f130b1d334f23057640cfb95e221b222d0b65dd6779c5",
+            "symbols": {
+              "\u21d2": "\\<Rightarrow>"
+            }
+          },
+          {
+            "field": "replacements[0].rhs",
+            "before": "525a82ca9bf74068d7ec4fda233a3be54edae769b6f3ea7704e73d44395a557b",
+            "after": "56c2873d8958fad31fd3d00b283f3d5384968b0bf6701c5e20ec1c3bd24d878b",
+            "symbols": {
+              "\u03bb": "\\<lambda>"
+            }
+          }
+        ],
+        "proof_repair": false
+      }
+    },
+    "selected_state": "artifact/runs/optimization-five-six-v4-20261114-reserve-fib-full/optimization/hol-fibonacci/selected-state.json",
+    "selected_state_sha256": "367582deac0accf136d02fccfc7d08ed3bc261083880f4635ff7bd3e89f86d1a"
+  }
+]

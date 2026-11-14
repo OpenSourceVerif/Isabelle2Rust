@@ -111,7 +111,7 @@
       }
     ]
   },
-  "authoring_evidence": "/Users/lujiayi/Repositories/Isabelle2Rust-workspace/isabelle2rust-agent/state/correctness-fpp-20261109/runs/remaining4-r11/fpp-mirror/diagnostics/support-tests/31ffa80e4bf5f44e6ff5221b534fccf983a9beb84ee055f6eae2183b6393b613-generation-0001",
+  "authoring_evidence": "workspace/isabelle2rust-agent/state/correctness-fpp-20261109/runs/remaining4-r11/fpp-mirror/diagnostics/support-tests/31ffa80e4bf5f44e6ff5221b534fccf983a9beb84ee055f6eae2183b6393b613-generation-0001",
   "status": "frozen_before_execution",
   "authoring_policy": "source-author-only-v1",
   "scope": "Source-grounded finite tests with mechanical obligations and actual execution; not a formal proof or all internal-operation coverage."

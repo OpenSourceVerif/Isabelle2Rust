@@ -100,7 +100,9 @@ def rust_config(value, cfg):
     defaults={'edition':'2024','toolchain':cfg['tools']['rust_toolchain'],
         'dependencies':{},'build_dependencies':{},'features':{},'enabled_features':[],
         'default_features':True,'cfg':[],'target':None,'build_script':None}
-    if not isinstance(value,dict) or set(value)-set(defaults):
+    from . import numeric_interface
+    allowed=set(defaults)|({'numeric_interface'} if numeric_interface.enabled(cfg) else set())
+    if not isinstance(value,dict) or set(value)-allowed:
         raise Failure('invalid_rust_config','Unknown Rust configuration fields',sorted(set(value)-set(defaults)) if isinstance(value,dict) else value)
     out={**defaults,**deepcopy(value)}
     if out['edition'] not in {'2021','2024'}:raise Failure('invalid_rust_config','Unsupported Rust edition')
@@ -119,21 +121,25 @@ def rust_config(value, cfg):
             'This also applies to build_dependencies. '+str(e),
             {'received_dependencies':out['dependencies'],'received_build_dependencies':out['build_dependencies'],
              'cause':e.code,'purpose':'Freeze resolved dependency requests for reproducible code/config comparisons; Cargo.lock is archived too.'}) from e
-    return out
+    return numeric_interface.bind_rust_config(out, cfg)
 
 
-def cargo_text(rc, package='i2r_candidate', transport='none'):
+def cargo_text(rc, package='i2r_candidate', transport='none', numeric_runtime_path='numeric-runtime'):
     text=manifest(rc['dependencies'],package=package,transport=transport,build_dependencies=rc['build_dependencies'])
     text=text.replace('edition = "2024"', 'edition = '+json.dumps(rc['edition']))
     text+='\n[features]\n'
     for k,v in rc['features'].items():text+=json.dumps(k)+' = '+json.dumps(v)+'\n'
+    from .numeric_interface import cargo_dependency
+    text+=cargo_dependency(rc, numeric_runtime_path)
     tomllib.loads(text)
     return text
 
 
 def materialize(directory, files, rc):
+    from .numeric_interface import managed_runtime, validate_candidate
+    validate_candidate(files, rc)
     directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
-    desired={**files,'rust-config.json':json.dumps(rc,indent=2)+'\n','Cargo.toml':cargo_text(rc), 'rust-toolchain.toml':'[toolchain]\nchannel = '+json.dumps(rc['toolchain'])+'\n'}
+    desired={**files,**managed_runtime(rc),'rust-config.json':json.dumps(rc,indent=2)+'\n','Cargo.toml':cargo_text(rc), 'rust-toolchain.toml':'[toolchain]\nchannel = '+json.dumps(rc['toolchain'])+'\n'}
     if rc['build_script'] is not None:desired['build.rs']='#![forbid(unsafe_code)]\n'+rc['build_script']
     old=read(directory/'.managed-files.json') if (directory/'.managed-files.json').exists() else []
     for n in set(old)-set(desired):

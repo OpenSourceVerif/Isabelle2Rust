@@ -1,0 +1,46 @@
+{
+  "selected_roots": 313,
+  "completed": 313,
+  "accepted": 307,
+  "failed": 6,
+  "pending": 0,
+  "accepted_over_all_roots": 0.9808306709265175,
+  "completed_acceptance_rate": 0.9808306709265175,
+  "first_complete_automatic_rate": 0.9808306709265175,
+  "target": 0.95,
+  "target_met": true,
+  "includes_builtin_repairs": true,
+  "requests": 2315,
+  "known_usage": {
+    "prompt_tokens": 69623878,
+    "completion_tokens": 24473319,
+    "total_tokens": 94097197
+  },
+  "unknown_usage_requests": 0,
+  "failures": [
+    {
+      "case": "fpp-iexec",
+      "status": "support_output_budget_exhausted"
+    },
+    {
+      "case": "fpp-binary-search",
+      "status": "support_output_budget_exhausted"
+    },
+    {
+      "case": "fpp-bcomp",
+      "status": "source_check_unresolved"
+    },
+    {
+      "case": "fpp-full-avl-set-code-test-insert-d4337d",
+      "status": "source_check_unresolved"
+    },
+    {
+      "case": "fpp-full-highorder-func-test-webpages-3ab1b2",
+      "status": "needs_user"
+    },
+    {
+      "case": "fpp-full-priorityqueue-test-empty-257feb",
+      "status": "connector_stalled"
+    }
+  ]
+}

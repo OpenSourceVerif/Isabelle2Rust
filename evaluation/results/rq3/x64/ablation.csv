@@ -1,3 +1,0 @@
-benchmark,ablated_group,implementation,run_1_minus_over_full,run_2_minus_over_full,run_3_minus_over_full,median_minus_over_full,minus_cost_percent,full_speedup_percent,full_wins,conclusion
-x64-stepper,Last-Use,Stage-2 minus Last-Use,1.667340302,1.762823059,1.956330146,1.716837192,71.683719,41.753359,3,Full faster
-x64-stepper,Borrow,Stage-2 minus Borrow,1.362312998,1.416948159,1.409108183,1.402754806,40.275481,28.711704,3,Full faster

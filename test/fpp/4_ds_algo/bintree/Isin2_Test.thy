@@ -1,4 +1,4 @@
-(* Author: Tobias Nipkow *)
+
 
 section \<open>Function \textit{isin} for Tree2\<close>
 

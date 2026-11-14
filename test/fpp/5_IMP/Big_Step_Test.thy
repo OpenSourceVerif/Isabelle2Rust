@@ -1,4 +1,4 @@
-(* Author: Gerwin Klein, Tobias Nipkow *)
+
 
 subsection "Big-Step Semantics of Commands"
 

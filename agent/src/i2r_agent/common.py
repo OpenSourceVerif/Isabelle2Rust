@@ -50,7 +50,8 @@ class Failure(Exception):
 
 
 class Executor:
-    def __init__(self, directory):
+    def __init__(self, directory, cleanup_descendants=False):
+        self.cleanup_descendants = cleanup_descendants
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.sequence = len(list(self.directory.glob("*.json")))
@@ -63,6 +64,9 @@ class Executor:
                   "started_at": now(), "timeout_seconds": timeout}
         process_env = dict(os.environ)
         process_env.update(env or {})
+        if self.cleanup_descendants:
+            from .owned_process import run_owned
+            return run_owned(record, stem, process_env, cwd or ROOT, stdin, timeout, check)
         with stem.with_suffix(".stdout").open("w") as out, stem.with_suffix(".stderr").open("w") as err:
             process = subprocess.Popen(record["command"], cwd=cwd or ROOT, env=process_env,
                                        stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,

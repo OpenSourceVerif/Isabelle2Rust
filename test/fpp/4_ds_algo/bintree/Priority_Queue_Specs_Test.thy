@@ -1,4 +1,4 @@
-(* Author: Tobias Nipkow, Peter Lammich *)
+
 
 section \<open>Priority Queue Specifications\<close>
 
@@ -7,7 +7,7 @@ imports "HOL-Library.Multiset" "Rust.Rust_Base_Setup"
 begin
 
 text \<open>Priority queue interface + specification:\<close>
-    
+
 locale Priority_Queue =
 fixes empty :: "'q"
 and is_empty :: "'q \<Rightarrow> bool"

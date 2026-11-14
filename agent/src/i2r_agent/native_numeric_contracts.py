@@ -23,6 +23,9 @@ def context(state):
     entity=model['entities'].get(SOURCE);contracts=[]
     library=numeric.get('numeric_library',{})
     backend_ok=mode=='checked' or (mode=='arbitrary' and library.get('name')=='dashu-int' and library.get('version')=='=0.6.2')
+    if numeric.get('numeric_interface'):
+        from .numeric_interface import contract
+        backend_ok=mode=='arbitrary' and numeric['numeric_interface']==contract()
     if (backend_ok and len(declarations)==1 and declarations[0].get('kind') in {'native','inlined'}
         and SOURCE not in project_functions(model) and SOURCE in graph(model)['edges'] and entity
         and entity.get('source_type')==TYPE and operational_identity(entity)==HASHES[SOURCE]):
@@ -32,6 +35,9 @@ def context(state):
           'execution_contract':'Backend addition, not unary/value-proportional unfolding. Do not infer cost from numeric value magnitude; arbitrary addition processes the finite representation.',
           'source_semantics':'The source zero/successor addition equations remain the expectation authority; no new expected values are supplied.',
           'limits':'Only this registered primitive. Preserve all business recurrences; no subtraction, division, signed operation or custom plus rule is inferred.'}
+        if numeric.get('numeric_interface'):
+            contract['implementation']='i2r_numeric::Nat addition through the frozen paired numeric runtime; no narrowing, unary unfolding or backend-specific business code'
+            contract['numeric_interface']=deepcopy({k:v for k,v in numeric['numeric_interface'].items() if k!='guidance'})
         contract['identity']=fingerprint(contract);contracts.append(contract)
     result={'policy':POLICY,'contracts':contracts,'guidance':GUIDANCE,
             'declaration_policy':'Only exact source/kind selects a verified registry entry. Model-authored basis/conditions/strategy prose is not copied as oracle evidence.'}

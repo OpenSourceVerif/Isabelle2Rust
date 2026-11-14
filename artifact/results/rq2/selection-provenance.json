@@ -1,0 +1,29 @@
+{
+  "copies": {
+    "case-selection.json": {
+      "origin": "artifact/runs/source-first-20261114-development/source-workflow-repair/representative-ten-v4-selection.json",
+      "sha256": "bb517a83480a06dfc4c90d3d80da52475337be95c2b84d2c92bf29c8c23efccd"
+    },
+    "case-selection-plan.json": {
+      "origin": "artifact/runs/source-first-20261114-development/source-workflow-repair/representative-ten-selection-plan-v2.json",
+      "sha256": "21052a2cb68c832231749e561306fd07284b37e848a88f7fd1272be9e19419cb"
+    },
+    "retained-records.json": {
+      "origin": "artifact/runs/source-first-20261114-development/source-workflow-repair/retained-performance-records-v1.json",
+      "sha256": "fe9a7e3bd8f8af0f951b268d412e443c12bc949e4ce8c23fd0cf935d72207745"
+    },
+    "all-current-search-costs.json": {
+      "origin": "artifact/runs/source-first-20261114-development/source-workflow-repair/current-round-budget-audit-v1.json",
+      "sha256": "39a562d1a779a328d58a48a51ab7888ad71a7abff48f6a788756c5fbac794767"
+    },
+    "measurement-plan.json": {
+      "origin": "artifact/runs/matrix-representative-ten-v4-primary-20261114/measurement-plan.json",
+      "sha256": "c3656ecd0fba0759c526731f07e85a05483bbe56aa0965f9b7cd5ca8d482ec27"
+    }
+  },
+  "timing_status": "complete_primary_matrix",
+  "scope": "The representative ten follow the recorded source-success/category selection rule. All fourteen current-controller optimization cases (twenty-eight case-mode runs) and fifteen validated baselines are retained. The twenty-case aggregate is not yet complete.",
+  "primary_matrix": "artifact/runs/matrix-representative-ten-v4-primary-20261114",
+  "auxiliary_measurement_complete": false,
+  "summary_sha256": "ef8c1985f57c84c7c7bb6069c66988e14f989a82491c44abed2c066e4248ff0b"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "fpp-map",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "FPP original source observation: Highorder_Func_Test.map (\\<lambda>x. x+1) input; inputs follow fixed fpp_suites domain. No semantic claim outside tested observations.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy",
+    "scope": "Prepared algorithm inputs to complete algorithm result; wire conversion, expression construction, and output encoding are outside timing."
+  }
+}

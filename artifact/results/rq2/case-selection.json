@@ -1,0 +1,43 @@
+{
+  "at": "2026-11-14T07:36:50.216514+00:00",
+  "plan": "artifact/runs/source-first-20261114-development/source-workflow-repair/representative-ten-selection-plan-v2.json",
+  "original_source_cases": [
+    "fpp-deq-list",
+    "fpp-acomp",
+    "hol-fibonacci"
+  ],
+  "selected_cases": [
+    "fpp-multip",
+    "fpp-tree-inorder",
+    "fpp-deq-list",
+    "fpp-msort",
+    "fpp-avl-updates",
+    "fpp-acomp",
+    "hol-eratosthenes",
+    "hol-polynomial",
+    "hol-fibonacci",
+    "fpp-leftist-heap-merge"
+  ],
+  "selected_source_cases": [
+    "fpp-multip",
+    "fpp-tree-inorder",
+    "fpp-deq-list",
+    "fpp-acomp",
+    "hol-fibonacci"
+  ],
+  "source_target": 5,
+  "source_target_met": true,
+  "conditional_changes": [
+    {
+      "removed": "fpp-map",
+      "included": "fpp-tree-inorder",
+      "reason": "Previously registered conditional supplement to reach five proved, validated and accepted source cases; preserve complex cases preferentially."
+    },
+    {
+      "removed": "hol-integer-gcd",
+      "included": "fpp-multip",
+      "reason": "Previously registered conditional supplement to reach five proved, validated and accepted source cases; preserve complex cases preferentially."
+    }
+  ],
+  "all_original_and_supplementary_records_retained": true
+}

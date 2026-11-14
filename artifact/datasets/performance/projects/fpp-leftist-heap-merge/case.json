@@ -1,0 +1,14 @@
+{
+  "id": "fpp-leftist-heap-merge",
+  "cohort_id": "paper-10",
+  "algorithm_project": "program",
+  "testing_project": "testing",
+  "source_files": [],
+  "contract": "Split a natural list, build each valid leftist heap before timing using source insert, merge once inside timing, encode all nodes/keys/ranks after timing. Generic merge remains polymorphic in generated business code.",
+  "kernel": {
+    "prepare": "Kernel.kernel_prepare",
+    "run": "Kernel.kernel_run",
+    "encode": "Kernel.kernel_encode",
+    "source": "Kernel.thy"
+  }
+}

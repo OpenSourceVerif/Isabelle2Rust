@@ -24,12 +24,13 @@ This binding is a separate crate. Candidate mappings beginning crate:: refer to 
 
 
 def system_prompt(cfg,knowledge=False):
-    if cfg.get('translation',{}).get('correctness_only'):return CORRECTNESS_BINDING_SYSTEM
+    from .numeric_interface import prompt as numeric_prompt
+    if cfg.get('translation',{}).get('correctness_only'):return numeric_prompt(CORRECTNESS_BINDING_SYSTEM,cfg)
     system=SYSTEM
     if knowledge:
         notes=(ROOT/'prompts/connection-knowledge.txt').read_text()
         system+='\n'+notes
-    return system
+    return numeric_prompt(system,cfg)
 
 
 def driver(transport,timing=True):

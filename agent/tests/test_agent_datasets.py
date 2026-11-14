@@ -22,6 +22,18 @@ def test_unit_inputs_are_complete_and_hash_locked(monkeypatch):
             assert digest(art.ARTIFACT / row['project'] / name) == expected
 
 
+def test_fpp_projects_reconstruct_from_dataset_directory(monkeypatch, tmp_path):
+    monkeypatch.setenv('I2R_DATASET', 'fpp')
+    data = art.manifest()
+    for row in data['cases']:
+        assert row['project'].startswith('datasets/fpp/projects/')
+        project = art.project(row, tmp_path)
+        for name, expected in row['files'].items():
+            assert digest(project / name) == expected
+        for name, source in row['source_mounts'].items():
+            assert digest(project / name) == source['derived_sha256']
+
+
 def test_datasets_share_effective_config(monkeypatch, tmp_path):
     configs = []
     for dataset in ['fpp', 'unit']:

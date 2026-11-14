@@ -108,6 +108,8 @@ def normalize_source_reading_reply(reply, supplied, existing, path):
 
 def source_review(payload, source_pages, cfg, provider, directory, system=SYSTEM, failure_ledger=None):
     """Read exact pages independently for author and oracle reviewer."""
+    from .numeric_interface import prompt as numeric_prompt
+    system=numeric_prompt(system,cfg)
     directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
     catalog={p['id']:p for p in source_pages};seen=set();stalled=0;turn=0;notes={}
     required={n for n,p in catalog.items() if p.get('required_for_group',True)}

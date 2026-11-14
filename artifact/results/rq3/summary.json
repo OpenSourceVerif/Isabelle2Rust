@@ -1,0 +1,694 @@
+{
+  "complete": true,
+  "measured_workloads": 10,
+  "expected_workloads": 10,
+  "measured_primary_workloads": 10,
+  "expected_primary_workloads": 10,
+  "missing": [],
+  "speedup_definition": "reference runtime / rust-only-arbitrary runtime; above one favors rust-only-arbitrary",
+  "aggregates": {
+    "primary_case_equal": {
+      "stage2": {
+        "speedup": 143.25240414126756,
+        "ci95": [
+          139.59139847874158,
+          148.29283957416206
+        ],
+        "cases": 10,
+        "workloads": 10,
+        "weighting": "case_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      },
+      "ocaml": {
+        "speedup": 7.066513760961149,
+        "ci95": [
+          6.7700589744028505,
+          7.447371305165145
+        ],
+        "cases": 10,
+        "workloads": 10,
+        "weighting": "case_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      },
+      "haskell": {
+        "speedup": 13.099627564584924,
+        "ci95": [
+          12.623826601016653,
+          13.545578468361233
+        ],
+        "cases": 10,
+        "workloads": 10,
+        "weighting": "case_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      },
+      "go": {
+        "speedup": 80.34319552587039,
+        "ci95": [
+          76.90571892110344,
+          83.58545720044305
+        ],
+        "cases": 10,
+        "workloads": 10,
+        "weighting": "case_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      }
+    },
+    "sensitivity_primary_without_queue": {
+      "stage2": {
+        "speedup": 96.94771346847764,
+        "ci95": [
+          94.32427212999882,
+          100.72593583271397
+        ],
+        "cases": 9,
+        "workloads": 9,
+        "weighting": "case_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      },
+      "ocaml": {
+        "speedup": 3.9929773325321603,
+        "ci95": [
+          3.81160347055729,
+          4.235328102224639
+        ],
+        "cases": 9,
+        "workloads": 9,
+        "weighting": "case_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      },
+      "haskell": {
+        "speedup": 6.983380718865486,
+        "ci95": [
+          6.719966340141071,
+          7.255354142365671
+        ],
+        "cases": 9,
+        "workloads": 9,
+        "weighting": "case_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      },
+      "go": {
+        "speedup": 48.64593197388554,
+        "ci95": [
+          46.384549562133735,
+          50.802228296869295
+        ],
+        "cases": 9,
+        "workloads": 9,
+        "weighting": "case_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      }
+    },
+    "all_workloads_equal": {
+      "stage2": {
+        "speedup": 143.25240414126756,
+        "ci95": [
+          139.59139847874158,
+          148.29283957416206
+        ],
+        "cases": 10,
+        "workloads": 10,
+        "weighting": "workload_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      },
+      "ocaml": {
+        "speedup": 7.066513760961149,
+        "ci95": [
+          6.7700589744028505,
+          7.447371305165145
+        ],
+        "cases": 10,
+        "workloads": 10,
+        "weighting": "workload_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      },
+      "haskell": {
+        "speedup": 13.099627564584924,
+        "ci95": [
+          12.623826601016653,
+          13.545578468361233
+        ],
+        "cases": 10,
+        "workloads": 10,
+        "weighting": "workload_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      },
+      "go": {
+        "speedup": 80.34319552587039,
+        "ci95": [
+          76.90571892110344,
+          83.58545720044305
+        ],
+        "cases": 10,
+        "workloads": 10,
+        "weighting": "workload_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      }
+    },
+    "all_workloads_case_equal": {
+      "stage2": {
+        "speedup": 143.25240414126756,
+        "ci95": [
+          139.59139847874158,
+          148.29283957416206
+        ],
+        "cases": 10,
+        "workloads": 10,
+        "weighting": "case_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      },
+      "ocaml": {
+        "speedup": 7.066513760961149,
+        "ci95": [
+          6.7700589744028505,
+          7.447371305165145
+        ],
+        "cases": 10,
+        "workloads": 10,
+        "weighting": "case_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      },
+      "haskell": {
+        "speedup": 13.099627564584924,
+        "ci95": [
+          12.623826601016653,
+          13.545578468361233
+        ],
+        "cases": 10,
+        "workloads": 10,
+        "weighting": "case_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      },
+      "go": {
+        "speedup": 80.34319552587039,
+        "ci95": [
+          76.90571892110344,
+          83.58545720044305
+        ],
+        "cases": 10,
+        "workloads": 10,
+        "weighting": "case_equal",
+        "uncertainty_scope": "process-round sampling for this fixed, predeclared suite; cases are not resampled"
+      }
+    }
+  },
+  "comparisons": [
+    {
+      "case": "fpp-multip",
+      "workload": "iterations-1024",
+      "primary": true,
+      "comparisons": {
+        "stage2": {
+          "speedup": 4.697692668185795,
+          "ci95": [
+            4.59944218472661,
+            4.7447511356755605
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "ocaml": {
+          "speedup": 2.4299253675668058,
+          "ci95": [
+            2.248602784858202,
+            2.5423931262454005
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "haskell": {
+          "speedup": 1.46719024115215,
+          "ci95": [
+            1.3958741151114618,
+            1.528900492937894
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "go": {
+          "speedup": 41.1774839487285,
+          "ci95": [
+            40.47562147790725,
+            42.23236117960782
+          ],
+          "classification": "gain_ci_above_one"
+        }
+      }
+    },
+    {
+      "case": "fpp-tree-inorder",
+      "workload": "balanced-1024",
+      "primary": true,
+      "comparisons": {
+        "stage2": {
+          "speedup": 4.6782752064651625,
+          "ci95": [
+            4.5013167544141215,
+            4.835165740480175
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "ocaml": {
+          "speedup": 1.4778209049028723,
+          "ci95": [
+            1.4362074801643072,
+            1.5309796578922403
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "haskell": {
+          "speedup": 1.643938719203653,
+          "ci95": [
+            1.3804867677989752,
+            1.8309048509376007
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "go": {
+          "speedup": 5.821092269464599,
+          "ci95": [
+            5.746759256293087,
+            5.890552132378898
+          ],
+          "classification": "gain_ci_above_one"
+        }
+      }
+    },
+    {
+      "case": "fpp-deq-list",
+      "workload": "descending-1024",
+      "primary": true,
+      "comparisons": {
+        "stage2": {
+          "speedup": 4810.398519856132,
+          "ci95": [
+            4556.374324847184,
+            5062.023385772154
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "ocaml": {
+          "speedup": 1203.318204794387,
+          "ci95": [
+            1152.2675032105747,
+            1238.0930526263285
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "haskell": {
+          "speedup": 3767.0207175823716,
+          "ci95": [
+            3464.6626550297065,
+            3919.4998731250184
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "go": {
+          "speedup": 7346.360866575716,
+          "ci95": [
+            7020.704602023326,
+            7727.183431630464
+          ],
+          "classification": "gain_ci_above_one"
+        }
+      }
+    },
+    {
+      "case": "fpp-msort",
+      "workload": "descending-1024",
+      "primary": true,
+      "comparisons": {
+        "stage2": {
+          "speedup": 25.14474293351939,
+          "ci95": [
+            24.51810840318715,
+            27.550126671751443
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "ocaml": {
+          "speedup": 2.9372340926488274,
+          "ci95": [
+            2.828727195246482,
+            3.063034567384936
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "haskell": {
+          "speedup": 3.9271588504717343,
+          "ci95": [
+            3.8534743692071878,
+            3.9850361676915336
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "go": {
+          "speedup": 70.65785035743166,
+          "ci95": [
+            69.15782672714487,
+            85.03152073033854
+          ],
+          "classification": "gain_ci_above_one"
+        }
+      }
+    },
+    {
+      "case": "fpp-avl-updates",
+      "workload": "mixed-1024",
+      "primary": true,
+      "comparisons": {
+        "stage2": {
+          "speedup": 314.7087964175283,
+          "ci95": [
+            309.024348717145,
+            321.94440839695926
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "ocaml": {
+          "speedup": 0.5894394134344995,
+          "ci95": [
+            0.575837599082511,
+            0.6010506991893936
+          ],
+          "classification": "regression_ci_below_one"
+        },
+        "haskell": {
+          "speedup": 0.7632754523751488,
+          "ci95": [
+            0.7478015817636098,
+            0.7781543858660521
+          ],
+          "classification": "regression_ci_below_one"
+        },
+        "go": {
+          "speedup": 14.920792115233853,
+          "ci95": [
+            14.627068990500804,
+            15.223991828148506
+          ],
+          "classification": "gain_ci_above_one"
+        }
+      }
+    },
+    {
+      "case": "fpp-acomp",
+      "workload": "descending-1024",
+      "primary": true,
+      "comparisons": {
+        "stage2": {
+          "speedup": 848.8926121093647,
+          "ci95": [
+            839.10125371859,
+            870.3265169052328
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "ocaml": {
+          "speedup": 207.6363073889352,
+          "ci95": [
+            205.65185073628777,
+            226.2174910008384
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "haskell": {
+          "speedup": 123.88143221707304,
+          "ci95": [
+            122.06533386580551,
+            137.94040795957469
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "go": {
+          "speedup": 844.6156102848463,
+          "ci95": [
+            832.7297597265913,
+            868.6859530143025
+          ],
+          "classification": "gain_ci_above_one"
+        }
+      }
+    },
+    {
+      "case": "hol-eratosthenes",
+      "workload": "upper-bound-4096",
+      "primary": true,
+      "comparisons": {
+        "stage2": {
+          "speedup": 122.06473124882655,
+          "ci95": [
+            121.33770017427075,
+            125.06949482733238
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "ocaml": {
+          "speedup": 30.467696509271406,
+          "ci95": [
+            30.13084303567566,
+            30.96825768185615
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "haskell": {
+          "speedup": 28.06314640351984,
+          "ci95": [
+            26.838926284247044,
+            29.939802048224397
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "go": {
+          "speedup": 537.0680027789155,
+          "ci95": [
+            533.2355363594905,
+            544.3403202853068
+          ],
+          "classification": "gain_ci_above_one"
+        }
+      }
+    },
+    {
+      "case": "hol-polynomial",
+      "workload": "degree-1023-point-1",
+      "primary": true,
+      "comparisons": {
+        "stage2": {
+          "speedup": 3159.8525100561915,
+          "ci95": [
+            2935.0468008108846,
+            3296.870170405722
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "ocaml": {
+          "speedup": 2.031153800295776,
+          "ci95": [
+            1.8794200448774716,
+            2.156904601037565
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "haskell": {
+          "speedup": 2.448411392438896,
+          "ci95": [
+            2.284836192585464,
+            2.5349418748971932
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "go": {
+          "speedup": 15.118274045161817,
+          "ci95": [
+            13.998049705108935,
+            15.67914379503225
+          ],
+          "classification": "gain_ci_above_one"
+        }
+      }
+    },
+    {
+      "case": "hol-fibonacci",
+      "workload": "n-180",
+      "primary": true,
+      "comparisons": {
+        "stage2": {
+          "speedup": 7.414845128427441,
+          "ci95": [
+            7.240810321476941,
+            8.590830160009583
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "ocaml": {
+          "speedup": 3.227652758209602,
+          "ci95": [
+            3.0605900400359274,
+            3.288392760377154
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "haskell": {
+          "speedup": 4.087785556880171,
+          "ci95": [
+            3.776860514809823,
+            4.323185673495254
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "go": {
+          "speedup": 98.72870344926015,
+          "ci95": [
+            91.06516016100734,
+            106.42772154474115
+          ],
+          "classification": "gain_ci_above_one"
+        }
+      }
+    },
+    {
+      "case": "fpp-leftist-heap-merge",
+      "workload": "descending-1024",
+      "primary": true,
+      "comparisons": {
+        "stage2": {
+          "speedup": 1791.8425141242938,
+          "ci95": [
+            1435.4237695078032,
+            2218.178082191781
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "ocaml": {
+          "speedup": 1.0007062146892656,
+          "ci95": [
+            0.6821155943293348,
+            1.7123287671232876
+          ],
+          "classification": "interval_contains_one"
+        },
+        "haskell": {
+          "speedup": 157.01624293785312,
+          "ci95": [
+            116.17467248908297,
+            199.8792808219178
+          ],
+          "classification": "gain_ci_above_one"
+        },
+        "go": {
+          "speedup": 8.915960451977401,
+          "ci95": [
+            5.549126637554585,
+            12.414383561643836
+          ],
+          "classification": "gain_ci_above_one"
+        }
+      }
+    }
+  ],
+  "statistics": {
+    "replicates": 10000,
+    "seed": 20261114,
+    "unit": "whole process round",
+    "interval": "95% percentile paired block bootstrap; fixed benchmark suite",
+    "point_estimator": "ratio of medians of ten independent-process medians; no raw-batch pseudo-replication",
+    "pairing": "same whole process-round index resampled for all five implementations within each workload",
+    "aggregate_bootstrap": "independent round resampling for each workload; fixed cases and workload set, then the declared geometric aggregation",
+    "primary_weighting": "one predeclared primary workload per case; ten equal case weights",
+    "all_workloads_weighting": "equal workload weights and equal case weights after within-case geometric aggregation",
+    "interval_limit": "describes process-round sampling uncertainty conditional on this benchmark suite; not a confidence statement over unseen programs or systematic machine drift"
+  },
+  "scope_caveats": [
+    "This is prepared-input kernel timing. Parsing, preparation and result encoding/verification are outside the timer; kernel results are retained until after timing.",
+    "Haskell NFData forces prepared inputs before timing and complete results inside timing. Result traversal is an observer cost inside the Haskell measurement; the eager targets have no corresponding observer traversal. These cross-language results include that evaluation-strategy difference.",
+    "For Queue, an optimized identity may return an already prepared container. Haskell forcing still traverses the result. A large cross-language kernel ratio is therefore not evidence of pure algorithmic improvement or end-to-end application speedup.",
+    "Rust-S2 borrowed inputs are retained outside the timer. Intrinsic copies, allocations and ownership-consuming operations remain part of each implementation's kernel call.",
+    "All five implementations use arbitrary-precision numeric semantics. Checked u128/i128 results belong to RQ2 and are not a cross-language baseline here."
+  ],
+  "numeric_semantics": {
+    "stage2": "Original Isabelle2Rust Stage2: Dashu UBig/IBig, arbitrary precision",
+    "ocaml": "Isabelle OCaml: Zarith Z.t, arbitrary precision",
+    "haskell": "Isabelle Haskell: Integer, arbitrary precision",
+    "go": "AFP Go: math/big.Int, arbitrary precision",
+    "rust-only-arbitrary": "Unified arbitrary backend: Dashu UBig/IBig; compile-time i2r-arbitrary"
+  },
+  "quality_warnings": {
+    "batch_below_target_duration": 322,
+    "warmup_not_stable": 34,
+    "batch_too_close_to_clock_resolution": 37
+  },
+  "no_posthoc_exclusions": true,
+  "raw_records": [
+    {
+      "case": "fpp-multip",
+      "workload": "iterations-1024",
+      "primary": true,
+      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-multip/iterations-1024/measurement-v2.json",
+      "record_sha256": "2abb6b212e4acddad28c7212e7f987df1204a3fd4eb8553c5bcd8625519091a3"
+    },
+    {
+      "case": "fpp-tree-inorder",
+      "workload": "balanced-1024",
+      "primary": true,
+      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-tree-inorder/balanced-1024/measurement-v2.json",
+      "record_sha256": "620f8efed26a6a7ec218e468c59c8ac97ab2fd8fee736e0ab03cbe23ba37112b"
+    },
+    {
+      "case": "fpp-deq-list",
+      "workload": "descending-1024",
+      "primary": true,
+      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-deq-list/descending-1024/measurement-v2.json",
+      "record_sha256": "483d568666012c4d2d92aeeab6619b14d69bc487622034473bc7f508f2070c77"
+    },
+    {
+      "case": "fpp-msort",
+      "workload": "descending-1024",
+      "primary": true,
+      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-msort/descending-1024/measurement-v2.json",
+      "record_sha256": "ae7c9f29221b952b1b9d9e06704fb9c7728c9e79576f116460f06f11241f0822"
+    },
+    {
+      "case": "fpp-avl-updates",
+      "workload": "mixed-1024",
+      "primary": true,
+      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-avl-updates/mixed-1024/measurement-v2.json",
+      "record_sha256": "e91d750c610c63077209c3c6825d12e17d24d64f17523a6497491faa673e6d73"
+    },
+    {
+      "case": "fpp-acomp",
+      "workload": "descending-1024",
+      "primary": true,
+      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-acomp/descending-1024/measurement-v2.json",
+      "record_sha256": "bbacaed3e444c7751b3fdfa5fdb1bef1dfc30b9ec275dcd672fe828795babc4f"
+    },
+    {
+      "case": "hol-eratosthenes",
+      "workload": "upper-bound-4096",
+      "primary": true,
+      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/hol-eratosthenes/upper-bound-4096/measurement-v2.json",
+      "record_sha256": "fe67f660605fc6891eba3e5ba390ceae073e8a59ac28bb513b853b69b457d9a4"
+    },
+    {
+      "case": "hol-polynomial",
+      "workload": "degree-1023-point-1",
+      "primary": true,
+      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/hol-polynomial/degree-1023-point-1/measurement-v2.json",
+      "record_sha256": "e8547c4eb73c90c4532daa8a5ebd984cdd61aec02b4fe2b3beb24e0d4b8febeb"
+    },
+    {
+      "case": "hol-fibonacci",
+      "workload": "n-180",
+      "primary": true,
+      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/hol-fibonacci/n-180/measurement-v2.json",
+      "record_sha256": "96c79384be6224b18204fc3f8c8d45b2b6c6a4e340a58e786bc07b02fecb109c"
+    },
+    {
+      "case": "fpp-leftist-heap-merge",
+      "workload": "descending-1024",
+      "primary": true,
+      "record": "artifact/runs/rq3-rust-only-ten-bounded-heap-20261114/measurements/fpp-leftist-heap-merge/descending-1024/measurement-v2.json",
+      "record_sha256": "6db0f7925a8f017480d24046ce519d7a3baf88747c690ad50abda81588cbdcf4"
+    }
+  ],
+  "experiment_seal_sha256": "b4ece0f748f998f44190520875160ab982143fa29e8a9b687acab1e1bad559c6",
+  "report_script_sha256": "4c4e23db8a7b23b3d0e97f2d3f12352d942aa4d591b6c6bb834d2498fc9629c9",
+  "generated_at": "2026-11-14T10:26:00.134568+00:00"
+}

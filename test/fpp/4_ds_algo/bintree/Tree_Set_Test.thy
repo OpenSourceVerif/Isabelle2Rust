@@ -1,4 +1,4 @@
-(* Author: Tobias Nipkow *)
+
 
 section \<open>Unbalanced Tree Implementation of Set\<close>
 

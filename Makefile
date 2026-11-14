@@ -1,8 +1,7 @@
 .DEFAULT_GOAL := open
 
 .PHONY: open open_test build build_silent _build _build_silent code gen opt test \
-        hol-gcd hol-stress loc kloc rq1-timings \
-        rq3-clippy rq3-sbpf rq3-x64 \
+        hol-gcd hol-stress \
         macro_sbpf micro_sbpf micro_sbpf_gen \
         x64 x64-rust-export x64-gen x64-test \
         clean help
@@ -31,14 +30,6 @@ CARGO_LOCK_HELPER      := $(CURDIR)/scripts/ensure-cargo-lock.py
 OPTIMIZE_DIR           := $(CURDIR)/optimize
 OPT_STACK_KB            ?= 65536
 EXPORT_ITEM_COUNTER    := $(CURDIR)/scripts/count-rust-export-items.pl
-RQ1_GENERATED_LOC      := $(CURDIR)/evaluation/scripts/rq1/count-generated-loc.py
-RQ1_TIMINGS            := $(CURDIR)/evaluation/scripts/rq1/run-timings.py
-RQ3_CLIPPY             := $(CURDIR)/evaluation/scripts/rq3/run-clippy.py
-RQ3_SBPF               := $(CURDIR)/evaluation/scripts/rq3/run-sbpf.py
-RQ3_X64                := $(CURDIR)/evaluation/scripts/rq3/run-x64.py
-IMPLEMENTATION_LOC     := $(CURDIR)/evaluation/scripts/count-implementation-loc.py
-CLIPPY_PROCESSES       ?= 4
-CLIPPY_CARGO_JOBS      ?= 1
 RUN_WITH_LOCK          := python3 "$(CURDIR)/scripts/with-lock.py"
 RUN_WITH_STACK         := sh "$(CURDIR)/scripts/with-stack.sh" $(OPT_STACK_KB)
 ISABELLE_BUILD_LOCK    := $(CURDIR)/.isabelle-build.lock
@@ -396,30 +387,6 @@ hol-stress:
 	  $(MAKE) -s opt DIR="$(HOL_DIR)" Name="$$THEORY" || exit 1; \
 	done
 
-#### Evaluation ####
-
-# Count physical lines in the current HOL, unit, and FPP generated Rust crates.
-kloc:
-	@python3 "$(RQ1_GENERATED_LOC)"
-
-# Three independent phase-only runs; excludes proof checking and Cargo builds.
-rq1-timings:
-	@python3 "$(RQ1_TIMINGS)"
-
-# Count implementation lines for the architecture description.
-loc:
-	@python3 "$(IMPLEMENTATION_LOC)"
-
-rq3-clippy:
-	@python3 "$(RQ3_CLIPPY)" --scope all \
-	  --processes "$(CLIPPY_PROCESSES)" --cargo-jobs "$(CLIPPY_CARGO_JOBS)"
-
-rq3-sbpf:
-	@PYTHONDONTWRITEBYTECODE=1 python3 "$(RQ3_SBPF)"
-
-rq3-x64:
-	@PYTHONDONTWRITEBYTECODE=1 python3 "$(RQ3_X64)"
-
 #### Validation ####
 
 # sbpf macro validation:
@@ -497,7 +464,6 @@ clean:
 	find . -type f \( -name '*.thy~' -o -name '*.cmi' -o -name '*.cmo' \) -delete
 	find . -type d -name '__pycache__' -prune -exec rm -rf {} +
 	find test -type d \( -name stage1 -o -name stage2 \) -prune -exec rm -rf {} +
-	rm -rf evaluation/.work
 	rm -rf $(SBPF_EXEC)/_build $(SBPF_EXEC)/sbpf_ocaml/_build $(SBPF_EXEC)/sbpf_rust/_build
 	rm -f $(X64_ASSEMBLER)/exec $(X64_STEPPER_C)/ptrace_exec $(X64_SEMANTICS)/exec
 	# x64 stage1/stage2 exports and correctness copies are reproducible build
@@ -535,10 +501,6 @@ help:
 	@echo "  x64 [X=10000] [SEED=<n>]          Run complete x64 differential validation"
 	@echo ""
 	@echo "Evaluation:"
-	@echo "  loc / kloc / rq1-timings"
-	@echo "  rq3-clippy                        Run the RQ3 Clippy comparison"
-	@echo "  rq3-sbpf                          Run the RQ3 SBPF performance experiment"
-	@echo "  rq3-x64                           Run the RQ3 x64 performance experiment"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  clean                             Remove generated output"

@@ -1,4 +1,4 @@
-(* Author: Florian Haftmann, TU Muenchen *)
+
 
 section \<open>A huge collection of equations to generate Rust code from\<close>
 

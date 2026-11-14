@@ -49,6 +49,8 @@ def compile_crate(crate,rc,cfg,executor,library=True):
 
 def connection(crate,files,rc,cfg):
     # Use the same edition/toolchain/dependency/feature/config contract as algorithm.
+    from .numeric_interface import validate_connector
+    validate_connector(files,rc)
     target=Path(crate)/'harness';target.mkdir(exist_ok=True)
     desired={**files,'src/main.rs':test_connector.driver(cfg['testing']['transport'],timing=not cfg.get('translation',{}).get('correctness_only'))}
     old=read(target/'.managed-files.json') if (target/'.managed-files.json').exists() else []
@@ -59,7 +61,7 @@ def connection(crate,files,rc,cfg):
         p=target/name;p.parent.mkdir(parents=True,exist_ok=True)
         if name in {'src/lib.rs','src/main.rs'}:text='#![forbid(unsafe_code)]\n'+text
         if not p.exists() or p.read_text()!=text:p.write_text(text)
-    text=cargo_text(rc,package='i2r_harness',transport=cfg['testing']['transport'])
+    text=cargo_text(rc,package='i2r_harness',transport=cfg['testing']['transport'],numeric_runtime_path='../numeric-runtime')
     dependency='i2r_candidate = { path = "..", default-features = '+str(rc['default_features']).lower()+', features = '+json.dumps(rc['enabled_features'])+' }\n'
     text=text.replace('[dependencies]\n','[dependencies]\n'+dependency)
     (target/'Cargo.toml').write_text(text);save(target/'.managed-files.json',sorted(desired))

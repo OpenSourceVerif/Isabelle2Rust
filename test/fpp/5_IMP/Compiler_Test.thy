@@ -1,4 +1,4 @@
-(* Author: Tobias Nipkow and Gerwin Klein *)
+
 
 section "Compiler for IMP"
 

@@ -1,4 +1,4 @@
-(* Author: Florian Haftmann, TU Muenchen *)
+
 
 section \<open>Pervasive Rust test of the code generator with binary naturals\<close>
 

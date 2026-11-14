@@ -46,6 +46,10 @@ def proposals(model,numeric):
                 'HOL.If selects only the chosen branch. Preserve lazy evaluation and branch ownership; do not eagerly evaluate both branches or add Clone/Copy bounds to arbitrary result types.',
                 'No default equality/order adapter is inferred for other types or class instances.']
             basis='Exact admitted HOL boolean constructors and If equations; branch-selective source semantics.'
+        if isinstance(numeric,dict) and numeric.get('numeric_interface') and (source.startswith('type:Nat') or source.startswith('constant:Nat')):
+            conditions=['Use i2r_numeric::Nat, the same opaque non-Copy type/API under both backends.',
+                'Zero is Nat::zero(); Suc is n + Nat::one(); this exact Nat.plus primitive uses Nat addition. Arbitrary is unbounded; checked reports I2R_NUMERIC_OVERFLOW, never wrap or bigint fallback.',
+                'Keep source business recurrences and generic parameters. Only the exact matched library primitive is adapted; no permission for a user-defined plus or business rewrite.']
         rows.append({'source':source,'kind':'native' if source.startswith('type:') or source=='constant:Nat.plus_nat_inst.plus_nat' else 'inlined','basis':basis,'conditions':conditions,
                      'default_identity':expected,'default_schema':SCHEMA})
     return rows
