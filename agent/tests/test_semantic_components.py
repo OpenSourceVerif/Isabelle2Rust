@@ -1,3 +1,4 @@
+from workflow_fixture import compile_until_source
 import tempfile,unittest
 from copy import deepcopy
 from pathlib import Path
@@ -90,8 +91,8 @@ class SemanticComponentTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             w=Path(d);save(w/'regressions.json',[])
             with patch('i2r_agent.translation_workflow.ask',side_effect=ask):
-                attempts,done=runner.search(b,None,conf,provider,w,Executor(w/'commands'),None,[],[],w/'regressions.json',lambda _:None)
-            self.assertEqual(done[0]['status'],'passed')
+                attempts,done=compile_until_source(b,None,conf,provider,w,Executor(w/'commands'),None,[],[],w/'regressions.json',lambda _:None)
+            self.assertEqual(done[0]['status'],'active')
             self.assertEqual(reviews,[['constant:A.f','constant:A.h'],['constant:A.f']])
             self.assertEqual(len([a for a in attempts if a['action_phase']=='generate']),1)
             self.assertEqual(next(a for a in attempts if a['action_phase']=='repair_replay')['original_replay']['status'],'passed')

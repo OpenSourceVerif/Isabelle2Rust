@@ -1,4 +1,5 @@
 """Actual Cargo calls for the direct complete-unit transition and recovery paths."""
+from workflow_fixture import compile_until_source
 import tempfile
 import unittest
 from copy import deepcopy
@@ -35,8 +36,8 @@ class FinalUnitCompilation(unittest.TestCase):
     def test_last_cumulative_compile_is_complete_without_duplicate_build(self):
         b,c,pv=self.setup_run()
         with tempfile.TemporaryDirectory() as d,patch.object(runner,'ask',side_effect=self.reply()),patch.object(runner,'compile_crate',wraps=runner.compile_crate) as compile_call:
-            w=Path(d);a,done=runner.search(b,None,c,pv,w,Executor(w/'cmd'),None,[],[],w/'regressions.json',lambda _:None)
-            self.assertEqual(done[0]['status'],'passed');self.assertEqual(compile_call.call_count,2)
+            w=Path(d);a,done=compile_until_source(b,None,c,pv,w,Executor(w/'cmd'),None,[],[],w/'regressions.json',lambda _:None)
+            self.assertEqual(done[0]['status'],'active');self.assertEqual(compile_call.call_count,2)
             builds=[x for x in a if 'compilation' in x]
             self.assertEqual([x['compilation_scope'] for x in builds],['cumulative_units','complete_program'])
             self.assertEqual(builds[-1]['coverage']['exports'],['constant:A.f'])
@@ -74,8 +75,8 @@ class FinalUnitCompilation(unittest.TestCase):
     def test_last_unit_failure_replay_still_recompiles_complete_program(self):
         b,c,pv=self.setup_run()
         with tempfile.TemporaryDirectory() as d,patch.object(runner,'ask',side_effect=self.reply(fail_last=True)),patch.object(runner,'compile_crate',wraps=runner.compile_crate) as compile_call:
-            w=Path(d);a,done=runner.search(b,None,c,pv,w,Executor(w/'cmd'),None,[],[],w/'regressions.json',lambda _:None)
-            self.assertEqual(done[0]['status'],'passed')
+            w=Path(d);a,done=compile_until_source(b,None,c,pv,w,Executor(w/'cmd'),None,[],[],w/'regressions.json',lambda _:None)
+            self.assertEqual(done[0]['status'],'active')
             self.assertEqual(compile_call.call_count,4) # first, failed last, replay, full affected compile
             replay=next(x for x in a if x['action_phase']=='repair_replay')
             self.assertEqual(replay['original_replay']['status'],'passed')
@@ -89,10 +90,10 @@ class FinalUnitCompilation(unittest.TestCase):
     def test_restored_final_compile_does_not_infer_missing_evidence(self):
         b,c,pv=self.setup_run()
         with tempfile.TemporaryDirectory() as d,patch.object(runner,'ask',side_effect=self.reply()),patch.object(runner,'compile_crate',wraps=runner.compile_crate) as compile_call:
-            w=Path(d);runner.search(b,None,c,pv,w,Executor(w/'cmd'),None,[],[],w/'regressions.json',lambda _:None)
+            w=Path(d);compile_until_source(b,None,c,pv,w,Executor(w/'cmd'),None,[],[],w/'regressions.json',lambda _:None)
             state=read(w/'segmented-checkpoint.json');state.update(phase='final_compile',status='active')
             save(w/'segmented-checkpoint.json',state);before=compile_call.call_count
-            a,done=runner.search(b,None,c,pv,w,Executor(w/'resume'),None,[],[],w/'regressions.json',lambda _:None)
+            a,done=compile_until_source(b,None,c,pv,w,Executor(w/'resume'),None,[],[],w/'regressions.json',lambda _:None)
             self.assertEqual(compile_call.call_count,before+1)
-            self.assertEqual(done[0]['status'],'passed')
-            self.assertEqual(a[-2]['action_phase'],'final_compile')
+            self.assertEqual(done[0]['status'],'active')
+            self.assertEqual(a[-1]['action_phase'],'final_compile')

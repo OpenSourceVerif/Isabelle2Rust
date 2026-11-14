@@ -49,28 +49,6 @@ class SupportExhaustiveness(unittest.TestCase):
                 materialize(crate,{'src/lib.rs':'pub fn value()->Option<i32>{'+value+'}'},self.rc)
                 self.assertEqual(execute(fixed,crate,self.rc,self.c,ex)['status'],status)
 
-    def test_controller_replays_mechanical_fix_without_audit_model_calls(self):
-        from i2r_agent.translation_workflow import search
-        from test_segmented_workflow import source,mapping
-        b=source();b['workflow']='source-translation';pv=Mock();pv.calls=0;pv.usage={};phases=[]
-        frozen={'identity':'controller-e0004','tests':['#[test] fn value(){assert_eq!(i2r_candidate::h(),1);match i2r_candidate::f(){2=>(),}}'],
-                'unit_tests':[],'obligations':[{'source':'constant:A.f','test_name':'value'}]}
-        def generate(provider,conf,path,p,analysis=False):
-            phase=p['controller_state']['phase'];phases.append(phase);self.assertEqual(phase,'generate')
-            n=p['unit']['members'][0].rsplit('.',1)[-1];body='1' if n=='h' else 'h()+1'
-            return {'files':{'src/lib.rs':p['current_files']['src/lib.rs']+'\npub fn '+n+'()->u128{'+body+'}'},'mapping':[mapping(n)]}
-        with tempfile.TemporaryDirectory() as tmp,patch('i2r_agent.translation_workflow.ask',side_effect=generate),patch('i2r_agent.segmented_support.prepare',return_value=frozen):
-            w=Path(tmp)
-            # prepare normally persists the frozen source before execution.
-            from i2r_agent.common import save
-            save(w/'support-tests/controller-e0004.json',frozen)
-            attempts,done=search(b,None,self.c,pv,w,Executor(w/'commands'),None,[],[],w/'regressions.json',lambda _:None)
-            self.assertEqual(done[0]['status'],'passed');pv.call.assert_not_called()
-            self.assertEqual(phases,['generate','generate'])
-            audits=[a for a in attempts if a['action_phase']=='support_audit']
-            self.assertEqual(len(audits),1)
-            self.assertEqual(audits[0]['support_audit']['action'],'binding_fix')
-            self.assertTrue(any(a.get('support',{}).get('status')=='passed' for a in attempts))
 
     def test_only_matching_frozen_identity_exact_source_e0004_span(self):
         f=self.f

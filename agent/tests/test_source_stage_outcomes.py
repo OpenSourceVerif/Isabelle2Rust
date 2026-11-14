@@ -16,12 +16,13 @@ class SourceStageOutcomeTests(unittest.TestCase):
  def refs(self,w):
   p=w/'reference';p.write_text('#!/bin/sh\nwhile read x; do echo "2 2 2"; done\n');p.chmod(0o755)
   return {n:{'status':'passed','binary':str(p),'availability_policy':POLICY,'timing_protocol':'kernel-v1','kernel_behavior_argument':'--i2r-kernel-check'} for n in ['ocaml','stage1','stage2']}
- def test_author_failure_still_constructs_and_executes_all_differentials(self):
+ def test_author_failure_reuses_recorded_differentials_without_new_calls(self):
   with tempfile.TemporaryDirectory() as tmp:
+   self.state['differential_suites']=[{'status':'passed','kind':kind} for kind in ['fixed','kernel_fixed','generated_differential','kernel_generated_differential']]
    w=Path(tmp);project=w/'testing';project.mkdir();save(w/'segmented-checkpoint.json',self.state);save(w/'development-inputs.json',{'fixed':[[9,1,2]],'generated':[[9,1,2]]});save(w/'regressions.json',[]);before=(w/'segmented-checkpoint.json').read_bytes();provider=Mock()
    with patch('i2r_agent.test_connector.connect',return_value=({'src/lib.rs':CONNECTOR},'fixture')) as connector,patch('i2r_agent.segmented_support.prepare',side_effect=AssertionError('Must not restart authoring')):
     result=after_source_failure(w,self.cfg,provider,Executor(w/'commands'),self.refs(w),project,Failure('support_output_budget_exhausted','Preserved two raw author length failures'))
-   self.assertEqual(connector.call_count,1);provider.call.assert_not_called();self.assertTrue(result['generation_success']);self.assertEqual(result['source_test_production']['status'],'failed_or_partial');self.assertEqual(result['source_test_validation']['status'],'not_executed');self.assertEqual(result['differential_status'],'passed');self.assertEqual(len(result['differential']['suites']),4);self.assertFalse(result['verified_end_to_end']);self.assertEqual((w/'segmented-checkpoint.json').read_bytes(),before)
+   connector.assert_not_called();provider.call.assert_not_called();self.assertTrue(result['generation_success']);self.assertEqual(result['source_test_production']['status'],'failed_or_partial');self.assertEqual(result['source_test_validation']['status'],'not_executed');self.assertEqual(result['differential_status'],'passed');self.assertEqual(len(result['differential']['suites']),4);self.assertFalse(result['verified_end_to_end']);self.assertEqual((w/'segmented-checkpoint.json').read_bytes(),before)
  def test_export_match_does_not_clear_source_counterexample_or_generic_interface(self):
   for status in ['support_contract_failed','support_test_compile_failed','support_coverage_missing']:
    state=deepcopy(self.state);state['support_evidence']={'status':status,'frozen_identity':'original','counterexample':{'expected':99,'actual':2},'obligations':[{'source':'constant:A.f'}]}

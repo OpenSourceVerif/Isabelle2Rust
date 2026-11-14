@@ -1,3 +1,4 @@
+from workflow_fixture import compile_until_source
 import tempfile,unittest
 from pathlib import Path
 from copy import deepcopy
@@ -136,8 +137,8 @@ class ReviewScopeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             w=Path(d);save(w/'regressions.json',[])
             with patch('i2r_agent.translation_workflow.ask',side_effect=ask):
-                attempts,done=runner.search(bundle,None,c,provider,w,Executor(w/'commands'),None,[],[],w/'regressions.json',lambda _:None)
-            self.assertEqual(done[0]['status'],'passed')
+                attempts,done=compile_until_source(bundle,None,c,provider,w,Executor(w/'commands'),None,[],[],w/'regressions.json',lambda _:None)
+            self.assertEqual(done[0]['status'],'active')
             self.assertEqual(len(reviewed),2);self.assertEqual(len(set(reviewed)),2)
             self.assertEqual(sum(a['action_phase']=='compile' for a in attempts),2)
 
@@ -266,8 +267,8 @@ class ReviewScopeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             w=Path(d);save(w/'regressions.json',[])
             with patch('i2r_agent.translation_workflow.ask',side_effect=ask):
-                attempts,done=runner.search(bundle,None,c,provider,w,Executor(w/'commands'),None,[],[],w/'regressions.json',lambda _:None)
-            self.assertEqual(done[0]['status'],'passed')
+                attempts,done=compile_until_source(bundle,None,c,provider,w,Executor(w/'commands'),None,[],[],w/'regressions.json',lambda _:None)
+            self.assertEqual(done[0]['status'],'active')
             self.assertEqual(reviewed.count('constant:A.h'),1)
             self.assertEqual(len(reviewed),3)
             replay=[a for a in attempts if a['action_phase']=='repair_replay']

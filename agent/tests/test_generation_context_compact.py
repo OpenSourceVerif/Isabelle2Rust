@@ -1,3 +1,4 @@
+from workflow_fixture import compile_until_source
 import tempfile,unittest
 from pathlib import Path
 from copy import deepcopy
@@ -49,8 +50,8 @@ class GenerationContextCompact(unittest.TestCase):
             seen.append(p)
             return {'state_version':p['controller_state']['state_version'],'append_files':{'src/lib.rs':'pub fn f()->u128{h()+1}'},'mapping':[mapping('f')]}
         with tempfile.TemporaryDirectory() as d,patch.object(runner,'ask',side_effect=answer):
-            p=Path(d);_,done=runner.search(b,None,c,pv,p,Executor(p/'commands'),None,[],[],p/'regressions.json',lambda _:None)
-            self.assertEqual(done[0]['status'],'passed');self.assertEqual(seen[0]['current_files'],{})
+            p=Path(d);_,done=compile_until_source(b,None,c,pv,p,Executor(p/'commands'),None,[],[],p/'regressions.json',lambda _:None)
+            self.assertEqual(done[0]['status'],'active');self.assertEqual(seen[0]['current_files'],{})
             self.assertIn('pub fn h()',str(seen[0]['dependency_interfaces']))
             self.assertNotIn('let _=0',str(seen[0]['dependency_declarations']))
 

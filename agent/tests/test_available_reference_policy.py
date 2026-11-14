@@ -55,7 +55,7 @@ class AvailableReferenceTests(unittest.TestCase):
   with patch.object(ar,'export_target',return_value=export),patch.object(ar,'setup_rust',return_value=self.root/'stage1'),patch.object(ar,'compile_rust_reference',side_effect=[{'status':'compile_failed','checks':{'build':{'status':'failed'}}},{'status':'passed','binary':'stage2'}]),patch.object(ar,'compile_ocaml_reference',return_value={'status':'passed','binary':'ocaml'}),patch.object(ar.tool_sources,'repository',return_value=self.root),patch.object(ar,'cargo',return_value=['cargo']),patch.object(self.executor,'run',return_value={'status':'passed'}) as run:
    r=ar.prepare(self.root,{'tools':{},'budgets':{'build_seconds':30}},self.root/'prepare',self.executor)
   self.assertEqual(r['stage1']['status'],'compile_failed');self.assertEqual(r['stage2']['status'],'passed');self.assertEqual(run.call_count,2)
- def test_real_source_tests_and_generation_finish_with_no_reference(self):
+ def test_real_source_tests_preserve_unavailable_differential_without_acceptance(self):
   from unittest.mock import Mock
   from test_segmented_workflow import source,mapping
   from test_translation_workflow import cfg,accept,CONNECTOR
@@ -72,9 +72,13 @@ class AvailableReferenceTests(unittest.TestCase):
    return accept(p,c)
   def prepare(state,conf,pv,directory):save(Path(directory)/(frozen['identity']+'.json'),frozen);return frozen
   w=self.root/'workflow';w.mkdir();project=w/'testing';project.mkdir();(project/'Model.thy').write_text('fixture');(project/'Kernel.thy').write_text('fixture');save(w/'regressions.json',[])
-  with patch('i2r_agent.translation_workflow.ask',side_effect=ask),patch('i2r_agent.segmented_support.prepare',side_effect=prepare),patch('i2r_agent.test_connector.connect',return_value=({'src/lib.rs':CONNECTOR},'fixture')):
-   attempts,done=search(bundle,project,c,provider,w,Executor(w/'commands'),{n:self.bad() for n in ['ocaml','stage1','stage2']},[[9,1,2]],[],w/'regressions.json',lambda _:None)
-  self.assertEqual(done[0]['status'],'passed');self.assertEqual(done[0]['support_evidence']['status'],'passed')
+  with patch('i2r_agent.translation_workflow.ask',side_effect=ask),patch('i2r_agent.segmented_support.prepare',side_effect=prepare),patch('i2r_agent.test_connector.connect',return_value=({'src/lib.rs':CONNECTOR},'fixture')),patch('i2r_agent.observation_source.acquire',return_value=None):
+   from i2r_agent.common import Failure,read
+   with self.assertRaises(Failure) as caught:
+    search(bundle,project,c,provider,w,Executor(w/'commands'),{n:self.bad() for n in ['ocaml','stage1','stage2']},[[9,1,2]],[],w/'regressions.json',lambda _:None)
+   self.assertEqual(caught.exception.code,'source_check_unresolved')
+   state=read(w/'segmented-checkpoint.json');attempts=state['attempts'];done=[state]
+  self.assertEqual(done[0]['status'],'active');self.assertEqual(done[0]['support_evidence']['status'],'passed')
   self.assertEqual([s['status'] for s in done[0]['differential_suites']],['differential_unavailable']*2)
   self.assertFalse(any(a['action_phase']=='repair' for a in attempts));provider.call.assert_not_called()
  def test_unavailable_is_generation_success_not_agent_failure(self):

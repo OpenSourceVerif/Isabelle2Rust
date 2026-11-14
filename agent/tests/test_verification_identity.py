@@ -144,10 +144,25 @@ class TranslationCacheTests(unittest.TestCase):
             return accept(p,c)
         with tempfile.TemporaryDirectory() as d:
             work=Path(d)
-            with patch('i2r_agent.translation_workflow.ask',side_effect=model),patch('i2r_agent.segmented_support.prepare',side_effect=[Failure('missing_support_verification','category missing'),{'identity':'frozen'}]),patch('i2r_agent.segmented_support.execute',return_value={'status':'passed','tests_passed':1}):
-                attempts,done=search(b,None,c,provider,work,Executor(work/'commands'),None,[],[],work/'regressions.json',lambda _:None)
+            from i2r_agent.common import save,read
+            frozen={'identity':'frozen','tests':['#[test] fn value(){assert_eq!(i2r_candidate::f(),2);}'],
+                    'unit_tests':[],'obligations':[{'source':'constant:A.f','test_name':'value'}]}
+            author_calls=[]
+            def author(state,conf,pv,directory):
+                author_calls.append(True)
+                if len(author_calls)==1:raise Failure('missing_support_verification','category missing')
+                save(Path(directory)/'frozen.json',frozen)
+                return frozen
+            # Real source execution clears the authoring error; differential
+            # acceptance remains pending because this fixture has no project.
+            with patch('i2r_agent.translation_workflow.ask',side_effect=model),patch('i2r_agent.segmented_support.prepare',side_effect=author):
+                with self.assertRaises(Failure) as caught:
+                    search(b,None,c,provider,work,Executor(work/'commands'),None,[],[],work/'regressions.json',lambda _:None)
+            self.assertEqual(caught.exception.code,'source_check_unresolved')
+            state=read(work/'segmented-checkpoint.json');attempts=state['attempts'];done=[state]
+            self.assertEqual(state['support_evidence']['status'],'passed')
             self.assertTrue(done)
-            self.assertIsNone(done[0]['feedback'])
+            self.assertEqual(done[0]['feedback']['status'],'source_check_unresolved')
             phases=[a['action_phase'] for a in attempts]
             self.assertEqual(phases.count('support'),2)
             self.assertLess(phases.index('whole_review'),phases.index('support'))

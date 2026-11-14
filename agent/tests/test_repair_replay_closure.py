@@ -1,3 +1,4 @@
+from workflow_fixture import compile_until_source
 import tempfile
 import unittest
 from copy import deepcopy
@@ -66,9 +67,9 @@ class ReplayClosureTests(unittest.TestCase):
             w = Path(directory)
             save(w / 'regressions.json', [])
             with patch('i2r_agent.translation_workflow.ask', side_effect=ask):
-                attempts, done = runner.search(b, None, c, provider, w, Executor(w / 'commands'),
+                attempts, done = compile_until_source(b, None, c, provider, w, Executor(w / 'commands'),
                     None, [], [], w / 'regressions.json', lambda _: None)
-        self.assertEqual(done[0]['status'], 'passed')
+        self.assertEqual(done[0]['status'], 'active')
         self.assertEqual(len(repaired), 1)
         self.assertIn('refine', post_repair_reviews)
         self.assertEqual(sum(a['action_phase'] == 'repair_replay' for a in attempts), 1)

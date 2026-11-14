@@ -1,4 +1,5 @@
 """Read-only controller audit: fake model replies, real Rust compilation, no API calls."""
+from workflow_fixture import compile_until_source
 import json
 from pathlib import Path
 from copy import deepcopy
@@ -32,7 +33,7 @@ def run_fixture(name, bundle, conf, reply):
     failure = None
     with patch('i2r_agent.translation_workflow.ask', side_effect=reply):
         try:
-            runner.search(bundle, None, conf, provider(), work, Executor(work / 'commands'),
+            compile_until_source(bundle, None, conf, provider(), work, Executor(work / 'commands'),
                           None, [], [], work / 'regressions.json', lambda _: None)
         except Failure as e:
             failure = {'code': e.code, 'message': str(e), 'evidence': e.evidence}
@@ -70,7 +71,7 @@ def incomplete_first_review():
     compiled = next(a for a in state['attempts'] if a['action_phase'] == 'compile')
     assert reviewed == [['constant:A.f','constant:A.h']], reviewed
     assert compiled['compilation']['status'] == 'passed'
-    assert state['status'] == 'passed', state['status']
+    assert state['status'] == 'active', state['status']
     return {'first_review_members': reviewed, 'compilation': 'passed',
             'controller_status': state['status']}
 
@@ -102,7 +103,7 @@ def rollback_review_conflict():
 
     failure, state = run_fixture('rollback', b, conf, reply)
     assert failure is None, failure
-    assert state['status']=='passed',state['status']
+    assert state['status']=='active',state['status']
     assert b['segmentation']['owner']['constant:A.f'] in state['completed']
     assert any(a.get('development', {}).get('status') == 'transaction_rolled_back' for a in state['attempts'])
     assert state['review_work']
@@ -160,7 +161,7 @@ fn ordinary_case() { assert_eq!(i2r_candidate::f(), 2); }
     frozen = {'identity': 'audit-disabled', 'tests': [code], 'unit_tests': [], 'obligations': obligations}
     result = execute(frozen, crate, rc, conf, Executor(work / 'commands'))
     assert result['status'] == 'support_coverage_missing', result
-    assert result['missing_required_tests']==['mandatory_boundary']
+    assert set(result['missing_required_tests'])=={'mandatory_boundary','__i2r_source_contract_0::mandatory_boundary'}
     assert result['tests_passed'] == 1
     assert 'mandatory_boundary' not in result['diagnostic']
     enabled = {**frozen, 'tests': [code.replace('#[cfg(any())]', '')]}

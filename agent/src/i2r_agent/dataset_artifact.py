@@ -101,7 +101,11 @@ def prepare(row,run):
         return preprocess(directory,cfg,where,ex)
     start=time.monotonic()
     bundle=source(p/'program',work/'source')
-    if bundle['source_model']['entries']!=row.get('roots',[row['root']]):raise Failure('root_changed',row['id'])
+    # Single-root manifests may keep Isabelle export spellings in `roots`
+    # (e.g. Unit's "add3"); `root` is the canonical source-model identity.
+    roots=row.get('roots',[])
+    expected_roots=roots if len(roots)>1 else [row['root']]
+    if bundle['source_model']['entries']!=expected_roots:raise Failure('root_changed',row['id'])
     if sorted(bundle['source_model']['entities'])!=row['closure']:raise Failure('closure_changed',row['id'])
     wrapper=source(p/'testing',work/'wrapper')
     # Ownership is resolved by the unchanged core during execution.

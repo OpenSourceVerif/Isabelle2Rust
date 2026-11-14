@@ -28,7 +28,7 @@ class JointAnalysisGrouping(unittest.TestCase):
         f=read(ROOT/'tests/fixtures/isort_grouping_extra_members.json');groups=deepcopy(f['components'])
         with self.assertRaises(Failure) as caught:cp.from_analysis(f['model'],f['boundaries'],groups,self.conf())
         feedback=caught.exception.evidence['membership_feedback']
-        self.assertEqual(feedback['unknown_ids'],['class:Orderings.order','class:Orderings.preorder','constant:HOL.False','constant:HOL.True'])
+        self.assertEqual(sorted(feedback['unknown_source_ids']+feedback['known_but_pruned_by_effective_adaptation']),['class:Orderings.order','class:Orderings.preorder','constant:HOL.False','constant:HOL.True'])
         self.assertEqual(len(feedback['required_ids']),10);self.assertEqual(groups,f['components'])
         revised=[{**g,'members':[n for n in g['members'] if n in feedback['required_ids']]} for g in groups]
         good=cp.from_analysis(f['model'],f['boundaries'],revised,self.conf())
@@ -39,7 +39,7 @@ class JointAnalysisGrouping(unittest.TestCase):
         revised[0]['members'].append(revised[0]['members'][0]);removed=revised[1]['members'].pop()
         with self.assertRaises(Failure) as error:cp.from_analysis(f['model'],f['boundaries'],revised,self.conf())
         details=error.exception.evidence['membership_feedback']
-        self.assertIn(removed,details['missing_ids']);self.assertTrue(details['duplicate_ids'])
+        self.assertIn(removed,details['missing_required_owners']);self.assertTrue(details['duplicate_owned_ids'])
 
     def test_inclusive_both_limits_and_one_over_require_model_components(self):
         m=source()['source_model'];c=self.conf();measured=cp.grouping_context(m,[],c)['measured']

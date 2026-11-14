@@ -67,3 +67,40 @@ def test_child_cli_inherits_unit_selection(tmp_path):
                           capture_output=True, text=True)
     assert done.returncode == 0, done.stderr
     assert json.loads(done.stdout)['selected_roots'] == 488
+
+
+@pytest.mark.parametrize('dataset', ['unit', 'fpp', 'performance'])
+@pytest.mark.parametrize('wrong_root', [False, True])
+def test_admission_uses_canonical_roots_and_rejects_changed_exports(monkeypatch, tmp_path, dataset, wrong_root):
+    from i2r_agent import source_input
+    from i2r_agent.common import Failure
+    monkeypatch.setenv('I2R_DATASET', dataset)
+    rows = art.manifest()['cases']
+    row = (next(r for r in rows if len(r.get('roots', [])) > 1)
+           if dataset == 'performance' else rows[0])
+    expected = row['roots'] if dataset == 'performance' else [row['root']]
+    bundle = {'source_model': {'entries': ['constant:Wrong.export'] if wrong_root else expected,
+                               'entities': {name: {} for name in row['closure']}}}
+    monkeypatch.setattr(art, 'configuration', lambda *args: {})
+    monkeypatch.setattr(art, 'project', lambda *args: tmp_path / 'project')
+    calls = []
+
+    class WrapperReached(Exception):
+        pass
+
+    def extract(*args):
+        calls.append(args[0])
+        if len(calls) == 1:
+            return bundle
+        raise WrapperReached()
+
+    monkeypatch.setattr(source_input, 'preprocess', extract)
+    if wrong_root:
+        with pytest.raises(Failure) as error:
+            art.prepare(row, tmp_path)
+        assert error.value.code == 'root_changed'
+        assert len(calls) == 1
+    else:
+        with pytest.raises(WrapperReached):
+            art.prepare(row, tmp_path)
+        assert len(calls) == 2

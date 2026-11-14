@@ -1,4 +1,4 @@
-"""Paper stage order with legacy early-testing settings and executed repair."""
+"""Current source and differential stage order with migrated configuration."""
 import tempfile
 import unittest
 from pathlib import Path
@@ -35,7 +35,7 @@ class CorrectnessStageOrder(unittest.TestCase):
                     self.assertEqual(c['_configuration_sources']['origins'][key],'derived from translation.correctness_only')
                 self.assertEqual(c['_configuration_sources']['effective_fingerprint'],task_context.fingerprint({k:v for k,v in c.items() if k!='_configuration_sources'}))
 
-    def test_legacy_true_never_enters_early_support_but_full_tests_and_replay_execute(self):
+    def test_legacy_true_never_enters_early_support_but_source_and_differential_execute(self):
         c=configure(self.legacy());b=source();b.update(case='list-index',workflow='source-translation')
         provider=Mock();provider.calls=0;provider.usage={}
         frozen={'identity':'paper-stage-order','tests':['#[test] fn source_equations(){assert_eq!(i2r_candidate::h(),1);assert_eq!(i2r_candidate::f(),2);}'],
@@ -44,11 +44,7 @@ class CorrectnessStageOrder(unittest.TestCase):
             phase=p['controller_state']['phase']
             if phase=='generate':
                 n=p['unit']['members'][0].rsplit('.',1)[-1]
-                return {'files':{'src/lib.rs':p['current_files']['src/lib.rs']+'\npub fn '+n+'()->u128{'+('1' if n=='h' else 'h()+0')+'}'},'mapping':[mapping(n)]}
-            if phase=='repair':
-                self.assertEqual(p['repair_issue']['kind'],'support')
-                return {'edits':[{'file':'src/lib.rs','old':'h()+0','new':'h()+1'}],
-                        'repair_hypothesis':{'cause':'incorrect source offset','evidence':'fixed source f=2 test fails','change':'add source offset','prediction':'same frozen test passes'}}
+                return {'files':{'src/lib.rs':p['current_files']['src/lib.rs']+'\npub fn '+n+'()->u128{'+('1' if n=='h' else 'h()+1')+'}'},'mapping':[mapping(n)]}
             return accept(p,c)
         def prepare(state,conf,pv,directory):
             self.assertEqual(set(state['completed']),set(state['partition']['units']))
@@ -62,7 +58,7 @@ class CorrectnessStageOrder(unittest.TestCase):
                 path=w/name;path.write_text('#!/bin/sh\nwhile read x; do echo "2 2 2"; done\n');path.chmod(0o755)
                 refs[name]={'binary':str(path)}
             save(w/'regressions.json',[])
-            with patch('i2r_agent.translation_workflow.ask',side_effect=ask),patch('i2r_agent.segmented_support.prepare',side_effect=prepare) as author,patch('i2r_agent.test_connector.connect',return_value=({'src/lib.rs':CONNECTOR},'fixture')):
+            with patch('i2r_agent.translation_workflow.ask',side_effect=ask),patch('i2r_agent.segmented_support.prepare',side_effect=prepare) as author,patch('i2r_agent.test_connector.connect',return_value=({'src/lib.rs':CONNECTOR},'fixture')),patch('i2r_agent.observation_source.acquire',return_value=None):
                 attempts,done=search(b,project,c,provider,w,Executor(w/'commands'),refs,[[9,1,2]],[],w/'regressions.json',lambda _:None)
             phases=[a['action_phase'] for a in attempts]
             self.assertEqual(done[0]['status'],'passed')
@@ -73,10 +69,12 @@ class CorrectnessStageOrder(unittest.TestCase):
             self.assertNotIn('whole_review',phases)
             self.assertEqual(phases[-1],'finish')
             self.assertEqual(phases[:first].count('generate'),2)
-            self.assertEqual(attempts[first]['support']['status'],'support_contract_failed')
+            self.assertEqual(attempts[first]['support_precompile']['status'],'support_compiled')
+            executed=next(a for a in attempts if a['action_phase']=='support_execute')
+            self.assertEqual(executed['support']['status'],'passed')
+            self.assertLess(phases.index('support_execute'),phases.index('test'))
             self.assertGreaterEqual(author.call_count,1)
-            replay=next(a for a in attempts if a['action_phase']=='repair_replay')
-            self.assertEqual(replay['original_replay']['status'],'passed')
+            self.assertNotIn('repair',phases)
             self.assertEqual(read(w/'support-tests/paper-stage-order.json'),frozen)
             tests=next(a['development']['suites'] for a in attempts if a['action_phase']=='test')
             self.assertEqual([r['kind'] for r in tests],['fixed','kernel_fixed'])

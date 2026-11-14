@@ -1,3 +1,4 @@
+from workflow_fixture import compile_until_source
 import tempfile
 import unittest
 from pathlib import Path
@@ -42,13 +43,13 @@ class CompileIntegration(unittest.TestCase):
             return {'edits':[{'file':'src/lib.rs','old':'missing_name','new':'1'}],
                     'repair_hypothesis':{'cause':'unbound identifier','evidence':'compiler unresolved name','change':'source constant 1','prediction':'original compilation succeeds'}}
         with tempfile.TemporaryDirectory() as tmp,patch('i2r_agent.translation_workflow.ask',side_effect=reply):
-            w=Path(tmp);attempts,done=search(b,None,c,pv,w,Executor(w/'commands'),None,[],[],w/'regressions.json',lambda _:None)
+            w=Path(tmp);attempts,done=compile_until_source(b,None,c,pv,w,Executor(w/'commands'),None,[],[],w/'regressions.json',lambda _:None)
             self.assertEqual(calls,['generate','repair','generate'])
-            self.assertEqual(done[0]['status'],'passed');self.assertFalse(done[0]['quality_evidence']['enabled'])
+            self.assertEqual(done[0]['status'],'active');self.assertFalse(quality_reviews_enabled(c))
             self.assertEqual(done[0]['reviews'],{});self.assertNotIn('source_reviews',done[0])
             replay=next(a for a in attempts if a['action_phase']=='repair_replay')
             self.assertEqual(replay['original_replay']['status'],'passed')
-            self.assertEqual([a['action_phase'] for a in attempts][-2:],['compile','finish'])
+            self.assertEqual([a['action_phase'] for a in attempts][-1:],['compile'])
             original=read(w/'segmented-checkpoint.json')
             # Same new identity must not make a removed stage executable.
             legacy=deepcopy(original);legacy.update(phase='post_review',status='active')
@@ -72,7 +73,7 @@ class CompileIntegration(unittest.TestCase):
                   'obligations':[{'source':'constant:A.f','category':'public_behavior','test_name':'source_value','case':'f()','expected_basis':'source equation f=h+1, h=1'}]}
         requests=[]
         def author(p,*args,**kwargs):
-            requests.append(deepcopy(p));self.assertNotIn('999',str(p))
+            requests.append(deepcopy(p));self.assertNotIn('pub fn f()->u128{999}',str(p));self.assertEqual(p['rust_signatures']['crate::f'],['pub fn f()->u128'])
             if p.get('authoring_policy')=='source-author-only-v1':
                 self.assertNotIn('reviewer',kwargs['system'].lower())
                 self.assertNotIn('independent review',str(p).lower())

@@ -21,7 +21,7 @@ class BindingRetryFeedbackTest(unittest.TestCase):
             prior=payload['prior_binding_rejection']
             if prior:
                 self.assertEqual(prior['status'],'support_oracle_change')
-                self.assertIn('assertion',prior['message'])
+                self.assertIn('protected source-test invariants',prior['message'])
                 old='fn empty(){';new='fn empty(){ let f=i2r_candidate::f::<i32>;'
             else:old='f(vec![])';new='f::<i32>(vec![])'
             return {'action':'binding_fix','reason':'Instantiate the empty-list test locally, retaining source behavior.',
