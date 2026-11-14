@@ -2,12 +2,12 @@
 from pathlib import Path
 from unittest.mock import Mock
 import pytest
-from i2r_agent import fpp_runner, knowledge_run, task_context, knowledge, repair_knowledge
+from i2r_agent import experiment_runner, knowledge_run, task_context, knowledge, repair_knowledge
 from i2r_agent.common import Failure
 
 
 def test_reference_catalog_is_readable_and_bound_to_release():
-    identity = fpp_runner.identity()['files']
+    identity = experiment_runner.identity()['files']
     rows = task_context.reference_catalog()
     contents = knowledge.references([row['path'] for row in rows])
     assert contents

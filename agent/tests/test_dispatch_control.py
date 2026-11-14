@@ -1,5 +1,5 @@
 """The artifact controller drains active work and leaves pending tasks untouched."""
-from i2r_agent import fpp_runner as runner
+from i2r_agent import experiment_runner as runner
 from i2r_agent.common import save,read
 from i2r_agent.common import Failure
 import pytest
@@ -71,7 +71,7 @@ def test_real_prepare_pause_exclusion_and_same_version_resume(tmp_path):
     script=tmp_path/'fixture.py'
     script.write_text('''import os,sys,time
 from pathlib import Path
-from i2r_agent import fpp_runner as r
+from i2r_agent import experiment_runner as r
 from i2r_agent.common import save,read,Failure
 r.art.manifest=lambda: {'cases':[{'id':'first'},{'id':'second'}]}
 r.identity=lambda: {'sha256':os.environ.get('TEST_IDENTITY','frozen'),'files':{}}

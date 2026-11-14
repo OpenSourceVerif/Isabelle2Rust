@@ -87,7 +87,7 @@ def ensure_search_idle():
         fields = line.strip().split(None, 1)
         if len(fields) != 2 or int(fields[0]) == os.getpid(): continue
         command = fields[1]
-        if (re.search(r'\bi2r_agent\.fpp_runner\b.*\boptimize\b', command) or
+        if (re.search(r'\bi2r_agent\.experiment_runner\b.*\boptimize\b', command) or
                 re.search(r'(?:^|\s)-m\s+i2r_agent\.optimization(?:\s|$)', command)):
             active.append({'pid': int(fields[0]), 'command': command})
     if active:

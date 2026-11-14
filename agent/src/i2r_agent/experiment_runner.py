@@ -1,9 +1,9 @@
-"""One FPP controller: fresh source-first tasks, atomic budgets and resumable transport."""
+"""Shared dataset controller: source-first tasks, atomic budgets and resumable transport."""
 import argparse, copy, fcntl, json, os, signal, subprocess, sys, time
 from pathlib import Path
 from .common import read, save, digest, Failure
 from .task_context import fingerprint
-from . import fpp_artifact as art, fpp_budget, provider, knowledge_run, baselines
+from . import dataset_artifact as art, request_budget, provider, knowledge_run, baselines
 
 
 def identity():
@@ -51,7 +51,7 @@ def migrate_pipeline(run,rows,workers,from_identity):
         else:old=live_release;old_ledger=live_ledger
         if old['identity']!=from_identity or fingerprint(old['files'])!=from_identity:reject('Old release identity does not match its complete file inventory')
         new=release_data(run,rows,old['workers'] if workers is None else workers)
-        allowed={'agent/src/i2r_agent/fpp_runner.py','artifact/README.md'}
+        allowed={'agent/src/i2r_agent/experiment_runner.py','artifact/README.md'}
         if set(old['files'])!=set(new['files']):reject('Release file inventory changed')
         changed={name for name,sha in old['files'].items() if new['files'][name]!=sha}
         if not changed or not changed<=allowed:reject('Only the runner and its README may change')
@@ -88,7 +88,7 @@ def migrate_pipeline(run,rows,workers,from_identity):
                     'snapshot_sha256':{name:digest(archive/name) for name in ['release-before.json','budget-before.json','release-after.json','budget-after.json']},
                     'model_calls':0,'policy':'zero-model scheduler-only migration; caches and charged preparation seconds retained'}
             save(journal,record)
-        fpp_budget.atomic_save(ledger_path,new_ledger);save(release_path,new)
+        request_budget.atomic_save(ledger_path,new_ledger);save(release_path,new)
         save(journal,{**record,'status':'complete'})
         print(json.dumps({'status':'scheduler_migrated','admissions_preserved':len(admissions),'identity':new['identity'],'model_calls':0}),flush=True)
 
@@ -114,7 +114,7 @@ def child(row,run,rel,boundary=False):
     art.inputs(row);record=read(ad['baseline_record'])
     if digest(ad['baseline_record'])!=ad['baseline_sha256'] or not baselines.valid_record(record):raise Failure('baseline_changed',row['id'])
     def acquire(case,testing,bundle,conf,*args,**kwargs):
-        from .fpp_preparation_import import baseline_config
+        from .preparation_import import baseline_config
         original_cfg=baseline_config(row,run,ad,conf)
         if case!=row['id'] or baselines.identity(case,bundle,original_cfg)!=record['identity']:raise Failure('baseline_identity_mismatch',case)
         return {**record,'acquisition':'strict_locked_read_only_cache'}
@@ -124,7 +124,7 @@ def child(row,run,rel,boundary=False):
             save(diag/'provider-boundary.json',{'phase':kwargs.get('phase','generation'),'fresh_analysis':not (diag/'prepared-program.json').exists(),'request_saved':False})
             raise Failure('provider_error','ZERO_API_PROVIDER_BOUNDARY')
         provider.Provider.call=stop
-    else:fpp_budget.install(provider,run,rel)
+    else:request_budget.install(provider,run,rel)
     start=time.monotonic()
     result=knowledge_run.build(Path(ad['project']),task/'output',cfg,diagnostics=diag)
     cp=read(diag/'segmented-checkpoint.json') if (diag/'segmented-checkpoint.json').exists() else {}
@@ -215,7 +215,7 @@ def dispatch(run,rows,rel,resume=False,pipeline=False):
         if pipeline and any(not (run/'preparation'/key/'admission.json').exists() for key in pending):
             log=(run/'prepare.log').open('a')
             env={**os.environ,'I2R_FPP_RELEASE':rel['identity'],'I2R_FPP_LEASE_FD':str(lease.fileno())}
-            proc=subprocess.Popen([sys.executable,'-m','i2r_agent.fpp_runner','--run',str(run),'_prepare'],stdout=log,stderr=subprocess.STDOUT,start_new_session=True,pass_fds=(lease.fileno(),),env=env)
+            proc=subprocess.Popen([sys.executable,'-m','i2r_agent.experiment_runner','--run',str(run),'_prepare'],stdout=log,stderr=subprocess.STDOUT,start_new_session=True,pass_fds=(lease.fileno(),),env=env)
             preparer=(proc,log);save(prep_marker,{'state':'running','pid':proc.pid,'started_at':time.time()})
         while pending or active or preparer:
             # Admission/outcome JSON is atomically published only after a complete
@@ -232,7 +232,7 @@ def dispatch(run,rows,rel,resume=False,pipeline=False):
                 prior=ad['seconds']+sum(read(p)['seconds'] for p in task.glob('transport-outcome-*.json'))
                 if prior>=4200 or usage(task/'diagnostics')['calls']>=48:
                     save(task/'outcome.json',{'case':key,'seconds':0,'policy_accepted':False,'result':{'status':'budget_exhausted'}});continue
-                log=(task/'worker.log').open('a');child_env={**os.environ,'I2R_FPP_RELEASE':rel['identity'],'I2R_FPP_LEASE_FD':str(lease.fileno())};proc=subprocess.Popen([sys.executable,'-m','i2r_agent.fpp_runner','--run',str(run),'_child','--case',key],stdout=log,stderr=subprocess.STDOUT,start_new_session=True,pass_fds=(lease.fileno(),),env=child_env);active[key]=(proc,log,time.monotonic(),prior)
+                log=(task/'worker.log').open('a');child_env={**os.environ,'I2R_FPP_RELEASE':rel['identity'],'I2R_FPP_LEASE_FD':str(lease.fileno())};proc=subprocess.Popen([sys.executable,'-m','i2r_agent.experiment_runner','--run',str(run),'_child','--case',key],stdout=log,stderr=subprocess.STDOUT,start_new_session=True,pass_fds=(lease.fileno(),),env=child_env);active[key]=(proc,log,time.monotonic(),prior)
                 save(task/'process.json',{'state':'running','pid':proc.pid,'started_at':time.time()})
             for key,(proc,log,start,prior) in list(active.items()):
                 elapsed=time.monotonic()-start;task=run/'tasks'/key
@@ -292,12 +292,12 @@ def execute(a,run,allrows):
     if a.command=='optimize':
         result=optimize_selected(run,rows,rel,a.from_run)
         print(json.dumps({'mode':result['mode'],'complete':result['complete'],'improved':result['improved'],'selected':result['selected']},indent=2));return
-    fpp_budget.initialize(run,rel)
+    request_budget.initialize(run,rel)
     if a.command=='measure':
         from .numeric_experiment import measure_run
         print(json.dumps(measure_run(run,rows,rel),indent=2));return
     if a.command=='import-preparation':
-        from .fpp_preparation_import import import_preparation
+        from .preparation_import import import_preparation
         if not a.from_run or not a.from_identity:raise Failure('preparation_import_rejected','Require --from-run and --from-identity')
         result=import_preparation(run,rows,rel,a.from_run,a.from_identity)
         print(json.dumps({'status':result['status'],'imported':len(result['imported']),'unprepared':len(result['unprepared']),'model_calls':0}),flush=True);return

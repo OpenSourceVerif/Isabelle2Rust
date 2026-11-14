@@ -1,7 +1,7 @@
 """The arbitrary profile changes representation, not the locked observations."""
 from pathlib import Path
 import pytest
-from i2r_agent import fpp_artifact as art
+from i2r_agent import dataset_artifact as art
 from i2r_agent.common import Failure
 from i2r_agent.source_input import numeric_contract
 from i2r_agent.references import rust_driver

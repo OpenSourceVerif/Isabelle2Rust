@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import pytest
 from i2r_agent.common import Failure, save, read, digest
-from i2r_agent import fpp_budget as budget, fpp_artifact as artifact
+from i2r_agent import request_budget as budget, dataset_artifact as artifact
 from i2r_agent.task_context import fingerprint
 
 

@@ -128,7 +128,7 @@ def admission(row,run):
     if result.get('seal')!=fingerprint({k:v for k,v in result.items() if k!='seal'}):raise Failure('admission_changed',row['id'])
     if result['config']!=configuration(row,run):raise Failure('admission_config_changed',row['id'])
     if result.get('preparation_import'):
-        from .fpp_preparation_import import verify
+        from .preparation_import import verify
         verify(row,run,result)
     elif Path(result['project'])!=project(row,run):raise Failure('admission_project_changed',row['id'])
     for field,hashfield in [('source_cache','source_sha256'),('wrapper','wrapper_sha256'),('baseline_record','baseline_sha256')]:

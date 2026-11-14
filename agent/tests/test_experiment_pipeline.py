@@ -2,17 +2,17 @@
 import copy,json,os,subprocess,sys,time
 from pathlib import Path
 import pytest
-from i2r_agent import fpp_runner as r,fpp_budget
+from i2r_agent import experiment_runner as r,request_budget
 from i2r_agent.common import save,read,Failure,digest
 from i2r_agent.task_context import fingerprint
 
 
 def migration_fixture(tmp_path,monkeypatch):
     rows=[{'id':'first'}]
-    files={'agent/src/i2r_agent/fpp_runner.py':'before','artifact/README.md':'same','artifact/datasets/fpp/manifest.json':'fixed'}
+    files={'agent/src/i2r_agent/experiment_runner.py':'before','artifact/README.md':'same','artifact/datasets/fpp/manifest.json':'fixed'}
     old={'identity':fingerprint(files),'files':files,'evaluation_order':['first'],'per_task_calls':48,'per_task_active_seconds':4200,'workers':10,'global_limit':48,'tool_sources':{'source':'unchanged'},'effective_configs':{'first':{'numeric_mode':'arbitrary'}}}
-    new=copy.deepcopy(old);new['files']['agent/src/i2r_agent/fpp_runner.py']='after';new['identity']=fingerprint(new['files'])
-    save(tmp_path/'release.json',old);fpp_budget.initialize(tmp_path,old);save(tmp_path/'STOP_DISPATCH',{'reason':'pause'})
+    new=copy.deepcopy(old);new['files']['agent/src/i2r_agent/experiment_runner.py']='after';new['identity']=fingerprint(new['files'])
+    save(tmp_path/'release.json',old);request_budget.initialize(tmp_path,old);save(tmp_path/'STOP_DISPATCH',{'reason':'pause'})
     save(tmp_path/'preparation/first/admission.json',{'seconds':123.5,'source_sha256':'retained'})
     monkeypatch.setattr(r,'release_data',lambda run,rs,workers:new)
     monkeypatch.setattr(r.art,'admission',lambda row,run:read(run/'preparation'/row['id']/'admission.json'))
@@ -79,7 +79,7 @@ def test_real_pipeline_dispatches_ready_then_drains_prepare_and_resumes(tmp_path
     script=tmp_path/'fixture.py'
     script.write_text('''import sys,time,subprocess
 from pathlib import Path
-from i2r_agent import fpp_runner as r
+from i2r_agent import experiment_runner as r
 from i2r_agent.common import save,read
 r.art.manifest=lambda: {'cases':[{'id':'first'},{'id':'second'}]}
 r.identity=lambda: {'sha256':'frozen','files':{}}
@@ -109,7 +109,7 @@ def child(row,run,rel,boundary=False):
 r.child=child
 original=subprocess.Popen
 def launch(command,**kwargs):
-    if command[1:3]==['-m','i2r_agent.fpp_runner']:command=[sys.executable,__file__]+command[3:]
+    if command[1:3]==['-m','i2r_agent.experiment_runner']:command=[sys.executable,__file__]+command[3:]
     return original(command,**kwargs)
 r.subprocess.Popen=launch
 r.main()

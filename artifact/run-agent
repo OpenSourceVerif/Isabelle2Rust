@@ -2,4 +2,4 @@
 set -eu
 base=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 export PYTHONPATH="$base/agent/src${PYTHONPATH:+:$PYTHONPATH}"
-exec "$base/agent/.venv/bin/python" -m i2r_agent.fpp_runner "$@"
+exec "$base/agent/.venv/bin/python" -m i2r_agent.experiment_runner "$@"

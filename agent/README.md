@@ -30,3 +30,19 @@ Local `.venv/`, `cache/`, `__pycache__/` and `.pytest_cache/` are generated and
 ignored. They are not source components. Raw experiment state is in the ignored
 `../artifact/runs/`. Versioned final records are in `../artifact/results/`. Generated program outputs
 remain in local raw runs; the implementation delivered here is the agent in `src/`.
+
+## Shared experiment modules
+
+All datasets use the same controller; `--dataset` selects their inputs.
+
+| Module in `src/i2r_agent/` | Responsibility |
+| --- | --- |
+| `experiment_runner.py` | Shared CLI, scheduling, preparation, pause/resume and worker dispatch |
+| `dataset_artifact.py` | Dataset manifests, configuration and mechanical preparation |
+| `request_budget.py` | Cross-process model-request budget reservations |
+| `preparation_import.py` | Validated reuse of mechanical preparation |
+| `fpp_suites.py` | FPP-specific observation inputs |
+| `fpp_expansion.py` | FPP-specific observation adapters |
+
+FPP and Unit both enter through `artifact/run-agent`; `run-fpp` and `run-unit`
+only select a dataset. Unit's input adapter is under `artifact/datasets/unit/`.

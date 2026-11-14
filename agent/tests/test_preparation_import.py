@@ -3,7 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock,patch
 import pytest
-from i2r_agent import fpp_preparation_import as imp,fpp_artifact as art,fpp_runner as runner,baselines,provider
+from i2r_agent import preparation_import as imp,dataset_artifact as art,experiment_runner as runner,baselines,provider
 from i2r_agent.common import save,read,digest,Failure
 from i2r_agent.task_context import fingerprint
 
@@ -79,7 +79,7 @@ def test_import_rejects_incompatible_or_mutated_inputs(tmp_path,monkeypatch,faul
 def test_child_acquisition_revalidates_read_only_origin_and_explicit_path_binding(tmp_path,monkeypatch):
     origin,run,row,old,new,ad,_=imported(tmp_path,monkeypatch)
     monkeypatch.setattr(art,'install_execution',lambda run:None);monkeypatch.setattr(art,'inputs',lambda row:None)
-    monkeypatch.setattr(runner.fpp_budget,'install',lambda *a:None)
+    monkeypatch.setattr(runner.request_budget,'install',lambda *a:None)
     original_acquire=baselines.acquire
     seen=[]
     def build(project,output,cfg,diagnostics):

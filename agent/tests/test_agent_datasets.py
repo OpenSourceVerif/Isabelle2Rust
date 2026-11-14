@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from i2r_agent import fpp_artifact as art
+from i2r_agent import dataset_artifact as art
 from i2r_agent.common import digest
 
 
@@ -62,7 +62,7 @@ def test_launchers_select_dataset_and_reject_cross_dataset_run(tmp_path, dataset
 
 def test_child_cli_inherits_unit_selection(tmp_path):
     env = {**os.environ, 'I2R_DATASET': 'unit', 'PYTHONPATH': str(art.ROOT / 'src')}
-    done = subprocess.run([sys.executable, '-m', 'i2r_agent.fpp_runner', '--run',
+    done = subprocess.run([sys.executable, '-m', 'i2r_agent.experiment_runner', '--run',
                            str(tmp_path / 'child'), 'report'], env=env,
                           capture_output=True, text=True)
     assert done.returncode == 0, done.stderr

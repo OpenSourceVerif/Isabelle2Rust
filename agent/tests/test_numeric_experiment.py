@@ -3,7 +3,7 @@ from copy import deepcopy
 from pathlib import Path
 import pytest
 from i2r_agent import numeric_experiment as experiment, numeric_interface as numeric
-from i2r_agent import fpp_artifact as artifact
+from i2r_agent import dataset_artifact as artifact
 from i2r_agent.common import Failure, digest
 from i2r_agent.segmented_config import rust_config
 from test_paired_numerics import paired

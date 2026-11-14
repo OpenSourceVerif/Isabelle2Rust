@@ -1,4 +1,4 @@
-"""Source-preserving finite observation adapters for the next development tranche."""
+"""Source-preserving finite observation adapters for the FPP dataset."""
 SIGNED=r'''
 definition dec :: "nat \<Rightarrow> int" where "dec n = (if n mod 2 = 1 then - int (Suc (n div 2)) else int (n div 2))"
 definition enc :: "int \<Rightarrow> nat" where "enc z = (if z < 0 then 2 * nat (-z) - 1 else 2 * nat z)"

@@ -10,7 +10,7 @@ import difflib
 import hashlib
 import time
 from .common import Failure, digest, now, read, save
-from .fpp_budget import atomic_save
+from .request_budget import atomic_save
 from .task_context import fingerprint
 from .translation_workflow import version
 from .program_model import readable

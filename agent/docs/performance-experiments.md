@@ -215,15 +215,15 @@ Use the repository's normal tool/credential configuration. For a fresh paired
 baseline:
 
 ```sh
-python -m i2r_agent.fpp_runner --dataset performance --run RUN --paired-numerics --off pipeline
-python -m i2r_agent.fpp_runner --dataset performance --run RUN measure
+python -m i2r_agent.experiment_runner --dataset performance --run RUN --paired-numerics --off pipeline
+python -m i2r_agent.experiment_runner --dataset performance --run RUN measure
 ```
 
 After the baseline is frozen, optimize independent modes:
 
 ```sh
-python -m i2r_agent.fpp_runner --dataset performance --run RUST_RUN --paired-numerics --rust-only --workers 3 optimize --from-run BASELINE
-python -m i2r_agent.fpp_runner --dataset performance --run FULL_RUN --paired-numerics --full --workers 3 optimize --from-run BASELINE
+python -m i2r_agent.experiment_runner --dataset performance --run RUST_RUN --paired-numerics --rust-only --workers 3 optimize --from-run BASELINE
+python -m i2r_agent.experiment_runner --dataset performance --run FULL_RUN --paired-numerics --full --workers 3 optimize --from-run BASELINE
 python -m i2r_agent.optimization_matrix --baseline BASELINE --rust RUST_RUN --full FULL_RUN --output MATRIX
 ```
 

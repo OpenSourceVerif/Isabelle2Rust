@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from .common import Failure, digest, read, save
 from .task_context import fingerprint
-from . import fpp_runner, fpp_artifact
+from . import experiment_runner, dataset_artifact
 
 
 ALLOWED = {'agent/src/i2r_agent/' + name + '.py' for name in
@@ -38,8 +38,8 @@ def migrate(run, from_identity):
         if old['identity'] != from_identity or fingerprint(old['files']) != from_identity:
             reject('Expected complete original release identity')
         ids = read(run / 'selection.json')['ids']
-        rows = [r for r in fpp_artifact.manifest()['cases'] if r['id'] in ids]
-        new = fpp_runner.release_data(run, rows, old['workers'])
+        rows = [r for r in dataset_artifact.manifest()['cases'] if r['id'] in ids]
+        new = experiment_runner.release_data(run, rows, old['workers'])
         changed = {n for n in old['files'].keys() | new['files'].keys()
                    if old['files'].get(n) != new['files'].get(n)}
         if not changed or not changed <= ALLOWED:

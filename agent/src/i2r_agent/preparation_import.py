@@ -9,7 +9,7 @@ from pathlib import Path
 import fcntl
 from .common import Failure,read,save,digest
 from .task_context import fingerprint
-from . import fpp_artifact as art,baselines,source_cache,knowledge_run
+from . import dataset_artifact as art,baselines,source_cache,knowledge_run
 
 POLICY='source-test-revision-read-only-preparation-v1'
 REBOUND_TOOLS=('isabelle_heaps','optimizer_target')
@@ -18,7 +18,7 @@ REBOUND_TOOLS=('isabelle_heaps','optimizer_target')
 # prompts, configuration and complete manifest) must match the original release.
 PREPARATION_NEUTRAL_CHANGES={
  'agent/src/i2r_agent/'+name+'.py' for name in [
- 'fpp_runner','fpp_artifact','fpp_preparation_import','segmented_support',
+ 'experiment_runner','dataset_artifact','preparation_import','segmented_support',
  'source_failure_review','segmented_test_audit','support_issue_lineage','source_resources','source_resource_revision',
  # Reviewed primitive contract / source-test responsibility changes. Mechanical
  # source_cache excludes semantic_analysis, segmentation and candidate state;
