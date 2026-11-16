@@ -116,7 +116,8 @@ def main(argv=None):
                 # A failed result checkpoint still produces an explicitly
                 # incomplete report after every frozen request was processed.
                 if phase == "export-checkpoint":
-                    call(common.HERE / "afp.py", options + ["report"], config_path)
+                    call(common.HERE / "full_report.py",
+                         ["--output-dir", str(base), "--preview"], config_path)
                 return code
         return 0
     if args.phase == "check":
