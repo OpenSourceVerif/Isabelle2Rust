@@ -113,6 +113,10 @@ def main(argv=None):
             print("[AFP " + phase + "]", flush=True)
             code = call(common.HERE / "afp.py", options + [phase] + extra, config_path)
             if code:
+                # A failed result checkpoint still produces an explicitly
+                # incomplete report after every frozen request was processed.
+                if phase == "export-checkpoint":
+                    call(common.HERE / "afp.py", options + ["report"], config_path)
                 return code
         return 0
     if args.phase == "check":

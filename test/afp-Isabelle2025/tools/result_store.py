@@ -51,14 +51,18 @@ class EntryStore(MutableMapping):
         if key != self.cache_key:
             record = dict(copy.deepcopy(self.scans[key]), **self._unpack(self.state.get("entry/" + key, {})))
             stage = record.get("full_export")
-            if stage and stage.get("mode") == "fixed-plan-v1":
+            if stage and stage.get("mode") == "fixed-plan-v2":
                 stage["plan"] = self.state.get("plan/" + key)
                 if not stage["plan"] or stage["plan"]["id"] != stage.get("plan_id"):
                     raise ValueError("Formal result has no current plan")
-            if stage and (stage.get("runs") or stage.get("mode") == "fixed-plan-v1"):
+            if stage and (stage.get("runs") or stage.get("mode") == "fixed-plan-v2"):
                 import full
                 for run in stage["runs"]:
-                    run["attempts"] = full.collect_attempts(common.resolve_path(run["directory"]))
+                    if stage.get("mode") == "fixed-plan-v2":
+                        from fixed_export import native_view
+                        run["attempts"], _, _ = native_view(common.resolve_path(run["directory"]))
+                    else:
+                        run["attempts"] = full.collect_attempts(common.resolve_path(run["directory"]))
                 # Candidate cells are a view over native XML, never a second
                 # persisted catalogue that could disagree with those XML bytes.
                 finished = stage.get("finished")
@@ -83,7 +87,7 @@ class EntryStore(MutableMapping):
                    if k in {"full_export", "full_compile"}}
         stage = payload.get("full_export", {})
         for name in ("candidates", "languages", "plan", "declarations", "groups"):
-            if stage.get("runs") or stage.get("mode") == "fixed-plan-v1":
+            if stage.get("runs") or stage.get("mode") == "fixed-plan-v2":
                 stage.pop(name, None)
         for run in stage.get("runs", []):
             run.pop("attempts", None)

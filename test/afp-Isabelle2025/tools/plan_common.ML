@@ -32,6 +32,17 @@ struct
   fun timed f x =
     let val start = Time.now (); val res = capture f x
     in (res, Time.toString (Time.- (Time.now (), start))) end;
+  (* Raw exception payload is separate from the complete rendered exception.
+     Only this strict-call envelope is eligible for rejection classification. *)
+  fun failure phase exn =
+    let
+      fun payload (ERROR msg) = ("ERROR", msg)
+        | payload (TYPE (msg, _, _)) = ("TYPE", msg)
+        | payload (THM (msg, _, _)) = ("THM", msg)
+        | payload other = ("OTHER", Runtime.exn_message other);
+      val (kind, msg) = payload exn;
+    in elem "failure" [("phase", phase), ("version", "Isabelle2025"), ("exception", kind)]
+      [text "message" (XML.content_of (YXML.parse_body msg)), text "error" (Runtime.exn_message exn)] end;
   fun error_body (Exn.Exn exn) = [text "error" (Runtime.exn_message exn)]
     | error_body _ = [];
 end;

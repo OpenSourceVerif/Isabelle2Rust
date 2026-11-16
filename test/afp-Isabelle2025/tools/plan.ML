@@ -32,6 +32,7 @@ local
 
   fun analysis () =
     let
+      val phase = Unsynchronized.ref "context_preparation";
       fun inspect () =
         let
           val thy = context ();
@@ -45,7 +46,9 @@ local
             else error "Declaration provenance changed") declarations;
           val roots = filter_out (Code.is_abstr thy) (sort_strings (distinct (op =) cs));
           (* Strict native generation: never use permissive NoStmt as evidence. *)
+          val _ = phase := "strict_frontend";
           val program = Code_Thingol.consts_program ctxt roots;
+          val _ = phase := "evidence_extraction";
           val {eqngr, ...} = Code_Preproc.obtain false {ctxt = ctxt, consts = roots, terms = []};
           fun symbol sym = Code_Symbol.marker sym;
           fun equations c =
@@ -103,9 +106,10 @@ local
         in map declaration declarations @ nodes @ map printing targets end;
       val res = capture inspect ();
     in write "analysis.xml" (elem "analysis"
-      [("schema", "1"), ("context", attr "context" request),
+      [("schema", "2"), ("context", attr "context" request),
        ("status", case res of Exn.Res _ => "complete" | _ => "unresolved")]
-      (case res of Exn.Res body => body | _ => error_body res)) end;
+      (case res of Exn.Res body => body
+        | Exn.Exn exn => children "declaration" request @ [failure (!phase) exn])) end;
 in
   val _ = if attr "mode" request = "select" then selection () else analysis ();
 end;

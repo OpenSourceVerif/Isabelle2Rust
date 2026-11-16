@@ -87,7 +87,7 @@ def audit_data(base, data, result, exports):
     need(environment.get("proofs") == "checked", "proof checking enabled")
     need(environment.get("command_timeout_seconds") == 0, "unlimited scan and export configuration")
     run = State(base).get("run", {})
-    fixed_mode = run.get("experiment") == "fixed-plan-v1"
+    fixed_mode = run.get("experiment") == "fixed-plan-v2"
     if fixed_mode:
         try:
             import fixed_plan
@@ -205,9 +205,9 @@ def audit_data(base, data, result, exports):
                 retained = {d["id"] for d in classifications if d["status"] == "retained"}
                 for target in fixed_export.dp.TARGETS:
                     covered = {did for group in fixed_export.groups(plan).values()
-                               for did in group[1]["coverage"][target]["covered"]}
+                               for did in group[1].get("coverage", {}).get(target, {}).get("covered", [])}
                     need(covered == retained, "fixed plan target coverage", entry=entry, target=target)
-                need(all(d.get("status") in {"retained", "excluded", "ineligible"}
+                need(all(d.get("status") in {"retained", "excluded", "ineligible", "frontend_rejected", "singleton_fallback"}
                          for d in classifications), "fixed declaration classifications", entry=entry)
                 need(stage.get("status") == "complete", "fixed export processing complete", entry=entry)
                 need(set(stage.get("languages", {})) == set(full.TARGETS),
@@ -394,6 +394,14 @@ def required_failure_inventory(base, data, result):
                 add(entry, "scan", "receipt_validation", "failed", [common.relative(path)])
         if scan["status"] == "blocked":
             add(entry, "scan", "dependency", "blocked", [common.relative(base / "state.sqlite3")])
+        plan = State(base).get("plan/" + entry, {})
+        for ctx in plan.get("contexts", []):
+            for failure in ctx.get("analysis_failures", []):
+                receipt = State(base).get(failure["evidence"], {})
+                evidence = [common.relative(base / receipt["xml"])] if receipt.get("xml") else []
+                add(entry, "plan", failure["phase"], "analysis_failed", evidence, failure["roots"])
+        for issue in plan.get("unresolved_contexts", []):
+            add(entry, "plan", "unresolved_context", "unresolved", [common.relative(base / "state.sqlite3")])
         for stage in [record.get("full_export", {})]:
             for run in stage.get("runs", []):
                 if run["command"]["status"] != "passed":
@@ -434,6 +442,32 @@ def audit_reports(base, data, result, exports, audit):
     need(summary.get("completion_verified") and summary.get("input_sha256") == full.inputs(base),
          "final report matches current completed data")
     need(summary.get("missing_full_messages") == 0, "no missing full diagnostics in report")
+    if State(base).get("run", {}).get("experiment") == "fixed-plan-v2":
+        import fixed_export
+        plans = {e: State(base).get("plan/" + e) for e in data["order"]}
+        dispositions = {e: fixed_export.disposition_summary(p, result["entries"][e].get("full_export", {}))
+                        for e, p in plans.items() if p}
+        need(summary.get("entry_dispositions") == dispositions, "fixed disposition totals match")
+        for field, child in (("fallback_closed", "fallback_closed"),
+                             ("fallback_unresolved", "fallback_unresolved"),
+                             ("final_unresolved_candidates", "unresolved_candidates")):
+            need(summary.get(field) == sum(v[child] for v in dispositions.values()),
+                 "fixed closure totals match", field=field)
+        path = report / "plan-dispositions.jsonl"
+        need(path.is_file(), "fixed disposition inventory exists")
+        if path.is_file():
+            expected = collections.Counter()
+            for e, plan in plans.items():
+                if not plan:
+                    continue
+                for ctx in plan["contexts"]:
+                    for d in ctx["classifications"]:
+                        expected[json.dumps(dict(entry=e, **d), sort_keys=True)] += 1
+                for issue in plan.get("unresolved_contexts", []):
+                    expected[json.dumps(dict(entry=e, **issue), sort_keys=True)] += 1
+            actual = collections.Counter(json.dumps(json.loads(line), sort_keys=True)
+                                         for line in path.read_text().splitlines())
+            need(actual == expected, "fixed disposition inventory matches sealed plan")
     if (report / "entries.csv").is_file():
         with (report / "entries.csv").open() as stream:
             rows = list(csv.DictReader(stream))
@@ -477,9 +511,30 @@ def audit_reports(base, data, result, exports, audit):
                 actual[(entry, theory, name)] += 1
                 if entry != previous:
                     record = result["entries"].get(entry, {})
-                    source_witnesses = declaration_witnesses(
+                    formal = record.get("full_export", {}).get("mode") == "fixed-plan-v2"
+                    source_witnesses = {} if formal else declaration_witnesses(
                         data["entries"].get(entry, {}), record, exports.get(entry, {}))
+                    if formal:
+                        import fixed_export
+                        formal_rows = collections.defaultdict(list)
+                        declarations, _ = fixed_export.outcomes(record["full_export"])
+                        for d in declarations.values():
+                            formal_rows[(d["declaration"]["source"], d["declaration"]["name"])].append(d)
                     previous = entry
+                if formal:
+                    matching = formal_rows[(theory, name)]
+                    need(row.get("context_evidence", "") == ";".join(sorted(
+                        {d["declaration"]["context"] for d in matching})),
+                        "fixed declaration context inventory", entry=entry, theory=theory, constant=name)
+                    for target in full.TARGETS:
+                        states[target][row[target]] += 1
+                        statuses = {d["targets"][target]["status"] for d in matching}
+                        status = next(iter(statuses)) if len(statuses) == 1 else "mixed_contexts" if statuses else "unresolved_context"
+                        evidence = sorted({e for d in matching for e in d["targets"][target]["evidence"]})
+                        need(row[target] == status and row[target + "_evidence"] == ";".join(evidence),
+                             "fixed declaration report matches source witness", entry=entry, theory=theory,
+                             constant=name, target=target)
+                    continue
                 source = source_witnesses.get((theory, name))
                 outcomes = record.get("full_export", {}).get("candidates", {}).get(name, {})
                 need(row.get("context_evidence", "") == (

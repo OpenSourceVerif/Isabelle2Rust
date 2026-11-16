@@ -10,8 +10,8 @@ import xml.etree.ElementTree as ET
 
 from scan_store import digest
 
-RULES = "afp-structural-v1"
-SCHEMA = 1
+RULES = "afp-structural-v2"
+SCHEMA = 2
 TARGETS = ("Rust", "SML", "OCaml", "Haskell", "Scala", "Go")
 SETUPS = ("Rust.Rust_BigInt_Setup", "Go.Go_Setup")
 MODULE = "AFP_Code"
@@ -265,10 +265,10 @@ def make_context_plan(context, graph):
             "sccs": components(nodes)}
 
 
-def assemble(entry, identity, contexts):
+def assemble(entry, identity, contexts, unresolved_contexts=()):
     contexts = sorted(contexts, key=lambda p: p["context"]["id"])
     payload = {"schema": SCHEMA, "rules": RULES, "entry": entry, "input": identity,
-               "contexts": contexts}
+               "contexts": contexts, "unresolved_contexts": list(unresolved_contexts)}
     return dict(payload, id=digest(payload))
 
 
@@ -279,17 +279,30 @@ def verify_plan(plan, expected):
     for ctx in plan["contexts"]:
         retained = {d["id"] for d in ctx["classifications"] if d["status"] == "retained"}
         for t in TARGETS:
-            covered = {c for g in ctx["groups"] for c in g["coverage"][t]["covered"]}
+            covered = {c for g in ctx["groups"] for c in g.get("coverage", {}).get(t, {}).get("covered", [])}
             if covered != retained:
                 raise ValueError("Plan does not cover every retained declaration")
+        fallback = [d["id"] for d in ctx["classifications"] if d["status"] == "singleton_fallback"]
+        requested = [g["declaration"] for g in ctx["groups"] if g.get("kind") == "singleton_fallback"]
+        if sorted(fallback) != sorted(requested):
+            raise ValueError("Fallback requests do not cover exact declaration identities")
+    original = {declaration_id(d) for d in plan["input"].get("declarations", [])}
+    disposed = {d["id"] for ctx in plan["contexts"] for d in ctx["classifications"]}
+    disposed.update(declaration_id(d) for u in plan.get("unresolved_contexts", []) for d in u["declarations"])
+    if "declarations" in plan["input"] and disposed != original:
+        raise ValueError("Plan disposition inventory is incomplete")
     return plan
 
 
 def statistics(plan):
     rows = [d for ctx in plan["contexts"] for d in ctx["classifications"]]
     groups = [g for ctx in plan["contexts"] for g in ctx["groups"]]
-    return {"declarations": len({d["id"] for d in rows}),
+    return {"declarations": len({declaration_id(d) for d in plan["input"].get("declarations", rows)}),
             "context_declarations": len(rows),
+            "frontend_rejected": sum(d["status"] == "frontend_rejected" for d in rows),
+            "singleton_fallback": sum(d["status"] == "singleton_fallback" for d in rows),
+            "unresolved_contexts": len(plan.get("unresolved_contexts", [])),
+            "normal_groups": sum(g.get("kind") != "singleton_fallback" for g in groups),
             "retained": sum(d["status"] == "retained" for d in rows),
             "excluded": sum(d["status"] == "excluded" for d in rows),
             "ineligible": sum(d["status"] == "ineligible" for d in rows),
@@ -297,8 +310,8 @@ def statistics(plan):
             # A recursive coverage projection may mention one declaration from
             # more than one frozen entrance. Report the covered identity union,
             # so this is a structural coverage count rather than a batch count.
-            "structural_coverage": {t: len({d for g in groups for d in g["coverage"][t]["covered"]})
+            "structural_coverage": {t: len({d for g in groups for d in g.get("coverage", {}).get(t, {}).get("covered", [])})
                                     for t in TARGETS},
             "printing_implementations": {t: len({d for g in groups
-                                                   for d in g["coverage"][t]["printing"]})
+                                                   for d in g.get("coverage", {}).get(t, {}).get("printing", [])})
                                            for t in TARGETS}}

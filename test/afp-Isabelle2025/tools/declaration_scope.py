@@ -56,6 +56,21 @@ def applies(context, theory, name, constants, stage):
 
 def rows(entry, info, record, scope):
     """Yield one row per source declaration without changing candidate totals."""
+    if record.get("full_export", {}).get("mode") == "fixed-plan-v2":
+        stage = record["full_export"]
+        for path, names in sorted(scope.items()):
+            for name in sorted(names):
+                matches = [v for v in stage["declarations"].values()
+                           if v["declaration"]["source"] == path and v["declaration"]["name"] == name]
+                item = {"entry": entry, "theory": path, "constant": name,
+                        "context_evidence": ";".join(sorted({v["declaration"]["context"] for v in matches}))}
+                for target in full.TARGETS:
+                    statuses = {v["targets"][target]["status"] for v in matches}
+                    item[target] = next(iter(statuses)) if len(statuses) == 1 else "mixed_contexts" if statuses else "unresolved_context"
+                    item[target + "_evidence"] = ";".join(sorted({e for v in matches
+                                                                for e in v["targets"][target]["evidence"]}))
+                yield item
+        return
     owners = collections.Counter(name for names in scope.values() for name in names)
     stage = record.get("full_export", {})
     names = common.candidates(scope)

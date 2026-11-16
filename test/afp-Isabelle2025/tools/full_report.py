@@ -173,6 +173,18 @@ def failure_events(base, data, result):
             yield {"entry": entry, "phase": "scan", "stage": "dependency", "status": "blocked",
                    "constants": [], "target": None, "error": "Blocked by: " + ", ".join(dependencies),
                    "evidence": [common.relative(base / "state.sqlite3")]}
+        plan = State(base).get("plan/" + entry, {})
+        for ctx in plan.get("contexts", []):
+            for failure in ctx.get("analysis_failures", []):
+                receipt = State(base).get(failure["evidence"], {})
+                yield {"entry": entry, "phase": "plan", "stage": failure["phase"],
+                       "status": "analysis_failed", "constants": failure["roots"], "target": None,
+                       "error": failure["error"], "full_message_available": True,
+                       "evidence": [common.relative(base / receipt["xml"])] if receipt.get("xml") else []}
+        for issue in plan.get("unresolved_contexts", []):
+            yield {"entry": entry, "phase": "plan", "stage": "unresolved_context",
+                   "status": "unresolved", "constants": [], "target": None, "error": issue["error"],
+                   "full_message_available": True, "evidence": [common.relative(base / "state.sqlite3")]}
         # Only requests belonging to the current committed export are reported.
         for stage in [record.get("full_export", {})]:
             for run in stage.get("runs", []):
@@ -334,14 +346,15 @@ def build_report(base, data, result, exports, verified=False):
                 examples[(event["phase"], key)].append(event)
     timings = performance(result)
     state = State(base)
-    fixed_mode = state.get("run", {}).get("experiment") == "fixed-plan-v1"
+    fixed_mode = state.get("run", {}).get("experiment") == "fixed-plan-v2"
     plan_stats = {}
     if fixed_mode:
         import dependency_plan
         plans = [state.get("plan/" + entry) for entry in data["order"]]
         plans = [p for p in plans if p]
         merged = {k: 0 for k in ("declarations", "context_declarations", "retained", "excluded",
-                                  "ineligible", "entries", "groups")}
+                                  "ineligible", "frontend_rejected", "singleton_fallback", "unresolved_contexts",
+                                  "normal_groups", "entries", "groups")}
         structural_coverage = {target: 0 for target in full.TARGETS}
         printing_implementations = {target: 0 for target in full.TARGETS}
         for value in plans:
@@ -351,12 +364,28 @@ def build_report(base, data, result, exports, verified=False):
             for target in full.TARGETS:
                 structural_coverage[target] += stats.get("structural_coverage", {}).get(target, 0)
                 printing_implementations[target] += stats.get("printing_implementations", {}).get(target, 0)
+        import fixed_export
+        dispositions = {p["entry"]: fixed_export.disposition_summary(p,
+                            result["entries"][p["entry"]].get("full_export", {})) for p in plans}
+        with (report / "plan-dispositions.jsonl").open("w") as stream:
+            for p in plans:
+                for ctx in p["contexts"]:
+                    for row in ctx["classifications"]:
+                        stream.write(json.dumps({"entry": p["entry"], **row}, ensure_ascii=False) + "\n")
+                for issue in p.get("unresolved_contexts", []):
+                    stream.write(json.dumps({"entry": p["entry"], **issue}, ensure_ascii=False) + "\n")
         artifact_count = sum(len(result["entries"][entry].get("full_export", {}).get("artifacts", []))
                              for entry in data["order"])
         plan_stats = {"fixed_plan": True, "rules": dependency_plan.RULES, **merged,
                       "structural_coverage": structural_coverage,
                       "printing_implementations": printing_implementations,
-                      "export_artifacts": artifact_count, "artifact_count": artifact_count}
+                      "export_artifacts": artifact_count, "artifact_count": artifact_count,
+                      "plan_dispositions_valid": bool(state.get("plan-checkpoint.json", {}).get("passed")),
+                      "entry_dispositions": dispositions,
+                      "fallback_closed": sum(v["fallback_closed"] for v in dispositions.values()),
+                      "fallback_unresolved": sum(v["fallback_unresolved"] for v in dispositions.values()),
+                      "final_unresolved_candidates": sum(v["unresolved_candidates"] for v in dispositions.values()),
+                      "final_unresolved_entries": sum(not v["results_closed"] for v in dispositions.values())}
     summary = {"generated": common.timestamp(), "completion_verified": verified, "entry_count": len(entries),
                **plan_stats,
                "candidate_references": sum(r["candidates"] for r in entries),
@@ -377,7 +406,9 @@ def build_report(base, data, result, exports, verified=False):
     method = (
         "依赖分析读取原生代码方程、Thingol 依赖图和六目标有效打印配置；"
         "计划只保留至少一个目标可执行的完整依赖闭包，按固定入口和条目内计算依赖生成不可变导出组。"
-        "正式请求不会因资源失败重新分组；组失败保留为组级证据，诊断路径不进入正式结果。\n\n"
+        "仅分析失败后隔离可确认的严格前端拒绝，其余候选冻结为单候选回退；"
+        "回退结果只证明直接导出，不计入结构覆盖。计划处置有效不代表结果已闭合。"
+        "正式请求不会因资源失败重新分组，所有未决阻止最终完成声明。\n\n"
         if fixed_mode else
         "每个常量组构造一次 Thingol 程序，供该组待处理的目标共用。整组失败继续拆分；"
         "单常量失败或必需上下文加载失败才形成候选失败证据。成功组的完整源码全部保留。"

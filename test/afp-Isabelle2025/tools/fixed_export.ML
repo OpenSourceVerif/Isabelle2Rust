@@ -13,7 +13,9 @@ local
       (elem "attempt" [("context", context_id), ("batch", batch), ("stage", stage),
         ("target", target), ("seconds", seconds),
         ("status", case result of Exn.Res _ => "passed" | _ => "failed")]
-        (map constant cs @ extras @ error_body result));
+        (map constant cs @ extras @ error_body result @
+          (case result of Exn.Exn exn =>
+            [failure (if stage = "frontend" then "strict_frontend" else stage) exn] | _ => [])));
   (* Keep the loaded-theory inventory even when context construction fails.
      The existing declaration audit uses it to distinguish independent source
      declarations with the same internal name. *)

@@ -746,7 +746,7 @@ def finish_export(stage, names):
     a checked recursive invariant. The gate and independent audit recompute it;
     processing complete never changes that process's status or finished flag.
     """
-    if stage.get("mode") == "fixed-plan-v1":
+    if stage.get("mode") == "fixed-plan-v2":
         import fixed_export
         fixed_export.finish(stage)
         return
@@ -780,7 +780,7 @@ def rust_manifests(record):
 
 def export_checkpoint(base, data, result, exports):
     problems = []
-    fixed = State(base).get("run", {}).get("experiment") == "fixed-plan-v1"
+    fixed = State(base).get("run", {}).get("experiment") == "fixed-plan-v2"
     if fixed:
         import fixed_plan
         fixed_plan.require_gate(base, data, result, exports)
@@ -987,7 +987,7 @@ def main():
             return int(not gate["passed"])
         require_scan_gate(base, result, exports)
         import fixed_plan
-        if State(base).get("run", {}).get("experiment") != "fixed-plan-v1":
+        if State(base).get("run", {}).get("experiment") != "fixed-plan-v2":
             raise ValueError("Fixed plans require a new work root; dynamic results cannot be migrated")
         selected = args.entries if args.entries else data["order"]
         if set(selected) - data["entries"].keys():
@@ -995,13 +995,12 @@ def main():
         if args.phase == "plan":
             import native_patch
             native_patch.verify(env["ISABELLE_HOME"])
-            unresolved = False
-            for entry in selected:
+            def plan_task(entry, record, checkpoint, slot, options):
                 planned = fixed_plan.plan_entry(base, entry, data["entries"][entry],
-                    result["entries"][entry], exports[entry], args, env)
+                    record, exports[entry], options, dict(env))
                 print("[plan] " + entry + ": " + json.dumps(planned), flush=True)
-                unresolved |= planned["status"] != "complete"
-            return int(unresolved)
+            parallel_entries(base, result, exports, selected, args.export_workers, args, plan_task)
+            return 0
         if args.phase == "plan-checkpoint":
             gate = fixed_plan.checkpoint(base, data, result, exports)
             print(json.dumps(gate, indent=2))
