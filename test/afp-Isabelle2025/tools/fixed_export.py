@@ -136,7 +136,8 @@ def execute(base, plan, record, scope, args, env, checkpoint=None):
             check = common.read_record(work / "process.log.json", {})
             if common.identity_matches(check) or active_children(work, "AFP_PLAN_REQUEST"):
                 raise ValueError("Formal group child is still live")
-            if check.get("status") in {None, "running"} or "returncode" not in check:
+            if (check.get("status") in {None, "running", "interrupted", "cancelled"}
+                    or check.get("returncode") in {130, -2} or "returncode" not in check):
                 work = None
         if work is None:
             work = full.next_attempt(Path(base) / "exports" / plan["entry"] / gid)

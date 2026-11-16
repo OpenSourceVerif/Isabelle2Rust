@@ -287,6 +287,8 @@ class ExecutionTests(unittest.TestCase):
             real = fake_native("passed", calls)
             def interrupt(*args):
                 if calls:
+                    common.write_record(args[1] / "process.log.json",
+                                        {"status": "interrupted", "returncode": -2})
                     raise KeyboardInterrupt
                 return real(*args)
             with patch.object(fp, "native_command", side_effect=interrupt), self.assertRaises(KeyboardInterrupt):
@@ -480,6 +482,20 @@ class PlanEvidenceTests(unittest.TestCase):
             path.write_text("\n".join(rows[1:]) + "\n")
             full_audit.audit_reports(base, data, result, {"E": scope}, audit)
             self.assertIn("fixed disposition inventory matches sealed plan", audit["issue_counts"])
+
+    def test_persisted_analysis_interruption_restarts_only_the_unfinished_request(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            def interrupt(session, work, *args):
+                common.write_record(work / "process.log.json", {"status": "interrupted", "returncode": -2})
+                raise KeyboardInterrupt
+            with patch.object(fp, "native_command", side_effect=interrupt), self.assertRaises(KeyboardInterrupt):
+                fp.build_entry(base, "E", self.expected(), None, {})
+            with patch.object(fp, "native_command", side_effect=self.native) as native:
+                plan, _ = fp.build_entry(base, "E", self.expected(), None, {})
+            self.assertEqual(native.call_count, 2)
+            self.assertEqual(len(plan["contexts"]), 1)
+            self.assertEqual(State(base).keys("analysis-active/"), [])
 
     def test_processing_failure_is_frozen_and_replayed_even_when_processor_recovers(self):
         with tempfile.TemporaryDirectory() as tmp:

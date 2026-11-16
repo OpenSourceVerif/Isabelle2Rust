@@ -148,7 +148,8 @@ def obtain(base, key, request_identity, session, args, env, prepare, filename, p
         check = common.read_record(work / "process.log.json", {})
         if common.identity_matches(check) or active_children(work, "AFP_PLAN_REQUEST"):
             raise ValueError("Analysis child is still live")
-        if check.get("status") in {None, "running"} or "returncode" not in check:
+        if (check.get("status") in {None, "running", "interrupted", "cancelled"}
+                or check.get("returncode") in {130, -2} or "returncode" not in check):
             active = None
     if not active:
         work = full.next_attempt(root)
