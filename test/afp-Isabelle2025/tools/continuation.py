@@ -22,7 +22,7 @@ from state import State, encode
 ORCHESTRATION = {
     "test/afp-Isabelle2025/tools/" + name for name in
     ("afp.py", "fixed_plan.py", "fixed_export.py", "full.py", "full_report.py", "full_audit.py",
-     "continuation.py", "fixed_pipeline.py", "state.py")
+     "continuation.py", "fixed_pipeline.py", "state.py", "plan_recovery.py")
 }
 
 

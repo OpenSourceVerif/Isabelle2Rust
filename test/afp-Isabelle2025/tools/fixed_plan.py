@@ -219,6 +219,7 @@ def parse_selection(path, entry, session, expected, partial=False):
     if not valid_merge:
         raise ValueError("Invalid context merge record")
     contexts, unresolved = [], []
+    expected_declarations = {tuple(sorted(d.items())) for d in expected["declarations"]}
     for node in root.findall("context"):
         if set(node.attrib) != {"status"} or node.get("status") not in {"complete", "unresolved"}:
             raise ValueError("Invalid context selection status")
@@ -259,7 +260,7 @@ def parse_selection(path, entry, session, expected, partial=False):
                 or len(set(parents)) != len(parents)
                 or (len(parents) == len(dp.SETUPS) and not set(loaded) <= set(dp.SETUPS))):
             raise ValueError("Invalid fixed parent order/backend setup")
-        if any(d not in expected["declarations"] for d in declarations):
+        if any(tuple(sorted(d.items())) not in expected_declarations for d in declarations):
             raise ValueError("Foreign declaration in selected context")
         context = {"entry": entry, "session": session, "parents": parents,
                    "declarations": declarations, "entry_theories": expected["entry_theories"],

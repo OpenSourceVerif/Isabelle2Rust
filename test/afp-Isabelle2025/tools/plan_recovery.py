@@ -21,12 +21,15 @@ def singleton_requests(context, declarations, trigger, affected=None):
     scope = {"kind": "group" if affected else "context",
              "id": affected["id"] if affected else context["id"]}
     groups = []
+    # The failure inventory can contain thousands of full native exceptions.
+    # It is identical for every singleton; serialize/hash it once per scope.
+    trigger_id = digest(trigger) if declarations else None
     for d in sorted(declarations, key=dp.declaration_id):
         group = {"context": context["id"], "session": context["session"],
                  "parents": context["parents"], "entries": [d["name"]],
                  "targets": list(dp.TARGETS), "module": dp.MODULE, "options": dp.OPTIONS,
                  "kind": "singleton_fallback", "declaration": dp.declaration_id(d),
-                 "affected": scope, "trigger": digest(trigger)}
+                 "affected": scope, "trigger": trigger_id}
         group["id"] = digest({"rules": dp.RULES, "input": context["input"],
                               "entry": context["entry"], **group})
         groups.append(group)
