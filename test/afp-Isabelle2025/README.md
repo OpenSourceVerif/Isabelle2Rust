@@ -147,3 +147,40 @@ python3 tools/afp.py clean --reset export --apply
 ```
 
 重置会先使相应结果和检查点失效，再删除产物。清理拒绝活跃流水线、逃逸路径、符号链接及共享依赖目录。若需要从扫描开始全量重跑，使用新的空工作目录；不需要旧结果时可以删除旧工作目录。依赖安装、Isabelle heap 和 sibling RustLightAST 无需一起删除。
+
+
+### Explicit continuation while analysis remains live
+
+When the user explicitly defers an unfinished entry, keep its original analysis
+process and freeze a separate continuation from a consistent SQLite backup:
+
+```sh
+python3 tools/afp.py --config setup/server.local.json --work /new/work defer \
+  --from-work /original/work --entries AutoCorres2 \
+  --reason 'User requested preserving analysis and singleton fallback continuation'
+python3 tools/afp.py --config setup/server.local.json --work /new/work continue
+```
+
+Use a separate frozen source checkout for the continuation. Suspend only the
+original outer phase coordinator if it would otherwise advance into export;
+do not suspend its analysis worker or native descendants. The parent work root
+stays intact. Only sealed evidence is copied (copy-on-write where supported);
+active logs and subsequently completed analysis are never imported. The new
+SQLite database records the original input/tool identity, relocated evidence
+locators, cutoff and explicit authorization. Native analysis, classifier,
+grouping and serializer inputs must be unchanged.
+
+Existing receipts are replayed. Missing requests in authorized entries become
+explicit `user_deferred` failures, yielding the same singleton fallback rules;
+missing or damaged inherited evidence still fails validation. The plan gate
+certifies disposition completeness, not successful analysis.
+
+The continuation uses bounded queues across the already frozen requests. Each
+closed six-target request with a successful Rust artifact may immediately enter
+stage-one compilation, optimization and stage-two compilation. Export and
+compilation progress stay in the same SQLite database; completed requests and
+compiler results are reused after interruption. Unknown failures are attempted
+once per invocation and remain resumable. No failed request is split, regrouped
+or retuned. The final export gate, audit and completion declaration remain
+strict: unresolved requests produce an explicitly incomplete report even when
+other requests have finished both Rust stages.

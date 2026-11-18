@@ -301,6 +301,12 @@ def audit_data(base, data, result, exports):
             item = record.get("full_compile", {}).get(manifest, {})
             need(item.get("complete"), "every Rust crate processed", entry=entry, manifest=manifest)
             optimum = item.get("optimization", {})
+            try:
+                first_manifest = full.compilation_source(item, manifest)
+            except (ValueError, OSError, KeyError) as error:
+                need(False, "compilation copy matches sealed export", entry=entry,
+                     manifest=manifest, error=str(error))
+                first_manifest = Path("__invalid__")
             for phase in ("stage1_compile", "stage2_compile"):
                 value = item.get(phase, {})
                 if phase == "stage2_compile" and optimum.get("status") != "passed":
@@ -317,7 +323,7 @@ def audit_data(base, data, result, exports):
                          "compiler resource failures resolved", entry=entry, manifest=manifest, stage=phase)
                 build_checks = [c for c in value.get("checks", []) if "build" in c.get("command", [])]
                 need(bool(build_checks), "actual Cargo build invoked", entry=entry, manifest=manifest, stage=phase)
-                expected_manifest = (common.resolve_path(manifest) if phase == "stage1_compile" else
+                expected_manifest = (first_manifest if phase == "stage1_compile" else
                                      common.resolve_path(item.get("stage2", "__missing__")) / "Cargo.toml")
                 for check in build_checks:
                     command = check.get("command", [])

@@ -95,7 +95,7 @@ def scope_digest(scope):
 
 def inputs(base):
     """Bind checkpoints to current committed inputs/results, not audit metadata."""
-    return {"state": State(base).signature(("run", "receipt/", "entry/", "units/", "exports/", "compilation/", "analysis-", "plan/"))}
+    return {"state": State(base).signature(("run", "receipt/", "entry/", "units/", "exports/", "compilation/", "analysis-", "plan/", "continuation-", "compile-group/"))}
 
 
 def load(base):
@@ -120,9 +120,12 @@ def entry_compiled(record, scope, serializer):
     compiled = {phase: set() for phase in ("stage1_compile", "stage2_compile")}
     stage = record.get("full_export", {})
     if (stage.get("serializer_sha256") != serializer or stage.get("scope_sha256") != scope_digest(scope)
-            or stage.get("scan_sha256") != entry_scan_signature(record) or stage.get("status") != "complete"):
+            or stage.get("scan_sha256") != entry_scan_signature(record)
+            or (stage.get("mode") != "fixed-plan-v2" and stage.get("status") != "complete")):
         return compiled
     for run in stage.get("runs", []):
+        if stage.get("mode") == "fixed-plan-v2" and not run.get("closed"):
+            continue
         for attempt in run["attempts"]:
             if attempt.get("target") != "Rust" or attempt["status"] != "passed":
                 continue
@@ -864,6 +867,10 @@ def compile_checkpoint(base, result):
         for manifest in manifests:
             count += 1
             item = compiled.get(manifest, {})
+            try:
+                compilation_source(item, manifest)
+            except (ValueError, OSError, KeyError) as error:
+                problems.append({"entry": entry, "manifest": manifest, "reason": str(error)})
             if not item.get("complete") or not crate_complete(item):
                 problems.append({"entry": entry, "manifest": manifest, "reason": "incomplete crate"})
     gate = {"phase": "compile", "passed": not problems, "checked": common.timestamp(),
@@ -882,11 +889,48 @@ def completed_command(argv, log, args, env):
     return common.command(argv, log, args, env)
 
 
+def compilation_source(item, manifest, create=False):
+    """Keep Cargo lockfile/build writes away from sealed native export bytes."""
+    source = common.resolve_path(manifest)
+    if not item.get("stage1_source") and not create:
+        return source
+    logs = common.resolve_path(item["directory"])
+    work = logs / "stage1-source"
+    if work.is_relative_to(source.parent) or source.parent.is_relative_to(work):
+        raise ValueError("Compilation copy must be separate from its exported source")
+    inventory = {str(p.relative_to(source.parent)): file_digest(p)
+                 for p in sorted(source.parent.rglob("*")) if p.is_file()}
+    if not inventory or "Cargo.toml" not in inventory:
+        raise ValueError("Missing original Rust crate")
+    if not item.get("stage1_source"):
+        # A driver may have died mid-copy before publishing the item. Complete
+        # only this owned copy; never touch the original export.
+        work.mkdir(parents=True, exist_ok=True)
+        for name in inventory:
+            path = work / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source.parent / name, path)
+        item.update(stage1_source=common.relative(work), stage1_inputs=inventory)
+    if (common.resolve_path(item["stage1_source"]) != work
+            or item.get("stage1_inputs") != inventory):
+        raise ValueError("Compilation source identity changed")
+    actual = {str(p.relative_to(work)): file_digest(p) for p in sorted(work.rglob("*")) if p.is_file()}
+    # ensure-cargo-lock.py adds the pinned lockfile to the working copy. All
+    # original source bytes, and the absence of other injected files, are bound.
+    if (any(actual.get(name) != checksum for name, checksum in inventory.items())
+            or set(actual) - set(inventory) - {"Cargo.lock"}):
+        raise ValueError("Compilation working source differs from sealed export")
+    if item.get("stage1_lock_sha256") and actual.get("Cargo.lock") != item["stage1_lock_sha256"]:
+        raise ValueError("Compilation lockfile evidence changed")
+    return work / source.name
+
+
 def compile_entry(entry, record, base, args, env, optimizer, checkpoint=None):
     compiled = record.setdefault("full_compile", {})
     for manifest in rust_manifests(record):
         item = compiled.get(manifest, {})
         if item.get("complete") and crate_complete(item):
+            compilation_source(item, manifest)
             continue
         source = common.resolve_path(manifest)
         key = digest(manifest.encode())[:20]
@@ -899,8 +943,13 @@ def compile_entry(entry, record, base, args, env, optimizer, checkpoint=None):
         def persist():
             if checkpoint:
                 checkpoint()
+        if record.get("full_export", {}).get("mode") == "fixed-plan-v2":
+            source = compilation_source(item, manifest, create=True)
+            persist()
         if not compile_phase_complete(item.get("stage1_compile", {})):
             item["stage1_compile"] = compile_crates([source], "stage1", args, env, logs)
+            if item.get("stage1_source") and (source.parent / "Cargo.lock").is_file():
+                item["stage1_lock_sha256"] = file_digest(source.parent / "Cargo.lock")
             persist()
         if item.get("optimization", {}).get("status") not in TERMINAL:
             command = ["sh", str(common.resolve_path("scripts/with-stack.sh")), "65536", str(optimizer),

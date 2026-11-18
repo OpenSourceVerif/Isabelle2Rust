@@ -86,6 +86,11 @@ def main(argv=None):
     for name in ("plan", "export", "compile"):
         p = sub.add_parser(name)
         p.add_argument("--entries", nargs="+")
+    p = sub.add_parser("defer")
+    p.add_argument("--from-work", type=Path, required=True)
+    p.add_argument("--entries", nargs="+", required=True)
+    p.add_argument("--reason", required=True)
+    sub.add_parser("continue")
     p = sub.add_parser("audit")
     p.add_argument("--with-report", action="store_true")
     p = sub.add_parser("clean")
@@ -100,6 +105,12 @@ def main(argv=None):
     from clean import validate_root
     base = validate_root(selected)
     runtime = runtime_arguments(config)
+    if args.phase == "defer":
+        return call(common.HERE / "continuation.py", ["--from-work", str(args.from_work),
+                    "--output-dir", str(base), "--defer-entries", *args.entries,
+                    "--reason", args.reason], config_path)
+    if args.phase == "continue":
+        return call(common.HERE / "fixed_pipeline.py", ["--output-dir", str(base), *runtime], config_path)
     if args.phase == "run":
         # Each boundary is durable and checked before the next stage. Repeating
         # this command resumes the same work root and stops at the first failure.

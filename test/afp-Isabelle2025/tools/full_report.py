@@ -293,6 +293,11 @@ def build_report(base, data, result, exports, verified=False):
     report.mkdir(parents=True, exist_ok=True)
     status = "完成审计已通过" if verified else "实验进行中；本报告不是最终交付"
     header = status + "。数据时间：" + result.get("updated", "未完成扫描") + "。\n\n"
+    continuation = State(base).get("continuation-policy")
+    if continuation:
+        header += ("????????????" + ", ".join(continuation["deferred_entries"]) +
+                   "???????????????????? Rust ??????????"
+                   "??????????????????????\n\n")
     entries = []
     for entry in data["order"]:
         record = result["entries"][entry]
@@ -399,6 +404,8 @@ def build_report(base, data, result, exports, verified=False):
                "missing_full_messages": missing, "performance": timings,
                "input_sha256": full.inputs(base)}
 
+    if continuation:
+        summary["continuation"] = continuation
     common.write_json(report / "summary.json", summary)
     error_rows = [{"phase": p, "category": c, "target": t, "status": status, "events": count}
                   for (p, c, t, status), count in sorted(errors.items())]

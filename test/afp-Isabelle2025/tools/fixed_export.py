@@ -102,69 +102,83 @@ def check_run(base, run, context, group, require_complete=False):
     return bool(complete)
 
 
-def execute(base, plan, record, scope, args, env, checkpoint=None):
+def execute_group(base, plan_id, context, group, args, env):
+    """Execute exactly one frozen request, with its own transactional progress."""
     import full
     from scan_frozen import active_children
+    state = State(base)
+    gid, entry = group["id"], context["entry"]
+    key = "fixed-progress/" + entry + "/" + gid
+    saved = state.get(key, {})
+    if saved and saved.get("plan_id") != plan_id:
+        raise ValueError("Stale formal group progress")
+    run = saved.get("run")
+    if run and check_run(base, run, context, group):
+        return run
+    work = None
+    if saved.get("active"):
+        work = Store(base).path(saved["active"])
+        if work.parent != Path(base) / "exports" / entry / gid:
+            raise ValueError("Foreign active formal request")
+        if file_digest(work / "request.xml") != saved["request_sha256"]:
+            raise ValueError("Interrupted formal request changed")
+        check = common.read_record(work / "process.log.json", {})
+        if common.identity_matches(check) or active_children(work, "AFP_PLAN_REQUEST"):
+            raise ValueError("Formal group child is still live")
+        if (check.get("status") in {None, "running", "interrupted", "cancelled"}
+                or check.get("returncode") in {130, -2} or "returncode" not in check):
+            work = None
+    if work is None:
+        work = full.next_attempt(Path(base) / "exports" / entry / gid)
+        fixed_plan.write_request(work, "export", context, group=group)
+        state.put(key, {"plan_id": plan_id, "active": str(work.relative_to(base)),
+                        "request_sha256": file_digest(work / "request.xml")})
+        check = fixed_plan.run_native(group["session"], work, args, env, "fixed_export.ML")
+    if check.get("status") in {"interrupted", "cancelled"} or check.get("returncode") in {130, -2}:
+        raise KeyboardInterrupt
+    attempts, _, receipt_error = native_view(work)
+    run = {"group": gid, "context": context["id"], "session": group["session"],
+           "directory": common.relative(work), "scope": group["entries"], "command": check,
+           "finished": (work / "finished.xml").is_file(), "attempts": attempts, "receipt_error": receipt_error}
+    run["evidence"] = seal(base, run)
+    run["closed"] = check_run(base, run, context, group)
+    state.put(key, {"plan_id": plan_id, "run": run})
+    # Keep earlier attempts until the entry has published the replacement.
+    return run
+
+
+def stage_for(plan, record, scope):
+    import full
+    return {"mode": "fixed-plan-v2", "plan_id": plan["id"],
+            "scope_sha256": full.scope_digest(scope), "scan_sha256": full.entry_scan_signature(record),
+            "serializer_sha256": full.serializer_signature(), "plan": plan, "runs": []}
+
+
+def seed_progress(base, plan, record):
     state = State(base)
     previous = record.get("full_export", {})
     if previous and (previous.get("mode") != "fixed-plan-v2" or previous.get("plan_id") != plan["id"]):
         raise ValueError("Existing dynamic/stale exports require a new work root")
-    stage = {"mode": "fixed-plan-v2", "plan_id": plan["id"],
-             "scope_sha256": full.scope_digest(scope), "scan_sha256": full.entry_scan_signature(record),
-             "serializer_sha256": full.serializer_signature(), "plan": plan, "runs": []}
-    old_runs = {r["group"]: r for r in previous.get("runs", [])}
-    for gid, old in old_runs.items():
-        key = "fixed-progress/" + plan["entry"] + "/" + gid
+    for old in previous.get("runs", []):
+        key = "fixed-progress/" + plan["entry"] + "/" + old["group"]
         if not state.get(key):
             state.put(key, {"plan_id": plan["id"], "run": old})
+
+
+def execute(base, plan, record, scope, args, env, checkpoint=None):
+    state = State(base)
+    seed_progress(base, plan, record)
+    stage = stage_for(plan, record, scope)
     for gid, (context, group) in sorted(groups(plan).items()):
-        key = "fixed-progress/" + plan["entry"] + "/" + gid
-        saved = state.get(key, {})
-        if saved and saved.get("plan_id") != plan["id"]:
-            raise ValueError("Stale formal group progress")
-        run = saved.get("run") or old_runs.get(gid)
-        if run and check_run(base, run, context, group):
-            stage["runs"].append(run)
-            continue
-        work = None
-        if saved.get("active"):
-            work = Store(base).path(saved["active"])
-            if work.parent != Path(base) / "exports" / plan["entry"] / gid:
-                raise ValueError("Foreign active formal request")
-            if file_digest(work / "request.xml") != saved["request_sha256"]:
-                raise ValueError("Interrupted formal request changed")
-            check = common.read_record(work / "process.log.json", {})
-            if common.identity_matches(check) or active_children(work, "AFP_PLAN_REQUEST"):
-                raise ValueError("Formal group child is still live")
-            if (check.get("status") in {None, "running", "interrupted", "cancelled"}
-                    or check.get("returncode") in {130, -2} or "returncode" not in check):
-                work = None
-        if work is None:
-            work = full.next_attempt(Path(base) / "exports" / plan["entry"] / gid)
-            fixed_plan.write_request(work, "export", context, group=group)
-            state.put(key, {"plan_id": plan["id"], "active": str(work.relative_to(base)),
-                            "request_sha256": file_digest(work / "request.xml")})
-            check = fixed_plan.run_native(group["session"], work, args, env, "fixed_export.ML")
-        if check.get("status") in {"interrupted", "cancelled"} or check.get("returncode") in {130, -2}:
-            raise KeyboardInterrupt
-        attempts, _, receipt_error = native_view(work)
-        run = {"group": gid, "context": context["id"], "session": group["session"],
-               "directory": common.relative(work), "scope": group["entries"], "command": check,
-               "finished": (work / "finished.xml").is_file(), "attempts": attempts, "receipt_error": receipt_error}
-        run["evidence"] = seal(base, run)
-        run["closed"] = check_run(base, run, context, group)
-        state.put(key, {"plan_id": plan["id"], "run": run})
+        previous = state.get("fixed-progress/" + plan["entry"] + "/" + gid, {}).get("run")
+        run = execute_group(base, plan["id"], context, group, args, env)
         stage["runs"].append(run)
-        # Commit resumable results before deleting any obsolete attempt.
-        record.pop("full_compile", None)
-        record["full_export"] = stage
-        finish(stage)
-        if checkpoint:
-            checkpoint()
-        keep = {common.resolve_path(r["directory"]) for r in stage["runs"] + previous.get("runs", [])}
-        for attempt in work.parent.glob("attempt-*"):
-            if attempt.resolve() not in keep:
-                state.remove_tree(attempt)
+        if run != previous:
+            record.pop("full_compile", None)
+            record["full_export"] = stage
+            finish(stage)
+            if checkpoint:
+                checkpoint()
     record["full_export"] = stage
     finish(stage)
     if checkpoint:

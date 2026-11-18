@@ -30,8 +30,9 @@ def identity(base, entry, info, record, scope):
                                   "support": sorted(v.get("support", {}).values())}
                              for k, v in sources.get("conditions", {}).items()}}
     from scan_frozen import tools_identity
+    from continuation import analysis_tools
     return {"rules": dp.RULES, "entry": entry, "source": digest(source),
-            "tools": digest(sorted(tools_identity().values())),
+            "tools": digest(sorted(analysis_tools(base, tools_identity()).values())),
             "declarations": declaration_rows(info, scope),
             "sessions": sorted(maximal_sessions(info, record["scan"])),
             "theories": sorted(t["name"] for t in info["theories"]
@@ -295,9 +296,11 @@ def parse_response(path, context):
     return {"failure": frontend_rejection.native_failure(root)}
 
 
-def build_entry(base, entry, expected, args=None, env=None, replay=False):
+def build_entry(base, entry, expected, args=None, env=None, replay=False, defer_missing=False):
     state = State(base)
     contexts, unresolved, evidence = [], [], {}
+    from continuation import policy
+    authorization = policy(base)
 
     def request(key, inputs, session, prepare, filename, parse):
         if replay:
@@ -359,6 +362,12 @@ def build_entry(base, entry, expected, args=None, env=None, replay=False):
                 key = analysis_key(context)
                 if roots != context["declarations"]:
                     key += "/" + digest(roots)
+                from continuation import deferred_request
+                deferred = deferred_request(base, entry, key, subset, create=defer_missing,
+                                            authorization=authorization)
+                if deferred:
+                    evidence[deferred["evidence"]] = deferred["seal"]
+                    return {"evidence": deferred["evidence"], "failure": deferred["failure"]}
                 try:
                     value, receipt = request(key, subset, session,
                         lambda work: write_request(work, "analyze", context, roots),

@@ -61,7 +61,13 @@ class State:
 
     def keys(self, prefix=""):
         with self.connect() as db:
-            return [r[0] for r in db.execute("SELECT key FROM records ORDER BY key") if r[0].startswith(prefix)]
+            if not prefix:
+                return [r[0] for r in db.execute("SELECT key FROM records ORDER BY key")]
+            # Binary prefix range uses the primary-key index even for literal
+            # SQL/glob metacharacters. Large runs need not scan every record.
+            return [r[0] for r in db.execute(
+                "SELECT key FROM records WHERE key>=? AND key<? ORDER BY key",
+                (prefix, prefix + chr(0x10ffff)))]
 
     def signature(self, prefixes):
         checksum = hashlib.sha256()
