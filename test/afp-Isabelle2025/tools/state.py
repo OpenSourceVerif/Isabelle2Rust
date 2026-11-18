@@ -31,7 +31,10 @@ class State:
         self.base.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
             db.execute("CREATE TABLE IF NOT EXISTS records (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-            db.execute("PRAGMA user_version=1")
+            # Setting even the same user_version commits a write and fsync.
+            # Readers create State objects frequently during evidence replay.
+            if db.execute("PRAGMA user_version").fetchone()[0] != 1:
+                db.execute("PRAGMA user_version=1")
 
     @contextmanager
     def connect(self):

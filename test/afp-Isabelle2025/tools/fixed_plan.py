@@ -436,13 +436,16 @@ def recheck_entry(base, entry, info, record, scope):
 
 def checkpoint(base, data, result, exports, publish=True):
     problems, plans, seals = [], {}, {}
-    for entry in sorted(data["order"]):
+    ordered = sorted(data["order"])
+    for index, entry in enumerate(ordered, 1):
         try:
             plan, seal = recheck_entry(base, entry, data["entries"][entry],
                                        result["entries"][entry], exports[entry])
             plans[entry], seals[entry] = plan["id"], seal
         except (ValueError, OSError, KeyError, TypeError, ET.ParseError) as error:
             problems.append({"entry": entry, "reason": str(error)})
+        if len(ordered) > 25 and (index % 25 == 0 or index == len(ordered)):
+            print("[plan validation] " + str(index) + "/" + str(len(ordered)), flush=True)
     gate = {"phase": "plan", "rules": dp.RULES, "meaning": "disposition_inventory_valid", "passed": not problems,
             "plans": plans, "evidence": seals, "problems": problems}
     gate["signature"] = digest(gate)

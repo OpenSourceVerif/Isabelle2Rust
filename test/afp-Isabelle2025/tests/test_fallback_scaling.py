@@ -1,16 +1,29 @@
 """Guard large fallback scopes against repeated whole-inventory work."""
 import _paths
 import copy
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
 import dependency_plan as dp
 import plan_recovery as recovery
 from scan_store import digest
+from state import State
 import test_plan_selection_receipts as selection_fixture
 
 
 class FallbackScalingTests(unittest.TestCase):
+    def test_reopening_state_for_read_does_not_write_sqlite_header(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            state = State(base)
+            state.put("receipt", {"sealed": True})
+            header = (base / "state.sqlite3").read_bytes()[:100]
+            for _ in range(20):
+                self.assertEqual(State(base).get("receipt"), {"sealed": True})
+            self.assertEqual((base / "state.sqlite3").read_bytes()[:100], header)
+
     def test_failure_inventory_is_hashed_once_for_all_frozen_singletons(self):
         context = {"id": "context", "entry": "E", "input": "frozen", "session": "E",
                    "parents": ["E.Main", *dp.SETUPS]}
