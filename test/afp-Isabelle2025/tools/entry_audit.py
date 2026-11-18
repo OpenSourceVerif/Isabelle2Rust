@@ -123,7 +123,10 @@ def command_evidence(base, item):
     for check in commands:
         path = common.resolve_path(check["log"])
         receipt = common.read_record(path.with_suffix(path.suffix + ".json"))
-        if (receipt != check or check.get("status") not in full.TERMINAL
+        if not receipt or any(receipt.get(field) != check.get(field)
+                              for field in ("command", "log", "status", "returncode")):
+            raise ValueError("Compilation command receipt changed: " + str(path))
+        if (check.get("status") not in full.TERMINAL
                 or not isinstance(check.get("returncode"), int)
                 or (check["status"] == "passed") != (check["returncode"] == 0)
                 or check["returncode"] < 0 or check["returncode"] in {130, 137, 143}
