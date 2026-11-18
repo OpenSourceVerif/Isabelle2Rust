@@ -295,11 +295,11 @@ def completed_receipt(store, attempt, unit, run, built, inspected):
             "evidence": evidence}
 
 
-def aggregate(store, data, units, metadata):
+def aggregate(store, data, units, metadata, entries=None):
     """Read committed facts only; summaries cannot manufacture completed work."""
-    exports = {entry: {} for entry in data["order"]}
+    exports = {entry: {} for entry in (data["order"] if entries is None else entries)}
     result = {"schema_version": 2, "environment": metadata, "entries": {}}
-    for entry in data["order"]:
+    for entry in exports:
         info = data["entries"][entry]
         receipts = [store.read(units[session]) for session in info["sessions"]]
         loading, inspections, paths, contexts = [], [], set(), {}

@@ -97,6 +97,11 @@ def check_run(base, run, context, group, require_complete=False):
                 and check.get("status") == "passed" and check.get("returncode") == 0
                 and not any(full.infrastructure(ET.parse(common.resolve_path(a["evidence"])).
                             getroot().findtext("error", "")) for a in attempts if a["status"] == "failed"))
+    if "scan_theory" in context:
+        complete = complete and all(
+            a["error"].strip() if a["status"] == "failed" else
+            all(common.resolve_path(path).is_file() for path in a["files"])
+            for a in attempts)
     if require_complete and not complete:
         raise ValueError("Unresolved formal group: " + group["id"])
     return bool(complete)
@@ -110,6 +115,7 @@ def execute_group(base, plan_id, context, group, args, env):
     gid, entry = group["id"], context["entry"]
     key = "fixed-progress/" + entry + "/" + gid
     saved = state.get(key, {})
+    interrupted_codes = {130, -2, 143, -15} if "scan_theory" in context else {130, -2}
     if saved and saved.get("plan_id") != plan_id:
         raise ValueError("Stale formal group progress")
     run = saved.get("run")
@@ -126,7 +132,7 @@ def execute_group(base, plan_id, context, group, args, env):
         if common.identity_matches(check) or active_children(work, "AFP_PLAN_REQUEST"):
             raise ValueError("Formal group child is still live")
         if (check.get("status") in {None, "running", "interrupted", "cancelled"}
-                or check.get("returncode") in {130, -2} or "returncode" not in check):
+                or check.get("returncode") in interrupted_codes or "returncode" not in check):
             work = None
     if work is None:
         work = full.next_attempt(Path(base) / "exports" / entry / gid)
@@ -134,7 +140,7 @@ def execute_group(base, plan_id, context, group, args, env):
         state.put(key, {"plan_id": plan_id, "active": str(work.relative_to(base)),
                         "request_sha256": file_digest(work / "request.xml")})
         check = fixed_plan.run_native(group["session"], work, args, env, "fixed_export.ML")
-    if check.get("status") in {"interrupted", "cancelled"} or check.get("returncode") in {130, -2}:
+    if check.get("status") in {"interrupted", "cancelled"} or check.get("returncode") in interrupted_codes:
         raise KeyboardInterrupt
     attempts, _, receipt_error = native_view(work)
     run = {"group": gid, "context": context["id"], "session": group["session"],
@@ -149,7 +155,7 @@ def execute_group(base, plan_id, context, group, args, env):
 
 def stage_for(plan, record, scope):
     import full
-    return {"mode": "fixed-plan-v2", "plan_id": plan["id"],
+    return {"mode": plan.get("input", {}).get("mode", "fixed-plan-v2"), "plan_id": plan["id"],
             "scope_sha256": full.scope_digest(scope), "scan_sha256": full.entry_scan_signature(record),
             "serializer_sha256": full.serializer_signature(), "plan": plan, "runs": []}
 
@@ -157,7 +163,8 @@ def stage_for(plan, record, scope):
 def seed_progress(base, plan, record):
     state = State(base)
     previous = record.get("full_export", {})
-    if previous and (previous.get("mode") != "fixed-plan-v2" or previous.get("plan_id") != plan["id"]):
+    if previous and (previous.get("mode") != plan.get("input", {}).get("mode", "fixed-plan-v2")
+                     or previous.get("plan_id") != plan["id"]):
         raise ValueError("Existing dynamic/stale exports require a new work root")
     for old in previous.get("runs", []):
         key = "fixed-progress/" + plan["entry"] + "/" + old["group"]
@@ -200,7 +207,8 @@ def outcomes(stage):
             key = ctx["context"]["id"] + "/" + row["id"]
             result[key] = {"declaration": row, "targets": {
                 t: {"status": row["status"] if row["status"] in {"excluded", "ineligible", "frontend_rejected"} else "blocked",
-                    "evidence": [], "coverage": []} for t in dp.TARGETS}}
+                    "evidence": [row["receipt_xml"]] if row.get("receipt_xml") else [],
+                    "coverage": []} for t in dp.TARGETS}}
         for group in ctx["groups"]:
             run = run_by_group.get(group["id"], {})
             attempts = {a["target"]: a for a in run.get("attempts", [])}
@@ -230,7 +238,7 @@ def outcomes(stage):
     return result, group_results
 
 
-def finish(stage):
+def finish(stage, inventory=True):
     import full
     declarations, group_results = outcomes(stage)
     stage["declarations"], stage["groups"] = declarations, group_results
@@ -251,20 +259,36 @@ def finish(stage):
         "passed" if all(g[t]["status"] == "passed" for g in group_results.values()) else
         "failed" if all(g[t]["status"] == "failed" for g in group_results.values()) else "partial")
         for t in dp.TARGETS}
+    if stage.get("mode") == dp.ENTRY_PIPELINE:
+        scan_statuses = set(stage["plan"]["input"]["scan_statuses"].values())
+        for target in dp.TARGETS:
+            statuses = {v["targets"][target]["status"] for v in declarations.values()}
+            if "blocked" in statuses or stage["languages"][target] == "blocked":
+                stage["languages"][target] = "blocked"
+            elif "passed" in statuses:
+                stage["languages"][target] = "passed" if statuses == {"passed"} and scan_statuses == {"complete"} else "partial"
+            elif statuses & {"failed", "group_failed", "frontend_rejected"}:
+                stage["languages"][target] = "failed"
+            elif scan_statuses - {"complete"}:
+                stage["languages"][target] = "scan_incomplete"
+            elif statuses:
+                stage["languages"][target] = "excluded"
     stage["status"] = ("complete" if set(group_results) == {r["group"] for r in stage["runs"]}
         and not stage["plan"].get("unresolved_contexts")
         and all(r.get("closed") for r in stage["runs"])
         and all(g[t]["status"] in full.TERMINAL for g in group_results.values() for t in dp.TARGETS)
         else "blocked")
-    stage["artifacts"] = [{"path": p, "sha256": file_digest(common.resolve_path(p)),
-                          "bytes": common.resolve_path(p).stat().st_size}
-                         for p in sorted({p for r in stage["runs"] for a in r["attempts"]
-                                          if a["status"] == "passed" for p in a["files"]})]
+    if inventory:
+        stage["artifacts"] = [{"path": p, "sha256": file_digest(common.resolve_path(p)),
+                              "bytes": common.resolve_path(p).stat().st_size}
+                             for p in sorted({p for r in stage["runs"] for a in r["attempts"]
+                                              if a["status"] == "passed" for p in a["files"]})]
     stage["finished"] = common.timestamp()
 
 
 def validate_stage(base, plan, stage):
-    if stage.get("mode") != "fixed-plan-v2" or stage.get("plan_id") != plan["id"] or stage.get("plan") != plan:
+    if (stage.get("mode") != plan.get("input", {}).get("mode", "fixed-plan-v2")
+            or stage.get("plan_id") != plan["id"] or stage.get("plan") != plan):
         raise ValueError("Formal results use a different plan")
     expected = groups(plan)
     if sorted(expected) != sorted(r["group"] for r in stage.get("runs", [])):

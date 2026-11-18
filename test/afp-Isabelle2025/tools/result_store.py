@@ -4,6 +4,7 @@ import copy
 from pathlib import Path
 
 import afp_common as common
+from dependency_plan import ENTRY_PIPELINE, FIXED_MODES
 from state import State
 
 
@@ -13,6 +14,7 @@ class EntryStore(MutableMapping):
         self.state = State(base)
         self.scans, self.scopes = scans, scopes
         self.cache_key = self.cache_record = None
+        self.invalid = set()
 
     def __len__(self):
         return len(self.scans)
@@ -48,17 +50,19 @@ class EntryStore(MutableMapping):
     def __getitem__(self, key):
         if key not in self.scans:
             raise KeyError(key)
+        if key in self.invalid:
+            return self.scans[key]
         if key != self.cache_key:
             record = dict(copy.deepcopy(self.scans[key]), **self._unpack(self.state.get("entry/" + key, {})))
             stage = record.get("full_export")
-            if stage and stage.get("mode") == "fixed-plan-v2":
+            if stage and stage.get("mode") in FIXED_MODES:
                 stage["plan"] = self.state.get("plan/" + key)
                 if not stage["plan"] or stage["plan"]["id"] != stage.get("plan_id"):
                     raise ValueError("Formal result has no current plan")
-            if stage and (stage.get("runs") or stage.get("mode") == "fixed-plan-v2"):
+            if stage and (stage.get("runs") or stage.get("mode") in FIXED_MODES):
                 import full
                 for run in stage["runs"]:
-                    if stage.get("mode") == "fixed-plan-v2":
+                    if stage.get("mode") in FIXED_MODES:
                         from fixed_export import native_view
                         run["attempts"], _, _ = native_view(common.resolve_path(run["directory"]))
                     else:
@@ -67,7 +71,11 @@ class EntryStore(MutableMapping):
                 # persisted catalogue that could disagree with those XML bytes.
                 finished = stage.get("finished")
                 artifacts = stage.get("artifacts", [])
-                full.finish_export(stage, common.candidates(self.scopes[key]))
+                if stage.get("mode") == ENTRY_PIPELINE:
+                    from fixed_export import finish
+                    finish(stage, inventory=False)
+                else:
+                    full.finish_export(stage, common.candidates(self.scopes[key]))
                 stage["finished"] = finished
                 stage["artifacts"] = artifacts
             self.cache_key, self.cache_record = key, record
@@ -81,18 +89,18 @@ class EntryStore(MutableMapping):
     def __delitem__(self, key):
         raise TypeError("The AFP entry set is fixed by the manifest")
 
-    def commit(self, key, compiled=None):
+    def commit(self, key, compiled=None, *, extra=None, remove=()):
         record = self[key]
         payload = {k: copy.deepcopy(v) for k, v in record.items()
                    if k in {"full_export", "full_compile"}}
         stage = payload.get("full_export", {})
         for name in ("candidates", "languages", "plan", "declarations", "groups"):
-            if stage.get("runs") or stage.get("mode") == "fixed-plan-v2":
+            if stage.get("runs") or stage.get("mode") in FIXED_MODES:
                 stage.pop(name, None)
         for run in stage.get("runs", []):
             run.pop("attempts", None)
-        self.state.update({"entry/" + key: self._pack(payload)},
-                          remove=["export-progress/" + key + ".json"])
+        self.state.update({"entry/" + key: self._pack(payload), **(extra or {})},
+                          remove=["export-progress/" + key + ".json", *remove])
         self.retire(key, record)
 
     def retire(self, key, record):

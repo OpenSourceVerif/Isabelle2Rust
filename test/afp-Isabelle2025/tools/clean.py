@@ -74,8 +74,10 @@ def clean(base, reset=None, apply=False):
                     record.pop("full_export", None)
                 replacements[key] = record
             remove = ["audit.json", "audit-preview.json", "compile-checkpoint.json"]
+            remove += [*state.keys("published/"), *state.keys("compile-group/"), *state.keys("checkpoint/compile/")]
             if reset == "export":
-                remove += ["export-checkpoint.json", *state.keys("export-progress/")]
+                remove += ["export-checkpoint.json", *state.keys("export-progress/"),
+                           *state.keys("fixed-progress/"), *state.keys("checkpoint/export/")]
             state.update(replacements, remove)
         for path in paths:
             state.remove_tree(path)

@@ -24,6 +24,7 @@
     "build_jobs": 1,
     "threads": 1,
     "parallel_proofs": 0,
+    "plan_workers": 2,
     "export_workers": 1,
     "compile_workers": 1,
     "cargo_jobs": 1

@@ -11,6 +11,8 @@ import xml.etree.ElementTree as ET
 from scan_store import digest
 
 RULES = "afp-structural-v2"
+ENTRY_PIPELINE = "fixed-plan-v3"
+FIXED_MODES = {"fixed-plan-v2", ENTRY_PIPELINE}
 SCHEMA = 2
 TARGETS = ("Rust", "SML", "OCaml", "Haskell", "Scala", "Go")
 SETUPS = ("Rust.Rust_BigInt_Setup", "Go.Go_Setup")
@@ -272,11 +274,38 @@ def assemble(entry, identity, contexts, unresolved_contexts=()):
     return dict(payload, id=digest(payload))
 
 
+def scanned_contexts(expected):
+    input_id = digest(expected)
+    for branch in expected["branches"]:
+        theory = branch["theory"]
+        context = {"entry": expected["entry"], "session": branch["session"],
+                   "parents": ([] if theory in SETUPS else [theory]) + list(SETUPS),
+                   "declarations": branch["declarations"], "entry_theories": expected["entry_theories"],
+                   "input": input_id, "scan_theory": theory}
+        yield dict(context, id=digest(context))
+
+
 def verify_plan(plan, expected):
     """Recomputed from sealed native bytes, never trusted cached coverage."""
     if plan != expected:
         raise ValueError("Stale or altered fixed dependency plan")
+    direct = plan["input"].get("mode") == ENTRY_PIPELINE
+    if direct:
+        inventory = {ctx["id"]: ctx for ctx in scanned_contexts(plan["input"])}
+        actual = {item["context"]["id"]: item["context"] for item in plan["contexts"]}
+        if (actual != inventory or len(actual) != len(plan["contexts"])
+                or plan["unresolved_contexts"]
+                or digest({key: value for key, value in plan.items() if key != "id"}) != plan["id"]):
+            raise ValueError("Plan differs from scanned branch inventory")
     for ctx in plan["contexts"]:
+        context = ctx["context"]
+        if direct and (sorted(d["id"] for d in ctx["classifications"]) !=
+                       sorted(declaration_id(d) for d in context["declarations"])
+                       or any(d["context"] != context["id"] or d["id"] != declaration_id(d)
+                              or d["status"] not in {"retained", "excluded", "ineligible",
+                                                     "frontend_rejected", "singleton_fallback"}
+                              for d in ctx["classifications"])):
+            raise ValueError("Plan disposition inventory differs from scanned branch")
         retained = {d["id"] for d in ctx["classifications"] if d["status"] == "retained"}
         for t in TARGETS:
             covered = {c for g in ctx["groups"] for c in g.get("coverage", {}).get(t, {}).get("covered", [])}
@@ -286,6 +315,24 @@ def verify_plan(plan, expected):
         requested = [g["declaration"] for g in ctx["groups"] if g.get("kind") == "singleton_fallback"]
         if sorted(fallback) != sorted(requested):
             raise ValueError("Fallback requests do not cover exact declaration identities")
+        if direct:
+            by_id = {row["id"]: row for row in ctx["classifications"]}
+            trigger = digest(ctx["analysis_failures"]) if fallback else None
+            if len({group["id"] for group in ctx["groups"]}) != len(ctx["groups"]):
+                raise ValueError("Duplicate branch export request")
+            for group in ctx["groups"]:
+                if (group["context"] != context["id"] or group["parents"] != context["parents"]
+                        or group["session"] != context["session"] or group["targets"] != list(TARGETS)
+                        or group["module"] != MODULE or group["options"] != OPTIONS
+                        or digest({"rules": RULES, "input": context["input"], "entry": context["entry"],
+                                   **{key: value for key, value in group.items() if key != "id"}}) != group["id"]):
+                    raise ValueError("Export group differs from frozen branch request")
+                if group.get("kind") == "singleton_fallback":
+                    if (group["entries"] != [by_id[group["declaration"]]["name"]]
+                            or group.get("coverage")
+                            or group["affected"] != {"kind": "context", "id": context["id"]}
+                            or group["trigger"] != trigger):
+                        raise ValueError("Fallback request differs from scanned declaration")
     original = {declaration_id(d) for d in plan["input"].get("declarations", [])}
     disposed = {d["id"] for ctx in plan["contexts"] for d in ctx["classifications"]}
     disposed.update(declaration_id(d) for u in plan.get("unresolved_contexts", []) for d in u["declarations"])
@@ -310,7 +357,8 @@ def statistics(plan):
             # A recursive coverage projection may mention one declaration from
             # more than one frozen entrance. Report the covered identity union,
             # so this is a structural coverage count rather than a batch count.
-            "structural_coverage": {t: len({d for g in groups for d in g.get("coverage", {}).get(t, {}).get("covered", [])})
+            "structural_coverage": {t: len({(g.get("context") if plan["input"].get("mode") == ENTRY_PIPELINE else None, d)
+                                          for g in groups for d in g.get("coverage", {}).get(t, {}).get("covered", [])})
                                     for t in TARGETS},
             "printing_implementations": {t: len({d for g in groups
                                                    for d in g.get("coverage", {}).get(t, {}).get("printing", [])})

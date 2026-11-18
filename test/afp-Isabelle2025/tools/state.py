@@ -89,7 +89,7 @@ class State:
         if redirected or resolved == self.base or not resolved.is_relative_to(self.base):
             raise ValueError("Refusing removal outside the run: " + str(path))
         relative = str(resolved.relative_to(self.base))
-        keys = [k for k in self.keys() if k == relative or k.startswith(relative + "/")]
+        keys = [relative, *self.keys(relative + "/")]
         self.update({}, keys)
         if path.is_dir():
             shutil.rmtree(path)

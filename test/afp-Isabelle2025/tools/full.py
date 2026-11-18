@@ -26,6 +26,7 @@ import threading
 import xml.etree.ElementTree as ET
 
 import afp_common as common
+from dependency_plan import ENTRY_PIPELINE, FIXED_MODES
 import frontend_fault
 from result_store import EntryStore
 from state import State
@@ -95,7 +96,9 @@ def scope_digest(scope):
 
 def inputs(base):
     """Bind checkpoints to current committed inputs/results, not audit metadata."""
-    return {"state": State(base).signature(("run", "receipt/", "entry/", "units/", "exports/", "compilation/", "analysis-", "plan/", "continuation-", "compile-group/"))}
+    return {"state": State(base).signature(("run", "receipt/", "entry/", "units/", "exports/", "compilation/",
+            "analysis-", "plan/", "plan-seal/", "published/", "fixed-progress/", "continuation-", "compile-group/",
+            "rust-stage2/"))}
 
 
 def load(base):
@@ -121,10 +124,10 @@ def entry_compiled(record, scope, serializer):
     stage = record.get("full_export", {})
     if (stage.get("serializer_sha256") != serializer or stage.get("scope_sha256") != scope_digest(scope)
             or stage.get("scan_sha256") != entry_scan_signature(record)
-            or (stage.get("mode") != "fixed-plan-v2" and stage.get("status") != "complete")):
+            or (stage.get("mode") not in FIXED_MODES and stage.get("status") != "complete")):
         return compiled
     for run in stage.get("runs", []):
-        if stage.get("mode") == "fixed-plan-v2" and not run.get("closed"):
+        if stage.get("mode") in FIXED_MODES and not run.get("closed"):
             continue
         for attempt in run["attempts"]:
             if attempt.get("target") != "Rust" or attempt["status"] != "passed":
@@ -749,7 +752,7 @@ def finish_export(stage, names):
     a checked recursive invariant. The gate and independent audit recompute it;
     processing complete never changes that process's status or finished flag.
     """
-    if stage.get("mode") == "fixed-plan-v2":
+    if stage.get("mode") in FIXED_MODES:
         import fixed_export
         fixed_export.finish(stage)
         return
@@ -775,7 +778,9 @@ def finish_export(stage, names):
 
 
 def rust_manifests(record):
-    return sorted({file for run in record.get("full_export", {}).get("runs", [])
+    stage = record.get("full_export", {})
+    return sorted({file for run in stage.get("runs", [])
+                   if stage.get("mode") != ENTRY_PIPELINE or run.get("closed")
                    for attempt in run.get("attempts", [])
                    if attempt.get("target") == "Rust" and attempt["status"] == "passed"
                    for file in attempt["files"] if file.endswith("/Cargo.toml")})
@@ -943,7 +948,7 @@ def compile_entry(entry, record, base, args, env, optimizer, checkpoint=None):
         def persist():
             if checkpoint:
                 checkpoint()
-        if record.get("full_export", {}).get("mode") == "fixed-plan-v2":
+        if record.get("full_export", {}).get("mode") in FIXED_MODES:
             source = compilation_source(item, manifest, create=True)
             persist()
         if not compile_phase_complete(item.get("stage1_compile", {})):

@@ -293,7 +293,10 @@ def build_report(base, data, result, exports, verified=False):
     report.mkdir(parents=True, exist_ok=True)
     status = "完成审计已通过" if verified else "实验进行中；本报告不是最终交付"
     header = status + "。数据时间：" + result.get("updated", "未完成扫描") + "。\n\n"
-    continuation = State(base).get("continuation-policy")
+    from dependency_plan import ENTRY_PIPELINE, FIXED_MODES
+    state = State(base)
+    mode = state.get("run", {}).get("experiment")
+    continuation = state.get("continuation-policy")
     if continuation:
         header += ("用户授权暂缓分析的范围：" + ", ".join(continuation["deferred_entries"]) +
                    "；以独立快照冻结单候选回退。已闭合请求的 Rust 产物继续两阶段编译；"
@@ -321,6 +324,8 @@ def build_report(base, data, result, exports, verified=False):
                     declaration_counts[target][row[target]] += 1
                 yield row
     declaration_fields = ["entry", "theory", "constant", "context_evidence"] + fields[3:]
+    if mode == ENTRY_PIPELINE:
+        declaration_fields[3:3] = ["session", "branch"]
     write_csv(report / "declarations.csv", declaration_fields, declarations())
     crates = list(compile_rows(data, result))
     write_csv(report / "compilation.csv",
@@ -350,8 +355,7 @@ def build_report(base, data, result, exports, verified=False):
             if len(examples[(event["phase"], key)]) < 3:
                 examples[(event["phase"], key)].append(event)
     timings = performance(result)
-    state = State(base)
-    fixed_mode = state.get("run", {}).get("experiment") == "fixed-plan-v2"
+    fixed_mode = mode in FIXED_MODES
     plan_stats = {}
     if fixed_mode:
         import dependency_plan
@@ -385,16 +389,19 @@ def build_report(base, data, result, exports, verified=False):
                       "structural_coverage": structural_coverage,
                       "printing_implementations": printing_implementations,
                       "export_artifacts": artifact_count, "artifact_count": artifact_count,
-                      "plan_dispositions_valid": bool(state.get("plan-checkpoint.json", {}).get("passed")),
+                      "plan_dispositions_valid": verified or bool(state.get("plan-checkpoint.json", {}).get("passed")),
                       "entry_dispositions": dispositions,
                       "fallback_closed": sum(v["fallback_closed"] for v in dispositions.values()),
                       "fallback_unresolved": sum(v["fallback_unresolved"] for v in dispositions.values()),
                       "final_unresolved_candidates": sum(v["unresolved_candidates"] for v in dispositions.values()),
-                      "final_unresolved_entries": sum(not v["results_closed"] for v in dispositions.values())}
+                      "final_unresolved_entries": (sum(not state.get("published/" + e, {}).get("complete")
+                                                       for e in data["order"]) if mode == ENTRY_PIPELINE else
+                                                   sum(not v["results_closed"] for v in dispositions.values()))}
     summary = {"generated": common.timestamp(), "completion_verified": verified, "entry_count": len(entries),
                **plan_stats,
                "candidate_references": sum(r["candidates"] for r in entries),
-               "source_declarations": sum(declaration_counts[full.TARGETS[0]].values()),
+               "source_declarations": (sum(len(names) for scope in exports.values() for names in scope.values())
+                                       if mode == ENTRY_PIPELINE else sum(declaration_counts[full.TARGETS[0]].values())),
                "declaration_statuses": {target: dict(counts) for target, counts in declaration_counts.items()},
                "distinct_candidates": len({c for scope in exports.values() for c in common.candidates(scope)}),
                "owned_theories": sum(r["expected_theories"] for r in entries),
@@ -404,6 +411,8 @@ def build_report(base, data, result, exports, verified=False):
                "missing_full_messages": missing, "performance": timings,
                "input_sha256": full.inputs(base)}
 
+    if mode == ENTRY_PIPELINE:
+        summary["published_context_declarations"] = sum(declaration_counts[full.TARGETS[0]].values())
     if continuation:
         summary["continuation"] = continuation
     common.write_json(report / "summary.json", summary)
@@ -429,8 +438,10 @@ def build_report(base, data, result, exports, verified=False):
         f"本轮范围为 {len(entries)} 个 AFP 条目、{summary['owned_theories']} 个所属理论。",
         f"当前已检查 {summary['scanned_theories']} 个理论，保留 {summary['distinct_candidates']} 个不同内部全名字串",
         f"（按条目计 {summary['candidate_references']} 个候选引用）。所有条目均在 entries.csv 中占一行。"
-        "不同条目中的同名声明只在名字串统计中合并；各条目独立保留候选结果与证据。"
-        f"按来源理论计 {summary['source_declarations']} 个声明身份，见 declarations.csv。\n\n",
+        "不同条目中的同名声明只在名字串统计中合并；各条目独立保留候选结果与证据。",
+        (f"已发布 {summary['published_context_declarations']} 条候选与扫描分支记录，见 declarations.csv。\n\n"
+         if mode == ENTRY_PIPELINE else
+         f"按来源理论计 {summary['source_declarations']} 个声明身份，见 declarations.csv。\n\n"),
         "## 方法与口径\n\n",
         "候选来自原始 AFP 理论的全部自有常量声明，包括自动生成的辅助常量和仅有逻辑意义的定义；"
         "发现阶段没有以代码方程或可执行性筛选。扫描失败及未检查范围单独记录。",

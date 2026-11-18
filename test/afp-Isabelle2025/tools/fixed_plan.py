@@ -127,6 +127,7 @@ def obtain(base, key, request_identity, session, args, env, prepare, filename, p
     import full
     from scan_frozen import active_children
     state, store = State(base), Store(base)
+    interrupted_codes = {130, -2, 143, -15} if "scan_theory" in request_identity else {130, -2}
     old = state.get(key)
     if old:
         if old["input"] != request_identity:
@@ -150,7 +151,7 @@ def obtain(base, key, request_identity, session, args, env, prepare, filename, p
         if common.identity_matches(check) or active_children(work, "AFP_PLAN_REQUEST"):
             raise ValueError("Analysis child is still live")
         if (check.get("status") in {None, "running", "interrupted", "cancelled"}
-                or check.get("returncode") in {130, -2} or "returncode" not in check):
+                or check.get("returncode") in interrupted_codes or "returncode" not in check):
             active = None
     if not active:
         work = full.next_attempt(root)
@@ -159,7 +160,7 @@ def obtain(base, key, request_identity, session, args, env, prepare, filename, p
                   "request_sha256": file_digest(work / "request.xml")}
         state.put(active_key, active)
         check = run_native(session, work, args, env)
-    if check.get("status") in {"interrupted", "cancelled"} or check.get("returncode") in {130, -2}:
+    if check.get("status") in {"interrupted", "cancelled"} or check.get("returncode") in interrupted_codes:
         raise KeyboardInterrupt
     path = work / filename
     native_receipt = path.is_file()
@@ -297,11 +298,13 @@ def parse_response(path, context):
     return {"failure": frontend_rejection.native_failure(root)}
 
 
-def build_entry(base, entry, expected, args=None, env=None, replay=False, defer_missing=False):
+def build_entry(base, entry, expected, args=None, env=None, replay=False, defer_missing=False,
+                evidence_index=None):
     state = State(base)
     contexts, unresolved, evidence = [], [], {}
     from continuation import policy
-    authorization = policy(base)
+    direct = expected.get("mode") == dp.ENTRY_PIPELINE
+    authorization = None if direct else policy(base)
 
     def request(key, inputs, session, prepare, filename, parse):
         if replay:
@@ -315,6 +318,8 @@ def build_entry(base, entry, expected, args=None, env=None, replay=False, defer_
                 receipt = error.receipt
         path = validate_evidence(base, receipt)
         evidence.update(receipt["evidence"])
+        if evidence_index is not None:
+            evidence_index[key] = digest(receipt)
         actual_request = ET.parse(Store(base).path(receipt["request"])).getroot()
         expected_request = (request_xml("select", declarations=inputs["declarations"], theories=inputs["theories"])
                             if filename == "selection.xml" else
@@ -342,13 +347,20 @@ def build_entry(base, entry, expected, args=None, env=None, replay=False, defer_
             raise AnalysisFailure(receipt)
         return value, receipt
 
+    scanned = {}
+    if direct:
+        for context in dp.scanned_contexts(expected):
+            scanned.setdefault(context["session"], []).append(context)
     for session in expected["sessions"]:
         key = selection_key(entry, session)
         try:
-            found, receipt = request(key, expected, session,
-                lambda work: write_request(work, "select", declarations=expected["declarations"],
-                                           theories=expected["theories"]),
-                "selection.xml", lambda path: parse_selection(path, entry, session, expected, partial=True))
+            if direct:
+                found = {"contexts": scanned.get(session, []), "unresolved": []}
+            else:
+                found, receipt = request(key, expected, session,
+                    lambda work: write_request(work, "select", declarations=expected["declarations"],
+                                               theories=expected["theories"]),
+                    "selection.xml", lambda path: parse_selection(path, entry, session, expected, partial=True))
         except AnalysisFailure as error:
             evidence.update(error.receipt["evidence"])
             unresolved.append({"status": "unresolved_context", "session": session,
@@ -358,6 +370,9 @@ def build_entry(base, entry, expected, args=None, env=None, replay=False, defer_
         for issue in found["unresolved"]:
             unresolved.append(dict(issue, evidence=key))
         for context in found["contexts"]:
+            if direct and not context["declarations"]:
+                contexts.append({"context": context, "classifications": [], "groups": [], "sccs": []})
+                continue
             def analyze(roots):
                 subset = dict(context, declarations=roots)
                 key = analysis_key(context)
@@ -388,9 +403,14 @@ def build_entry(base, entry, expected, args=None, env=None, replay=False, defer_
                     if saved.get("input") != inputs or saved.get("failure", {}).get("phase") != "plan_processing":
                         raise ValueError("Changed plan-processing failure evidence")
                     evidence[key] = digest(saved)
+                    if evidence_index is not None:
+                        evidence_index[key] = evidence[key]
                     return {"failure": saved["failure"]}
                 try:
-                    return {"plan": dp.make_context_plan(context, value["graph"])}
+                    planned = dp.make_context_plan(context, value["graph"])
+                    if direct:
+                        planned["analysis_evidence"] = value["evidence"]
+                    return {"plan": planned}
                 except Exception as error:
                     if replay:
                         raise ValueError("Missing original plan-processing failure receipt") from error
@@ -400,8 +420,15 @@ def build_entry(base, entry, expected, args=None, env=None, replay=False, defer_
                     saved = {"input": inputs, "failure": failed}
                     state.put(key, saved)
                     evidence[key] = digest(saved)
+                    if evidence_index is not None:
+                        evidence_index[key] = evidence[key]
                     return {"failure": failed}
-            contexts.append(plan_recovery.recover(context, analyze, process))
+            planned = plan_recovery.recover(context, analyze, process)
+            if direct:
+                for row in planned["classifications"]:
+                    if row["status"] == "frontend_rejected":
+                        row["receipt_xml"] = common.relative(base / state.get(row["evidence"])["xml"])
+            contexts.append(planned)
     observed = {d["id"] for ctx in contexts for d in ctx["classifications"]}
     observed.update(dp.declaration_id(d) for u in unresolved for d in u["declarations"])
     missing = [d for d in expected["declarations"] if dp.declaration_id(d) not in observed]

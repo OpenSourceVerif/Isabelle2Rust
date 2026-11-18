@@ -43,18 +43,25 @@ def compile_group(base, plan, context, group, run, args, env, optimizer):
     saved = state.get(key, {})
     if saved and saved.get("input") != inputs:
         raise ValueError("Compilation progress refers to a different frozen export")
-    record = {"full_export": {"mode": "fixed-plan-v2", "runs": [run]}, "full_compile": saved.get("compiled", {})}
+    record = {"full_export": {"mode": plan.get("input", {}).get("mode", "fixed-plan-v2"), "runs": [run]},
+              "full_compile": saved.get("compiled", {})}
     if not full.rust_manifests(record):
         raise ValueError("No successful Rust artifact for compilation")
     def persist():
         state.put(key, {"input": inputs, "compiled": record["full_compile"]})
     full.compile_entry(context["entry"], record, base, args, env, optimizer, persist)
+    if record["full_export"]["mode"] == fe.dp.ENTRY_PIPELINE:
+        from entry_audit import command_evidence, validate_crate
+        for manifest, item in record["full_compile"].items():
+            if "command_evidence" not in item:
+                item["command_evidence"] = command_evidence(base, item)
+            validate_crate(base, manifest, item, optimizer)
     persist()
     return {"crates": len(record["full_compile"]),
             "closed": sum(full.crate_complete(v) for v in record["full_compile"].values())}
 
 
-def publish_entry(base, plan, record, scope, entries):
+def publish_entry(base, plan, record, scope, entries, validate=None):
     state = State(base)
     stage = fe.stage_for(plan, record, scope)
     compiled = {}
@@ -75,11 +82,12 @@ def publish_entry(base, plan, record, scope, entries):
             compiled.update(item["compiled"])
     fe.finish(stage)
     record["full_export"], record["full_compile"] = stage, compiled
+    extra = validate(record) if validate else None
     entries[plan["entry"]] = record
-    entries.commit(plan["entry"])
+    entries.commit(plan["entry"], extra=extra,
+                   remove=[*state.keys("fixed-progress/" + plan["entry"] + "/"),
+                           *state.keys("compile-group/" + plan["entry"] + "/")])
     state.put("updated", common.timestamp())
-    state.update({}, remove=[*state.keys("fixed-progress/" + plan["entry"] + "/"),
-                             *state.keys("compile-group/" + plan["entry"] + "/")])
     print("[published]", plan["entry"], stage["status"], "Rust crates", len(compiled), flush=True)
 
 

@@ -4,6 +4,7 @@ import collections
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
@@ -11,6 +12,7 @@ import xml.etree.ElementTree as ET
 
 import afp_common as common
 import scan
+from dependency_plan import ENTRY_PIPELINE
 from state import State
 from scan_store import (METHOD, POLICY, SCHEMA, Store, aggregate, completed_receipt,
                         digest, file_digest, inventory, unit_input)
@@ -128,7 +130,7 @@ def active_children(base, marker_name="AFP_SCAN_RUN"):
     return active
 
 
-def initialize(base, args, env, metadata):
+def initialize(base, args, env, metadata, experiment=ENTRY_PIPELINE):
     """Create one run, with one manifest and one input/configuration identity."""
     if base.exists() and any(base.iterdir()):
         raise ValueError("initialization requires an empty, isolated output directory")
@@ -147,10 +149,10 @@ def initialize(base, args, env, metadata):
                        if not value.get("exists") or not value.get("executable")]
         if unavailable:
             raise ValueError("conditional compiler prerequisites unavailable: " + repr(unavailable))
-        run = {"schema": 1, "experiment": "fixed-plan-v2", "created": common.timestamp(), "manifest": data,
+        run = {"schema": 1, "experiment": experiment, "created": common.timestamp(), "manifest": data,
                "sources": sources, "tools": tools_identity(), "environment": metadata}
         state = State(base)
-        state.put("run", run)
+        state.update({"run": run, "tool-generation": run["tools"]})
         return run
 
 
@@ -188,7 +190,29 @@ def archive_failed_build(attempt, unit, built, args, env):
     """Archive mutable session DBs immediately, before another build replaces them."""
     import full
     record = {"entries": {unit["entry"]: {"scan": {"loading": [built]}}}}
-    full.archive_scan_messages(attempt, record, args, env)
+    return full.archive_scan_messages(attempt, record, args, env)
+
+
+def review_theory_failure(store, built, messages):
+    """Require a current failed session database and an Isabelle theory diagnostic."""
+    if built.get("status") != "failed" or not isinstance(built.get("returncode"), int) or built["returncode"] <= 0:
+        return None
+    from full import infrastructure
+    evidence = []
+    for name in built["failed_sessions"]:
+        item = messages.get(name, {})
+        if (item.get("status") != "passed" or not item.get("origin_verified")
+                or not item.get("session_uuid") or not item.get("database_sha256")
+                or not isinstance(item.get("session_returncode"), int) or item["session_returncode"] <= 0):
+            return None
+        log = common.resolve_path(item["command"]).with_suffix("")
+        message = log.read_text(errors="replace")
+        if (file_digest(log) != item["messages_sha256"]
+                or not re.search(r'(?m)^\*\*\* At (?:command|theory) .+', message)
+                or set(infrastructure(message)) - {"tooling"}):
+            return None
+        evidence.append(str(log.relative_to(store.base)))
+    return {"mechanism": "isabelle_theory_command_failure", "evidence": evidence} if evidence else None
 
 
 def run_unit(store, unit, args, env, runtime, identity):
@@ -200,13 +224,15 @@ def run_unit(store, unit, args, env, runtime, identity):
     actual = dict(env, AFP_SCAN_POLICY=POLICY, AFP_SCAN_UNIT=digest(unit),
                   AFP_SCAN_RUN=str(store.base), AFP_SCAN_THEORIES=str(attempt / "theories.txt"),
                   AFP_SCAN_OUTPUT=str(attempt / "catalogue.xml"))
-    built, inspected = {}, None
+    built, inspected, review = {}, None, None
     try:
         with common.build_lock():
             built = common.command([args.isabelle, "build", "-v", "-b", *common.build_options(args),
                                     "-d", str(args.afp / "thys"), unit["session"]],
                                    attempt / "load.log", args, actual)
             built["session"] = unit["session"]
+            if runtime.get("experiment") == ENTRY_PIPELINE and built.get("returncode") in {130, -2, 143, -15}:
+                raise KeyboardInterrupt
             if built["status"] != "passed":
                 built["failed_sessions"] = scan.failed_sessions_in_log(
                     (attempt / "load.log").read_text(errors="replace"), built["status"])
@@ -214,18 +240,76 @@ def run_unit(store, unit, args, env, runtime, identity):
                 # session, without guessing which shared prerequisite failed.
                 if not built["failed_sessions"]:
                     built["failed_sessions"] = [unit["session"]]
-                archive_failed_build(attempt, unit, built, args, actual)
+                messages = archive_failed_build(attempt, unit, built, args, actual)
+                if runtime.get("experiment") == ENTRY_PIPELINE:
+                    review = review_theory_failure(store, built, messages)
             else:
                 inspected = scan.inspect_session(unit["session"], args, actual,
                     attempt / "scan.log", collector=common.HERE / "scan.ML")
                 inspected["session"] = unit["session"]
+                if runtime.get("experiment") == ENTRY_PIPELINE and inspected.get("returncode") in {130, -2, 143, -15}:
+                    raise KeyboardInterrupt
         if inspected and inspected["status"] == "passed":
             receipt = completed_receipt(store, attempt, unit, run, built, inspected)
         else:
             receipt = failure_receipt(store, attempt, unit, run, built, inspected)
+            if review:
+                receipt.update(status="failed_source", source_review=review)
     except (OSError, ValueError, ET.ParseError) as error:
         receipt = failure_receipt(store, attempt, unit, run, built, inspected, str(error))
     return store.commit(attempt, receipt)
+
+
+def ordered_sessions(data, units, entries):
+    selected = {s for entry in entries for s in data["entries"][entry]["sessions"]}
+    selected |= {r for s in selected for r in units[s]["requirements"] if r in units}
+    positions = {s: i for i, s in enumerate(units)}
+    ordered, visiting, ready = [], set(), set()
+
+    def visit(session):
+        if session in ready:
+            return
+        if session in visiting:
+            raise ValueError("Cyclic Isabelle session requirements")
+        visiting.add(session)
+        for dependency in sorted(selected.intersection(units[session]["requirements"]), key=positions.get):
+            visit(dependency)
+        visiting.remove(session)
+        ready.add(session)
+        ordered.append(session)
+
+    for session in units:
+        if session in selected:
+            visit(session)
+    return ordered
+
+
+def scan_session(store, unit, failures, args, env, runtime, identity):
+    current = store.read(unit)
+    if current and current["status"] in {"complete", "failed_source"}:
+        return current
+    blockers = sorted(set(unit["requirements"]) & failures.keys())
+    causes = {s: failures[s] for s in blockers}
+    if blockers:
+        if current and current["status"] == "blocked_dependency" and current["causes"] == causes:
+            return current
+        attempt = store.next_attempt(unit)
+        return store.commit(attempt, {"schema": SCHEMA, "unit": unit, "unit_id": digest(unit),
+                            "status": "blocked_dependency", "dependencies": blockers, "causes": causes,
+                            "evidence": {}, "committed": common.timestamp()})
+    if current and current["status"] == "unresolved_infrastructure" and not args.retry_failed:
+        return current
+    return run_unit(store, unit, args, env, runtime, identity)
+
+
+def note_scan_failure(failures, receipt):
+    if receipt["status"] in {"complete", "blocked_dependency"}:
+        return
+    unit = receipt["unit"]
+    failed = receipt.get("failed_sessions", []) or [unit["session"]]
+    if receipt.get("build", {}).get("status") != "passed":
+        for session in failed:
+            failures.setdefault(session, {"session": unit["session"], "unit_id": receipt["unit_id"]})
 
 
 def failed_dependencies(units, store):

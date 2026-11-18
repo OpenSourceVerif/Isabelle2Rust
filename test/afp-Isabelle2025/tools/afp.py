@@ -9,6 +9,7 @@ import sys
 import tempfile
 
 import afp_common as common
+from dependency_plan import ENTRY_PIPELINE
 from state import State
 
 
@@ -22,7 +23,7 @@ def runtime_arguments(config):
     # Defaults remain suitable for a laptop; a server explicitly budgets
     # entry workers separately from the threads/jobs within each child.
     for key, default in (("build_jobs", 1), ("threads", 1), ("parallel_proofs", 0),
-                         ("export_workers", 1), ("compile_workers", 1), ("cargo_jobs", 1)):
+                         ("plan_workers", 2), ("export_workers", 1), ("compile_workers", 1), ("cargo_jobs", 1)):
         values += ["--" + key.replace("_", "-"), str(config.get("scheduler", {}).get(key, default))]
     return values + ["--timeout", "0"]
 
@@ -78,13 +79,14 @@ def main(argv=None):
     parser.add_argument("--config", type=Path)
     parser.add_argument("--work", type=Path)
     sub = parser.add_subparsers(dest="phase", required=True)
-    for name in ("check", "init", "scan-checkpoint", "plan-checkpoint", "export-checkpoint", "compile-checkpoint", "status", "report"):
+    for name in ("check", "init", "status", "report"):
         sub.add_parser(name)
+    for name in ("scan-checkpoint", "plan-checkpoint", "export-checkpoint", "compile-checkpoint",
+                 "plan", "export", "compile"):
+        sub.add_parser(name).add_argument("--entries", nargs="+")
     for name in ("scan", "run"):
         p = sub.add_parser(name)
         p.add_argument("--retry-failed", action="store_true")
-    for name in ("plan", "export", "compile"):
-        p = sub.add_parser(name)
         p.add_argument("--entries", nargs="+")
     p = sub.add_parser("defer")
     p.add_argument("--from-work", type=Path, required=True)
@@ -105,32 +107,33 @@ def main(argv=None):
     from clean import validate_root
     base = validate_root(selected)
     runtime = runtime_arguments(config)
+    initialized = (base / "state.sqlite3").is_file()
+    experiment = State(base).get("run", {}).get("experiment") if initialized else None
+    if args.phase in ("run", "init") and experiment and experiment != ENTRY_PIPELINE:
+        raise ValueError("fixed-plan-v3 requires a fresh work root")
+    if args.phase in {"init", "run"} or (experiment == ENTRY_PIPELINE and args.phase in {
+            "scan", "plan", "export", "compile", "status", "report", "audit",
+            "scan-checkpoint", "plan-checkpoint", "export-checkpoint", "compile-checkpoint"}):
+        arguments = [args.phase, "--output-dir", str(base), *runtime]
+        if getattr(args, "retry_failed", False):
+            arguments.append("--retry-failed")
+        if getattr(args, "with_report", False):
+            arguments.append("--with-report")
+        if getattr(args, "entries", None):
+            arguments += ["--entries", *args.entries]
+        if argv is not None:
+            return call(common.HERE / "entry_pipeline.py", arguments, config_path)
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        if config_path:
+            env["AFP_CONFIG"] = str(config_path.resolve())
+        os.chdir(common.PROJECT)
+        os.execve(sys.executable, [sys.executable, str(common.HERE / "entry_pipeline.py"), *arguments], env)
     if args.phase == "defer":
         return call(common.HERE / "continuation.py", ["--from-work", str(args.from_work),
                     "--output-dir", str(base), "--defer-entries", *args.entries,
                     "--reason", args.reason], config_path)
     if args.phase == "continue":
         return call(common.HERE / "fixed_pipeline.py", ["--output-dir", str(base), *runtime], config_path)
-    if args.phase == "run":
-        # Each boundary is durable and checked before the next stage. Repeating
-        # this command resumes the same work root and stops at the first failure.
-        phases = ["check"] + ([] if (base / "state.sqlite3").is_file() else ["init"])
-        phases += ["scan", "scan-checkpoint", "plan", "plan-checkpoint", "export", "export-checkpoint", "compile",
-                   "compile-checkpoint", "audit", "report", "audit"]
-        options = ["--work", str(base)] + (["--config", str(config_path)] if config_path else [])
-        for index, phase in enumerate(phases):
-            extra = (["--retry-failed"] if phase == "scan" and args.retry_failed else
-                     ["--with-report"] if phase == "audit" and index == len(phases) - 1 else [])
-            print("[AFP " + phase + "]", flush=True)
-            code = call(common.HERE / "afp.py", options + [phase] + extra, config_path)
-            if code:
-                # A failed result checkpoint still produces an explicitly
-                # incomplete report after every frozen request was processed.
-                if phase == "export-checkpoint":
-                    call(common.HERE / "full_report.py",
-                         ["--output-dir", str(base), "--preview"], config_path)
-                return code
-        return 0
     if args.phase == "check":
         return call(common.EXPERIMENT / "setup/check.py", ["--work", str(base)] +
                     (["--config", str(config_path)] if config_path else []), config_path)
@@ -141,12 +144,12 @@ def main(argv=None):
     if args.phase == "smoke":
         print(json.dumps(smoke(args), indent=2))
         return 0
-    if args.phase in ("init", "scan"):
+    if args.phase == "scan":
         arguments = ["--output-dir", str(base), *runtime]
-        if args.phase == "init":
-            arguments += ["--initialize", "--prepare-only"]
-        elif args.retry_failed:
+        if args.retry_failed:
             arguments += ["--retry-failed"]
+        if args.entries:
+            arguments += ["--entries", *args.entries]
         return call(common.HERE / "scan_frozen.py", arguments, config_path)
     if not (base / "state.sqlite3").is_file():
         raise ValueError("Initialize the run first")

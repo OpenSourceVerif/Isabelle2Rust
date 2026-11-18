@@ -40,6 +40,7 @@ def recover(context, analyze, process=None):
     """analyze returns a sealed graph or failure, never a speculative exclusion."""
     declarations = sorted(context["declarations"], key=dp.declaration_id)
     failures, rejected, known = [], {}, {}
+    successful = {}
     unresolved = False
 
     def inspect(roots):
@@ -54,6 +55,7 @@ def recover(context, analyze, process=None):
                     for d in planned["classifications"]:
                         if d["status"] in {"excluded", "ineligible"}:
                             known[d["id"]] = dict(d, evidence=value["evidence"])
+                    successful[tuple(dp.declaration_id(d) for d in roots)] = planned
                     return value, planned
             except Exception as error:
                 if process is not None:
@@ -101,7 +103,9 @@ def recover(context, analyze, process=None):
     # the root set. If singletons succeed but their union failed, do not repeat it.
     if not unresolved and rejected:
         if remaining:
-            _, planned = inspect(remaining)
+            planned = successful.get(tuple(dp.declaration_id(d) for d in remaining)) if "scan_theory" in context else None
+            if planned is None:
+                _, planned = inspect(remaining)
         else:
             planned = {"context": context, "classifications": [], "groups": [], "sccs": []}
         if planned is not None:

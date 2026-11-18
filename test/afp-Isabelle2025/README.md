@@ -66,7 +66,33 @@ python3 tools/afp.py run
 
 每个条目内的原生请求和三个 Rust 步骤仍按原顺序执行。编译槽使用独立、可复用的 Cargo target 目录，避免共享目录锁使作业串行；优化器只预编译一次。各条目使用独立惰性状态读取器，断点按条目事务提交；中断会取消并回收各自的子进程。总内存应同时考虑外层作业数和各进程的 ML/Java heap，可用服务 cgroup 限制总量。
 
-## 运行与中断恢复
+## 条目流水线（fixed-plan-v3）
+
+使用新的空工作根启动，重复同一命令可恢复。
+
+```bash
+python3 tools/afp.py --config setup/server.local.json --work /path/work-fixed-v3 run
+python3 tools/afp.py --config setup/server.local.json --work /path/work-fixed-v3 status
+python3 tools/afp.py --config setup/server.local.json --work /path/work-fixed-v3 export-checkpoint --entries List-Index
+```
+
+扫描按 Isabelle session 的依赖推进。条目所属会话均有可核验终态后，立即用成功扫描的范围生成计划。源码失败和依赖阻塞单列。计划冻结即进入导出队列。每个闭合六目标请求的 Rust crate 可独立进入 Stage 1、优化和 Stage 2。
+
+`scheduler.plan_workers` 独立于 `export_workers` 和 `compile_workers`，默认 2。每个编译槽使用独立的 Cargo target 目录。分析不限时。中断保留恢复点，`run --retry-failed` 可在排除环境问题后重试未决扫描。
+
+候选以条目、扫描会话、独立最大理论分支、所属理论和原生常量名标识。共享声明在每个可见分支各自分类、去重入口和分组。白名单异常仅触发分支内二分。单根复现才记为 `frontend_rejected`。隔离出新拒绝后，剩余根最多联合分析一次。未可靠处置的候选分别冻结六目标单根请求，以实际回执记录直接导出结果。
+
+`run`、`scan`、`plan`、`export`、`compile` 和各阶段检查点支持 `--entries`。条目发布核对输入、分支处置和产物证据。最终对账覆盖完整 manifest，报告包含 `declarations.csv` 的逐分支结果及 `summary.json` 的汇总。存在待办或未决时生成未完成报告并返回非零状态。
+
+服务器原生验收覆盖两个独立分支、六目标和 Rust 两阶段编译。验收根使用新路径。
+
+```bash
+AFP_ENTRY_TEST=1 AFP_ENTRY_WORK=/path/to/new/acceptance python3 -B -m unittest discover -s tests -p 'test_entry_pipeline_native.py'
+```
+
+## 历史 v2 运行方式
+
+以下命令适用于创建 v2 工作根所用的冻结代码版本。
 
 `run` 自动依次执行环境检查、必要的初始化、扫描、扫描检查点、依赖分析与固定计划、计划检查点、固定分组导出、导出检查点、编译、编译检查点、数据审计、报告及报告审计。固定计划只在当前工作根生成；输入或规则变化会使计划检查点失效。任何一步失败即停止。
 

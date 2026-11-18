@@ -166,7 +166,7 @@ def arguments(description):
                         help="explicit exploratory mode; recorded separately from checked proofs")
     # Outer entry concurrency and per-child concurrency are independent:
     # callers can budget their product for a server without changing verdicts.
-    for name in ("build-jobs", "threads", "export-workers", "compile-workers", "cargo-jobs"):
+    for name in ("build-jobs", "threads", "plan-workers", "export-workers", "compile-workers", "cargo-jobs"):
         parser.add_argument("--" + name, type=int, default=1)
     parser.add_argument("--parallel-proofs", type=int, choices=(0, 1, 2), default=0)
     parser.add_argument("--refresh-manifest", action="store_true")

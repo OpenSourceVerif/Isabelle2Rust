@@ -8,6 +8,7 @@ import collections
 import xml.etree.ElementTree as ET
 
 import afp_common as common
+from dependency_plan import ENTRY_PIPELINE
 import full
 
 
@@ -56,6 +57,20 @@ def applies(context, theory, name, constants, stage):
 
 def rows(entry, info, record, scope):
     """Yield one row per source declaration without changing candidate totals."""
+    stage = record.get("full_export", {})
+    if stage.get("mode") == ENTRY_PIPELINE:
+        contexts_by_id = {item["context"]["id"]: item["context"] for item in stage["plan"]["contexts"]}
+        for item in stage["declarations"].values():
+            row = item["declaration"]
+            context = contexts_by_id[row["context"]]
+            result = {"entry": entry, "theory": row["source"], "constant": row["name"],
+                      "session": context["session"], "branch": context["scan_theory"],
+                      "context_evidence": row["context"]}
+            for target, outcome in item["targets"].items():
+                result[target] = outcome["status"]
+                result[target + "_evidence"] = ";".join(outcome["evidence"])
+            yield result
+        return
     if record.get("full_export", {}).get("mode") == "fixed-plan-v2":
         stage = record["full_export"]
         for path, names in sorted(scope.items()):
