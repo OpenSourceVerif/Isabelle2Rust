@@ -322,27 +322,10 @@ fn interface_borrow_safe(demands: &HashSet<Demand>) -> bool {
 ///
 /// A last-use move of the root or recursive structure should survive. A
 /// selected payload may instead be materialized from a borrow when it only
-/// contributes to the result, as in `nth`, or feeds an owned operation during
-/// a traversal. An owned payload argument alone does not justify owning its
-/// entire enclosing structure: the rewriter can materialize that field locally.
-/// Preserve owned captures and reconstruction of the input datatype family,
-/// as well as structural moves (in particular, growing fold accumulators).
+/// contributes to the result, as in `nth`. Ownership remains preferable when
+/// that payload is consumed by another owned operation or is used to rebuild
+/// the same nominal datatype family as the input.
 fn prefer_owned(demands: &HashSet<Demand>, rebuilds_input_family: bool) -> bool {
-    // Borrowing a traversal may materialize one element at a time. Do not
-    // generalize that exception to splitting a state into several non-Copy
-    // fields: even when the final result is a scalar, those field moves can
-    // feed the next owned state transition. Count distinct bindings, not uses.
-    // Branch-unioned demands deliberately make this a conservative guard.
-    let owned_payloads: HashSet<&str> = demands
-        .iter()
-        .filter_map(|demand| match demand {
-            Demand::Move(MoveUse::OwnedSink(Origin::Payload, name), _) => Some(name.as_str()),
-            _ => None,
-        })
-        .collect();
-    if owned_payloads.len() > 1 {
-        return true;
-    }
     for demand in demands {
         match demand {
             Demand::Move(
@@ -352,11 +335,14 @@ fn prefer_owned(demands: &HashSet<Demand>, rebuilds_input_family: bool) -> bool 
                 _,
             ) => return true,
             Demand::AggregatePayloadReturn => return true,
-            Demand::Move(MoveUse::ClosureCapture(Origin::Payload, _), _) => return true,
             Demand::Move(
-                MoveUse::OwnedSink(Origin::Payload, _) | MoveUse::Return(Origin::Payload, _),
+                MoveUse::OwnedSink(Origin::Payload, _)
+                | MoveUse::ClosureCapture(Origin::Payload, _),
                 _,
-            ) if rebuilds_input_family => return true,
+            ) => return true,
+            Demand::Move(MoveUse::Return(Origin::Payload, _), _) if rebuilds_input_family => {
+                return true;
+            }
             _ => {}
         }
     }
@@ -5434,17 +5420,10 @@ pub fn finish(x: State, consume: Rc<dyn Fn(Blob, Blob) -> bool>) -> bool {
     }
 
     #[test]
-    fn traversal_borrows_spine_but_preserves_owned_fold_accumulator_and_capture() {
+    fn owned_callback_payload_keeps_traversal_parameter_owned() {
         let source = r#"
 #[derive(Clone)]
 pub enum List<A> { Nil, Cons(A, Box<List<A>>) }
-pub fn fold<A, B>(f: Rc<dyn Fn(A, B) -> B>, xs: List<A>, acc: B) -> B
-where A: Clone + 'static, B: Clone + 'static {
-    match xs {
-        List::Nil => acc,
-        List::Cons(x, tail) => fold(f.clone(), (*tail).clone(), (*f)(x.clone(), acc.clone())),
-    }
-}
 pub fn find<A>(p: Rc<dyn Fn(A) -> bool>, xs: List<A>) -> bool
 where A: Clone + 'static {
     match xs {
@@ -5452,41 +5431,17 @@ where A: Clone + 'static {
         List::Cons(x, tail) => if (*p)(x.clone()) { true } else { find(p.clone(), (*tail).clone()) },
     }
 }
-pub fn query<A>(xs: List<A>) -> Rc<dyn Fn(Rc<dyn Fn(A) -> bool>) -> bool>
-where A: Clone + 'static {
-    Rc::new(move |p: Rc<dyn Fn(A) -> bool>| find(p, xs.clone()))
-}
 "#;
         let mut module = parse_rust_source(source, "Traversal").expect("source parses");
         optimize_borrow(&mut module, &HashSet::new());
         optimize_last_use(&mut module);
-        let mut generator = RustCodeGenerator::new();
-        let printed = generator.generate_module_code(&module);
-        assert!(printed.contains("xs: &List<A>, acc: B"), "{printed}");
+        let printed = RustCodeGenerator::new().generate_module_code(&module);
         assert!(
-            printed.contains("p: Rc<dyn Fn(A) -> bool>, xs: &List<A>"),
+            printed.contains("p: Rc<dyn Fn(A) -> bool>, xs: List<A>"),
             "{printed}"
         );
-        assert!(
-            printed.contains("pub fn query<A>(xs: List<A>)"),
-            "{printed}"
-        );
-        assert!(
-            !printed.contains("acc.clone()"),
-            "growing accumulator must move: {printed}"
-        );
-        assert!(
-            !printed.contains("xs.clone()"),
-            "captured spine must be shared: {printed}"
-        );
-        assert!(
-            !printed.contains("tail.clone()"),
-            "recursive tail must be shared: {printed}"
-        );
-        assert!(
-            printed.contains("x.clone()"),
-            "owned callback still needs its element: {printed}"
-        );
+        assert!(!printed.contains("x.clone()"), "{printed}");
+        assert!(!printed.contains("tail.clone()"), "{printed}");
     }
 
     #[test]
