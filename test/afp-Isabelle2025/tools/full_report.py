@@ -295,9 +295,9 @@ def build_report(base, data, result, exports, verified=False):
     header = status + "。数据时间：" + result.get("updated", "未完成扫描") + "。\n\n"
     continuation = State(base).get("continuation-policy")
     if continuation:
-        header += ("????????????" + ", ".join(continuation["deferred_entries"]) +
-                   "???????????????????? Rust ??????????"
-                   "??????????????????????\n\n")
+        header += ("用户授权暂缓分析的范围：" + ", ".join(continuation["deferred_entries"]) +
+                   "；以独立快照冻结单候选回退。已闭合请求的 Rust 产物继续两阶段编译；"
+                   "全量检查点和最终完成声明仍要求全部结果闭合。\n\n")
     entries = []
     for entry in data["order"]:
         record = result["entries"][entry]
