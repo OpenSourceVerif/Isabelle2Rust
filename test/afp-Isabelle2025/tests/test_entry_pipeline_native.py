@@ -38,7 +38,10 @@ class EntryPipelineNativeTests(unittest.TestCase):
 
         def with_fixture(argv, log, settings, actual):
             if argv[1] in {"build", "process"}:
-                argv = [*argv[:2], "-d", str(fixture_dir), *argv[2:]]
+                directories = ["-d", str(fixture_dir)]
+                if str(common.PROJECT) not in argv:
+                    directories += ["-d", str(common.PROJECT)]
+                argv = [*argv[:2], *directories, *argv[2:]]
             return native(argv, log, settings, actual)
 
         with common.experiment_lock(), patch.object(common, "command", side_effect=with_fixture), \
