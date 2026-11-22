@@ -1051,6 +1051,22 @@ fun print_type_param_bound (vname, sort) =
       rv_intro_typed_pat_shape pat ty (default_rust_shape ty) vars;
     fun rv_intro_typed_pats pats_tys vars =
       fold (fn (pat, ty) => rv_intro_typed_pat pat ty) pats_tys vars;
+    (* Rows merged into one Rust match share occupied target names, while each
+       row retains its own source-variable and type maps. Allocate every row's
+       binders before printing patterns or bodies, then reserve all those names
+       in every row so generated temporaries cannot capture a later row's binder. *)
+    fun prepare_match_rows bind_patterns rows (vars: rust_var_ctxt) =
+      let
+        fun prepare row namectxt =
+          let
+            val row_vars = bind_patterns row
+              ((fst (rv_names vars), namectxt), rv_types vars);
+          in ((row, row_vars), snd (rv_names row_vars)) end;
+        val (prepared, namectxt) = fold_map prepare rows (snd (rv_names vars));
+      in
+        map (fn (row, row_vars) =>
+          (row, ((fst (rv_names row_vars), namectxt), rv_types row_vars))) prepared
+      end;
     fun classparam_decl cp =
       (case lookup_method_class (Constant cp) of
         SOME class =>
@@ -2962,19 +2978,6 @@ fun print_type_param_bound (vname, sort) =
                         fun bound_name (IVar (SOME v), row_vars, _) =
                               SOME (rv_lookup_var row_vars v)
                           | bound_name _ = NONE;
-                        (* A shared constructor arm can also contain wildcard
-                           rows whose body uses this printed name for another
-                           column. Binding it here would shadow that row's live
-                           outer field before its fallback is selected. A direct
-                           name is safe only when every row that uses the name
-                           binds it to this very field. Otherwise retain a fresh
-                           temporary and the existing row-local alias binding. *)
-                        fun shadows_row_use name (pat, row_vars, used_vars) =
-                          exists (fn v =>
-                            rv_lookup_var row_vars v = name andalso
-                              (case pat of
-                                IVar (SOME field_v) => v <> field_v
-                              | _ => true)) used_vars;
                         fun direct_field_name used_direct i need_box =
                           let
                             val entries = field_entries i;
@@ -2990,7 +2993,6 @@ fun print_type_param_bound (vname, sort) =
                               | [name] =>
                                   if need_box
                                     orelse member (op =) used_direct name
-                                    orelse exists (shadows_row_use name) entries
                                     orelse not (List.all (fn name' => name' = name) bound_names)
                                   then NONE
                                   else SOME name
@@ -3110,9 +3112,11 @@ fun print_type_param_bound (vname, sort) =
             fun print_stable_match () =
               let
                 val ty = #typ icase;
-                fun row (pat, body) =
+                val prepared = prepare_match_rows
+                  (fn (pat, _) => rv_intro_typed_pat_shape pat ty scrutinee_shape)
+                  clauses vars;
+                fun row ((pat, body), vars') =
                   let
-                    val vars' = rv_intro_typed_pat_shape pat ty scrutinee_shape vars;
                     val used_vars = build (add_distinct_varnames body);
                   in
                     ([pat], vars', used_vars, [],
@@ -3122,7 +3126,7 @@ fun print_type_param_bound (vname, sort) =
                 val scrutinee = print_scrutinee ();
               in
                 stable_match_compile is_pseudo_fun some_thm vars
-                  [(scrutinee, ty)] (map row clauses)
+                  [(scrutinee, ty)] (map row prepared)
                   (str "panic!(\"non-exhaustive match\")")
               end;
             fun print_select (pat, body) =
@@ -3784,14 +3788,15 @@ fun print_type_param_bound (vname, sort) =
                     val raw_typs = extract_typ (fn _ => fn ty => ty) ty;
                     val param_raw_typs = List.take (raw_typs, List.length dummy_parms);
                     val columns = ListPair.zip (dummy_parms, param_raw_typs);
-                    fun row ((ts, t), (some_thm, _)) =
+                    val prepared = prepare_match_rows
+                      (fn ((ts, t), _) =>
+                        rv_intro_base_names_for (is_none o const_syntax)
+                          deresolve (t :: ts)
+                        #> rv_intro_typed_pats
+                          (ListPair.zip (ts, take (length ts) raw_typs)))
+                      eqs (vars0_with_params, Symtab.empty);
+                    fun row (((ts, t), (some_thm, _)), vars) =
                       let
-                        val param_tys = take (length ts) raw_typs;
-                        val vars =
-                          (vars0_with_params, Symtab.empty)
-                          |> rv_intro_base_names_for (is_none o const_syntax)
-                              deresolve (t :: ts)
-                          |> rv_intro_typed_pats (ListPair.zip (ts, param_tys));
                         val used_vars = build (add_distinct_varnames t);
                       in
                         (ts, vars, used_vars, [],
@@ -3800,7 +3805,7 @@ fun print_type_param_bound (vname, sort) =
                       end;
                   in
                     stable_match_compile is_pseudo_fun NONE vars
-                      columns (map row eqs)
+                      columns (map row prepared)
                       (str "panic!(\"non-exhaustive match\")")
                   end;
                 (** Keep the complete source parameter tuple in the outer Rust
@@ -3812,19 +3817,19 @@ fun print_type_param_bound (vname, sort) =
                 fun print_box_frontier_eqns eqs =
                   let
                     val raw_typs = extract_typ (fn _ => fn ty => ty) ty;
-                    fun row_info ((ts, t), (some_thm, _)) =
+                    (* The outer match consumes the complete parameter tuple,
+                       so its patterns may reuse signature names. Rows that later
+                       share a Box frontier still need distinct source bindings. *)
+                    val prepared = prepare_match_rows
+                      (fn ((ts, t), _) =>
+                        rv_intro_base_names_for (is_none o const_syntax)
+                          deresolve (t :: ts)
+                        #> rv_intro_typed_pats
+                          (ListPair.zip (ts, take (length ts) raw_typs)))
+                      eqs (vars0, Symtab.empty);
+                    fun row_info (((ts, t), (some_thm, _)), row_vars) =
                       let
                         val param_tys = take (length ts) raw_typs;
-                        (* The complete parameter tuple is consumed by the outer
-                           match, so source binders may safely reuse a signature
-                           name (for example `(xs, INil)`).  The general nested
-                           compiler still reserves parameter names because it may
-                           leave another parameter pending in an inner match. *)
-                        val row_vars =
-                          (vars0, Symtab.empty)
-                          |> rv_intro_base_names_for (is_none o const_syntax)
-                              deresolve (t :: ts)
-                          |> rv_intro_typed_pats (ListPair.zip (ts, param_tys));
                         val used_vars = build (add_distinct_varnames t);
                         val ts' = map (wildcard_unused_pattern used_vars) ts;
                         val (surface_pats, lets, residuals, row_vars') =
@@ -3835,7 +3840,7 @@ fun print_type_param_bound (vname, sort) =
                           print_term_expected method_result_expected is_pseudo_fun
                             (false, box_new, clone) some_thm row_vars NOBR t)
                       end;
-                    val infos = map row_info eqs;
+                    val infos = map row_info prepared;
                     val indexed_infos = map_index I infos;
                     fun same_frontier_pat need_box pat1 pat2 =
                       if need_box then true

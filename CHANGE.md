@@ -2,6 +2,11 @@
 
 Major updates and significant bug fixes are recorded here, newest first.
 
+## 2026-11-23 — Pattern variable names
+
+- Allocate distinct names across equations and case alternatives in shared
+  matches, retaining source names when available.
+
 ## 2026-10-09 — Shared RustLight parser
 
 - Use the parser in `rustlightast` for Stage-2 parsing.
