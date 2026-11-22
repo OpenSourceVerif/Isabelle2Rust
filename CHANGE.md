@@ -2,8 +2,10 @@
 
 Major updates and significant bug fixes are recorded here, newest first.
 
-## 2026-11-22 — Stage-1 Dashu numeric profile
+## 2026-11-22 — Stage-1 numeric profiles
 
+- Map paired Checked128 division and remainder directly to signed and unsigned
+  operations over the full input range.
 - Add `Rust_Dashu_Setup` with `dashu_int::UBig` for HOL `nat` and
   `dashu_int::IBig` for `int` and `integer`.
 

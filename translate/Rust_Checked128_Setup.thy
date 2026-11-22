@@ -137,6 +137,14 @@ pub fn rem_nat(a: u128, b: u128) -> u128 {
     if b == 0 { a } else { a % b }
 }
 
+// Paired natural division has the same zero-divisor behavior as the two
+// scalar operations. Keep both operands unsigned: lowering through integer
+// would reject otherwise representable values above i128::MAX.
+#[inline]
+pub fn div_mod_nat(a: u128, b: u128) -> (u128, u128) {
+    if b == 0 { (0, a) } else { (a / b, a % b) }
+}
+
 #[inline]
 pub fn pow_int(mut base: i128, mut exponent: u128) -> i128 {
     let mut result = 1i128;
@@ -349,6 +357,10 @@ in
 end
 \<close>
 
+(* Paired divmod operations must retain the same primitive input range as
+   scalar division and modulo. Their generic code equations may take abs MIN
+   or convert a full-range nat to integer before producing a representable
+   pair, so map the pair directly to these existing arithmetic semantics. *)
 code_printing
   constant "plus :: integer \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
     (Rust) "!crate::Rust'_Checked128::add'_int'(_, _')"
@@ -367,6 +379,8 @@ code_printing
     (Rust) "!crate::Rust'_Checked128::rem'_int'(_, _')"
 | constant Code_Numeral.divmod_abs \<rightharpoonup>
     (Rust) "!crate::Rust'_Checked128::divmod'_abs'(_, _')"
+| constant Code_Numeral.divmod_integer \<rightharpoonup>
+    (Rust) "!crate::Rust'_Checked128::div'_mod'_floor'(_, _')"
 | constant "HOL.equal :: integer \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
     (Rust) infix 4 "=="
 | constant "less_eq :: integer \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
@@ -395,6 +409,8 @@ code_printing
     (Rust) "!crate::Rust'_Checked128::div'_nat'(_, _')"
 | constant "modulo :: nat \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
     (Rust) "!crate::Rust'_Checked128::rem'_nat'(_, _')"
+| constant Euclidean_Rings.divmod_nat \<rightharpoonup>
+    (Rust) "!crate::Rust'_Checked128::div'_mod'_nat'(_, _')"
 | constant "HOL.equal :: nat \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
     (Rust) infix 4 "=="
 | constant "less_eq :: nat \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
