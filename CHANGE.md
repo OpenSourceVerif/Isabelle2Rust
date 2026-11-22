@@ -4,6 +4,8 @@ Major updates and significant bug fixes are recorded here, newest first.
 
 ## 2026-11-22 — Stage-1 numeric profiles
 
+- Add `Rust_Source_BigInt_Setup` with distinct arbitrary-precision Rust types
+  for HOL `nat`, `int`, and `integer`.
 - Map paired Checked128 division and remainder directly to signed and unsigned
   operations over the full input range.
 - Add `Rust_Dashu_Setup` with `dashu_int::UBig` for HOL `nat` and

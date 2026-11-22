@@ -6,6 +6,7 @@ text \<open>
   Representation-independent Rust code-generation support.  Numeric
   representations are selected separately by exactly one of
   \<^theory_text>\<open>Rust_BigInt_Setup\<close>,
+  \<^theory_text>\<open>Rust_Source_BigInt_Setup\<close>,
   \<^theory_text>\<open>Rust_Dashu_Setup\<close>, or
   \<^theory_text>\<open>Rust_Checked128_Setup\<close>.  The BigInt and Checked128
   profiles also provide optional \<^verbatim>\<open>WordU128\<close> setups.

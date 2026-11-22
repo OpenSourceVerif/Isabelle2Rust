@@ -29,10 +29,9 @@ datatype binding =
 (** Intermediate statement IR: groups bindings into Rust-level declarations,
     produced from Code_Thingol stmts by modify_stmts before printing.
     Inst models a type-class instance as a Rust `impl Trait for Type { .. }`.
-    Isabelle eliminates Classinst nodes (dictionary elimination) before the
-    serializer runs, so instances are reconstructed from the specialized
-    `<class>_<Type>_inst.<method>` projection functions: Inst carries (class,
-    tyco), the instance type variables vs (for the impl generics/bounds), and
+    Instances use specialized projection functions or, for mapped numeric
+    primitives, a surviving Classinst dictionary and its registered syntax.
+    Inst carries (class, tyco), the instance type variables vs, and
     one entry per trait method (classparam name + the implementing constant's
     symbol, whose body is inlined at print time). **)
 datatype stmt =
@@ -2945,6 +2944,26 @@ fun print_type_param_bound (vname, sort) =
                       val eqs = filter (snd o snd) raw_eqs
                       val target = arrow_arity mty
                     in SOME (tysm, map (normalize_method_eq mty target) eqs) end
+                | (NONE, SOME (mty, target)) =>
+                    (case const_sym of
+                      Constant c =>
+                        if is_some (const_syntax c) then
+                          let
+                            (* Reuse the registered native expression as the
+                               method body. Its projection was removed by target
+                               preparation, not because the method is unreachable;
+                               emitting a panic stub would silently lose behavior. *)
+                            val names = Name.invent Name.context "native_arg" target;
+                            val args = map (IVar o SOME) names;
+                            val dom = take target (fst (fun_typs mty));
+                            val result = drop_fun_type target mty;
+                            val native = IConst {sym = const_sym,
+                              typargs = map (ITyVar o fst) vs, dicts = [],
+                              dom = dom, range = result, annotation = NONE};
+                            val body = Library.foldl (op `$) (native, args);
+                          in SOME ((vs, mty), [((args, body), (NONE, true))]) end
+                        else NONE
+                    | _ => NONE)
                 | _ => NONE
             fun print_method (classparam, method_sym) =
               let
@@ -3424,9 +3443,7 @@ fun rust_program_of_program ctxt module_name reserved identifiers
       | modify_stmts ((stmts as (_, (_, Code_Thingol.Classparam _)) :: _)) =
           modify_class stmts
       | modify_stmts (stmts as ((_, (_, Code_Thingol.Classinst _)) :: _)) =
-          (* Isabelle eliminates Classinst before serialization in this toolchain;
-             any that survive carry no Rust-level content, so drop them. *)
-          map (K NONE) stmts
+          emit_insts stmts
       | modify_stmts stmts = error ("Illegal mutual dependencies: " ^
           (Library.commas o map (Code_Symbol.quote ctxt o fst)) stmts);
   in
@@ -3498,7 +3515,7 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
 
     (* Reconstruct type-class instances from the specialized projection functions
         Isabelle leaves behind after dictionary elimination. *)
-    val inst_methods =
+    val projected_inst_methods =
       let
         fun tycos_of (ITyVar _) = []
           | tycos_of (tyco `%% tys) = tyco :: maps tycos_of tys;
@@ -3572,15 +3589,13 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
                           val cp_opt =
                             find_first (fn cp =>
                               after_last_dot const = after_last_dot cp ^ "_" ^ after_last_dot tyc) cps
-                        in Option.map (fn cp => (inst_s, (cls, tyc, vs', cp, sym))) cp_opt end
+                        in Option.map (fn cp => ((cls, tyc), (cls, tyc, vs', cp, sym))) cp_opt end
                   end
               end
           | _ => NONE)
           stmt_list
       end;
 
-    (** All instance-method constants (suppressed as standalone functions). **)
-    val inst_method_syms = map (fn (_, (_, _, _, _, sym)) => sym) inst_methods;
     (** Canonical key for a type constructor at the Rust level. A code_printing-
         mapped type (e.g. nat/int -> BigInt) collapses onto its target name, so
         two HOL types sharing one Rust type get the same key. Rust rejects two
@@ -3594,6 +3609,34 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
               handle Subscript =>
                 error ("DEBUG canon_tyco Subscript: tyco=" ^ t ^ " n=" ^ string_of_int n))
         | NONE => t);
+    (* Separate numeric receivers may each use their source operation, including
+       truncated nat subtraction. Shared-receiver profiles keep their existing
+       dictionary generation. *)
+    val numeric_types = [\<^type_name>\<open>nat\<close>, \<^type_name>\<open>int\<close>, \<^type_name>\<open>integer\<close>];
+    val distinct_numeric_types = forall (is_some o tyco_syntax) numeric_types
+      andalso not (has_duplicates (op =) (map canon_tyco numeric_types));
+    val mapped_primitive_methods =
+      maps (fn ((_, stmt), _) =>
+        case stmt of
+          Code_Thingol.Classinst {class, tyco, vs, inst_params, ...} =>
+            if distinct_numeric_types andalso member (op =) numeric_types tyco
+                andalso member (op =)
+                  [\<^class>\<open>equal\<close>, \<^class>\<open>ord\<close>, \<^class>\<open>zero\<close>,
+                   \<^class>\<open>one\<close>, \<^class>\<open>plus\<close>, \<^class>\<open>times\<close>,
+                   \<^class>\<open>minus\<close>] class
+            then map_filter
+              (fn ((cp, ({sym = method_sym as Constant c, ...}, _)), (_, active)) =>
+                    if active andalso is_some (const_syntax c)
+                        andalso not (Code_Symbol.Graph.defined program method_sym)
+                    then SOME ((class, tyco), (class, tyco, vs, cp, method_sym))
+                    else NONE
+                | _ => NONE) inst_params
+            else []
+        | _ => []) stmt_list;
+    val inst_methods = projected_inst_methods @ mapped_primitive_methods;
+
+    (** All instance-method constants (suppressed as standalone functions). **)
+    val inst_method_syms = map (fn (_, (_, _, _, _, sym)) => sym) inst_methods;
     (** Return direct or transitive superclasses from the program class graph.
         Missing class nodes contribute no edges; the closure contains each class
         once and excludes the starting class unless reached through a cycle. **)
@@ -3617,10 +3660,13 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       else map2 (fn (v, sort) => fn (_, inherited_sort) =>
         (v, union (op =) inherited_sort sort)) vs inherited;
     val inst_table_all =
-      map (fn seg =>
+      map (fn instance_key =>
         let
-          val members = filter (fn (s, _) => s = seg) inst_methods
-          val (_, (cls, tyc, vs0, _, repr_sym)) = hd members
+          val members = filter (fn (key, _) => key = instance_key) inst_methods
+          val (_, (cls, tyc, vs0, _, method_repr)) = hd members
+          (* A native method has no function node; emit its impl at the dictionary. *)
+          val repr_sym = if Code_Symbol.Graph.defined program method_repr then method_repr
+            else Class_Instance (tyc, cls)
           (* Different methods of one class instance may use different
              operational dictionaries.  They share the same type-constructor
              parameters, so union their sorts positionally into one impl header. *)

@@ -9,6 +9,7 @@ session Rust = Main +
     "translate/Rust_Base_Setup"
     "translate/Rust_Integer_BigInt_Layer"
     "translate/Rust_BigInt_Setup"
+    "translate/Rust_Source_BigInt_Setup"
     "translate/Rust_Dashu_Setup"
     "translate/Rust_Checked128_Setup"
     "translate/Rust_BigInt_WordU128_Setup"
