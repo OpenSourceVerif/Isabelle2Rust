@@ -2,6 +2,11 @@
 
 Major updates and significant bug fixes are recorded here, newest first.
 
+## 2026-11-22 — Stage-1 Dashu numeric profile
+
+- Add `Rust_Dashu_Setup` with `dashu_int::UBig` for HOL `nat` and
+  `dashu_int::IBig` for `int` and `integer`.
+
 ## 2026-10-09 — Shared RustLight parser
 
 - Use the parser in `rustlightast` for Stage-2 parsing.

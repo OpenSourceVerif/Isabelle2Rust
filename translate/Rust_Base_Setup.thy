@@ -5,9 +5,10 @@ begin
 text \<open>
   Representation-independent Rust code-generation support.  Numeric
   representations are selected separately by exactly one of
-  \<^theory_text>\<open>Rust_BigInt_Setup\<close> or
-  \<^theory_text>\<open>Rust_Checked128_Setup\<close>.  A corresponding
-  \<^verbatim>\<open>WordU128\<close> setup adds the optional fixed-width word mapping.
+  \<^theory_text>\<open>Rust_BigInt_Setup\<close>,
+  \<^theory_text>\<open>Rust_Dashu_Setup\<close>, or
+  \<^theory_text>\<open>Rust_Checked128_Setup\<close>.  The BigInt and Checked128
+  profiles also provide optional \<^verbatim>\<open>WordU128\<close> setups.
 \<close>
 
 (** module remapping to prevent module dependency problem **)

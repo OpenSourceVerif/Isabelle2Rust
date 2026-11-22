@@ -49,7 +49,7 @@ ISABELLE_TEST_SILENT   := "$(ISABELLE)" build -e -d $(TEST_ROOT_DIR) $(TEST_SESS
 export ISABELLE_CARGO
 unexport RUSTC_BOOTSTRAP
 
-WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = $(TEST_TIMEOUT)]' '  sessions' '    "HOL-Library"' $(foreach session,$(TEST_EXTRA_SESSIONS),'    "$(session)"') '  directories' '    "translate"' '    "$(TEST_DIR)"' '  theories [document = false]' '    "translate/Rust_Base_Setup"' '    "translate/Rust_Integer_BigInt_Layer"' '    "translate/Rust_BigInt_Setup"' '    "translate/Rust_Checked128_Setup"' '    "translate/Rust_BigInt_WordU128_Setup"' '    "translate/Rust_Checked128_WordU128_Setup"' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
+WRITE_TEST_ROOT = mkdir -p $(TEST_ROOT_DIR); { printf '%s\n' 'session $(TEST_SESSION) in ".." = Main +' '  description "$(TEST_THEORY) test session"' '  options [timeout = $(TEST_TIMEOUT)]' '  sessions' '    "HOL-Library"' $(foreach session,$(TEST_EXTRA_SESSIONS),'    "$(session)"') '  directories' '    "translate"' '    "$(TEST_DIR)"' '  theories [document = false]' '    "translate/Rust_Base_Setup"' '    "translate/Rust_Integer_BigInt_Layer"' '    "translate/Rust_BigInt_Setup"' '    "translate/Rust_Dashu_Setup"' '    "translate/Rust_Checked128_Setup"' '    "translate/Rust_BigInt_WordU128_Setup"' '    "translate/Rust_Checked128_WordU128_Setup"' '    "$(TEST_DIR)/$(TEST_THEORY)"' '  export_files (in "$(TEST_DIR)/stage1/$(TEST_THEORY)") [2]' '    "*:**.rs"' '    "*:**.toml"' '    "*:**.ocaml"'; } > $(TEST_ROOT_FILE)
 
 #### Code generation ####
 

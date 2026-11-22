@@ -257,6 +257,33 @@ fun rc_dyn_fn params ret =
       constr_method_of: SOME constructor-sym if (classparam, tyco) is a class
         method realised by a nullary data constructor (e.g. `0::int`), so the
         Inst printer fills its body with the constructor instead of a panic stub **)
+(** Native dictionaries only for this explicitly selected numeric profile.
+    Source class identities, rather than generated Rust names, choose semantics.
+    UBig and IBig deliberately remain distinct: nat subtraction is truncated. **)
+fun dashu_primitive_body class rust_type =
+  let
+    val nat = rust_type = "dashu_int::UBig"
+    val signed = rust_type = "dashu_int::IBig"
+    fun binary name body = "fn " ^ name ^ "(a: Self, b: Self) -> Self { " ^ body ^ " }"
+    val table = [
+      (\<^class>\<open>zero\<close>, "fn zero() -> Self { Self::ZERO }"),
+      (\<^class>\<open>one\<close>, "fn one() -> Self { Self::ONE }"),
+      (\<^class>\<open>plus\<close>, binary "plus" "a + b"),
+      (\<^class>\<open>times\<close>, binary "times" "a * b"),
+      (\<^class>\<open>minus\<close>, binary "minus"
+        (if nat then "crate::Rust_Dashu::sub_nat(a,b)" else "a - b")),
+      (\<^class>\<open>divide\<close>, binary "divide"
+        ("crate::Rust_Dashu::div_" ^ (if nat then "nat" else "int") ^ "(a,b)")),
+      (\<^class>\<open>modulo\<close>, binary "modulo"
+        ("crate::Rust_Dashu::rem_" ^ (if nat then "nat" else "int") ^ "(a,b)")),
+      (\<^class>\<open>equal\<close>, "fn equal(a: Self,b: Self)->bool { a==b }"),
+      (\<^class>\<open>ord\<close>, "fn less_eq(a: Self,b: Self)->bool { a<=b } fn less(a: Self,b: Self)->bool { a<b }")]
+      @ (if signed then [
+        (\<^class>\<open>uminus\<close>, "fn uminus(a: Self)->Self { -a }"),
+        (\<^class>\<open>abs\<close>, "fn abs(a: Self)->Self { crate::Rust_Dashu::abs_int(a) }")]
+        else [])
+  in if nat orelse signed then AList.lookup (op =) table class else NONE end;
+
 fun print_rust_stmt class_syntax tyco_syntax const_syntax reserved is_constr deresolve
   box_table phantom_table
   lookup_constant_typeco lookup_constructor_fields is_single_constr lookup_constant_fun
@@ -2974,7 +3001,12 @@ fun print_type_param_bound (vname, sort) =
                         in SOME (print_method_sig nm mty cls_v tail) end)
                       all_cps)
           in
-            rust_block header (map print_method real_methods @ stub_methods)
+            rust_block header
+              (case (if member (op =) ["Nat.nat", "Int.int", "Code_Numeral.integer"] tyco
+                then dashu_primitive_body class (Pretty.unformatted_string_of
+                  (print_tyco_expr (Type_Constructor tyco, []))) else NONE) of
+                SOME body => [str body]
+              | NONE => map print_method real_methods @ stub_methods)
           end;
     (** Top-level statement dispatcher: routes each stmt variant to its printer.
         Exc -> exception stub, Val -> single binding, Funs -> function group,
@@ -4213,7 +4245,24 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
               ^ "\n  stmt: " ^ Code_Debug_Info.print_debug_info_thingol_stmt (get_node program sym))
           | _ => ())
       in
-        Exn.release r
+        let
+          val result = Exn.release r
+          val existing = map (fn (_, ((c,t),_)) => (c, canon_tyco t)) inst_table
+            @ map (fn (c,t,_) => (c, canon_tyco t)) closure_inst_data
+          fun native cls (tyco, rust_type) =
+            if canon_tyco tyco <> "\^E" ^ rust_type orelse
+              member (op =) existing (cls, canon_tyco tyco) then NONE
+            else Option.map (fn body => str ("impl " ^
+              modify_deresolver current_module (deresolver prefix_fragments) (Type_Class cls) ^
+              " for " ^ rust_type ^ " { " ^ body ^ " }"))
+              (dashu_primitive_body cls rust_type)
+          val additions = (case stmt of Class (cls, _) =>
+            map_filter (native cls) [("Nat.nat", "dashu_int::UBig"),
+              (if canon_tyco "Code_Numeral.integer" = "\^E" ^ "dashu_int::IBig"
+               then "Code_Numeral.integer" else "Int.int", "dashu_int::IBig")]
+            | _ => [])
+        in if null additions then result
+          else (fst result, Pretty.chunks (snd result :: additions)) end
       end;
 
     (** Print a module from statement bodies, resolve imports and wrap nested
@@ -4256,11 +4305,14 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
       exists (String.isSubstring needle o Pretty.string_of o snd)
         (include_srcs @ generated_srcs)
     val default_rust_dependencies =
-      if rendered_sources_contain "num_bigint" then
+      (if rendered_sources_contain "num_bigint" then
         "num-bigint = \"0.4.6\"\nnum-traits = \"0.2.19\""
       else if rendered_sources_contain "num_traits" then
         "num-traits = \"0.2.19\""
-      else ""
+      else "") ^
+      (if rendered_sources_contain "dashu_int" then
+        "\ndashu-int = { version = \"=0.6.2\", default-features = false, features = [\"std\"] }"
+      else "")
     val rust_dependencies =
       if rust_dependencies_override = "" then default_rust_dependencies
       else rust_dependencies_override
