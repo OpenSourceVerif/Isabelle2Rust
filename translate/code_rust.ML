@@ -802,6 +802,24 @@ fun print_type_param_bound (vname, sort) =
       if exists term_requires_multiline_layout terms
       then rust_multiline_parens prts
       else rust_parens prts;
+    (* Precedence alone does not describe Rust's statement boundary: a leading
+       if/match/block operand may be parsed as a complete statement. Keep its
+       position alongside Code_Printer's fixity. Complex syntax printers expose
+       only fixity, so their holes conservatively require block grouping. *)
+    datatype rust_expr_position =
+      Rust_Tail | Rust_Delimited | Rust_Condition | Rust_Callee | Rust_Syntax;
+    val rust_tail = (Rust_Tail, NOBR);
+    val rust_delimited = (Rust_Delimited, NOBR);
+    val rust_condition = (Rust_Condition, NOBR);
+    val rust_callee = (Rust_Callee, NOBR);
+    fun rust_syntax fxy = (Rust_Syntax, fxy);
+    fun rust_block_expr (position, _) p =
+      (case position of
+        Rust_Tail => p
+      | Rust_Delimited => p
+      | Rust_Condition => p
+      | Rust_Callee => rust_parens [p]
+      | Rust_Syntax => rust_parens [p]);
     (* Declaration matching keeps the first binding for each variable. A shared
        declaration/occurrence pair contributes no new bindings on later visits,
        so visit each physical compound pair once per query. Keep both identities:
@@ -1739,10 +1757,10 @@ fun print_type_param_bound (vname, sort) =
           need_box: whether to wrap the result in Box
           box_prcs: Box wrapping function for expressions
           clone_prcs: clone wrapping function (clone for exprs, I for patterns) **)
-    fun print_term_gen is_pseudo_fun wrappers some_thm vars fxy t =
-          print_term_expected NONE is_pseudo_fun wrappers some_thm vars fxy t
+    fun print_term_gen is_pseudo_fun wrappers some_thm vars context t =
+          print_term_expected NONE is_pseudo_fun wrappers some_thm vars context t
     and print_term_expected expected is_pseudo_fun
-        (wrappers as (need_box, box_prcs, clone_prcs)) some_thm vars fxy t =
+        (wrappers as (need_box, box_prcs, clone_prcs)) some_thm vars context t =
           let
             (* Dictionary-selected functions may need an implicit adapter
                back to the ordinary flat grouping when no context is supplied.
@@ -1778,7 +1796,7 @@ fun print_type_param_bound (vname, sort) =
                  recursive-field Box outside that typed result. *)
               let
                 val printed = print_term_raw effective_expected is_pseudo_fun
-                  (false, box_prcs, clone_prcs) some_thm vars fxy t;
+                  (false, box_prcs, clone_prcs) some_thm vars rust_delimited t;
                 val typed = rust_open [str "::std::convert::identity::<",
                   print_rust_shape rust_shape, str ">", rust_parens [printed]];
               in if need_box then box_prcs typed else typed end
@@ -1799,9 +1817,9 @@ fun print_type_param_bound (vname, sort) =
                       val adapted = print_function_adapter target_shape
                         is_pseudo_fun some_thm vars t
                     in if need_box then box_prcs adapted else adapted end
-                  else print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars fxy t
+                  else print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars context t
                   end
-              | NONE => print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars fxy t)
+              | NONE => print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars context t)
           | (_, SOME {rust_shape = target_shape as Rust_Tyco _, ...}) =>
               (case selected_term_rust_shape vars t of
                 SOME source_shape =>
@@ -1810,19 +1828,20 @@ fun print_type_param_bound (vname, sort) =
                   then
                     let val adapted = print_container_adapter source_shape target_shape
                       is_pseudo_fun some_thm vars t
-                    in if need_box then box_prcs adapted else adapted end
-                  else print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars fxy t
-              | NONE => print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars fxy t)
-          | _ => print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars fxy t)
+                    in if need_box then box_prcs adapted
+                      else rust_block_expr context adapted end
+                  else print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars context t
+              | NONE => print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars context t)
+          | _ => print_term_raw effective_expected is_pseudo_fun wrappers some_thm vars context t)
           end
     and print_term_raw expected is_pseudo_fun (need_box, box_prcs, clone_prcs)
-        some_thm vars fxy (IConst const) =
+        some_thm vars context (IConst const) =
           let
             fun print_const f =
               print_app_with_clone expected is_pseudo_fun
                 (box_prcs, clone_prcs) some_thm vars f (const, [])
           in
-            print_term_with_cons_and_box expected (need_box, box_prcs) print_const fxy (IConst const)
+            print_term_with_cons_and_box expected (need_box, box_prcs) print_const context (IConst const)
           end
       | print_term_raw _ _ _ _ _ _ (IVar NONE) =
           str "_"
@@ -1831,7 +1850,7 @@ fun print_type_param_bound (vname, sort) =
           then box_prcs (clone_prcs (str (rv_lookup_var vars v)))
           else clone_prcs (str (rv_lookup_var vars v))
       | print_term_raw expected is_pseudo_fun (need_box, box_prcs, clone_prcs)
-          some_thm vars fxy (t as _ `$ _) =
+          some_thm vars context (t as _ `$ _) =
           let
             fun print_app_term f =
               (case Code_Thingol.unfold_const_app t
@@ -1848,7 +1867,7 @@ fun print_type_param_bound (vname, sort) =
                   val params = map_index (fn (i, arg) =>
                     print_term_expected
                       (if i < length closure_expecteds then nth closure_expecteds i else NONE)
-                      is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR arg) ts'
+                      is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars rust_delimited arg) ts'
                   val representation_groups =
                     (case t' of
                       IVar (SOME v) => Option.map rust_shape_groups
@@ -1913,7 +1932,7 @@ fun print_type_param_bound (vname, sort) =
                                  condition can consume a value that a branch
                                  subsequently captures. Only the direct variable
                                  above is merely borrowed as the call target. *)
-                              print_term_app is_pseudo_fun some_thm vars NOBR t)
+                              print_term_app is_pseudo_fun some_thm vars rust_callee t)
                         fun call callee args =
                           rust_open(
                             str "(*"
@@ -1951,10 +1970,10 @@ fun print_type_param_bound (vname, sort) =
                       end
                 end)
           in
-            print_term_with_cons_and_box expected (need_box, box_prcs) print_app_term fxy t
+            print_term_with_cons_and_box expected (need_box, box_prcs) print_app_term context t
           end
       | print_term_raw expected is_pseudo_fun (need_box, box_prcs, _)
-          some_thm vars fxy (t as _ `|=> _) =
+          some_thm vars context (t as _ `|=> _) =
           (* A lambda is the term-level representation of a HOL function value.
              When such a value inhabits a recursive datatype field, the same
              constructor-field Box decision used for constants and applications
@@ -1967,13 +1986,13 @@ fun print_type_param_bound (vname, sort) =
                   then print_function_adapter shape is_pseudo_fun some_thm vars t
                   else print_lambda is_pseudo_fun some_thm vars t
               | _ => print_lambda is_pseudo_fun some_thm vars t)
-          in print_term_with_cons_and_box expected (need_box, box_prcs) print_abs fxy t end
+          in print_term_with_cons_and_box expected (need_box, box_prcs) print_abs context t end
       | print_term_raw expected is_pseudo_fun (need_box, box_prcs, clone_prcs)
-          some_thm vars fxy (ICase case_expr) =
+          some_thm vars context (ICase case_expr) =
           case Code_Thingol.unfold_const_app (#primitive case_expr)
               of SOME (app as ({ sym = Constant const, ... }, _)) =>
                   if is_none (const_syntax const)
-                  then print_case expected is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy case_expr
+                  then print_case expected is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars context case_expr
                   else
                     let
                       fun print_syntax f =
@@ -1987,12 +2006,12 @@ fun print_type_param_bound (vname, sort) =
                          conditional expression, just as it does around an ordinary
                          application or lambda in the same constructor position. *)
                       print_term_with_cons_and_box expected
-                        (need_box, box_prcs) print_syntax fxy (ICase case_expr)
+                        (need_box, box_prcs) print_syntax context (ICase case_expr)
                     end
-              | NONE => print_case expected is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars fxy case_expr
+              | NONE => print_case expected is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars context case_expr
     (** Print a term without Box or clone wrapping (for declarations/signatures). **)
     and print_term_decl is_pseudo_fun some_thm vars fxy t =
-      print_term_gen is_pseudo_fun (false, I, I) some_thm vars fxy t
+      print_term_gen is_pseudo_fun (false, I, I) some_thm vars (rust_syntax fxy) t
     (** Print a pattern that has no boxed fields.  Boxed constructor fields are
         handled explicitly by print_shallow_box_patterns or stable_match_compile;
         the generic term printer must never emit a Box dereference pattern. **)
@@ -2014,12 +2033,12 @@ fun print_type_param_bound (vname, sort) =
           | NONE => rv_types vars);
         val pattern_vars = (rv_names vars, pattern_types);
       in print_term_expected expected is_pseudo_fun
-        (false, I, I) some_thm pattern_vars fxy t end
+        (false, I, I) some_thm pattern_vars (rust_syntax fxy) t end
     (** Print a term as an expression (uses box_new and clone). **)
-    and print_term_app is_pseudo_fun some_thm vars fxy t = 
-      print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars fxy t
+    and print_term_app is_pseudo_fun some_thm vars context t =
+      print_term_gen is_pseudo_fun (false, box_new, clone) some_thm vars context t
     (** Prepend type constructor prefix (e.g. "List::") and apply Box wrapping if needed. **)
-    and print_term_with_cons_and_box expected (need_box, box_prcs) print_term fxy t =
+    and print_term_with_cons_and_box expected (need_box, box_prcs) print_term context t =
       let
         fun lookup_typeco t =
           (case (Code_Thingol.unfold_const_app t)
@@ -2096,8 +2115,10 @@ fun print_type_param_bound (vname, sort) =
            atomic (`Tyco::Cons(args)` never needs outer brackets), so print it at
            NOBR -- otherwise gen_print_app may brackify it at BR and the prefix
            lands outside the parens, producing the invalid `Tyco::(Cons(args))`.
-           Non-prefixed terms keep fxy so infix operands still bracket correctly. *)
-        val term = print_term (if is_none typeco_prefix then fxy else NOBR)
+           A Box wrapper also supplies an argument boundary. Other terms keep
+           their enclosing position and precedence. *)
+        val term = print_term
+          (if need_box orelse is_some typeco_prefix then rust_delimited else context)
         val term_with_cons =
           (case typeco_prefix of
             NONE => term
@@ -2162,7 +2183,7 @@ fun print_type_param_bound (vname, sort) =
                   (map2
                     (fn (t, need_box) => fn expected_arg =>
                       print_term_expected expected_arg is_pseudo_fun
-                        (need_box, box_prcs, clone_prcs) some_thm vars NOBR t)
+                        (need_box, box_prcs, clone_prcs) some_thm vars rust_delimited t)
                     (ListPair.zip (ts, need_box_list)) expected_args
                    @ phantom_args)]]
             else 
@@ -2170,7 +2191,7 @@ fun print_type_param_bound (vname, sort) =
                 val saturated_t = Code_Thingol.saturated_application wanted app
               in
                 [print_term_expected expected is_pseudo_fun
-                  (false, box_prcs, clone_prcs) some_thm vars NOBR saturated_t]
+                  (false, box_prcs, clone_prcs) some_thm vars rust_delimited saturated_t]
               end
           end
         else if is_pseudo_fun sym
@@ -2438,7 +2459,7 @@ fun print_type_param_bound (vname, sort) =
                 fun print_args expecteds args =
                   map2 (fn expected_arg => fn t =>
                     print_term_expected expected_arg is_pseudo_fun
-                      (false, box_prcs, clone_prcs) some_thm vars NOBR t)
+                      (false, box_prcs, clone_prcs) some_thm vars rust_delimited t)
                     expecteds args
                 fun call_rc callee args =
                   rust_open [str "(*", callee, str ")", rust_parens args]
@@ -2475,21 +2496,22 @@ fun print_type_param_bound (vname, sort) =
                 val saturated_t = Code_Thingol.saturated_application wanted_app app
               in
                 [print_term_expected expected is_pseudo_fun
-                  (false, box_prcs, clone_prcs) some_thm vars NOBR saturated_t]
+                  (false, box_prcs, clone_prcs) some_thm vars rust_delimited saturated_t]
               end
           end
     (** Print an application, applying registered const_syntax if any and
         otherwise falling back to print_app_expr. The expected Rust shape and
         Box/clone wrappers are threaded through ordinary and syntax applications. **)
-    and gen_print_app_rvars expected print_app_expr print_term some_thm vars fxy
+    and gen_print_app_rvars expected print_app_expr print_term some_thm vars
+        (context as (_, fxy))
         (app as (const as { sym, dom, range, ... }, ts)) =
       (case sym of
         Constant name =>
           let
             val expected_args = argument_expecteds expected sym dom range
-            fun print_args fxy expecteds args =
+            fun print_args context expecteds args =
               map2 (fn expected_arg => fn t =>
-                print_term expected_arg some_thm vars fxy t) expecteds args;
+                print_term expected_arg some_thm vars context t) expecteds args;
             (* A target-syntax function can hide every occurrence of a result-only
                type parameter from Rust inference.  This is common for adapted
                fixed-width words (`cast`, numerals, zero): Thingol still knows the
@@ -2515,7 +2537,7 @@ fun print_type_param_bound (vname, sort) =
             fun print_syntax_application wanted print_prefix =
               if length ts < wanted orelse
                   (length ts > wanted andalso length ts < length dom)
-              then print_term expected some_thm vars fxy
+              then print_term expected some_thm vars context
                 (Code_Thingol.saturated_application (length dom) app)
               else
                 let
@@ -2527,7 +2549,7 @@ fun print_type_param_bound (vname, sort) =
                   val result =
                     if null ts2 then prefix
                     else rust_open [str "(*(", prefix, str "))",
-                      rust_term_parens ts2 (print_args NOBR expected2 ts2)];
+                      rust_term_parens ts2 (print_args rust_delimited expected2 ts2)];
                 in force_mapped_result_type result end;
             fun print_registered_syntax () =
               (case const_syntax name of
@@ -2540,7 +2562,7 @@ fun print_type_param_bound (vname, sort) =
                     (fn expecteds => fn args => fn _ =>
                       if wanted = 0 then str s
                       else rust_open [str s,
-                        rust_term_parens args (print_args NOBR expecteds args)])
+                        rust_term_parens args (print_args rust_delimited expecteds args)])
               | SOME (wanted, Complex_printer print) =>
                   print_syntax_application wanted
                     (fn expecteds => fn args => fn context =>
@@ -2550,7 +2572,7 @@ fun print_type_param_bound (vname, sort) =
                           in if i < 0 then NONE else List.nth (expecteds, i) end;
                         fun print_term_raw some_thm raw_vars fxy t =
                           print_term (expected_of t) some_thm
-                            (raw_vars, rv_types vars) fxy t;
+                            (raw_vars, rv_types vars) (rust_syntax fxy) t;
                       in
                         print (print_term_raw some_thm) some_thm (rv_names vars)
                           context (args ~~ take wanted dom)
@@ -2562,7 +2584,7 @@ fun print_type_param_bound (vname, sort) =
                   (* An unapplied abort is a function value. Reuse ordinary
                      eta expansion/capture handling until both protocol
                      arguments (message and delayed fallback) are available. *)
-                  print_term expected some_thm vars fxy
+                  print_term expected some_thm vars context
                     (Code_Thingol.saturated_application 2 app)
                 else
                   let
@@ -2597,7 +2619,7 @@ fun print_type_param_bound (vname, sort) =
                         (mk_fun_ty (drop (length ts) dom, range)));
                     val printed_abort = rust_parens [rust_bare_block [
                       rust_open [str "let mut abort_value = ",
-                        print_term NONE some_thm vars NOBR (hd ts), str ";"],
+                        print_term NONE some_thm vars rust_delimited (hd ts), str ";"],
                       str "let mut abort_message = std::string::String::new();",
                       rust_block loop_header [
                         str ("abort_message.push(char::from(" ^ byte ^ "));"),
@@ -2614,18 +2636,12 @@ fun print_type_param_bound (vname, sort) =
                   end
             | ("Product_Type.Pair", [left, right]) =>
                 rust_term_parens [left, right]
-                  (print_args NOBR expected_args [left, right])
+                  (print_args rust_delimited expected_args [left, right])
             | ("HOL.If", [cond, then_t, else_t]) =>
-                (* Rust may parse a leading block-like expression as a complete
-                   statement before a following infix operator. Emit the
-                   conditional as a parenthesized expression at every syntax
-                   boundary; this is also valid for a complete function body.
-                   Code_Printer.brackify treats a single Pretty node as atomic
-                   and cannot supply this grouping around rust_if's block. *)
-                rust_parens [rust_if
-                  (print_term NONE some_thm vars NOBR cond)
-                  (print_term expected some_thm vars NOBR then_t)
-                  (print_term expected some_thm vars NOBR else_t)]
+                rust_block_expr context (rust_if
+                  (print_term NONE some_thm vars rust_condition cond)
+                  (print_term expected some_thm vars rust_tail then_t)
+                  (print_term expected some_thm vars rust_tail else_t))
             | _ => print_registered_syntax ())
           end
       | _ => brackify fxy (print_app_expr some_thm vars app))
@@ -2819,14 +2835,14 @@ fun print_type_param_bound (vname, sort) =
                 |>> (fn p => rust_open
                     [str "let ", p, str " = ",
                     print_term_expected expected is_pseudo_fun
-                      (false, box_prcs, clone_prcs) some_thm vars NOBR t, str ";"])
+                      (false, box_prcs, clone_prcs) some_thm vars rust_delimited t, str ";"])
               end
             val (ps, vars') = fold_map print_let binds vars;
             val bind_pats = map (fst o fst) binds;
           in
             if direct_irrefutable_patterns bind_pats
             then SOME (ps, print_term_expected expected is_pseudo_fun
-              (need_box, box_prcs, clone_prcs) some_thm vars' NOBR body)
+              (need_box, box_prcs, clone_prcs) some_thm vars' rust_tail body)
             else NONE
           end
       | print_irrefutable_case_parts _ _ _ _ _ _ = NONE
@@ -3076,12 +3092,7 @@ fun print_type_param_bound (vname, sort) =
        expression, which also coerces to a polymorphic result or a boxed field. *)
     and print_case _ _ _ _ _ _ { clauses = [], ... } =
           str "panic!(\"empty case\")"
-      | print_case expected is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars _ (icase as { term = t, typ = _, clauses = clauses, ... }) =
-          (* A case is an expression even when its lowering starts with a
-             match or a binding block. Parenthesize that whole result so Rust
-             cannot end a statement or match arm before a following infix
-             operator. This covers ordinary and stable matches as well as
-             the single-irrefutable-clause binding block. *)
+      | print_case expected is_pseudo_fun (need_box, box_prcs, clone_prcs) some_thm vars context (icase as { term = t, typ = _, clauses = clauses, ... }) =
           (* A recursive constructor field boxes the result of the whole case,
              including ordinary and staged matches. Keep the irrefutable binding
              body unboxed here as well, so this outer field wrapper is applied
@@ -3096,13 +3107,13 @@ fun print_type_param_bound (vname, sort) =
             fun print_scrutinee () =
               print_term_expected
                 (SOME {hol_type = #typ icase, rust_shape = scrutinee_shape})
-                is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars NOBR t;
+                is_pseudo_fun (false, box_prcs, clone_prcs) some_thm vars rust_condition t;
             (* Branches construct the case result in the enclosing expected
                representation. Dropping it here makes newly constructed tuple
                fields fall back to flat functions, even inside an adapter whose
                result already requires the dictionary-selected unary shape. *)
             val printed_case =
-          rust_parens [(case print_irrefutable_case_parts expected is_pseudo_fun
+          (case print_irrefutable_case_parts expected is_pseudo_fun
               (false, box_prcs, clone_prcs) some_thm vars icase of
             SOME (ps, body) => rust_bare_block (ps @ [body])
           | NONE => let
@@ -3121,7 +3132,7 @@ fun print_type_param_bound (vname, sort) =
                   in
                     ([pat], vars', used_vars, [],
                       print_term_expected expected is_pseudo_fun
-                        (false, box_prcs, clone_prcs) some_thm vars' NOBR body)
+                        (false, box_prcs, clone_prcs) some_thm vars' rust_tail body)
                   end;
                 val scrutinee = print_scrutinee ();
               in
@@ -3146,7 +3157,7 @@ fun print_type_param_bound (vname, sort) =
                       is_pseudo_fun some_thm vars' NOBR pat', []);
                 val printed_body =
                   print_term_expected expected is_pseudo_fun
-                        (false, box_prcs, clone_prcs) some_thm vars' NOBR body;
+                        (false, box_prcs, clone_prcs) some_thm vars' rust_tail body;
                 val arm_body =
                   if null lets then printed_body
                   else rust_bare_block (lets @ [printed_body]);
@@ -3166,8 +3177,9 @@ fun print_type_param_bound (vname, sort) =
                 (print_scrutinee ())
                 (map print_select clauses
                   @ [rust_arm (str "_") (str "panic!(\"non-exhaustive match\")")])
-          end)]
-          in if need_box then box_prcs printed_case else printed_case end
+          end)
+          in if need_box then box_prcs printed_case
+            else rust_block_expr context printed_case end
     (** Rebuild an existing algebraic value at a different function grouping.
         Helpers are local to this conversion and memoized by source/target shape.
         Register before descending so recursive containers generate recursive
@@ -3304,7 +3316,7 @@ fun print_type_param_bound (vname, sort) =
           | convert_body _ _ _ = error "Rust container conversion has incompatible shapes";
         val input = print_term_raw
           (SOME {hol_type = shape_type source, rust_shape = source})
-          is_pseudo_fun (false, box_new, clone) some_thm vars NOBR term;
+          is_pseudo_fun (false, box_new, clone) some_thm vars rust_delimited term;
         val result = convert [] source target input;
       in rust_bare_block (rev (!definitions) @ [result]) end
     (** Adapt the backend's default flat function value to a contextual parameter
@@ -3471,7 +3483,7 @@ fun print_type_param_bound (vname, sort) =
               (ListPair.zip (ps, typs)))
         val closure_body =
           print_term_expected body_expected is_pseudo_fun (false, box_new, clone)
-            some_thm vars' NOBR t'
+            some_thm vars' rust_tail t'
         (* A complete HOL function value is immediately erased to a
            `Rc<dyn Fn(..) -> T>` trait object.  State the same `T` on the Rust
            closure itself: a partial source match may lower to a body containing
@@ -3682,7 +3694,7 @@ fun print_type_param_bound (vname, sort) =
                 val ts' = map (wildcard_unused_pattern used_vars) ts
                 val print_pattern_term = (print_term_pattern NONE is_pseudo_fun some_thm vars NOBR)
                 val print_expr_term = (print_term_expected method_result_expected is_pseudo_fun
-                      (false, box_new, clone) some_thm vars NOBR)
+                      (false, box_new, clone) some_thm vars rust_tail)
                 val (printed_patterns, lets) =
                   if exists pat_contains_boxed_field ts' then
                     print_shallow_box_patterns is_pseudo_fun some_thm vars ts'
@@ -3702,7 +3714,7 @@ fun print_type_param_bound (vname, sort) =
                 (case method_result_expected of
                   SOME expected =>
                     [print_term_expected (SOME expected) is_pseudo_fun
-                      (false, box_new, clone) some_thm vars NOBR t]
+                      (false, box_new, clone) some_thm vars rust_tail t]
                 | NONE => (case t of
                   (_ `|=> _) =>
                     let
@@ -3716,13 +3728,13 @@ fun print_type_param_bound (vname, sort) =
                           if has_selected_container shape then
                             [print_term_expected
                               (SOME {hol_type = shape_type shape, rust_shape = shape})
-                              is_pseudo_fun (false, box_new, clone) some_thm vars NOBR t]
+                              is_pseudo_fun (false, box_new, clone) some_thm vars rust_tail t]
                           else plain ()
                       | NONE => plain ())
                     end
                 | ICase case_expr =>
                     let
-                      fun default () = [print_term_app is_pseudo_fun some_thm vars NOBR t];
+                      fun default () = [print_term_app is_pseudo_fun some_thm vars rust_tail t];
                       fun print_case_body () =
                         (case print_irrefutable_case_parts NONE is_pseudo_fun
                             (false, box_new, clone) some_thm vars case_expr of
@@ -3734,7 +3746,7 @@ fun print_type_param_bound (vname, sort) =
                           if is_none (const_syntax const) then print_case_body () else default ()
                       | _ => print_case_body ())
                     end
-                | _ => [print_term_app is_pseudo_fun some_thm vars NOBR t]))
+                | _ => [print_term_app is_pseudo_fun some_thm vars rust_tail t]))
               end;
             (** Print the function signature and body:
                 generates dummy parameter names, type annotations, return type,
@@ -3801,7 +3813,7 @@ fun print_type_param_bound (vname, sort) =
                       in
                         (ts, vars, used_vars, [],
                           print_term_expected method_result_expected is_pseudo_fun
-                            (false, box_new, clone) some_thm vars NOBR t)
+                            (false, box_new, clone) some_thm vars rust_tail t)
                       end;
                   in
                     stable_match_compile is_pseudo_fun NONE vars
@@ -3838,7 +3850,7 @@ fun print_type_param_bound (vname, sort) =
                       in
                         (ts', surface_pats, lets, residuals, row_vars', used_vars,
                           print_term_expected method_result_expected is_pseudo_fun
-                            (false, box_new, clone) some_thm row_vars NOBR t)
+                            (false, box_new, clone) some_thm row_vars rust_tail t)
                       end;
                     val infos = map row_info prepared;
                     val indexed_infos = map_index I infos;

@@ -2,6 +2,11 @@
 
 Major updates and significant bug fixes are recorded here, newest first.
 
+## 2026-11-23 — Expression parentheses
+
+- Select parentheses for conditionals, matches, and binding blocks by Rust
+  expression position.
+
 ## 2026-11-23 — Pattern variable names
 
 - Allocate distinct names across equations and case alternatives in shared
