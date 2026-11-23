@@ -2,6 +2,7 @@
 
 from collections import Counter, defaultdict, deque
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from contextlib import nullcontext
 import copy
 import csv
 from dataclasses import dataclass
@@ -146,6 +147,7 @@ def verify_export(base, item):
 
 def export_batch(base, jobs, args, env):
     state = State(base)
+    publish_lock = getattr(args, "publish_lock", nullcontext())
     results = {}
     pending = []
     for job in jobs:
@@ -166,6 +168,7 @@ def export_batch(base, jobs, args, env):
         shutil.copyfile(works[0] / "request.xml", batch / "request.xml")
         queue = batch / "queue.txt"
         queue.write_text("".join(str(work) + "\n" for work in works))
+        State(batch)
         actual = dict(env, AFP_RUST_EXPORT_QUEUE=str(queue), AFP_RUST_QUIET="1")
         command = fixed_plan.native_command(jobs[0].session, batch, args, actual, "fixed_export.ML")
         remaining = []
@@ -177,7 +180,8 @@ def export_batch(base, jobs, args, env):
             else:
                 remaining.append((job, work))
         if updates:
-            state.update(updates)
+            with publish_lock:
+                state.update(updates)
         if not remaining:
             continue
         if command["status"] == "passed":
@@ -205,7 +209,8 @@ def export_batch(base, jobs, args, env):
             if status != "timeout":
                 updates["export/" + job.key] = item
         if updates:
-            state.update(updates)
+            with publish_lock:
+                state.update(updates)
     return results
 
 
@@ -247,10 +252,7 @@ def compile_crate(base, worker, entry, key, files, manifest, args, env, optimize
                 item["command_evidence"] = command_evidence(base, item)
                 persist()
             validate_crate(base, manifest, item, optimizer)
-            result = {"manifest": manifest, "item": item}
-            state.put(record_key, result)
-            worker_state.update({}, [record_key])
-            return result
+            return {"manifest": manifest, "item": item}
         worker_state.put("interrupted/" + key + "/" + Path(item["directory"]).name, item)
         if index == 0:
             record["full_compile"].clear()
@@ -271,11 +273,33 @@ def batches(jobs, size):
             queue.append(group[size:])
 
 
+def recover_compile_results(base, state):
+    existing = set(state.keys("compile/"))
+    for database in sorted(base.glob("workers/*/state.sqlite3")):
+        worker = State(database.parent)
+        recovered = {}
+        for key in worker.keys("compile/"):
+            if key in existing:
+                continue
+            result = worker.get(key)
+            item = result["item"]
+            if (item.get("complete") and item.get("command_evidence")
+                    and digest(item["stage1_inputs"]) == key.removeprefix("compile/")):
+                recovered[key] = result
+                existing.add(key)
+        if recovered:
+            state.update(recovered)
+
+
 def run(base, jobs, args, env, optimizer):
     args.cancel_event = threading.Event()
     options = copy.copy(args)
     options.wait_for_exit = True
+    options.publish_lock = threading.Lock()
     env = dict(env, AFP_RUST_REPLAY_ROOT=str(base))
+    state = State(base)
+    recover_compile_results(base, state)
+    finished = {}
     for slot in range(args.compile_workers):
         worker = State(base / "workers" / str(slot))
         with worker.connect() as db:
@@ -305,6 +329,8 @@ def run(base, jobs, args, env, optimizer):
                                                  key, files, manifest, options, settings, optimizer)
                     pending_compile[future] = key, slot
                 if not pending_export and not pending_compile:
+                    with options.publish_lock:
+                        state.update(finished)
                     return exports, compiled, crate_keys
                 done, _ = wait((*pending_export, *pending_compile), timeout=5, return_when=FIRST_COMPLETED)
                 for future in done:
@@ -327,13 +353,19 @@ def run(base, jobs, args, env, optimizer):
                     else:
                         key, slot = pending_compile.pop(future)
                         slots.append(slot)
-                        compiled[key] = future.result()
+                        compiled[key] = finished["compile/" + key] = future.result()
+                        if len(finished) >= 128:
+                            with options.publish_lock:
+                                state.update(finished)
+                            finished.clear()
                         if len(compiled) % 1000 == 0:
                             print(f"[rust-replay] compiled {len(compiled)} distinct crates", flush=True)
         except BaseException:
             args.cancel_event.set()
             for future in (*pending_compile, *pending_export):
                 future.cancel()
+            with options.publish_lock:
+                state.update(finished)
             raise
 
 

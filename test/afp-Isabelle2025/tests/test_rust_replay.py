@@ -55,3 +55,20 @@ class RustReplayTests(unittest.TestCase):
         self.assertEqual(replay.phase_status(item, "stage1_compile"), "timeout")
         item["stage1_compile"]["checks"] = [{"status": "memory_limit"}]
         self.assertEqual(replay.phase_status(item, "stage1_compile"), "failed")
+
+    def test_resume_adopts_only_complete_matching_slot_receipts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            state = replay.State(base)
+            worker = replay.State(base / "workers/1")
+            inputs = {"Cargo.toml": "one", "src/lib.rs": "two"}
+            key = "compile/" + replay.digest(inputs)
+            completed = {"manifest": "Cargo.toml", "item": {
+                "complete": True, "command_evidence": {"stage1.log": {"sha256": "seal"}},
+                "stage1_inputs": inputs,
+            }}
+            worker.update({key: completed, "compile/foreign": completed,
+                           "compile/incomplete": {"item": {"complete": False}}})
+            replay.recover_compile_results(base, state)
+            self.assertEqual(state.get(key), completed)
+            self.assertEqual(state.keys("compile/"), [key])
