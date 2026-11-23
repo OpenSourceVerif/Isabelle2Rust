@@ -89,14 +89,14 @@ macro_rules! signed_operations {
 signed_operations!(Int);
 signed_operations!(Integer);
 
-pub fn integer_of_int(Int(value): Int) -> Integer { value }
-pub fn nat_of_integer(Integer(value): Integer) -> Nat { Nat::from_bigint(value) }
-pub fn integer_of_nat(Nat(value): Nat) -> Integer { Integer(value) }
-pub fn duplicate(Integer(value): Integer) -> Integer { Integer(value << 1usize) }
-pub fn abs_integer(Integer(value): Integer) -> Integer { Integer(value.abs()) }
-pub fn divmod_abs(Integer(lhs): Integer, Integer(rhs): Integer) -> (Integer, Integer) {
-    let a = lhs.abs();
-    let b = rhs.abs();
+pub fn integer_of_int(value: Int) -> Integer { value.0 }
+pub fn nat_of_integer(value: Integer) -> Nat { Nat::from_bigint(value.0) }
+pub fn integer_of_nat(value: Nat) -> Integer { Integer(value.0) }
+pub fn duplicate(value: Integer) -> Integer { Integer(value.0 << 1usize) }
+pub fn abs_integer(value: Integer) -> Integer { Integer(value.0.abs()) }
+pub fn divmod_abs(a: Integer, b: Integer) -> (Integer, Integer) {
+    let a = a.0.abs();
+    let b = b.0.abs();
     if b == BigInt::ZERO {
         (Integer::ZERO, Integer(a))
     } else {
@@ -115,7 +115,7 @@ code_printing
 code_printing
   constant "0 :: integer" \<rightharpoonup> (Rust) "crate::Rust'_Source'_BigInt::Integer::ZERO"
 | constant "0 :: nat" \<rightharpoonup> (Rust) "crate::Rust'_Source'_BigInt::Nat::ZERO"
-| constant int_of_integer \<rightharpoonup> (Rust) "!crate::Rust'_Source'_BigInt::Int'(_')"
+| constant int_of_integer \<rightharpoonup> (Rust) "crate::Rust'_Source'_BigInt::Int"
 | constant integer_of_int \<rightharpoonup> (Rust) "!crate::Rust'_Source'_BigInt::integer'_of'_int'(_')"
 | constant Code_Target_Nat.Nat \<rightharpoonup> (Rust) "!crate::Rust'_Source'_BigInt::nat'_of'_integer'(_')"
 | constant Code_Numeral.nat_of_integer \<rightharpoonup> (Rust) "!crate::Rust'_Source'_BigInt::nat'_of'_integer'(_')"

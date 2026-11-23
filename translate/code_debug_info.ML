@@ -65,84 +65,143 @@ type sym = Code_Symbol.T
 fun wrap_args sl = "(" ^ String.concatWith ", " sl ^ ")"
 fun wrap_list sl = "[" ^ String.concatWith ", " sl ^ "]"
 fun wrap_struct sl = "{" ^ String.concatWith ", " sl ^ "}"
-fun print_debug_info_itype (ITyVar itypvn) = itypvn
-  | print_debug_info_itype (vn `%% itypes) = 
-    vn ^"`%%"^ wrap_list (map print_debug_info_itype itypes) 
-fun print_debug_info_dict (Dict (classrels, plain_dict)) = 
-  let 
-    fun print_classrels classrels  = 
-      wrap_list (map (fn (s1, s2) => wrap_args [s1, s2]) classrels) (*type class = string*)
-  in
-    "Dict="^wrap_args [print_classrels classrels , print_plain_dict plain_dict]
-  end
-and print_plain_dict (Dict_Const ((s, c), args)) = 
-    "Dict_Const="^wrap_args [(wrap_args [s, c]),
-      wrap_list (map (fn (ityp, dicts) =>
-        wrap_args [(print_debug_info_itype ityp), wrap_list (map print_debug_info_dict dicts)]) args)]  
-  | print_plain_dict (Dict_Var {var, index, length, class, unique}) = 
-    "Dict_Var="^wrap_struct ["var: "^var, "index: "^Int.toString index, "length: "^Int.toString length, 
-      "class: "^class, "unique: "^Bool.toString unique]
-fun print_debug_info_sym sym = case sym of
-    Constant a => "Constant="^a 
-    | Type_Constructor b => "Type_Constructor="^b
-    | Type_Class c =>"Type_Class="^ c 
-    | Class_Relation (d1, d2) => "Class_Relation="^wrap_args [d1, d2]
-    | Class_Instance (e1, e2) => "Class_Instance="^wrap_args [e1, e2]
-    | Module f => "Module"^f 
-fun print_debug_info_const {sym, typargs, dicts, dom, range, annotation} = 
-  let 
-    val sym_base = print_debug_info_sym sym
-    val annot = case annotation of 
-      NONE => "NONE"
-      | SOME a => print_debug_info_itype a
-  in
-    wrap_struct ["sym: "^sym_base, "typargs: "^wrap_list (map print_debug_info_itype typargs),
-      "dicts: "^wrap_list ((map (wrap_list o (map print_debug_info_dict)) dicts)),
-      "dom: "^wrap_list (map print_debug_info_itype dom),
-      "range: "^print_debug_info_itype range, "annotation: "^annot]
-  end
-fun dest_vname v = case v of
-  NONE => "Anonymous"
-  | SOME vname => vname
-fun print_debug_info_iterm (IConst const) = 
-    print_debug_info_const const
-  | print_debug_info_iterm (IVar vname) = 
-    dest_vname vname
-  | print_debug_info_iterm (t1 `$ t2) =
-    "(" ^ print_debug_info_iterm t1 ^ "`$" ^ print_debug_info_iterm t2 ^ ")"
-  | print_debug_info_iterm ((v, ityp1) `|=> (t, ityp2)) =
-    wrap_args [wrap_args [dest_vname v, print_debug_info_itype ityp1], 
-      wrap_args [print_debug_info_iterm t, print_debug_info_itype ityp2]]
-  | print_debug_info_iterm (ICase {term, typ, clauses, primitive = _}) =
-    wrap_struct ["term: "^print_debug_info_iterm term, "typ: "^print_debug_info_itype typ,
-    "clauses: "^wrap_list (map (fn (t1, t2)
-      => wrap_args [print_debug_info_iterm t1, print_debug_info_iterm t2]) clauses),
-    "primitive: <elided>"]
-fun dest_typscheme (s, t) = 
-  wrap_args [wrap_list (map (fn (t1, t2) => wrap_args [t1, wrap_list t2]) s), print_debug_info_itype t]
-fun print_debug_info_thingol_stmt Code_Thingol.NoStmt = 
-    "NoStmt"
-  | print_debug_info_thingol_stmt (Code_Thingol.Fun ((scheme, args), _)) = 
-    "Fun="^wrap_args ["vs_ty="^dest_typscheme scheme, "eqs="^wrap_list (map (fn ((ts, t), _) =>
-      wrap_args [wrap_list (map print_debug_info_iterm ts)]^"=>"^print_debug_info_iterm t) args)]
-  | print_debug_info_thingol_stmt (Code_Thingol.Datatype (vns, cos)) = 
-    "Datatype="^wrap_args [wrap_list vns, wrap_list (map (fn ((v, args), itypes) => 
-      wrap_args [wrap_args [v, wrap_list args], wrap_list (map print_debug_info_itype itypes)]) cos)]
-  | print_debug_info_thingol_stmt (Code_Thingol.Datatypecons v) = 
-    "Datatypecons="^v   
-  | print_debug_info_thingol_stmt (Code_Thingol.Class (c, (rels, params))) = 
-    "Class="^wrap_args [c, "rels="^wrap_list (map (fn (c1, c2) => wrap_args [c1, c2]) rels),
-      "params="^wrap_list (map (fn (s,t) => wrap_args [s, print_debug_info_itype t]) params)]
-  | print_debug_info_thingol_stmt (Code_Thingol.Classrel (c1, c2)) = 
-    "Classrel="^wrap_args[c1, c2]
-  | print_debug_info_thingol_stmt (Code_Thingol.Classparam p) = 
-    "Classparam="^p         
-  | print_debug_info_thingol_stmt (Code_Thingol.Classinst {class, tyco, vs, ...}) = 
-    "Classinst="^wrap_struct ["class: "^class, "tyco: "^tyco, 
-      "vs: "^wrap_list (map (fn (t1, t2) => wrap_args [t1, wrap_list t2]) vs), "..."]
-fun print_debug_info_node ((sym, stmt), syms) =
-  wrap_struct [ "key: "^print_debug_info_sym sym, "stmt: "^print_debug_info_thingol_stmt stmt,
-   "children: "^wrap_list (map print_debug_info_sym syms)]
 
+(* Debug strings describe the recognized Thingol view, which may itself contain
+   shared branches. Emit fragments under one budget for the complete request;
+   constructing an unbounded child string before truncating its parent would
+   still expand that graph as a tree. The depth bound also covers types and
+   recursive instance dictionaries. Small values retain the original format,
+   while large values end in an explicit marker. Neither budget affects Rust
+   serialization or the Thingol values being described. *)
+local
+  exception Debug_Limit;
+
+  fun render emit value =
+    let
+      val remaining = Unsynchronized.ref 16384;
+      val fragments = Unsynchronized.ref [];
+      fun put s =
+        if size s <= !remaining then
+          (remaining := !remaining - size s;
+           if s = "" then () else fragments := s :: !fragments)
+        else
+          (fragments := String.substring (s, 0, !remaining) :: !fragments;
+           raise Debug_Limit);
+      val _ = emit put 0 value
+        handle Debug_Limit => fragments := "... <debug output truncated>" :: !fragments;
+    in String.concat (rev (!fragments)) end;
+
+  fun descend depth f =
+    if depth >= 64 then raise Debug_Limit else f (depth + 1);
+
+  fun delimited put left right emit xs =
+    let
+      fun items [] = ()
+        | items [x] = emit x
+        | items (x :: rest) = (emit x; put ", "; items rest);
+    in put left; items xs; put right end;
+
+  fun list put emit = delimited put "[" "]" emit;
+  fun pair put emit_a emit_b (a, b) =
+    (put "("; emit_a a; put ", "; emit_b b; put ")");
+
+  fun typ put depth ty = descend depth (fn next =>
+    case ty of
+      ITyVar v => put v
+    | v `%% tys => (put v; put "`%%"; list put (typ put next) tys));
+
+  fun dict put depth (Dict (rels, plain)) = descend depth (fn next =>
+    (put "Dict="; put "("; list put (pair put put put) rels; put ", ";
+     plain_dict put next plain; put ")"))
+  and plain_dict put depth d = descend depth (fn next =>
+    case d of
+      Dict_Const ((s, c), ds) =>
+        (put "Dict_Const="; put "("; pair put put put (s, c); put ", ";
+         list put (pair put (typ put next) (list put (dict put next))) ds; put ")")
+    | Dict_Var {var, index, length, class, unique} =>
+        (put "Dict_Var={var: "; put var; put ", index: "; put (Int.toString index);
+         put ", length: "; put (Int.toString length); put ", class: "; put class;
+         put ", unique: "; put (Bool.toString unique); put "}"));
+
+  fun sym put _ s =
+    (case s of
+      Constant a => (put "Constant="; put a)
+    | Type_Constructor a => (put "Type_Constructor="; put a)
+    | Type_Class a => (put "Type_Class="; put a)
+    | Class_Relation ab => (put "Class_Relation="; pair put put put ab)
+    | Class_Instance ab => (put "Class_Instance="; pair put put put ab)
+    | Module a => (put "Module"; put a));
+
+  fun const put depth {sym = s, typargs, dicts, dom, range, annotation} =
+    descend depth (fn next =>
+      (put "{sym: "; sym put next s;
+       put ", typargs: "; list put (typ put next) typargs;
+       put ", dicts: "; list put (list put (dict put next)) dicts;
+       put ", dom: "; list put (typ put next) dom;
+       put ", range: "; typ put next range;
+       put ", annotation: ";
+       (case annotation of NONE => put "NONE" | SOME ty => typ put next ty);
+       put "}"));
+
+  fun vname NONE = "Anonymous"
+    | vname (SOME v) = v;
+
+  fun term put depth t = descend depth (fn next =>
+    case t of
+      IConst c => const put next c
+    | IVar v => put (vname v)
+    | a `$ b =>
+        (put "("; term put next a; put "`$"; term put next b; put ")")
+    | (v, ty1) `|=> (body, ty2) =>
+        (put "("; pair put (put o vname) (typ put next) (v, ty1); put ", ";
+         pair put (term put next) (typ put next) (body, ty2); put ")")
+    | ICase {term = scrutinee, typ = ty, clauses, primitive = _} =>
+        (put "{term: "; term put next scrutinee;
+         put ", typ: "; typ put next ty;
+         put ", clauses: "; list put (pair put (term put next) (term put next)) clauses;
+         put ", primitive: <elided>}"));
+
+  fun vars put vs = list put (pair put put (list put put)) vs;
+
+  fun scheme put depth (vs, ty) =
+    (put "("; vars put vs; put ", "; typ put depth ty; put ")");
+
+  fun stmt put depth st = descend depth (fn next =>
+    case st of
+      Code_Thingol.NoStmt => put "NoStmt"
+    | Code_Thingol.Fun ((sc, eqs), _) =>
+        (put "Fun=(vs_ty="; scheme put next sc; put ", eqs=";
+         list put (fn ((ts, body), _) =>
+           (put "("; list put (term put next) ts; put ")=>"; term put next body)) eqs;
+         put ")")
+    | Code_Thingol.Datatype (vns, cos) =>
+        (put "Datatype=("; list put put vns; put ", ";
+         list put (pair put (pair put put (list put put)) (list put (typ put next))) cos;
+         put ")")
+    | Code_Thingol.Datatypecons v => (put "Datatypecons="; put v)
+    | Code_Thingol.Class (c, (rels, params)) =>
+        (put "Class=("; put c; put ", rels="; list put (pair put put put) rels;
+         put ", params="; list put (pair put put (typ put next)) params; put ")")
+    | Code_Thingol.Classrel rel => (put "Classrel="; pair put put put rel)
+    | Code_Thingol.Classparam p => (put "Classparam="; put p)
+    | Code_Thingol.Classinst {class, tyco, vs, ...} =>
+        (put "Classinst={class: "; put class; put ", tyco: "; put tyco;
+         put ", vs: "; vars put vs; put ", ...}"));
+
+  fun node put depth ((s, st), children) =
+    (put "{key: "; sym put depth s; put ", stmt: "; stmt put depth st;
+     put ", children: "; list put (sym put depth) children; put "}");
+in
+  val print_debug_info_itype = render typ;
+  val print_debug_info_dict = render dict;
+  val print_plain_dict = render plain_dict;
+  val print_debug_info_sym = render sym;
+  val print_debug_info_const = render const;
+  val dest_vname = vname;
+  val print_debug_info_iterm = render term;
+  val dest_typscheme = render scheme;
+  val print_debug_info_thingol_stmt = render stmt;
+  val print_debug_info_node = render node;
+end
 
 end

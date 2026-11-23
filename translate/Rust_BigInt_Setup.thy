@@ -37,4 +37,24 @@ code_printing
 | constant "less :: nat \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
     (Rust) infix 4 "<"
 
+text \<open>
+  Signed int uses the same native operations as integer. Register those
+  operations explicitly so dictionary-selected int methods retain the same
+  representation as direct calls; natural subtraction remains saturating.
+\<close>
+
+code_printing
+  constant "plus :: int \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
+    (Rust) infixl 9 "+"
+| constant "minus :: int \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
+    (Rust) infixl 9 "-"
+| constant "times :: int \<Rightarrow> _ \<Rightarrow> _" \<rightharpoonup>
+    (Rust) infixl 10 "*"
+| constant "HOL.equal :: int \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
+    (Rust) infix 4 "=="
+| constant "less_eq :: int \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
+    (Rust) infix 4 "<="
+| constant "less :: int \<Rightarrow> _ \<Rightarrow> bool" \<rightharpoonup>
+    (Rust) infix 4 "<"
+
 end
