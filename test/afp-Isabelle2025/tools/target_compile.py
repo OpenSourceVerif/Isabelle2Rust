@@ -37,7 +37,10 @@ end
 """
 SML_PROJECT = "$(SML_LIB)/basis/basis.mlb\nIsabelle_References.sml\nAFP_Code.sml\n"
 SML_LARGE_SOURCE_BYTES = 32 * 1024 * 1024
-SML_POLY_DRIVER = SML_REFERENCES + """;
+SML_POLY_FLAGS = ("--error-exit", "--minheap", "16384", "--gcthreads", "8", "--script", "compile_only.ML")
+SML_POLY_DRIVER = """PolyML.Compiler.maxInlineSize := 0;
+PolyML.Compiler.lowlevelOptimise := false;
+""" + SML_REFERENCES + """;
 val _ =
   let
     val source = TextIO.openIn "AFP_Code.sml"
@@ -131,7 +134,8 @@ def toolchains(env):
     commands["SML/polyml"] = [poly]
     identity["SML"]["large_source"] = {
         "min_bytes": SML_LARGE_SOURCE_BYTES, "executable": poly, "version": output([poly, "-v"], env),
-        "sha256": file_digest(Path(poly)), "driver_sha256": digest(SML_POLY_DRIVER)}
+        "sha256": file_digest(Path(poly)), "flags": list(SML_POLY_FLAGS),
+        "driver_sha256": digest(SML_POLY_DRIVER)}
     identity["OCaml"]["zarith"] = output([ocaml, "query", "zarith"], env)
     identity["Haskell"]["libdir"] = output([ghc, "--print-libdir"], env)
     return commands, identity, worker, os.pathsep.join(map(str, jars))
@@ -139,8 +143,10 @@ def toolchains(env):
 
 def fingerprints(identity, args):
     runner = file_digest(Path(__file__))
-    return {target: digest({"tool": identity[target], "runner": runner, "java_heap_mb": args.java_heap_mb,
-                            "available_memory": args.min_available_mb}) for target in TARGETS}
+    values = {target: digest({"tool": identity[target], "runner": runner, "java_heap_mb": args.java_heap_mb,
+                              "available_memory": args.min_available_mb}) for target in TARGETS}
+    values["SML/polyml"] = digest({"tool": identity["SML"]["large_source"], "runner": runner})
+    return values
 
 
 def inventory(base, state, entries, fingerprints):
@@ -185,7 +191,7 @@ def inventory(base, state, entries, fingerprints):
                         parameters = {"target": target, "compiler": fingerprints[target],
                                       "files": [(str(name), seal) for name, _, seal in files]}
                         if job.large_sml:
-                            parameters["compiler_profile"] = "Poly/ML"
+                            parameters["compiler_profile"] = fingerprints["SML/polyml"]
                         key = digest(parameters)
                         jobs.setdefault(key, job)
                         status = "pending"
@@ -318,7 +324,7 @@ def native(argv, directory, log, args, env):
 def arguments_for(job, command, path):
     if job.large_sml:
         (path / "compile_only.ML").write_text(SML_POLY_DRIVER, encoding="utf-8")
-        return [*command, "--error-exit", "--minheap", "256", "--script", "compile_only.ML"]
+        return [*command, *SML_POLY_FLAGS]
     if job.target == "SML":
         (path / "Isabelle_References.sml").write_text(SML_REFERENCES, encoding="utf-8")
         (path / "AFP_Code.mlb").write_text(SML_PROJECT, encoding="utf-8")

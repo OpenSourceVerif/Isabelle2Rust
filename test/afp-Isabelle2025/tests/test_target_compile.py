@@ -62,9 +62,10 @@ class TargetCompilationTest(unittest.TestCase):
                      {"bytes": compilation.SML_LARGE_SOURCE_BYTES}),)
             job = compilation.compile_input("SML", file)
             command = compilation.arguments_for(job, ["poly"], root)
-            self.assertEqual(command, ["poly", "--error-exit", "--minheap", "256", "--script", "compile_only.ML"])
+            self.assertEqual(command, ["poly", *compilation.SML_POLY_FLAGS])
             driver = (root / "compile_only.ML").read_text()
             self.assertIn('PolyML.export ("AFP_Code", artifact)', driver)
+            self.assertIn("PolyML.Compiler.lowlevelOptimise := false", driver)
             self.assertFalse(compilation.compile_input("Go", file).large_sml)
             file[0][2]["bytes"] -= 1
             self.assertFalse(compilation.compile_input("SML", file).large_sml)
