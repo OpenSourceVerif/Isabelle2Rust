@@ -186,18 +186,15 @@ def export_batch(base, jobs, args, env):
             continue
         if command["status"] == "passed":
             raise ValueError("Rust process completed without receipts: " + str(batch))
-        if reattempt:
-            # Completed prefixes are durable. Retry the remaining requests in
-            # a fresh native process, starting with the first unfinished group.
-            if len(remaining) > 1 and updates:
-                retry.append(([remaining[0][0]], False))
-                retry.append(([job for job, _ in remaining[1:]], True))
-            else:
-                retry.append(([job for job, _ in remaining], False))
-            continue
-        if updates and len(remaining) > 1:
+        started = updates or any((work / "loaded.xml").is_file() for _, work in remaining)
+        if len(remaining) > 1 and started:
+            # A failure inside a batch belongs to the first unfinished request.
+            # Give the rest their own process so every scope gets an outcome.
             retry.append(([remaining[0][0]], False))
             retry.append(([job for job, _ in remaining[1:]], True))
+            continue
+        if reattempt:
+            retry.append(([job for job, _ in remaining], False))
             continue
         status = "timeout" if command["status"] == "timeout" else "failed"
         updates = {}

@@ -72,3 +72,36 @@ class RustReplayTests(unittest.TestCase):
             replay.recover_compile_results(base, state)
             self.assertEqual(state.get(key), completed)
             self.assertEqual(state.keys("compile/"), [key])
+
+    def test_failure_in_first_batch_request_replays_unattempted_requests(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            jobs = [replay.Request("E", g, "ctx", "S", base / "source.xml", "seal", False)
+                    for g in ("a", "b", "c")]
+            args = replay.common.arguments("replay").parse_args([])
+            args.cancel_event = replay.threading.Event()
+            calls = []
+
+            def prepare(root, job):
+                work = replay.full.next_attempt(root / "exports" / job.key)
+                (work / "request.xml").write_text(job.group)
+                return work
+
+            def native(session, batch, options, env, script):
+                works = [Path(name) for name in Path(env["AFP_RUST_EXPORT_QUEUE"]).read_text().splitlines()]
+                groups = [(work / "request.xml").read_text() for work in works]
+                calls.append(groups)
+                (works[0] / "loaded.xml").touch()
+                if "a" in groups:
+                    return {"status": "failed", "returncode": 1, "error_excerpt": "native failure in a"}
+                return {"status": "passed", "returncode": 0}
+
+            def read(root, job, work, batch):
+                return {"status": "passed"} if calls[-1] == ["b", "c"] else None
+
+            with patch.object(replay, "prepare_request", side_effect=prepare), \
+                    patch.object(replay.fixed_plan, "native_command", side_effect=native), \
+                    patch.object(replay, "read_export", side_effect=read):
+                result = replay.export_batch(base, jobs, args, {})
+            self.assertEqual(calls, [["a", "b", "c"], ["a"], ["b", "c"]])
+            self.assertEqual([result[job.key]["status"] for job in jobs], ["failed", "passed", "passed"])
