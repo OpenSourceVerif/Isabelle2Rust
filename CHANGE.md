@@ -2,6 +2,18 @@
 
 Major updates and significant bug fixes are recorded here, newest first.
 
+## 2026-11-24 — Stage 1 translation
+
+- Preserve contextual function representations in constructors, mapped
+  expressions, function bodies, closures, and case applications.
+- Infer mapped argument representations from declared types.
+- Resolve class instances from registered metadata and reject incompatible
+  implementations mapped to the same Rust type.
+- Restore mapped class methods from dictionary metadata.
+- Memoize shared dictionary shape reconstruction and type comparisons.
+- Indent generated Rust by block structure and print match arm bodies after `=>`.
+- Retain Cargo dependency detection for optional Dashu mappings.
+
 ## 2026-11-23 — Expression parentheses
 
 - Select parentheses for conditionals, matches, and binding blocks by Rust

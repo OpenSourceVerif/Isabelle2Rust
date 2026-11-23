@@ -7,8 +7,11 @@ text \<open>
   integer. Its dictionary must preserve truncated natural subtraction and signed
   integer subtraction even in the same export. The observations expose only
   Booleans, so runtime checks do not assume a particular numeric representation.
-  Separate exports also prevent a mixed export from accidentally supplying a
-  missing instance. Large literals exceed both 64-bit and 128-bit ranges.
+  Separate exports check each native implementation. The direct BigInt profile
+  cannot combine signed and saturating subtraction in one Rust trait impl, so
+  the mixed export must report that representation conflict. Source_BigInt's
+  distinct receivers cover the successful mixed export in its companion test.
+  Large literals exceed both 64-bit and 128-bit ranges.
 \<close>
 
 definition check_differences ::
@@ -52,13 +55,24 @@ lemma subtraction_observations:
 
 text \<open>
   For runtime verification, concatenate the common Runtime file with Nat_Runtime
-  for export1, Int_Runtime for export2, Integer_Runtime for export3, and all
-  three fragments for export4.
+  for export1, Int_Runtime for export2, and Integer_Runtime for export3.
 \<close>
 
 export_code natural_cases in Rust module_name MappedSubtraction
 export_code int_cases in Rust module_name MappedSubtraction
 export_code integer_cases in Rust module_name MappedSubtraction
-export_code natural_cases int_cases integer_cases in Rust module_name MappedSubtraction
+ML \<open>
+  val result = Exn.capture (fn () =>
+    Code_Target.produce_code @{context} false
+      [@{const_name natural_cases}, @{const_name int_cases}, @{const_name integer_cases}]
+      "Rust" "MappedSubtraction" NONE []) ();
+  val _ = (case result of
+    Exn.Exn (ERROR message) =>
+      if String.isSubstring "cannot merge distinct instances" message andalso
+          String.isSubstring @{class minus} message
+      then () else error message
+  | Exn.Exn exn => Exn.reraise exn
+  | Exn.Res _ => error "Signed and natural subtraction shared one Rust implementation");
+\<close>
 
 end
