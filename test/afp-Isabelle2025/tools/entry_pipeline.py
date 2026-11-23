@@ -1,4 +1,4 @@
-"""Run scan, plan, fixed export and Rust compilation as entry-local work."""
+"""Run entry-local scan, plan and export, followed by six-language compilation."""
 from collections import Counter, deque
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import copy
@@ -22,6 +22,7 @@ import scan_frozen
 from result_store import EntryStore
 from scan_store import Store, digest
 from state import State
+import target_compile
 
 
 def optimizer_path(base):
@@ -315,6 +316,9 @@ def finalize(base, data, units, metadata, errors=(), report=True):
     gate, result, scopes, totals = checks.reconcile(Store(base), data, units, metadata, data["order"],
                                                      "all", optimizer_path(base))
     gate["problems"].extend(errors)
+    problem = target_compile.checkpoint_problem(base, data["order"])
+    if problem:
+        gate["problems"].append(problem)
     gate["passed"] = not gate["problems"]
     if report:
         from full_report import build_report
@@ -338,7 +342,7 @@ def finalize(base, data, units, metadata, errors=(), report=True):
 
 def main():
     parser = common.arguments(__doc__)
-    parser.add_argument("phase", choices=("init", "run", "scan", "plan", "export", "compile", "status",
+    parser.add_argument("phase", choices=("init", "run", "scan", "plan", "export", "compile", "compile-targets", "status",
         "scan-checkpoint", "plan-checkpoint", "export-checkpoint", "compile-checkpoint", "audit", "report"))
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--cargo", default="cargo +1.94.0")
@@ -373,6 +377,11 @@ def main():
         phase = args.phase.removesuffix("-checkpoint")
         gate, _, _, _ = checks.reconcile(Store(base), data, units, run["environment"], selected,
                                           phase, optimizer_path(base))
+        if phase == "compile":
+            problem = target_compile.checkpoint_problem(base, selected)
+            if problem:
+                gate["problems"].append(problem)
+                gate["passed"] = False
         key = args.phase + ".json" if args.entries is None else "checkpoint/" + phase + "/" + digest(selected)
         State(base).put(key, gate)
         print(json.dumps(gate, ensure_ascii=False, indent=2))
@@ -381,6 +390,8 @@ def main():
         native = scan_frozen.active_children(base)
         if native:
             raise ValueError("Previous native processes are still active: " + repr(native))
+        if args.phase == "compile-targets":
+            return int(not target_compile.run(base, args.entries, args, env)["complete"])
         if args.phase == "init" or (args.phase == "run" and not (base / "state.sqlite3").is_file()):
             scan_frozen.initialize(base, args, env, metadata)
             if args.phase == "init":
@@ -392,6 +403,10 @@ def main():
             import native_patch
             native_patch.verify(env["ISABELLE_HOME"])
         errors = execute(base, data, units, run["environment"], selected, args.phase, args, env)
+        if args.phase in {"run", "compile"}:
+            compiled = target_compile.run(base, selected, args, env)
+            if args.phase == "compile" and not compiled["complete"]:
+                errors.append({"reason": "Five-language compilation did not account for every requested export"})
         if args.phase == "run":
             return finalize(base, data, units, run["environment"], errors)
         gate, _, _, _ = checks.reconcile(Store(base), data, units, run["environment"], selected,

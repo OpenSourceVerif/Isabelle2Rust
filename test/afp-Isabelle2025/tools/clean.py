@@ -33,7 +33,9 @@ def targets(base, reset=None):
     base = validate_root(base)
     if not (base / NAME).is_file() or not State(base).get("run"):
         raise ValueError("Cleanup requires an initialized AFP work directory")
-    names = CACHE + (("compilation", "rust-stage2", "report") if reset else ()) + (("exports",) if reset == "export" else ())
+    names = CACHE + (("compilation", "target-compilation", "rust-stage2", "report") if reset else ())
+    if reset == "export":
+        names += ("exports",)
     result = []
     for name in names:
         path = base / name
@@ -74,7 +76,8 @@ def clean(base, reset=None, apply=False):
                     record.pop("full_export", None)
                 replacements[key] = record
             remove = ["audit.json", "audit-preview.json", "compile-checkpoint.json"]
-            remove += [*state.keys("published/"), *state.keys("compile-group/"), *state.keys("checkpoint/compile/")]
+            remove += [*state.keys("published/"), *state.keys("compile-group/"), *state.keys("checkpoint/compile/"),
+                       *state.keys("target-compile/")]
             if reset == "export":
                 remove += ["export-checkpoint.json", *state.keys("export-progress/"),
                            *state.keys("fixed-progress/"), *state.keys("checkpoint/export/")]

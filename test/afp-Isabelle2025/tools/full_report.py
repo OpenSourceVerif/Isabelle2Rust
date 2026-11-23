@@ -412,6 +412,8 @@ def build_report(base, data, result, exports, verified=False):
                "input_sha256": full.inputs(base)}
 
     if mode == ENTRY_PIPELINE:
+        import target_compile
+        target_compile.attach_report(base, summary)
         summary["published_context_declarations"] = sum(declaration_counts[full.TARGETS[0]].values())
     if continuation:
         summary["continuation"] = continuation
@@ -482,6 +484,8 @@ def build_report(base, data, result, exports, verified=False):
         "完整失败正文可从状态数据库及原始日志读取；",
         "当前是否完成由阶段检查点判定；报告仅包含当前已提交结果，",
         "已被替代的尝试不会累计到统计中。\n"]
+    if summary.get("target_compilation"):
+        overview.append(target_compile.REPORT_LINK)
     (report / "README.md").write_text("".join(overview))
     for phase, filename, title in (
             ("scan", "scan-failures.md", "候选扫描失败与诊断"),

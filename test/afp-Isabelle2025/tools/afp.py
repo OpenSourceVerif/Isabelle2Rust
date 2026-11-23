@@ -82,7 +82,7 @@ def main(argv=None):
     for name in ("check", "init", "status", "report"):
         sub.add_parser(name)
     for name in ("scan-checkpoint", "plan-checkpoint", "export-checkpoint", "compile-checkpoint",
-                 "plan", "export", "compile"):
+                 "plan", "export", "compile", "compile-targets"):
         sub.add_parser(name).add_argument("--entries", nargs="+")
     for name in ("scan", "run"):
         p = sub.add_parser(name)
@@ -112,7 +112,7 @@ def main(argv=None):
     if args.phase in ("run", "init") and experiment and experiment != ENTRY_PIPELINE:
         raise ValueError("fixed-plan-v3 requires a fresh work root")
     if args.phase in {"init", "run"} or (experiment == ENTRY_PIPELINE and args.phase in {
-            "scan", "plan", "export", "compile", "status", "report", "audit",
+            "scan", "plan", "export", "compile", "compile-targets", "status", "report", "audit",
             "scan-checkpoint", "plan-checkpoint", "export-checkpoint", "compile-checkpoint"}):
         arguments = [args.phase, "--output-dir", str(base), *runtime]
         if getattr(args, "retry_failed", False):
@@ -128,6 +128,8 @@ def main(argv=None):
             env["AFP_CONFIG"] = str(config_path.resolve())
         os.chdir(common.PROJECT)
         os.execve(sys.executable, [sys.executable, str(common.HERE / "entry_pipeline.py"), *arguments], env)
+    if args.phase == "compile-targets":
+        raise ValueError("Five-language compilation requires an initialized fixed-plan-v3 work root")
     if args.phase == "defer":
         return call(common.HERE / "continuation.py", ["--from-work", str(args.from_work),
                     "--output-dir", str(base), "--defer-entries", *args.entries,

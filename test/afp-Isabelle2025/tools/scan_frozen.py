@@ -19,7 +19,7 @@ from scan_store import (METHOD, POLICY, SCHEMA, Store, aggregate, completed_rece
 
 def tools_identity():
     """Bind this run to the actual pipeline sources without copying them."""
-    paths = list(common.HERE.glob("*.py")) + list(common.HERE.glob("*.ML")) + list(common.HERE.glob("*.scala"))
+    paths = [path for pattern in ("*.py", "*.ML", "*.scala", "*.java") for path in common.HERE.glob(pattern)]
     for directory, patterns in ((common.PROJECT / "translate", ("*.thy", "*.ML")),
                                 (common.PROJECT / "optimize", ("src/**/*.rs", "Cargo.toml", "Cargo.lock")),
                                 (common.PROJECT.parent / "RustLightAST", ("src/**/*.rs", "Cargo.toml", "Cargo.lock"))):

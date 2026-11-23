@@ -1,6 +1,6 @@
 # AFP 全量实验
 
-从官方 AFP 2025 源码扫描全部条目，执行 Rust、SML、OCaml、Haskell、Scala、Go 六语言导出，再对每个成功导出的 Rust crate 做 Stage-1 编译、既有优化器转换和 Stage-2 编译。实验工具不执行生成程序；原 AFP 理论自身的 checking/Quickcheck 仍属于原会话构建。
+从官方 AFP 2025 源码扫描全部条目，执行 Rust、SML、OCaml、Haskell、Scala、Go 六语言导出及编译。Rust crate 做 Stage 1 编译、既有优化器转换和 Stage 2 编译。SML、OCaml、Haskell、Scala、Go 的导出源码也产生独立的编译回执。原 AFP 理论自身的 checking 和 Quickcheck 属于原会话构建。
 
 ## 从 clone 到运行
 
@@ -64,7 +64,7 @@ python3 tools/afp.py run
 
 本机配置的 `scheduler` 独立控制 `build_jobs`、`threads`、`parallel_proofs`、`export_workers`、`compile_workers`、`cargo_jobs`。作业及线程数默认 1，`parallel_proofs` 默认 0（可选 0、1、2）。例如大内存服务器可分别设为 `8, 8, 2, 8, 8, 8`：8 个导出条目同时运行，每个 Isabelle 进程使用 8 线程；8 个编译条目同时进行 Stage-1、既有优化器和 Stage-2，每个 Cargo 最多 8 个编译作业。
 
-每个条目内的原生请求和三个 Rust 步骤仍按原顺序执行。编译槽使用独立、可复用的 Cargo target 目录，避免共享目录锁使作业串行；优化器只预编译一次。各条目使用独立惰性状态读取器，断点按条目事务提交；中断会取消并回收各自的子进程。总内存应同时考虑外层作业数和各进程的 ML/Java heap，可用服务 cgroup 限制总量。
+每个条目内的原生请求和三个 Rust 步骤按原顺序执行。编译槽使用独立、可复用的 Cargo target 目录，避免共享目录锁使作业串行；优化器只预编译一次。各条目使用独立惰性状态读取器，断点按条目事务提交；中断会取消并回收各自的子进程。总内存应同时考虑外层作业数和各进程的 ML/Java heap，可用服务 cgroup 限制总量。
 
 ## 条目流水线（fixed-plan-v3）
 
@@ -76,13 +76,32 @@ python3 tools/afp.py --config setup/server.local.json --work /path/work-fixed-v3
 python3 tools/afp.py --config setup/server.local.json --work /path/work-fixed-v3 export-checkpoint --entries List-Index
 ```
 
-扫描按 Isabelle session 的依赖推进。条目所属会话均有可核验终态后，立即用成功扫描的范围生成计划。源码失败和依赖阻塞单列。计划冻结即进入导出队列。每个闭合六目标请求的 Rust crate 可独立进入 Stage 1、优化和 Stage 2。
+扫描按 Isabelle session 的依赖推进。条目所属会话均有可核验终态后，立即用成功扫描的范围生成计划。源码失败和依赖阻塞单列。计划冻结即进入导出队列。每个闭合六目标请求的 Rust crate 可独立进入 Stage 1、优化和 Stage 2。编译阶段随后读取已发布的 SML、OCaml、Haskell、Scala、Go 源码和原生回执，并按目标编译。
 
 `scheduler.plan_workers` 独立于 `export_workers` 和 `compile_workers`，默认 2。每个编译槽使用独立的 Cargo target 目录。分析不限时。中断保留恢复点，`run --retry-failed` 可在排除环境问题后重试未决扫描。
 
 候选以条目、扫描会话、独立最大理论分支、所属理论和原生常量名标识。共享声明在每个可见分支各自分类、去重入口和分组。白名单异常仅触发分支内二分。单根复现才记为 `frontend_rejected`。隔离出新拒绝后，剩余根最多联合分析一次。未可靠处置的候选分别冻结六目标单根请求，以实际回执记录直接导出结果。
 
 `run`、`scan`、`plan`、`export`、`compile` 和各阶段检查点支持 `--entries`。条目发布核对输入、分支处置和产物证据。最终对账覆盖完整 manifest，报告包含 `declarations.csv` 的逐分支结果及 `summary.json` 的汇总。存在待办或未决时生成未完成报告并返回非零状态。
+
+### 五种其他目标的编译
+
+`run` 和 `compile` 都包含这一步。对于已发布的 fixed-plan-v3 工作根，可独立补编或恢复此阶段。
+
+```bash
+python3 tools/afp.py --config setup/server.local.json --work /path/work-fixed-v3 compile-targets
+python3 tools/afp.py --config setup/server.local.json --work /path/work-fixed-v3 compile-targets --entries Open_Induction
+```
+
+| 目标 | 编译方式 |
+| --- | --- |
+| SML | Isabelle 随附的 MLton 生成对象文件，使用标准引用适配 Isabelle 的 `Unsynchronized` |
+| OCaml | 配置的 OCaml 4.14 原生编译器生成对象文件，使用 Zarith |
+| Haskell | Isabelle 的 GHC 编译整个导出模块树 |
+| Scala | Isabelle 自带的 Scala 3 编译器和语法参数生成类文件，每个源码树单独编译 |
+| Go | 配置的 Go 编译器离线构建单文件或整个模块 |
+
+编译使用每个请求的封存源码和独立输出目录，相同源码字节、文件布局及编译器输入可复用回执。构建产物仅用于验证编译，编译日志及其摘要供复核。`report/target-compilation.csv` 按冻结导出组和语言记录通过、失败、超时、仅库映射及无导出源码。超时是待处理结果。编译检查点核对这个表与当前导出状态的签名。五目标编译与 Rust 三步使用同一项 `scheduler.compile_workers` 配置。带 `--entries` 的编译将子集回执写入独立的报告文件。
 
 服务器原生验收覆盖两个独立分支、六目标和 Rust 两阶段编译。验收根使用新路径。
 
