@@ -95,7 +95,7 @@ python3 tools/afp.py --config setup/server.local.json --work /path/work-fixed-v3
 
 | 目标 | 编译方式 |
 | --- | --- |
-| SML | Isabelle 随附的 MLton 生成对象文件，使用标准引用适配 Isabelle 的 `Unsynchronized` |
+| SML | Isabelle 随附的 MLton 生成对象文件，使用标准引用适配 Isabelle 的 `Unsynchronized`。32 MiB 起使用同套 Isabelle 附带的全字长 Poly/ML 生成对象文件 |
 | OCaml | 配置的 OCaml 4.14 原生编译器生成对象文件，使用 Zarith |
 | Haskell | Isabelle 的 GHC 编译整个导出模块树 |
 | Scala | Isabelle 自带的 Scala 3 编译器和语法参数生成类文件，每个源码树单独编译 |

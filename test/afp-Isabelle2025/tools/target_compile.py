@@ -36,12 +36,35 @@ struct
 end
 """
 SML_PROJECT = "$(SML_LIB)/basis/basis.mlb\nIsabelle_References.sml\nAFP_Code.sml\n"
+SML_LARGE_SOURCE_BYTES = 32 * 1024 * 1024
+SML_POLY_DRIVER = SML_REFERENCES + """;
+val _ =
+  let
+    val source = TextIO.openIn "AFP_Code.sml"
+    val contents = TextIO.inputAll source before TextIO.closeIn source
+    val text = "structure AFP_Compile_Only = struct\\n" ^ contents ^ "\\nend;\\n"
+    val position = Unsynchronized.ref 0
+    fun get () =
+      if !position >= size text then NONE
+      else
+        let val c = String.sub (text, !position)
+        in position := !position + 1; SOME c end
+    fun finish (_, NONE) = raise Fail "Static errors in AFP_Code.sml"
+      | finish (_, SOME code) = (fn () => ignore (code ()))
+    val artifact = PolyML.compiler (get,
+      [PolyML.Compiler.CPFileName "AFP_Code.sml",
+       PolyML.Compiler.CPCompilerResultFun finish])
+    val _ = if !position >= size text - 2 then ()
+      else raise Fail "Compiler did not consume the complete source"
+  in PolyML.export ("AFP_Code", artifact) end
+"""
 
 
 @dataclass(frozen=True)
 class Input:
     target: str
     files: tuple
+    large_sml: bool = False
 
 
 @dataclass(frozen=True)
@@ -103,6 +126,12 @@ def toolchains(env):
     identity["Scala"]["jvm_flags"] = jvm_args
     identity["SML"]["flags"] = commands["SML"][1:]
     identity["SML"]["isabelle_references_sha256"] = digest(SML_REFERENCES)
+    # Isabelle ships a full-word-size Poly/ML alongside its default heap runtime.
+    poly = executable(str(Path(env["ML_HOME"]).parent / env["ISABELLE_PLATFORM64"] / "poly"), env)
+    commands["SML/polyml"] = [poly]
+    identity["SML"]["large_source"] = {
+        "min_bytes": SML_LARGE_SOURCE_BYTES, "executable": poly, "version": output([poly, "-v"], env),
+        "sha256": file_digest(Path(poly)), "driver_sha256": digest(SML_POLY_DRIVER)}
     identity["OCaml"]["zarith"] = output([ocaml, "query", "zarith"], env)
     identity["Haskell"]["libdir"] = output([ghc, "--print-libdir"], env)
     return commands, identity, worker, os.pathsep.join(map(str, jars))
@@ -152,9 +181,13 @@ def inventory(base, state, entries, fingerprints):
                         raise ValueError("Export receipt scope changed in " + entry)
                     if attempt["files"]:
                         files = sources(base, run, work, target, attempt["files"])
-                        key = digest({"target": target, "compiler": fingerprints[target],
-                                      "files": [(str(name), seal) for name, _, seal in files]})
-                        jobs.setdefault(key, Input(target, files))
+                        job = compile_input(target, files)
+                        parameters = {"target": target, "compiler": fingerprints[target],
+                                      "files": [(str(name), seal) for name, _, seal in files]}
+                        if job.large_sml:
+                            parameters["compiler_profile"] = "Poly/ML"
+                        key = digest(parameters)
+                        jobs.setdefault(key, job)
                         status = "pending"
                     elif attempt["library_only"]:
                         status = "library_only"
@@ -162,6 +195,12 @@ def inventory(base, state, entries, fingerprints):
                         raise ValueError("Successful export without source evidence")
                 requests.append(Request(entry, group["id"], context["id"], target, status, key))
     return requests, jobs
+
+
+def compile_input(target, files):
+    size = sum(seal["bytes"] for _, _, seal in files)
+    # Poly/ML can emit native objects without MLton's whole-program analysis.
+    return Input(target, files, target == "SML" and size >= SML_LARGE_SOURCE_BYTES)
 
 
 def check_seal(base, run, path):
@@ -277,6 +316,9 @@ def native(argv, directory, log, args, env):
 
 
 def arguments_for(job, command, path):
+    if job.large_sml:
+        (path / "compile_only.ML").write_text(SML_POLY_DRIVER, encoding="utf-8")
+        return [*command, "--error-exit", "--minheap", "256", "--script", "compile_only.ML"]
     if job.target == "SML":
         (path / "Isabelle_References.sml").write_text(SML_REFERENCES, encoding="utf-8")
         (path / "AFP_Code.mlb").write_text(SML_PROJECT, encoding="utf-8")
@@ -334,6 +376,7 @@ def compile_jobs(base, state, jobs, commands, worker, classpath, args, env):
         log = storage / "logs" / job.target / key[:2] / (key + ".log")
         log.parent.mkdir(parents=True, exist_ok=True)
         start = time.monotonic()
+        evidence = {}
         with tempfile.TemporaryDirectory(prefix="build-", dir=storage) as temporary:
             path = Path(temporary)
             (path / "obj").mkdir()
@@ -354,10 +397,19 @@ def compile_jobs(base, state, jobs, commands, worker, classpath, args, env):
                 log.write_text(shlex.join(argv) + "\nCompiler request: AFP_Code.scala -> obj\n", encoding="utf-8")
                 status, rc = compiler.compile(path / "AFP_Code.scala", path / "obj", log)
             else:
-                argv = arguments_for(job, commands[job.target], path)
+                compiler = "SML/polyml" if job.large_sml else job.target
+                argv = arguments_for(job, commands[compiler], path)
                 log.write_text(shlex.join(argv) + "\n", encoding="utf-8")
                 status, rc = native(argv, path, log, args, env)
-        return {"target": job.target, "status": status, "returncode": rc, "command": argv,
+                if job.large_sml and status == "passed":
+                    artifact = path / "AFP_Code.o"
+                    if artifact.is_file() and artifact.stat().st_size:
+                        evidence["object_sha256"] = file_digest(artifact)
+                    else:
+                        with log.open("a", encoding="utf-8") as stream:
+                            stream.write("Poly/ML exited without generating AFP_Code.o\n")
+                        status = "failed"
+        return {**evidence, "target": job.target, "status": status, "returncode": rc, "command": argv,
                 "seconds": round(time.monotonic() - start, 3), "log": str(log.relative_to(base)),
                 "log_sha256": file_digest(log)}
 

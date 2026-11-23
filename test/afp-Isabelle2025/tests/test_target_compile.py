@@ -55,6 +55,20 @@ class TargetCompilationTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "Changed sealed export file"):
                     compilation.inventory(base, state, ["Example"], {"OCaml": "compiler"})
 
+    def test_large_sml_sources_use_polyml_object_compilation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            file = ((Path("AFP_Code.sml"), root / "source.sml",
+                     {"bytes": compilation.SML_LARGE_SOURCE_BYTES}),)
+            job = compilation.compile_input("SML", file)
+            command = compilation.arguments_for(job, ["poly"], root)
+            self.assertEqual(command, ["poly", "--error-exit", "--minheap", "256", "--script", "compile_only.ML"])
+            driver = (root / "compile_only.ML").read_text()
+            self.assertIn('PolyML.export ("AFP_Code", artifact)', driver)
+            self.assertFalse(compilation.compile_input("Go", file).large_sml)
+            file[0][2]["bytes"] -= 1
+            self.assertFalse(compilation.compile_input("SML", file).large_sml)
+
     def test_scoped_publication_preserves_the_full_report(self):
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
