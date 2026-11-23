@@ -452,7 +452,7 @@ def build_report(base, data, result, exports, verified=False):
         "即使 Stage-1 失败，仍尝试优化与 Stage-2；没有执行生成程序或测试运行时行为。\n\n",
         "SML 是官方 ML 目标。Go 使用 AFP 2025 的 Go_Setup，其 code_go.ML 与",
         " isabelle-go-codegen 的 08b4c92 版本逐字节相同；AFP 适配理论另有整数按位映射。",
-        "Rust 数值 profile 为 Rust_BigInt_Setup；这些设置合并为六语言共用的上下文。"
+        "Rust 数值 profile 为 Rust_Source_BigInt_Setup；这些设置合并为六语言共用的上下文。"
         "六目标使用共同显式模块名 AFP_Code，以避免源命名空间划分制造模块依赖环。"
         "\n\n",
         "## 全条目导出状态\n\n",

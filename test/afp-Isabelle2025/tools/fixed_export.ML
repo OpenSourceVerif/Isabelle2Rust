@@ -1,7 +1,14 @@
 (* Formal request: one frozen context and entry group, one strict frontend,
    reused by all six serializers. Failure never changes the request. *)
-local
+structure AFP_Fixed_Export =
+struct
+fun run request_output request_xml =
+let
   open AFP_Fixed;
+  val output = request_output;
+  val request = request_xml;
+  val write = write_at output;
+  val targets = if attr "mode" request = "rust-replay" then ["Rust"] else targets;
   val context_id = attr "context" request;
   val batch = attr "group" request;
   val cs = names "entry" request;
@@ -21,7 +28,7 @@ local
      declarations with the same internal name. *)
   val _ = write "loaded.xml"
     (elem "loaded" [] (map (text "theory") (names "parent" request)));
-  val (loaded, load_seconds) = timed context ();
+  val (loaded, load_seconds) = timed begin (names "parent" request);
   fun run thy =
     let
       val lthy = Named_Target.theory_init thy;
@@ -60,5 +67,17 @@ local
   val _ = (case loaded of Exn.Res thy => run thy
     | _ => record "context_loading" "context" loaded load_seconds (map (text "language") targets));
 in
-  val _ = write "finished.xml" (elem "finished" [("group", batch), ("context", context_id)] []);
+  write "finished.xml" (elem "finished" [("group", batch), ("context", context_id)] [])
 end;
+
+fun run_request output =
+  run output (XML.parse (File.read (output + Path.basic "request.xml")));
+
+end;
+
+val _ =
+  (case getenv "AFP_RUST_EXPORT_QUEUE" of
+    "" => AFP_Fixed_Export.run AFP_Fixed.output AFP_Fixed.request
+  | queue => File.read (Path.explode queue)
+      |> split_lines |> filter_out (fn line => line = "")
+      |> List.app (AFP_Fixed_Export.run_request o Path.explode));

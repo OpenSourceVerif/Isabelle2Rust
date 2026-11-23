@@ -80,7 +80,7 @@ def native_command(session, work, args, env, script="plan.ML"):
     argv = [args.isabelle, "process", "-l", session, "-d", str(common.PROJECT),
             "-d", str(args.afp / "thys"), *common.process_options(args),
             "-o", "timeout=" + str(args.timeout), "-o", "skip_proofs=false",
-            "-T", "Rust.Rust_BigInt_Setup", "-T", "Go.Go_Setup", "-e", expression]
+            "-T", dp.SETUPS[0], "-T", dp.SETUPS[1], "-e", expression]
     actual = dict(env, AFP_FULL_OUTPUT=str(work),
                   AFP_PLAN_REQUEST=str(work.resolve()))
     return common.command(argv, work / "process.log", args, actual)

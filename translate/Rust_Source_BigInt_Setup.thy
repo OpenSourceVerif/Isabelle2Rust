@@ -89,20 +89,28 @@ macro_rules! signed_operations {
 signed_operations!(Int);
 signed_operations!(Integer);
 
-pub fn integer_of_int(value: Int) -> Integer { value.0 }
-pub fn nat_of_integer(value: Integer) -> Nat { Nat::from_bigint(value.0) }
-pub fn integer_of_nat(value: Nat) -> Integer { Integer(value.0) }
-pub fn duplicate(value: Integer) -> Integer { Integer(value.0 << 1usize) }
-pub fn abs_integer(value: Integer) -> Integer { Integer(value.0.abs()) }
-pub fn divmod_abs(a: Integer, b: Integer) -> (Integer, Integer) {
-    let a = a.0.abs();
-    let b = b.0.abs();
-    if b == BigInt::ZERO {
-        (Integer::ZERO, Integer(a))
-    } else {
-        (Integer(&a / &b), Integer(a % b))
-    }
+// Keep native numeric helpers opaque to the generated-code optimizer, like
+// the wrapper and signed operator implementations above.
+macro_rules! source_numeric_operations {
+    () => {
+        pub fn integer_of_int(value: Int) -> Integer { value.0 }
+        pub fn nat_of_integer(value: Integer) -> Nat { Nat::from_bigint(value.0) }
+        pub fn integer_of_nat(value: Nat) -> Integer { Integer(value.0) }
+        pub fn duplicate(value: Integer) -> Integer { Integer(value.0 << 1usize) }
+        pub fn abs_integer(value: Integer) -> Integer { Integer(value.0.abs()) }
+        pub fn divmod_abs(a: Integer, b: Integer) -> (Integer, Integer) {
+            let a = a.0.abs();
+            let b = b.0.abs();
+            if b == BigInt::ZERO {
+                (Integer::ZERO, Integer(a))
+            } else {
+                (Integer(&a / &b), Integer(a % b))
+            }
+        }
+    };
 }
+source_numeric_operations!();
+
 \<close>
 
 code_reserved (Rust) Rust_Source_BigInt

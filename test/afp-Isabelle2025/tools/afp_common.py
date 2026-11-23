@@ -400,7 +400,13 @@ def command(argv, log, args, env):
                         reason = "memory_limit"
                     if reason:
                         break
-                    time.sleep(0.5)
+                    if getattr(args, "wait_for_exit", False):
+                        try:
+                            process.wait(timeout=0.5)
+                        except subprocess.TimeoutExpired:
+                            pass
+                    else:
+                        time.sleep(0.5)
             finally:
                 # Interruptions and resource limits must not leave ML children.
                 if process.poll() is None:

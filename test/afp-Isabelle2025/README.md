@@ -84,6 +84,19 @@ python3 tools/afp.py --config setup/server.local.json --work /path/work-fixed-v3
 
 `run`、`scan`、`plan`、`export`、`compile` 和各阶段检查点支持 `--entries`。条目发布核对输入、分支处置和产物证据。最终对账覆盖完整 manifest，报告包含 `declarations.csv` 的逐分支结果及 `summary.json` 的汇总。存在待办或未决时生成未完成报告并返回非零状态。
 
+### Rust 数值配置和单目标重跑
+
+AFP 的扫描后分析与 Rust 导出使用 `Rust.Rust_Source_BigInt_Setup`。HOL 的 `nat`、`int` 和 `integer` 分别映射到以 `BigInt` 为基础的 `Nat`、`Int` 和 `Integer`。独立的 Rust 类型让 trait 实例维持各自的运算语义，包括截断到零的自然数减法。
+
+从具有完整审计的批次重跑 Rust 时，指定独立的输出目录。
+
+```bash
+python3 tools/afp.py --config setup/server.local.json --work /path/rust-source-bigint \
+  rust-replay --from-work /path/work-fixed-v3
+```
+
+`rust-replay` 逐组读取冻结请求，复用原理论分支和入口常量，使用当前数值配置重新生成 Rust 源码。每个编译输入依次执行 Cargo Stage 1、既有优化器和 Cargo Stage 2。同一编译配置下，源码和相对文件布局相同的 crate 共享编译回执。完成后，`report/rust-replay.csv` 按导出组记录三步结果和证据位置，`report/summary.json` 汇总结果。命令可带 `--entries` 运行选定条目，也可用相同参数续跑已有输出目录。
+
 ### 五种其他目标的编译
 
 `run` 和 `compile` 都包含这一步。对于已发布的 fixed-plan-v3 工作根，可独立补编或恢复此阶段。

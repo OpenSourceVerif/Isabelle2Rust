@@ -13,7 +13,7 @@ local
     |> filter_out (fn s => s = "") |> filter (is_some o Thy_Info.lookup_theory);
   val targets = ["Rust", "SML", "OCaml", "Haskell", "Scala", "Go"];
   val originals = map Thy_Info.get_theory names;
-  val setups = map Thy_Info.get_theory ["Rust.Rust_BigInt_Setup", "Go.Go_Setup"];
+  val setups = map Thy_Info.get_theory ["Rust.Rust_Source_BigInt_Setup", "Go.Go_Setup"];
   fun elem name props body = XML.Elem ((name, props), body);
   fun text name value = elem name [] [XML.Text value];
   fun capture f x =

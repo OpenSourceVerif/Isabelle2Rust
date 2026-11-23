@@ -88,6 +88,11 @@ def main(argv=None):
         p = sub.add_parser(name)
         p.add_argument("--retry-failed", action="store_true")
         p.add_argument("--entries", nargs="+")
+    p = sub.add_parser("rust-replay")
+    p.add_argument("--from-work", type=Path, required=True)
+    p.add_argument("--entries", nargs="+")
+    p.add_argument("--batch-size", type=int, default=64)
+    p.add_argument("--min-free-gib", type=int, default=10)
     p = sub.add_parser("defer")
     p.add_argument("--from-work", type=Path, required=True)
     p.add_argument("--entries", nargs="+", required=True)
@@ -107,6 +112,12 @@ def main(argv=None):
     from clean import validate_root
     base = validate_root(selected)
     runtime = runtime_arguments(config)
+    if args.phase == "rust-replay":
+        arguments = ["--output-dir", str(base), "--from-work", str(args.from_work),
+                     "--batch-size", str(args.batch_size), "--min-free-gib", str(args.min_free_gib), *runtime]
+        if args.entries:
+            arguments += ["--entries", *args.entries]
+        return call(common.HERE / "rust_replay.py", arguments, config_path)
     initialized = (base / "state.sqlite3").is_file()
     experiment = State(base).get("run", {}).get("experiment") if initialized else None
     if args.phase in ("run", "init") and experiment and experiment != ENTRY_PIPELINE:

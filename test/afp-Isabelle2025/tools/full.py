@@ -349,7 +349,7 @@ def export_command(session, work, args, env):
     argv = [args.isabelle, "process", "-l", session, "-d", str(common.PROJECT),
             "-d", str(args.afp / "thys"), *common.process_options(args),
             "-o", "timeout=" + str(args.timeout), "-o", "skip_proofs=false",
-            "-T", "Rust.Rust_BigInt_Setup", "-T", "Go.Go_Setup", "-e", expression]
+            "-T", "Rust.Rust_Source_BigInt_Setup", "-T", "Go.Go_Setup", "-e", expression]
     # The outer recorder evaluates the unchanged exporter, then re-raises its
     # original exception. Its separate receipt cannot establish a completed
     # frontend or alter candidate verdicts when the request is interrupted.

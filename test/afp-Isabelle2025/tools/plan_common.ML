@@ -4,7 +4,7 @@ struct
   val output = Path.explode (getenv_strict "AFP_FULL_OUTPUT");
   val request = XML.parse (File.read (output + Path.basic "request.xml"));
   val targets = ["Rust", "SML", "OCaml", "Haskell", "Scala", "Go"];
-  val setups = ["Rust.Rust_BigInt_Setup", "Go.Go_Setup"];
+  val setups = ["Rust.Rust_Source_BigInt_Setup", "Go.Go_Setup"];
   fun elem name props body = XML.Elem ((name, props), body);
   fun text name value = elem name [] [XML.Text value];
   fun attr name (XML.Elem ((_, props), _)) = the_default "" (Properties.get props name)
@@ -19,13 +19,14 @@ struct
   fun directory path =
     if File.is_dir path then ()
     else (directory (Path.dir path); OS.FileSys.mkDir (File.platform_path path));
-  fun write name node =
+  fun write_at output name node =
     let
       val path = output + Path.explode name;
       val _ = directory (Path.dir path);
       val tmp = Path.ext "tmp" path;
       val _ = File.write tmp (XML.string_of node);
     in OS.FileSys.rename {old = File.platform_path tmp, new = File.platform_path path} end;
+  val write = write_at output;
   fun constant name = elem "constant" [("name", name)] [];
   fun begin parents = Context.begin_thy "AFP_Fixed_Context" (map Thy_Info.get_theory parents);
   fun context () = begin (names "parent" request);
