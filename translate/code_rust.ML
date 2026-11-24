@@ -5948,10 +5948,11 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           (case Exn.result make () of
             Exn.Res text => text
           | Exn.Exn e => "<Thingol diagnostic unavailable: " ^ General.exnName e ^ ">");
-        val sym_text = diagnostic_text (fn () => Code_Debug_Info.print_debug_info_sym sym);
-        val stmt_text = diagnostic_text (fn () =>
+        fun sym_text () = diagnostic_text (fn () => Code_Debug_Info.print_debug_info_sym sym);
+        fun stmt_text () = diagnostic_text (fn () =>
           Code_Debug_Info.print_debug_info_thingol_stmt (get_node program sym));
-        val _ = Exn.result (fn () => tracing ("[Thingol] " ^ sym_text ^ ": " ^ stmt_text)) ()
+        val _ = if getenv "AFP_RUST_QUIET" = "1" then Exn.Res ()
+          else Exn.result (fn () => tracing ("[Thingol] " ^ sym_text () ^ ": " ^ stmt_text ())) ()
         (* A native type mapping can erase the distinction between two HOL
            instance carriers. Emitting just the first implementation would then
            silently redirect both dictionaries to one operation. Compare complete
@@ -6004,9 +6005,9 @@ fun serialize_rust rust_module rust_version rust_edition rust_dependencies rust_
           |> apfst (K NONE)) ()
         val _ = Exn.result (fn () =>
           (case r of
-            Exn.Exn e => warning ("RUST-STMT-CRASH at sym: " ^ sym_text
+            Exn.Exn e => warning ("RUST-STMT-CRASH at sym: " ^ sym_text ()
               ^ "\n  exn: " ^ General.exnMessage e
-              ^ "\n  stmt: " ^ stmt_text)
+              ^ "\n  stmt: " ^ stmt_text ())
           | _ => ())) ()
       in
         Exn.release r
