@@ -71,6 +71,41 @@ lemma distinct_siblings_preserved:
     SameApp (SameOther False) (SameFlag True)"
   by simp_all
 
-export_code strip_same_scoped in Rust module_name SameTypeBinderScope
+text \<open>
+  Several equations reuse the same source names, including names that can also
+  be chosen for generated field and whole-value bindings. Case alternatives
+  additionally retain free variables from their enclosing function.
+\<close>
+
+fun named_rows :: "same_scoped_tree \<Rightarrow> same_scoped_tree" where
+  "named_rows (SameApp (SameFlag p1) (SameOther whole1)) =
+    SameApp (SameOther p1) (SameFlag whole1)"
+| "named_rows (SameApp (SameOther p1) (SameFlag whole1)) =
+    SameApp (SameFlag whole1) (SameOther p1)"
+| "named_rows (SameApp (SameBind p1 body) (SameFlag whole1)) =
+    SameApp (SameBind whole1 body) (SameOther p1)"
+| "named_rows t = t"
+
+definition case_with_outer_names ::
+  "bool \<Rightarrow> bool \<Rightarrow> same_scoped_tree \<Rightarrow> same_scoped_tree" where
+  "case_with_outer_names p1 whole1 t =
+    (case t of
+       SameApp (SameFlag b) (SameOther c) \<Rightarrow>
+         SameApp (SameBind p1 (SameFlag b)) (SameBind whole1 (SameOther c))
+     | SameApp (SameOther b) (SameFlag c) \<Rightarrow>
+         SameApp (SameBind p1 (SameOther c)) (SameBind whole1 (SameFlag b))
+     | SameApp (SameBind b body) (SameFlag c) \<Rightarrow>
+         SameApp (SameBind p1 (SameBind b body)) (SameBind whole1 (SameFlag c))
+     | _ \<Rightarrow> SameApp (SameFlag p1) (SameApp (SameOther whole1) t))"
+
+lemma named_rows_keep_distinct_fields:
+  "named_rows (SameApp (SameOther False) (SameFlag True)) =
+    SameApp (SameFlag True) (SameOther False)"
+  "case_with_outer_names False True (SameApp (SameOther True) (SameFlag False)) =
+    SameApp (SameBind False (SameOther False)) (SameBind True (SameFlag True))"
+  by (simp_all add: case_with_outer_names_def)
+
+export_code strip_same_scoped named_rows case_with_outer_names
+  in Rust module_name SameTypeBinderScope
 
 end
