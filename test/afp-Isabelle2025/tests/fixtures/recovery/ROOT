@@ -1,0 +1,3 @@
+session "AFP-Recovery-Fixture" = HOL +
+  sessions Rust Go
+  theories Recovery_Prune

@@ -1,0 +1,32 @@
+{
+  "repository": "/srv/Isabelle2Rust-workspace/Isabelle2Rust",
+  "isabelle": "/srv/afp-deps/Isabelle2025/bin/isabelle",
+  "afp": "/srv/afp-deps/afp-2025-03-17",
+  "work": "/srv/Isabelle2Rust-workspace/Isabelle2Rust/test/afp-Isabelle2025/work",
+  "resources": {
+    "max_heap_mb": 4500,
+    "java_heap_mb": 1536,
+    "stack_space_mb": 512,
+    "java_active_processors": 2,
+    "min_available_mb": 512
+  },
+  "user_home": "/srv/afp-deps/user",
+  "cargo_bin": "/home/afp/.cargo/bin",
+  "compilers": {
+    "ISABELLE_CC": "/usr/bin/cc",
+    "ISABELLE_OCAMLFIND": "/srv/afp-deps/ocamlfind",
+    "ISABELLE_SMLNJ": "/usr/bin/sml",
+    "ISABELLE_GOEXE": "/srv/afp-deps/go-1.26.8/bin",
+    "ISABELLE_GOROOT": "/srv/afp-deps/go-1.26.8",
+    "ISABELLE_CAKEML_HOME": "/srv/afp-deps/cakeml-2.0"
+  },
+  "scheduler": {
+    "build_jobs": 1,
+    "threads": 1,
+    "parallel_proofs": 0,
+    "plan_workers": 2,
+    "export_workers": 1,
+    "compile_workers": 1,
+    "cargo_jobs": 1
+  }
+}

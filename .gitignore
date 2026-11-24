@@ -49,3 +49,8 @@ evaluation/results/rq3/*
 !evaluation/results/rq3/x64/
 !evaluation/results/rq3/x64/**
 /.agents/
+
+# AFP machine configuration and reproducible experiment outputs.
+/test/afp-Isabelle2025/work/
+/test/afp-Isabelle2025/setup/server.local.json
+/test/afp-Isabelle2025/setup/download-cache/

@@ -1,0 +1,3 @@
+session "AFP-Entry-Fixture" = HOL +
+  sessions Rust Go
+  theories Entry_Base Entry_Left Entry_Right
